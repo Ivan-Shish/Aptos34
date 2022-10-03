@@ -124,7 +124,6 @@ impl VaultRunner {
             self.root_token().to_string(),
             None,
             None,
-            None,
         )
     }
 }
@@ -147,7 +146,7 @@ fn run_vault() {
 #[test]
 fn run_test_vault() {
     if let Some(host) = test_host_safe() {
-        Client::new(host, ROOT_TOKEN.to_string(), None, None, None)
+        Client::new(host, ROOT_TOKEN.to_string(), None, None)
             .unsealed()
             .unwrap();
     }

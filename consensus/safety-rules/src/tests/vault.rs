@@ -25,7 +25,6 @@ fn safety_rules() -> suite::Callback {
             dev::test_host(),
             ROOT_TOKEN.to_string(),
             None,
-            None,
             true,
             None,
             None,

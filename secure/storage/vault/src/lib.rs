@@ -14,7 +14,6 @@ use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     convert::{TryFrom, TryInto},
-    sync::Arc,
     time::Duration,
 };
 use thiserror::Error;
@@ -114,7 +113,6 @@ pub struct Client {
     agent: ureq::Agent,
     host: String,
     token: String,
-    tls_connector: Arc<native_tls::TlsConnector>,
 
     /// Timeout for new socket connections to vault.
     connection_timeout_ms: u64,
@@ -126,22 +124,9 @@ impl Client {
     pub fn new(
         host: String,
         token: String,
-        ca_certificate: Option<String>,
         connection_timeout_ms: Option<u64>,
         response_timeout_ms: Option<u64>,
     ) -> Self {
-        let mut tls_builder = native_tls::TlsConnector::builder();
-        tls_builder.min_protocol_version(Some(native_tls::Protocol::Tlsv12));
-        if let Some(certificate) = ca_certificate {
-            // First try the certificate as a PEM encoded cert, then as DER, and then panic.
-            let mut cert = native_tls::Certificate::from_pem(certificate.as_bytes());
-            if cert.is_err() {
-                cert = native_tls::Certificate::from_der(certificate.as_bytes());
-            }
-            tls_builder.add_root_certificate(cert.unwrap());
-        }
-        let tls_connector = Arc::new(tls_builder.build().unwrap());
-
         let connection_timeout_ms = connection_timeout_ms.unwrap_or(DEFAULT_CONNECTION_TIMEOUT_MS);
         let response_timeout_ms = response_timeout_ms.unwrap_or(DEFAULT_RESPONSE_TIMEOUT_MS);
 
@@ -149,7 +134,6 @@ impl Client {
             agent: ureq::Agent::new().set("connection", "keep-alive").build(),
             host,
             token,
-            tls_connector,
             connection_timeout_ms,
             response_timeout_ms,
         }
@@ -487,7 +471,6 @@ impl Client {
     fn upgrade_request_without_token(&self, mut request: ureq::Request) -> ureq::Request {
         request.timeout_connect(self.connection_timeout_ms);
         request.timeout(Duration::from_millis(self.response_timeout_ms));
-        request.set_tls_connector(self.tls_connector.clone());
         request
     }
 }

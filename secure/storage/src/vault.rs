@@ -44,20 +44,13 @@ impl VaultStorage {
     pub fn new(
         host: String,
         token: String,
-        certificate: Option<String>,
         renew_ttl_secs: Option<u32>,
         use_cas: bool,
         connection_timeout_ms: Option<u64>,
         response_timeout_ms: Option<u64>,
     ) -> Self {
         Self {
-            client: Client::new(
-                host,
-                token,
-                certificate,
-                connection_timeout_ms,
-                response_timeout_ms,
-            ),
+            client: Client::new(host, token, connection_timeout_ms, response_timeout_ms),
             time_service: TimeService::real(),
             renew_ttl_secs,
             next_renewal: AtomicU64::new(0),

@@ -171,7 +171,6 @@ fn create_vault_storage() -> VaultStorage {
         VAULT_HOST.to_string(),
         VAULT_TOKEN.to_string(),
         None,
-        None,
         true,
         None,
         None,

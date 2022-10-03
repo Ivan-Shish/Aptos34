@@ -94,15 +94,7 @@ fn create_vault() -> VaultStorage {
 }
 
 fn create_vault_storage(token: String, renew_ttl_secs: Option<u32>, use_cas: bool) -> VaultStorage {
-    VaultStorage::new(
-        dev::test_host(),
-        token,
-        None,
-        renew_ttl_secs,
-        use_cas,
-        None,
-        None,
-    )
+    VaultStorage::new(dev::test_host(), token, renew_ttl_secs, use_cas, None, None)
 }
 
 fn create_vault_policy_with_namespace(namespace: Option<String>) -> VaultPolicy {

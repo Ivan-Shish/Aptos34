@@ -255,10 +255,6 @@ impl From<&SecureBackend> for Storage {
                 let storage = Storage::from(VaultStorage::new(
                     config.server.clone(),
                     config.token.read_token().expect("Unable to read token"),
-                    config
-                        .ca_certificate
-                        .as_ref()
-                        .map(|_| config.ca_certificate().unwrap()),
                     config.renew_ttl_secs,
                     config.disable_cas.map_or_else(|| true, |disable| !disable),
                     config.connection_timeout_ms,
