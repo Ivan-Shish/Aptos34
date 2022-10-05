@@ -36,14 +36,16 @@ jobs:
           path: aptos-cli-*.zip
 
   build-ubuntu22-binary:
-    name: "Build Ubuntu 22.04 binary"
+    name: "Build Generic Linux binary with static openssl"
     runs-on: ubuntu-22.04
+    env:
+      OPENSSL_STATIC: true
     steps:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.inputs.source_git_ref_override }}
       - name: Build CLI
-        run: scripts/cli/build_cli_release.sh
+        run: 'scripts/cli/build_cli_release_static.sh x86_64-unknown-linux-gnu'
       - name: Upload Binary
         uses: actions/upload-artifact@v3
         with:
