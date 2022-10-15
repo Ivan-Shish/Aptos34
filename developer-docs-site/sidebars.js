@@ -100,19 +100,14 @@ const sidebars = {
     "nodes/leaderboard-metrics",
     "nodes/node-files",
     "nodes/identity-and-configuration",
-    /** Delete during clean up
     {
       type: "category",
-      label: "AIT-3",
-      link: { type: "doc", id: "nodes/ait/index" },
+      label: "Node Files For Mainnet",
       collapsible: true,
       collapsed: true,
-      items: [
-        "nodes/ait/whats-new-in-ait3",
-        "nodes/ait/steps-in-ait3",
-        
-      ],
-    },  */
+      link: { type: "doc", id: "nodes/node-files-all-networks/node-files" },
+      items: ["nodes/node-files-all-networks/node-files-devnet", "nodes/node-files-all-networks/node-files-testnet"],
+    },
 
     {
       type: "category",
@@ -239,7 +234,6 @@ const sidebars = {
       value: "White Paper",
       className: "sidebar-title",
     },
-
     {
       type: "category",
       label: "Aptos White Paper",
