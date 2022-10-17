@@ -98,7 +98,6 @@ const sidebars = {
     },
     "nodes/aptos-deployments",
     "nodes/leaderboard-metrics",
-    "nodes/node-files",
     "nodes/identity-and-configuration",
     {
       type: "category",
