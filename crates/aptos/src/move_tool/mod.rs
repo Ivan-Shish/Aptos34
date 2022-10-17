@@ -370,7 +370,20 @@ impl CliCommand<()> for TransactionalTestOpts {
     }
 }
 
-/// Proves a Move package
+/// Prover options
+#[derive(Parser, Debug)]
+pub enum ProverOptions {
+    // Pass through unknown commands to the prover Clap parser
+    #[clap(
+        external_subcommand,
+        takes_value(true),
+        multiple_values(true),
+        multiple_occurrences(true)
+    )]
+    Options(Vec<String>),
+}
+
+/// Proves the Move package
 ///
 /// This is a tool for formal verification of a Move package using
 /// the Move prover
@@ -382,6 +395,9 @@ pub struct ProvePackage {
 
     #[clap(flatten)]
     move_options: MovePackageDir,
+
+    #[clap(subcommand)]
+    pub options: Option<ProverOptions>,
 }
 
 #[async_trait]
@@ -398,9 +414,19 @@ impl CliCommand<&'static str> for ProvePackage {
             ..Default::default()
         };
 
+        let prover_options = self.options;
+        let opts = match prover_options {
+            Some(ProverOptions::Options(opts)) => opts,
+            _ => vec![],
+        };
+        let mut args = vec!["package".to_string()];
+
+        args.extend(opts.iter().cloned());
+
+        let mut options = move_prover::cli::Options::create_from_args(&args)?;
+
         const APTOS_NATIVE_TEMPLATE: &[u8] = include_bytes!("aptos-natives.bpl");
 
-        let mut options = move_prover::cli::Options::default();
         options.backend.custom_natives =
             Some(move_prover_boogie_backend::options::CustomNativeOptions {
                 template_bytes: APTOS_NATIVE_TEMPLATE.to_vec(),
@@ -412,8 +438,8 @@ impl CliCommand<&'static str> for ProvePackage {
                 config,
                 self.move_options.get_package_path()?.as_path(),
                 &self.filter,
-                true,
-                move_prover::cli::Options::default(),
+                false,
+                options,
             )
         })
         .await
