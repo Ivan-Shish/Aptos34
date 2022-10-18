@@ -8,7 +8,9 @@ data:
   prometheus.yml: |-
     apiVersion: 1
     datasources:
-      - name: Prometheus
+      - orgId: 1
+        uid: prometheus
+        name: Prometheus
         type: prometheus
         isDefault: true
         access: proxy
@@ -18,10 +20,20 @@ data:
     apiVersion: 1
     providers:
     - name: 'default'
-      folder: 'aptos'
+      folder: 'aptos-core'
+      folderUid: 'aptos-core'
+      allowUiUpdates: true
       type: file
       options:
         path: /etc/grafana/dashboards/aptos
+  contact_points.yml: |-
+{{ (tpl (.Files.Get "files/contact_points.yml") .) | indent 4 }}
+  notification_policies.yml: |-
+{{ (tpl (.Files.Get "files/notification_policies.yml") .) | indent 4 }}
+  notifiers.yml: |-
+{{ (tpl (.Files.Get "files/notifiers.yml") .) | indent 4 }}
+  plugins.yml: |-
+{{ (tpl (.Files.Get "files/plugins.yml") .) | indent 4 }}
   grafana.ini: |-
 {{ (tpl (.Files.Get "files/grafana.ini") .) | indent 4 }}
 
@@ -193,6 +205,9 @@ spec:
         checksum/alertmanager.yml: {{ tpl (.Files.Get "files/alertmanager.yml") . | sha256sum }}
         checksum/rules.yml: {{ (tpl (.Files.Glob "files/rules/*.yml").AsConfig .) | sha256sum }}
         checksum/dashboards.json: {{ (.Files.Glob "files/dashboards/*.json.gz").AsSecrets | sha256sum }}
+        checksum/contact_points.yml: {{ (tpl (.Files.Glob "files/contact_points.yml").AsConfig .) | sha256sum }}
+        checksum/notification_policies.yml: {{ (tpl (.Files.Glob "files/notification_policies.yml").AsConfig .) | sha256sum }}
+        checksum/grafana.ini: {{ (tpl (.Files.Glob "files/grafana.ini").AsConfig .) | sha256sum }}
     spec:
       {{- with .Values.monitoring }}
       containers:
@@ -335,6 +350,8 @@ spec:
           items:
           - key: grafana.ini
             path: grafana.ini
+      # Provision API resources into specific configuration paths according to below
+      # https://grafana.com/docs/grafana/latest/administration/provisioning
       - name: grafana-provisioning
         configMap:
           name: {{ include "aptos-monitoring.fullname" . }}-grafana
@@ -343,6 +360,14 @@ spec:
             path: datasources/prometheus.yml
           - key: dashboards.yml
             path: dashboards/dashboards.yml
+          - key: contact_points.yml
+            path: alerting/contact_points.yml
+          - key: notification_policies.yml
+            path: alerting/notification_policies.yml
+          - key: notifiers.yml
+            path: notifiers/notifiers.yml
+          - key: plugins.yml
+            path: plugins/plugins.yml
       - name: grafana-dashboards-archive
         configMap:
           name: {{ include "aptos-monitoring.fullname" . }}-dashboards

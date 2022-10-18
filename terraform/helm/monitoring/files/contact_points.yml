@@ -1,0 +1,34 @@
+# config file version
+apiVersion: 1
+
+# List of contact points to import or update
+contactPoints:
+  # <int> organization ID, default = 1
+  - orgId: 1
+    # <string, required> name of the contact point
+    name: grafana_critical
+    receivers:
+      # <string, required> unique identifier for the receiver
+      - uid: grafana_critical
+        # <string, required> type of the receiver
+        type: pagerduty
+        # <object, required> settings for the specific receiver type
+        settings:
+          integrationKey: {{ .Values.monitoring.pagerdutyIntegrationKey }}
+          severity: critical
+  - orgId: 1
+    name: grafana_error
+    receivers:
+      - uid: grafana_error
+        type: pagerduty
+        settings:
+          integrationKey: {{ .Values.monitoring.pagerdutyIntegrationKey }}
+          severity: error
+  - orgId: 1
+    name: grafana_warning
+    receivers:
+      - uid: grafana_warning
+        type: pagerduty
+        settings:
+          integrationKey: {{ .Values.monitoring.pagerdutyIntegrationKey }}
+          severity: warning
