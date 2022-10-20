@@ -34,15 +34,24 @@ type Bytes = Vec<u8>;
 #[cfg_attr(feature = "fuzzing", derive(proptest_derive::Arbitrary))]
 #[cfg_attr(feature = "fuzzing", proptest(no_params))]
 pub enum EntryFunctionCall {
-    /// Offers signer capability on behalf of `account` to the account at address `recipient_address`.
-    /// An account can delegate its signer capability to only one other address at one time.
-    /// `signer_capability_key_bytes` is the `SignerCapabilityOfferProofChallengeV2` signed by the account owner's key
-    /// `account_scheme` is the scheme of the account (ed25519 or multi_ed25519).
-    /// `account_public_key_bytes` is the public key of the account owner.
-    /// `recipient_address` is the address of the recipient of the signer capability - note that if there's an existing
-    /// `recipient_address` in the account owner's `SignerCapabilityOffer`, this will replace the
-    /// previous `recipient_address` upon successful verification (the previous recipient will no longer have access
-    /// to the account owner's signer capability).
+    /// Offers signer capability of `account` to the account at address `recipient_address`.
+    /// An account can delegate its signer capability to at most one other account at one time.
+    /// For example,
+    /// - if Alice wants to offer her signer capability to Bob, she can call this function with Bob's address
+    /// as the `recipient_address`. This gives Bob the capability to create an authorized signer of Alice's account
+    /// by calling `create_authorized_signer()` and sign on Alice's behalf whenever he wants (so, be careful using/signing
+    /// this function);
+    /// - if Alice later decides to give her signer capability to Charlie, she can call this function with charlie's address
+    /// as the `recipient_address`. This will revoke Bob's access to Alice's signer and give that access to Charlie;
+    /// - if Alice later no longer wants anyone to sign on her behalf, she can revoke Charlie's access to her
+    /// signer capablity by calling `revoke_signer_capability` with Charlie's address as the `to_be_revoked_address`.
+    /// Arguments:
+    /// - `signer_capability_key_bytes` should be the account owner's key on a valid `SignerCapabilityOfferProofChallengeV2`,
+    /// demonstrating that the user intends to give their signer capability to the `recipient_address`.
+    /// - `account_scheme` (Ed25519 or MultiEd25519) and `account_public_key_bytes` are used to validate the signature.
+    /// - `recipient_address` is the address that receives the signer capability - note that if there's an existing offer
+    /// in the account owner's `SignerCapabilityOffer`, this will replace the existing signer capability offer upon successful
+    /// verification (the previous recipient will no longer have access to the account owner's signer capability).
     AccountOfferSignerCapability {
         signer_capability_sig_bytes: Vec<u8>,
         account_scheme: u8,
@@ -51,7 +60,7 @@ pub enum EntryFunctionCall {
     },
 
     /// Revoke the account owner's signer capability offer for `to_be_revoked_address` (i.e., the address that
-    /// has a signer capability offer from `account` but will be revoked in this function).
+    /// has a signer capability offer from `account` but will soon be revoked in this function).
     AccountRevokeSignerCapability {
         to_be_revoked_address: AccountAddress,
     },
@@ -63,8 +72,8 @@ pub enum EntryFunctionCall {
     /// - the second signature `cap_update_table` refers to the signature by the new key (that the account owner wants to rotate to) on a
     /// valid `RotationProofChallenge`, demonstrating that the user owns the new private key, and has the authority to update the
     /// `OriginatingAddress` map with the new address mapping <new_address, originating_address>.
-    /// To verify signatures, we need their corresponding public key and public key scheme: we use `from_scheme` and `from_public_key_bytes`
-    /// to verify `cap_rotate_key`, and `to_scheme` and `to_public_key_bytes` to verify `cap_update_table`.
+    /// To verify signatures, we need their corresponding public keys and public key schemes: we will validate `cap_rotate_key` against
+    /// `from_scheme` and `from_public_key_bytes`, and validate `cap_update_table` against `to_scheme` and `to_public_key_bytes`.
     /// A scheme of 0 refers to an Ed25519 key and a scheme of 1 refers to Multi-Ed25519 keys.
     /// `originating address` refers to an account's original/first address.
     AccountRotateAuthenticationKey {
@@ -741,15 +750,24 @@ impl EntryFunctionCall {
     }
 }
 
-/// Offers signer capability on behalf of `account` to the account at address `recipient_address`.
-/// An account can delegate its signer capability to only one other address at one time.
-/// `signer_capability_key_bytes` is the `SignerCapabilityOfferProofChallengeV2` signed by the account owner's key
-/// `account_scheme` is the scheme of the account (ed25519 or multi_ed25519).
-/// `account_public_key_bytes` is the public key of the account owner.
-/// `recipient_address` is the address of the recipient of the signer capability - note that if there's an existing
-/// `recipient_address` in the account owner's `SignerCapabilityOffer`, this will replace the
-/// previous `recipient_address` upon successful verification (the previous recipient will no longer have access
-/// to the account owner's signer capability).
+/// Offers signer capability of `account` to the account at address `recipient_address`.
+/// An account can delegate its signer capability to at most one other account at one time.
+/// For example,
+/// - if Alice wants to offer her signer capability to Bob, she can call this function with Bob's address
+/// as the `recipient_address`. This gives Bob the capability to create an authorized signer of Alice's account
+/// by calling `create_authorized_signer()` and sign on Alice's behalf whenever he wants (so, be careful using/signing
+/// this function);
+/// - if Alice later decides to give her signer capability to Charlie, she can call this function with charlie's address
+/// as the `recipient_address`. This will revoke Bob's access to Alice's signer and give that access to Charlie;
+/// - if Alice later no longer wants anyone to sign on her behalf, she can revoke Charlie's access to her
+/// signer capablity by calling `revoke_signer_capability` with Charlie's address as the `to_be_revoked_address`.
+/// Arguments:
+/// - `signer_capability_key_bytes` should be the account owner's key on a valid `SignerCapabilityOfferProofChallengeV2`,
+/// demonstrating that the user intends to give their signer capability to the `recipient_address`.
+/// - `account_scheme` (Ed25519 or MultiEd25519) and `account_public_key_bytes` are used to validate the signature.
+/// - `recipient_address` is the address that receives the signer capability - note that if there's an existing offer
+/// in the account owner's `SignerCapabilityOffer`, this will replace the existing signer capability offer upon successful
+/// verification (the previous recipient will no longer have access to the account owner's signer capability).
 pub fn account_offer_signer_capability(
     signer_capability_sig_bytes: Vec<u8>,
     account_scheme: u8,
@@ -776,7 +794,7 @@ pub fn account_offer_signer_capability(
 }
 
 /// Revoke the account owner's signer capability offer for `to_be_revoked_address` (i.e., the address that
-/// has a signer capability offer from `account` but will be revoked in this function).
+/// has a signer capability offer from `account` but will soon be revoked in this function).
 pub fn account_revoke_signer_capability(
     to_be_revoked_address: AccountAddress,
 ) -> TransactionPayload {
@@ -801,8 +819,8 @@ pub fn account_revoke_signer_capability(
 /// - the second signature `cap_update_table` refers to the signature by the new key (that the account owner wants to rotate to) on a
 /// valid `RotationProofChallenge`, demonstrating that the user owns the new private key, and has the authority to update the
 /// `OriginatingAddress` map with the new address mapping <new_address, originating_address>.
-/// To verify signatures, we need their corresponding public key and public key scheme: we use `from_scheme` and `from_public_key_bytes`
-/// to verify `cap_rotate_key`, and `to_scheme` and `to_public_key_bytes` to verify `cap_update_table`.
+/// To verify signatures, we need their corresponding public keys and public key schemes: we will validate `cap_rotate_key` against
+/// `from_scheme` and `from_public_key_bytes`, and validate `cap_update_table` against `to_scheme` and `to_public_key_bytes`.
 /// A scheme of 0 refers to an Ed25519 key and a scheme of 1 refers to Multi-Ed25519 keys.
 /// `originating address` refers to an account's original/first address.
 pub fn account_rotate_authentication_key(
