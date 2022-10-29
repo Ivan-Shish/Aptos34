@@ -332,6 +332,10 @@ const config = {
             to: "/guides/state-sync",
             from: "/concepts/state-sync",
           },
+          {
+            to: "/cli-tools/aptos-cli-tool/install-aptos-cli",
+            from: "/cli-tools/aptos-cli-tool",
+          },
         ],
       },
     ],
