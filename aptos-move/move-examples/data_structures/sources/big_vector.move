@@ -1,4 +1,4 @@
-module aptos_std::big_vector {
+module dport_collections::big_vector {
     use std::error;
     use std::vector;
     use aptos_std::table_with_length::{Self, TableWithLength};

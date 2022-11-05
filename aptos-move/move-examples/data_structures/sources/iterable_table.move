@@ -1,4 +1,4 @@
-module aptos_std::iterable_table {
+module dport_collections::iterable_table {
     use std::option::{Self, Option};
     use aptos_std::table_with_length::{Self, TableWithLength};
 
