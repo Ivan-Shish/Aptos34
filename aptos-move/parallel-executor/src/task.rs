@@ -82,6 +82,8 @@ pub trait ExecutorTask: Sync {
         view: &MVHashMapView<<Self::T as Transaction>::Key, <Self::T as Transaction>::Value>,
         txn: &Self::T,
     ) -> ExecutionStatus<Self::Output, Self::Error>;
+
+    fn get_storage_value(&self, key: &<Self::T as Transaction>::Key) -> u128;
 }
 
 /// Trait for execution result of a transaction.

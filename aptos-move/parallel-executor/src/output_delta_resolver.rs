@@ -49,7 +49,7 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
                     EntryCell::Write(_, data) => {
                         latest_value = data.extract_raw_bytes().map(|bytes| deserialize(&bytes))
                     }
-                    EntryCell::Delta(delta) => {
+                    EntryCell::Delta(delta, maybe_shortcut) => {
                         // Apply to the latest value and store in outputs.
                         let aggregator_value = delta
                             .apply_to(
@@ -57,6 +57,11 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
                                     .expect("Failed to apply delta to (non-existent) aggregator"),
                             )
                             .expect("Failed to apply aggregator delta output");
+
+                        if let Some((_, shortcut_value)) = maybe_shortcut {
+                            // TODO: proper fallback.
+                            assert!(*shortcut_value == aggregator_value);
+                        }
 
                         ret[*idx].push((
                             key.clone(),

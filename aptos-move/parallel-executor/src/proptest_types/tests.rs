@@ -24,6 +24,8 @@ use proptest::{
 };
 use std::{fmt::Debug, hash::Hash};
 
+const DEFAULT_STORAGE_VAL: u128 = 10000000;
+
 fn run_transactions<K, V>(
     key_universe: &[K],
     transaction_gens: Vec<TransactionGen<V>>,
@@ -59,7 +61,7 @@ fn run_transactions<K, V>(
                 Transaction<KeyType<K>, ValueType<V>>,
                 Task<KeyType<K>, ValueType<V>>,
             >::new(num_cpus)
-            .execute_transactions_parallel(None, &transactions)
+            .execute_transactions_parallel(DEFAULT_STORAGE_VAL, &transactions)
             .map(|(res, _)| res);
 
             if module_access.0 && module_access.1 {
@@ -185,7 +187,7 @@ fn deltas_writes_mixed() {
                     Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
                     Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
                 >::new(num_cpus)
-                .execute_transactions_parallel(None, &transactions)
+                .execute_transactions_parallel(DEFAULT_STORAGE_VAL, &transactions)
                 .map(|(res, _)| res);
 
                 let baseline = ExpectedOutput::generate_baseline(&transactions, None, None);
@@ -226,7 +228,7 @@ fn deltas_writes_mixed_sequential() {
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
         >::new(2) // Does not matter, we use sequential.
-        .execute_transactions_sequential(Some(storage_aggregator_val), &transactions);
+        .execute_transactions_sequential(storage_aggregator_val, &transactions);
 
         let baseline =
             ExpectedOutput::generate_baseline(&transactions, None, Some(storage_aggregator_val));
@@ -268,7 +270,7 @@ fn deltas_resolver() {
                 Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
                 Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             >::new(num_cpus)
-            .execute_transactions_parallel(None, &transactions);
+            .execute_transactions_parallel(DEFAULT_STORAGE_VAL, &transactions);
 
             let (output, delta_resolver) = output.unwrap();
             let resolved = delta_resolver.resolve(
@@ -416,7 +418,7 @@ fn publishing_fixed_params() {
         Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
         Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
     >::new(num_cpus::get())
-    .execute_transactions_parallel(None, &transactions);
+    .execute_transactions_parallel(DEFAULT_STORAGE_VAL, &transactions);
     assert_ok!(output);
 
     // Adjust the reads of txn indices[2] to contain module read to key 42.
@@ -451,7 +453,7 @@ fn publishing_fixed_params() {
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
         >::new(num_cpus::get())
-        .execute_transactions_parallel(None, &transactions)
+        .execute_transactions_parallel(DEFAULT_STORAGE_VAL, &transactions)
         .map(|(res, _)| res);
 
         assert_eq!(output.unwrap_err(), Error::ModulePathReadWrite);

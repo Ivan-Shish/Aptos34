@@ -17,6 +17,8 @@ use std::{
 #[cfg(test)]
 mod unit_tests;
 
+pub const DELTA_READ_SHORTCUT: bool = true;
+
 // TODO: re-use definitions with the scheduler.
 pub type TxnIndex = usize;
 pub type Incarnation = usize;
@@ -42,30 +44,51 @@ pub enum EntryCell<V> {
     /// stored in a shared pointer (to ensure ownership and avoid clones).
     Write(Incarnation, Arc<V>),
     /// Recorded in the shared multi-version data-structure for each delta.
-    Delta(DeltaOp),
+    /// First is validation generation, second actual shortcut
+    Delta(DeltaOp, Option<(usize, u128)>),
 }
 
 impl<V> Entry<V> {
-    pub fn new_write_from(flag: usize, incarnation: Incarnation, data: V) -> Entry<V> {
+    fn new_write_from(flag: usize, incarnation: Incarnation, data: V) -> Entry<V> {
         Entry {
             flag: AtomicUsize::new(flag),
             cell: EntryCell::Write(incarnation, Arc::new(data)),
         }
     }
 
-    pub fn new_delta_from(flag: usize, data: DeltaOp) -> Entry<V> {
+    fn new_delta_from(flag: usize, data: DeltaOp) -> Entry<V> {
         Entry {
             flag: AtomicUsize::new(flag),
-            cell: EntryCell::Delta(data),
+            cell: EntryCell::Delta(data, None),
         }
     }
 
-    pub fn flag(&self) -> usize {
+    fn new_delta_with_shortcut(flag: usize, data: DeltaOp, gen: usize, val: u128) -> Entry<V> {
+        Entry {
+            flag: AtomicUsize::new(flag),
+            cell: EntryCell::Delta(data, Some((gen, val))),
+        }
+    }
+
+    fn flag(&self) -> usize {
         self.flag.load(Ordering::SeqCst)
     }
 
-    pub fn mark_estimate(&self) {
+    fn mark_estimate(&self) {
         self.flag.store(FLAG_ESTIMATE, Ordering::SeqCst);
+    }
+
+    fn must_update_shortcut(&self, gen: usize) -> Option<DeltaOp> {
+        if self.flag() == FLAG_ESTIMATE {
+            return None;
+        }
+
+        if let EntryCell::Delta(op, Some((stored_gen, _))) = self.cell {
+            if stored_gen < gen {
+                return Some(op);
+            }
+        }
+        None
     }
 }
 
@@ -79,6 +102,7 @@ impl<V> Entry<V> {
 /// with other reader/writers.
 pub struct MVHashMap<K, V> {
     data: DashMap<K, BTreeMap<TxnIndex, CachePadded<Entry<V>>>>,
+    storage_values: DashMap<K, u128>,
 }
 
 /// Returned as Err(..) when failed to read from the multi-version data-structure.
@@ -87,7 +111,7 @@ pub enum MVHashMapError {
     /// No prior entry is found.
     NotFound,
     /// Read resulted in an unresolved delta value.
-    Unresolved(DeltaOp),
+    Unresolved,
     /// A dependency on other transaction has been found during the read.
     Dependency(TxnIndex),
     /// Delta application failed, txn execution should fail.
@@ -110,7 +134,12 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
     pub fn new() -> MVHashMap<K, V> {
         MVHashMap {
             data: DashMap::new(),
+            storage_values: DashMap::new(),
         }
+    }
+
+    pub fn record_storage_value(&self, key: &K, value: u128) {
+        self.storage_values.insert(key.clone(), value);
     }
 
     /// For processing outputs - removes the BTreeMap from the MVHashMap.
@@ -157,6 +186,25 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
             .mark_estimate();
     }
 
+    pub fn record_shortcut(&self, key: &K, txn_idx: TxnIndex, gen: usize, value: u128) -> bool {
+        // let mut map = self.data.get(key).expect("Path must exist");
+        let mut map = self.data.entry(key.clone()).or_insert(BTreeMap::new());
+        let mut op = None;
+        if let Some(entry) = map.get(&txn_idx) {
+            if let Some(d_op) = entry.must_update_shortcut(gen) {
+                op = Some(d_op);
+            }
+        }
+        if let Some(op) = op {
+            map.insert(
+                txn_idx,
+                CachePadded::new(Entry::new_delta_with_shortcut(FLAG_DONE, op, gen, value)),
+            );
+            return true;
+        }
+        false
+    }
+
     /// Delete an entry from transaction 'txn_idx' at access path 'key'. Will panic
     /// if the access path has never been written before.
     pub fn delete(&self, key: &K, txn_idx: TxnIndex) {
@@ -170,6 +218,7 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
         &self,
         key: &K,
         txn_idx: TxnIndex,
+        safe_idx: usize,
     ) -> anyhow::Result<MVHashMapOutput<V>, MVHashMapError> {
         use MVHashMapError::*;
         use MVHashMapOutput::*;
@@ -224,7 +273,16 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                                 },
                             );
                         }
-                        (EntryCell::Delta(delta), Some(accumulator)) => {
+                        (EntryCell::Delta(delta, maybe_shortcut), Some(accumulator)) => {
+                            if DELTA_READ_SHORTCUT {
+                                if let Some((_, shortcut_value)) = maybe_shortcut {
+                                    if *idx < safe_idx {
+                                        // Assuming idx is committed.
+                                        return Ok(Resolved(*shortcut_value));
+                                    }
+                                }
+                            }
+
                             *accumulator = accumulator.and_then(|mut a| {
                                 // Read hit a delta during traversing the block and aggregating
                                 // other deltas. Merge two deltas together. If Delta application
@@ -237,7 +295,7 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                                 }
                             });
                         }
-                        (EntryCell::Delta(delta), None) => {
+                        (EntryCell::Delta(delta, _), None) => {
                             // Read hit a delta and must start accumulating.
                             // Initialize the accumulator and continue traversal.
                             accumulator = Some(Ok(*delta))
@@ -249,7 +307,16 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                 // deltas the actual written value has not been seen yet (i.e.
                 // it is not added as an entry to the data-structure).
                 match accumulator {
-                    Some(Ok(accumulator)) => Err(Unresolved(accumulator)),
+                    Some(Ok(accumulator)) => match self.storage_values.get(key) {
+                        Some(storage_value) => {
+                            // Apply accumulated delta to resolve the aggregator value.
+                            accumulator
+                                .apply_to(*storage_value)
+                                .map(|result| Resolved(result))
+                                .map_err(|_| DeltaApplicationFailure)
+                        }
+                        None => Err(Unresolved),
+                    },
                     Some(Err(_)) => Err(DeltaApplicationFailure),
                     None => Err(NotFound),
                 }

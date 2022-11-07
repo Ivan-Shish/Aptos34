@@ -127,4 +127,8 @@ impl<'a, S: 'a + StateView> ExecutorTask for AptosVMWrapper<'a, S> {
             false,
         )
     }
+
+    fn get_storage_value(&self, key: &StateKey) -> u128 {
+        self.base_view.read(key).unwrap()
+    }
 }

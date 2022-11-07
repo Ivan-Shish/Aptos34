@@ -117,7 +117,7 @@ where
             Transaction<KeyType<K>, ValueType<V>>,
             Task<KeyType<K>, ValueType<V>>,
         >::new(num_cpus::get())
-        .execute_transactions_parallel(None, &self.transactions)
+        .execute_transactions_parallel(300000000, &self.transactions)
         .map(|(res, _)| res);
 
         self.expected_output.assert_output(&output, false);

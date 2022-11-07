@@ -6,7 +6,6 @@ use crate::{
     scheduler::{Incarnation, TxnIndex, Version},
     task::{ExecutionStatus, ModulePath, Transaction, TransactionOutput},
 };
-use aptos_aggregator::delta_change_set::DeltaOp;
 use aptos_types::access_path::AccessPath;
 use arc_swap::ArcSwapOption;
 use crossbeam::utils::CachePadded;
@@ -32,8 +31,6 @@ enum ReadKind {
     Version(TxnIndex, Incarnation),
     /// Read resolved a delta.
     Resolved(u128),
-    /// Read returned a delta and needs to go to storage.
-    Unresolved(DeltaOp),
     /// Read occurred from storage.
     Storage,
     /// Read triggered a delta application failure.
@@ -59,13 +56,6 @@ impl<K: ModulePath> ReadDescriptor<K> {
         Self {
             access_path,
             kind: ReadKind::Resolved(value),
-        }
-    }
-
-    pub fn from_unresolved(access_path: K, delta: DeltaOp) -> Self {
-        Self {
-            access_path,
-            kind: ReadKind::Unresolved(delta),
         }
     }
 
@@ -100,11 +90,6 @@ impl<K: ModulePath> ReadDescriptor<K> {
     // Does the read descriptor describe a read from MVHashMap w. a resolved delta.
     pub fn validate_resolved(&self, value: u128) -> bool {
         self.kind == ReadKind::Resolved(value)
-    }
-
-    // Does the read descriptor describe a read from MVHashMap w. an unresolved delta.
-    pub fn validate_unresolved(&self, delta: DeltaOp) -> bool {
-        self.kind == ReadKind::Unresolved(delta)
     }
 
     // Does the read descriptor describe a read from storage.
@@ -226,6 +211,19 @@ impl<K: ModulePath, T: TransactionOutput, E: Send + Clone> TxnLastInputOutput<K,
                     .map(|(k, _)| k)
                     .chain(t.get_deltas().into_iter().map(|(k, _)| k))
                     .collect(),
+                ExecutionStatus::Abort(_) => HashSet::new(),
+            },
+        }
+    }
+
+    // output: modified by deltas.
+    pub fn modified_delta_keys(&self, txn_idx: TxnIndex) -> KeySet<T> {
+        match &self.outputs[txn_idx].load_full() {
+            None => unreachable!(),
+            Some(txn_output) => match txn_output.as_ref() {
+                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
+                    t.get_deltas().into_iter().map(|(k, _)| k).collect()
+                }
                 ExecutionStatus::Abort(_) => HashSet::new(),
             },
         }

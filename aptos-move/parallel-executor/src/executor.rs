@@ -9,13 +9,20 @@ use crate::{
     task::{ExecutionStatus, ExecutorTask, ModulePath, Transaction, TransactionOutput},
     txn_last_input_output::{ReadDescriptor, TxnLastInputOutput},
 };
-use aptos_aggregator::delta_change_set::DeltaOp;
 use aptos_infallible::Mutex;
 use aptos_types::write_set::TransactionWrite;
-use mvhashmap::{MVHashMap, MVHashMapError, MVHashMapOutput};
+use mvhashmap::{MVHashMap, MVHashMapError, MVHashMapOutput, DELTA_READ_SHORTCUT};
 use num_cpus;
 use once_cell::sync::Lazy;
-use std::{collections::btree_map::BTreeMap, hash::Hash, marker::PhantomData, sync::Arc};
+use std::{
+    collections::btree_map::BTreeMap,
+    hash::Hash,
+    marker::PhantomData,
+    sync::{
+        atomic::{AtomicBool, AtomicI64, Ordering},
+        Arc,
+    },
+};
 
 pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
     rayon::ThreadPoolBuilder::new()
@@ -26,6 +33,8 @@ pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
 });
 
 pub const DELTA_FAILURE_AGGREGATOR_VALUE: u128 = 0;
+
+pub const VALIDATE_DELTAS: bool = true;
 
 /// A struct that is always used by a single thread performing an execution task. The struct is
 /// passed to the VM and acts as a proxy to resolve reads first in the shared multi-version
@@ -39,6 +48,7 @@ pub struct MVHashMapView<'a, K, V> {
     txn_idx: TxnIndex,
     scheduler: &'a Scheduler,
     captured_reads: Mutex<Vec<ReadDescriptor<K>>>,
+    safe_idx: usize,
 }
 
 /// A struct which describes the result of the read from the proxy. The client
@@ -50,7 +60,7 @@ pub enum ReadResult<V> {
     // Similar to above, but the value was aggregated and is an integer.
     U128(u128),
     // Read failed while resolving a delta.
-    Unresolved(DeltaOp),
+    Unresolved,
     // Read did not return anything.
     None,
 }
@@ -67,13 +77,17 @@ impl<
         std::mem::take(&mut reads)
     }
 
+    pub fn record_storage_value(&self, key: &K, value: u128) {
+        self.versioned_map.record_storage_value(key, value);
+    }
+
     /// Captures a read from the VM execution.
     pub fn read(&self, key: &K) -> ReadResult<V> {
         use MVHashMapError::*;
         use MVHashMapOutput::*;
 
         loop {
-            match self.versioned_map.read(key, self.txn_idx) {
+            match self.versioned_map.read(key, self.txn_idx, self.safe_idx) {
                 Ok(Version(version, v)) => {
                     let (txn_idx, incarnation) = version;
                     self.captured_reads
@@ -92,16 +106,14 @@ impl<
                     return ReadResult::U128(value);
                 }
                 Err(NotFound) => {
+                    // TODO: treat the same as Unresolved and Resolve.
                     self.captured_reads
                         .lock()
                         .push(ReadDescriptor::from_storage(key.clone()));
                     return ReadResult::None;
                 }
-                Err(Unresolved(delta)) => {
-                    self.captured_reads
-                        .lock()
-                        .push(ReadDescriptor::from_unresolved(key.clone(), delta));
-                    return ReadResult::Unresolved(delta);
+                Err(Unresolved) => {
+                    return ReadResult::Unresolved;
                 }
                 Err(Dependency(dep_idx)) => {
                     // `self.txn_idx` estimated to depend on a write from `dep_idx`.
@@ -193,6 +205,7 @@ where
         versioned_data_cache: &MVHashMap<<T as Transaction>::Key, <T as Transaction>::Value>,
         scheduler: &'a Scheduler,
         executor: &E,
+        safe_idx: &AtomicI64,
     ) -> SchedulerTask<'a> {
         let (idx_to_execute, incarnation) = version;
         let txn = &signature_verified_block[idx_to_execute];
@@ -202,6 +215,7 @@ where
             txn_idx: idx_to_execute,
             scheduler,
             captured_reads: Mutex::new(Vec::new()),
+            safe_idx: safe_idx.load(Ordering::SeqCst) as usize,
         };
 
         // VM execution.
@@ -211,6 +225,8 @@ where
         // For tracking whether the recent execution wrote outside of the previous write/delta set.
         let mut updates_outside = false;
         let mut apply_updates = |output: &<E as ExecutorTask>::Output| {
+            // println!("output size {}", output.get_writes().len());
+
             // First, apply writes.
             let write_version = (idx_to_execute, incarnation);
             for (k, v) in output.get_writes().into_iter() {
@@ -270,6 +286,8 @@ where
         >,
         versioned_data_cache: &MVHashMap<<T as Transaction>::Key, <T as Transaction>::Value>,
         scheduler: &'a Scheduler,
+        safe_idx: &AtomicI64,
+        executor: &E,
     ) -> SchedulerTask<'a> {
         use MVHashMapError::*;
         use MVHashMapOutput::*;
@@ -279,12 +297,20 @@ where
             .read_set(idx_to_validate)
             .expect("Prior read-set must be recorded");
 
-        let valid = read_set.iter().all(|r| {
-            match versioned_data_cache.read(r.path(), idx_to_validate) {
+        let safe_idx_watermark = safe_idx.load(Ordering::SeqCst) as usize;
+
+        let val_gen = scheduler.validation_generation();
+
+        let mut valid = read_set.iter().all(|r| {
+            match versioned_data_cache.read(r.path(), idx_to_validate, safe_idx_watermark) {
                 Ok(Version(version, _)) => r.validate_version(version),
                 Ok(Resolved(value)) => r.validate_resolved(value),
                 Err(Dependency(_)) => false, // Dependency implies a validation failure.
-                Err(Unresolved(delta)) => r.validate_unresolved(delta),
+                Err(Unresolved) => {
+                    versioned_data_cache
+                        .record_storage_value(r.path(), executor.get_storage_value(r.path()));
+                    false
+                }
                 Err(NotFound) => r.validate_storage(),
                 // We successfully validate when read (again) results in a delta application
                 // failure. If the failure is speculative, a later validation will fail due to
@@ -295,6 +321,53 @@ where
                 Err(DeltaApplicationFailure) => r.validate_delta_application_failure(),
             }
         });
+
+        if VALIDATE_DELTAS {
+            let delta_keys = last_input_output.modified_delta_keys(idx_to_validate);
+            // println!("num delta keys {}", delta_keys.len());
+            valid = valid
+                & delta_keys.iter().all(|k| {
+                    match versioned_data_cache.read(k, idx_to_validate + 1, safe_idx_watermark) {
+                        Ok(Version(_, _)) => unreachable!(),
+                        Ok(Resolved(value)) => {
+                            // overwrite the shortcut inside the read,
+                            // this requires also providing validation generation.
+                            // if overwritten, in current true cases, also return
+                            // a corresponding indicator. When this is returned,
+                            // fetch_min on the same index. If fetch min succeeds,
+                            // must also reduce the validation index, which can
+                            // be accomplished by just aborting here.
+                            if versioned_data_cache.record_shortcut(
+                                k,
+                                idx_to_validate,
+                                val_gen,
+                                value,
+                            ) {
+                                // Recorded a new shortcut, check if the
+                                // index was considered safe.
+                                // TODO: change Ordering.
+                                if safe_idx.fetch_min(idx_to_validate as i64, Ordering::SeqCst)
+                                    > idx_to_validate as i64
+                                {
+                                    // Fail validation, this guarantees
+                                    // an abort and validation index reset.
+                                    // Hence all shortcuts will get updated.
+                                    return false;
+                                }
+                            }
+                            true
+                        }
+                        Err(Dependency(_)) => false, // Dependency implies a validation failure.
+                        Err(Unresolved) => {
+                            versioned_data_cache
+                                .record_storage_value(k, executor.get_storage_value(k));
+                            false
+                        }
+                        Err(NotFound) => unreachable!(),
+                        Err(DeltaApplicationFailure) => false,
+                    }
+                });
+        }
 
         let aborted = !valid && scheduler.try_abort(idx_to_validate, incarnation);
 
@@ -323,6 +396,8 @@ where
         >,
         versioned_data_cache: &MVHashMap<<T as Transaction>::Key, <T as Transaction>::Value>,
         scheduler: &Scheduler,
+        safe_idx: &AtomicI64,
+        mut head_idx: Option<usize>,
     ) {
         // Make executor for each task. TODO: fast concurrent executor.
         let executor = E::init(*executor_arguments);
@@ -330,22 +405,43 @@ where
         let mut scheduler_task = SchedulerTask::NoTask;
         loop {
             scheduler_task = match scheduler_task {
-                SchedulerTask::ValidationTask(version_to_validate, guard) => self.validate(
-                    version_to_validate,
-                    guard,
-                    last_input_output,
-                    versioned_data_cache,
-                    scheduler,
-                ),
-                SchedulerTask::ExecutionTask(version_to_execute, None, guard) => self.execute(
-                    version_to_execute,
-                    guard,
-                    block,
-                    last_input_output,
-                    versioned_data_cache,
-                    scheduler,
-                    &executor,
-                ),
+                SchedulerTask::ValidationTask(version_to_validate, guard) => {
+                    if let Some(idx) = head_idx {
+                        if version_to_validate.0 > idx {
+                            let diff = (version_to_validate.0 - idx) as i64;
+                            head_idx = Some(version_to_validate.0);
+                            safe_idx.fetch_add(diff, Ordering::SeqCst);
+                        }
+                    }
+                    self.validate(
+                        version_to_validate,
+                        guard,
+                        last_input_output,
+                        versioned_data_cache,
+                        scheduler,
+                        safe_idx,
+                        &executor,
+                    )
+                }
+                SchedulerTask::ExecutionTask(version_to_execute, None, guard) => {
+                    if let Some(idx) = head_idx {
+                        if version_to_execute.0 > idx {
+                            let diff = (version_to_execute.0 - idx) as i64;
+                            head_idx = Some(version_to_execute.0);
+                            safe_idx.fetch_add(diff, Ordering::SeqCst);
+                        }
+                    }
+                    self.execute(
+                        version_to_execute,
+                        guard,
+                        block,
+                        last_input_output,
+                        versioned_data_cache,
+                        scheduler,
+                        &executor,
+                        safe_idx,
+                    )
+                }
                 SchedulerTask::ExecutionTask(_, Some(condvar), _guard) => {
                     let (lock, cvar) = &*condvar;
                     // Mark dependency resolved.
@@ -375,6 +471,9 @@ where
         E::Error,
     > {
         assert!(self.concurrency_level > 1, "Must use sequential execution");
+        assert!(!DELTA_READ_SHORTCUT || VALIDATE_DELTAS);
+
+        let safe_idx = AtomicI64::new(-4 * self.concurrency_level as i64);
 
         let versioned_data_cache = MVHashMap::new();
 
@@ -386,6 +485,7 @@ where
         let last_input_output = TxnLastInputOutput::new(num_txns);
         let scheduler = Scheduler::new(num_txns);
 
+        let b = AtomicBool::new(true);
         RAYON_EXEC_POOL.scope(|s| {
             for _ in 0..self.concurrency_level {
                 s.spawn(|_| {
@@ -395,6 +495,12 @@ where
                         &last_input_output,
                         &versioned_data_cache,
                         &scheduler,
+                        &safe_idx,
+                        if b.swap(false, Ordering::Relaxed) && DELTA_READ_SHORTCUT {
+                            Some(0)
+                        } else {
+                            None
+                        },
                     );
                 });
             }
@@ -453,7 +559,7 @@ where
         let executor = E::init(executor_arguments);
         let mut data_map = BTreeMap::new();
 
-        let mut ret = vec![];
+        let mut ret = Vec::with_capacity(num_txns);
         for (idx, txn) in signature_verified_block.iter().enumerate() {
             // this call internally materializes deltas.
             let res = executor.execute_transaction_btree_view(&data_map, txn, idx);

@@ -387,10 +387,10 @@ where
 // Naive transaction executor implementation.
 ///////////////////////////////////////////////////////////////////////////
 
-pub struct Task<K, V>(PhantomData<(K, V)>, Option<u128>);
+pub struct Task<K, V>(PhantomData<(K, V)>, u128);
 
 impl<K, V> Task<K, V> {
-    pub fn new(storage_aggregator_val: Option<u128>) -> Self {
+    pub fn new(storage_aggregator_val: u128) -> Self {
         Self(PhantomData, storage_aggregator_val)
     }
 }
@@ -403,7 +403,7 @@ where
     type T = Transaction<K, V>;
     type Output = Output<K, V>;
     type Error = usize;
-    type Argument = Option<u128>;
+    type Argument = u128;
 
     fn init(argument: Self::Argument) -> Self {
         Self::new(argument)
@@ -444,7 +444,7 @@ where
                     let base = match view.get(k) {
                         Some(val) => AggregatorValue::from_write(val)
                             .map(|aggregator_value| aggregator_value.into()),
-                        None => Some(self.1.unwrap()),
+                        None => Some(self.1),
                     };
                     match base {
                         Some(base) => {
@@ -497,6 +497,10 @@ where
             Transaction::SkipRest => ExecutionStatus::SkipRest(Output(vec![], vec![], vec![])),
             Transaction::Abort => ExecutionStatus::Abort(view.txn_idx()),
         }
+    }
+
+    fn get_storage_value(&self, key: &K) -> u128 {
+        self.1
     }
 }
 

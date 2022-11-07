@@ -38,24 +38,28 @@ impl<'a, S: StateView> StateView for VersionedView<'a, S> {
 
     // Get some data either through the cache or the `StateView` on a cache miss.
     fn get_state_value(&self, state_key: &StateKey) -> anyhow::Result<Option<Vec<u8>>> {
+        let mut read_attempt = self.hashmap_view.read(state_key);
+
+        if let ReadResult::Unresolved = read_attempt {
+            let from_storage = self
+                .base_view
+                .get_state_value(state_key)?
+                .map_or(Err(VMStatus::Error(StatusCode::STORAGE_ERROR)), |bytes| {
+                    Ok(deserialize(&bytes))
+                })?;
+            self.hashmap_view
+                .record_storage_value(state_key, from_storage);
+
+            read_attempt = self.hashmap_view.read(state_key);
+        }
+
         match self.hashmap_view.read(state_key) {
             ReadResult::Value(v) => Ok(match v.as_ref() {
                 WriteOp::Modification(w) | WriteOp::Creation(w) => Some(w.clone()),
                 WriteOp::Deletion => None,
             }),
             ReadResult::U128(v) => Ok(Some(serialize(&v))),
-            ReadResult::Unresolved(delta) => {
-                let from_storage = self
-                    .base_view
-                    .get_state_value(state_key)?
-                    .map_or(Err(VMStatus::Error(StatusCode::STORAGE_ERROR)), |bytes| {
-                        Ok(deserialize(&bytes))
-                    })?;
-                let result = delta
-                    .apply_to(from_storage)
-                    .map_err(|pe| pe.finish(Location::Undefined).into_vm_status())?;
-                Ok(Some(serialize(&result)))
-            }
+            ReadResult::Unresolved => unreachable!(),
             ReadResult::None => self.base_view.get_state_value(state_key),
         }
     }

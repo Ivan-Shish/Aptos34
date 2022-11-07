@@ -123,6 +123,7 @@ pub struct Scheduler {
     validation_idx: AtomicUsize,
     /// The number of times execution_idx and validation_idx are decreased.
     decrease_cnt: AtomicUsize,
+    val_generation_idx: AtomicUsize,
 
     /// Number of tasks used to track when transactions can be committed, incremented / decremented
     /// as new validation or execution tasks are created and completed.
@@ -145,6 +146,7 @@ impl Scheduler {
             execution_idx: AtomicUsize::new(0),
             validation_idx: AtomicUsize::new(0),
             decrease_cnt: AtomicUsize::new(0),
+            val_generation_idx: AtomicUsize::new(0),
             num_active_tasks: AtomicUsize::new(0),
             done_marker: AtomicBool::new(false),
             txn_dependency: (0..num_txns)
@@ -159,6 +161,10 @@ impl Scheduler {
     /// Return the number of transactions to be executed from the block.
     pub fn num_txn_to_execute(&self) -> usize {
         self.num_txns
+    }
+
+    pub fn validation_generation(&self) -> usize {
+        self.val_generation_idx.load(Ordering::Acquire)
     }
 
     /// Try to abort version = (txn_idx, incarnation), called upon validation failure.
@@ -336,6 +342,7 @@ impl Scheduler {
 impl Scheduler {
     /// Decreases the validation index, increases the decrease counter if it actually decreased.
     fn decrease_validation_idx(&self, target_idx: TxnIndex) {
+        self.val_generation_idx.fetch_add(1, Ordering::SeqCst);
         if self.validation_idx.fetch_min(target_idx, Ordering::SeqCst) > target_idx {
             self.decrease_cnt.fetch_add(1, Ordering::SeqCst);
         }

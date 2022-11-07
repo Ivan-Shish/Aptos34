@@ -25,7 +25,7 @@ where
     V: Send + Sync + Debug + Clone + Eq + TransactionWrite + FromU128 + 'static,
 {
     let output = ParallelTransactionExecutor::<Transaction<K, V>, Task<K, V>>::new(num_cpus::get())
-        .execute_transactions_parallel(None, &transactions)
+        .execute_transactions_parallel(20000000, &transactions)
         .map(|(res, _)| res);
 
     let baseline = ExpectedOutput::generate_baseline(&transactions, None, None);

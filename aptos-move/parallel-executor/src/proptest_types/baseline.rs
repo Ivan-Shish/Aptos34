@@ -231,22 +231,22 @@ impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
                 ReadResult::U128(v) => {
                     expected_result.as_ref().unwrap().check_u128(*v);
                 }
-                ReadResult::Unresolved(delta) => {
+                ReadResult::Unresolved => {
                     // If execution (sequential) resolved deltas, the read would never
                     // return Unresolved.
                     assert!(!execution_resolved);
 
-                    if storage_default.is_some() {
-                        // Since execution_resolved == false, we are testing Resolver.
-                        let exec_state: BaselineState<V> =
-                            BaselineState::from_delta(*delta, storage_default);
-                        expected_result
-                            .as_ref()
-                            .unwrap()
-                            .check_u128(exec_state.aggregator_value());
-                    } else {
-                        expected_result.as_ref().unwrap().check_deltas(*delta);
-                    }
+                    // if storage_default.is_some() {
+                    //     // Since execution_resolved == false, we are testing Resolver.
+                    //     let exec_state: BaselineState<V> =
+                    //         BaselineState::from_delta(*delta, storage_default);
+                    //     expected_result
+                    //         .as_ref()
+                    //         .unwrap()
+                    //         .check_u128(exec_state.aggregator_value());
+                    // } else {
+                    //     expected_result.as_ref().unwrap().check_deltas(*delta);
+                    // }
                 }
                 ReadResult::None => {
                     assert_none!(expected_result);
