@@ -7,6 +7,8 @@ This module provides the foundation for typesafe Coins.
 
 
 -  [Struct `Coin`](#0x1_coin_Coin)
+-  [Struct `AggregatableCoin`](#0x1_coin_AggregatableCoin)
+-  [Resource `AggregatableCoinStore`](#0x1_coin_AggregatableCoinStore)
 -  [Resource `CoinStore`](#0x1_coin_CoinStore)
 -  [Resource `SupplyConfig`](#0x1_coin_SupplyConfig)
 -  [Resource `CoinInfo`](#0x1_coin_CoinInfo)
@@ -29,8 +31,10 @@ This module provides the foundation for typesafe Coins.
 -  [Function `burn`](#0x1_coin_burn)
 -  [Function `burn_from`](#0x1_coin_burn_from)
 -  [Function `deposit`](#0x1_coin_deposit)
+-  [Function `deposit_agg`](#0x1_coin_deposit_agg)
 -  [Function `destroy_zero`](#0x1_coin_destroy_zero)
 -  [Function `extract`](#0x1_coin_extract)
+-  [Function `extract_agg`](#0x1_coin_extract_agg)
 -  [Function `extract_all`](#0x1_coin_extract_all)
 -  [Function `freeze_coin_store`](#0x1_coin_freeze_coin_store)
 -  [Function `unfreeze_coin_store`](#0x1_coin_unfreeze_coin_store)
@@ -39,11 +43,15 @@ This module provides the foundation for typesafe Coins.
 -  [Function `initialize_with_parallelizable_supply`](#0x1_coin_initialize_with_parallelizable_supply)
 -  [Function `initialize_internal`](#0x1_coin_initialize_internal)
 -  [Function `merge`](#0x1_coin_merge)
+-  [Function `merge_agg`](#0x1_coin_merge_agg)
 -  [Function `mint`](#0x1_coin_mint)
 -  [Function `register`](#0x1_coin_register)
+-  [Function `register_agg`](#0x1_coin_register_agg)
 -  [Function `transfer`](#0x1_coin_transfer)
+-  [Function `transfer_agg`](#0x1_coin_transfer_agg)
 -  [Function `value`](#0x1_coin_value)
 -  [Function `withdraw`](#0x1_coin_withdraw)
+-  [Function `withdraw_agg`](#0x1_coin_withdraw_agg)
 -  [Function `zero`](#0x1_coin_zero)
 -  [Function `destroy_freeze_cap`](#0x1_coin_destroy_freeze_cap)
 -  [Function `destroy_mint_cap`](#0x1_coin_destroy_mint_cap)
@@ -113,6 +121,66 @@ Main structure representing a coin/token in an account's custody.
 </dt>
 <dd>
  Amount of coin this address has.
+</dd>
+</dl>
+
+
+</details>
+
+<a name="0x1_coin_AggregatableCoin"></a>
+
+## Struct `AggregatableCoin`
+
+
+
+<pre><code><b>struct</b> <a href="coin.md#0x1_coin_AggregatableCoin">AggregatableCoin</a>&lt;CoinType&gt; <b>has</b> store
+</code></pre>
+
+
+
+<details>
+<summary>Fields</summary>
+
+
+<dl>
+<dt>
+<code><a href="aggregator.md#0x1_aggregator">aggregator</a>: <a href="optional_aggregator.md#0x1_optional_aggregator_OptionalAggregator">optional_aggregator::OptionalAggregator</a></code>
+</dt>
+<dd>
+ Amount of coin this address has.
+</dd>
+</dl>
+
+
+</details>
+
+<a name="0x1_coin_AggregatableCoinStore"></a>
+
+## Resource `AggregatableCoinStore`
+
+
+
+<pre><code><b>struct</b> <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt; <b>has</b> key
+</code></pre>
+
+
+
+<details>
+<summary>Fields</summary>
+
+
+<dl>
+<dt>
+<code><a href="coin.md#0x1_coin">coin</a>: <a href="coin.md#0x1_coin_AggregatableCoin">coin::AggregatableCoin</a>&lt;CoinType&gt;</code>
+</dt>
+<dd>
+
+</dd>
+<dt>
+<code>frozen: bool</code>
+</dt>
+<dd>
+
 </dd>
 </dl>
 
@@ -389,9 +457,18 @@ Capability required to burn coins.
 ## Constants
 
 
-<a name="0x1_coin_MAX_U128"></a>
+<a name="0x1_coin_MAX_U64"></a>
 
 Maximum possible coin supply.
+
+
+<pre><code><b>const</b> <a href="coin.md#0x1_coin_MAX_U64">MAX_U64</a>: u128 = 18446744073709551615;
+</code></pre>
+
+
+
+<a name="0x1_coin_MAX_U128"></a>
+
 
 
 <pre><code><b>const</b> <a href="coin.md#0x1_coin_MAX_U128">MAX_U128</a>: u128 = 340282366920938463463374607431768211455;
@@ -922,6 +999,46 @@ Deposit the coin balance into the recipient's account and emit an event.
 
 </details>
 
+<a name="0x1_coin_deposit_agg"></a>
+
+## Function `deposit_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_deposit_agg">deposit_agg</a>&lt;CoinType&gt;(account_addr: <b>address</b>, amount: u64)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_deposit_agg">deposit_agg</a>&lt;CoinType&gt;(account_addr: <b>address</b>, amount: u64) <b>acquires</b> <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
+    <b>assert</b>!(
+        <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
+        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_not_found">error::not_found</a>(<a href="coin.md#0x1_coin_ECOIN_STORE_NOT_PUBLISHED">ECOIN_STORE_NOT_PUBLISHED</a>),
+    );
+
+    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
+    <b>assert</b>!(
+        !coin_store.frozen,
+        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_permission_denied">error::permission_denied</a>(<a href="coin.md#0x1_coin_EFROZEN">EFROZEN</a>),
+    );
+
+    // <a href="event.md#0x1_event_emit_event">event::emit_event</a>&lt;<a href="coin.md#0x1_coin_DepositEvent">DepositEvent</a>&gt;(
+    //     &<b>mut</b> coin_store.deposit_events,
+    //     <a href="coin.md#0x1_coin_DepositEvent">DepositEvent</a> { amount: <a href="coin.md#0x1_coin">coin</a>.value },
+    // );
+
+    <a href="coin.md#0x1_coin_merge_agg">merge_agg</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
+}
+</code></pre>
+
+
+
+</details>
+
 <a name="0x1_coin_destroy_zero"></a>
 
 ## Function `destroy_zero`
@@ -970,6 +1087,31 @@ Extracts <code>amount</code> from the passed-in <code><a href="coin.md#0x1_coin"
     <b>assert</b>!(<a href="coin.md#0x1_coin">coin</a>.value &gt;= amount, <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="coin.md#0x1_coin_EINSUFFICIENT_BALANCE">EINSUFFICIENT_BALANCE</a>));
     <a href="coin.md#0x1_coin">coin</a>.value = <a href="coin.md#0x1_coin">coin</a>.value - amount;
     <a href="coin.md#0x1_coin_Coin">Coin</a> { value: amount }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_coin_extract_agg"></a>
+
+## Function `extract_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_extract_agg">extract_agg</a>&lt;CoinType&gt;(<a href="coin.md#0x1_coin">coin</a>: &<b>mut</b> <a href="coin.md#0x1_coin_AggregatableCoin">coin::AggregatableCoin</a>&lt;CoinType&gt;, amount: u64)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_extract_agg">extract_agg</a>&lt;CoinType&gt;(<a href="coin.md#0x1_coin">coin</a>: &<b>mut</b> <a href="coin.md#0x1_coin_AggregatableCoin">AggregatableCoin</a>&lt;CoinType&gt;, amount: u64) {
+    <b>let</b> amount_u128 = (amount <b>as</b> u128);
+    <a href="optional_aggregator.md#0x1_optional_aggregator_sub">optional_aggregator::sub</a>(&<b>mut</b> <a href="coin.md#0x1_coin">coin</a>.<a href="aggregator.md#0x1_aggregator">aggregator</a>, amount_u128);
 }
 </code></pre>
 
@@ -1248,10 +1390,35 @@ to the sum of the two tokens (<code>dst_coin</code> and <code>source_coin</code>
 
 <pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_merge">merge</a>&lt;CoinType&gt;(dst_coin: &<b>mut</b> <a href="coin.md#0x1_coin_Coin">Coin</a>&lt;CoinType&gt;, source_coin: <a href="coin.md#0x1_coin_Coin">Coin</a>&lt;CoinType&gt;) {
     <b>spec</b> {
-        <b>assume</b> dst_coin.value + source_coin.<a href="coin.md#0x1_coin_value">value</a> &lt;= MAX_U64;
+        <b>assume</b> dst_coin.value + source_coin.<a href="coin.md#0x1_coin_value">value</a> &lt;= <a href="coin.md#0x1_coin_MAX_U64">MAX_U64</a>;
     };
     dst_coin.value = dst_coin.value + source_coin.value;
     <b>let</b> <a href="coin.md#0x1_coin_Coin">Coin</a> { value: _ } = source_coin;
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_coin_merge_agg"></a>
+
+## Function `merge_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_merge_agg">merge_agg</a>&lt;CoinType&gt;(dst_coin: &<b>mut</b> <a href="coin.md#0x1_coin_AggregatableCoin">coin::AggregatableCoin</a>&lt;CoinType&gt;, amount: u64)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_merge_agg">merge_agg</a>&lt;CoinType&gt;(dst_coin: &<b>mut</b> <a href="coin.md#0x1_coin_AggregatableCoin">AggregatableCoin</a>&lt;CoinType&gt;, amount: u64) {
+    <b>let</b> amount_u128 = (amount <b>as</b> u128);
+    <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(&<b>mut</b> dst_coin.<a href="aggregator.md#0x1_aggregator">aggregator</a>, amount_u128);
 }
 </code></pre>
 
@@ -1336,6 +1503,41 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
 
 </details>
 
+<a name="0x1_coin_register_agg"></a>
+
+## Function `register_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool) {
+    <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
+    <b>assert</b>!(
+        !<a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
+        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_already_exists">error::already_exists</a>(<a href="coin.md#0x1_coin_ECOIN_STORE_ALREADY_PUBLISHED">ECOIN_STORE_ALREADY_PUBLISHED</a>),
+    );
+
+    <a href="account.md#0x1_account_register_coin">account::register_coin</a>&lt;CoinType&gt;(account_addr);
+    <b>let</b> coin_store = <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt; {
+        <a href="coin.md#0x1_coin">coin</a>: <a href="coin.md#0x1_coin_AggregatableCoin">AggregatableCoin</a> { <a href="aggregator.md#0x1_aggregator">aggregator</a>: <a href="optional_aggregator.md#0x1_optional_aggregator_new">optional_aggregator::new</a>(<a href="coin.md#0x1_coin_MAX_U64">MAX_U64</a>, parallelizable) },
+        frozen: <b>false</b>,
+    };
+    <b>move_to</b>(<a href="account.md#0x1_account">account</a>, coin_store);
+}
+</code></pre>
+
+
+
+</details>
+
 <a name="0x1_coin_transfer"></a>
 
 ## Function `transfer`
@@ -1359,6 +1561,35 @@ Transfers <code>amount</code> of coins <code>CoinType</code> from <code>from</co
 ) <b>acquires</b> <a href="coin.md#0x1_coin_CoinStore">CoinStore</a> {
     <b>let</b> <a href="coin.md#0x1_coin">coin</a> = <a href="coin.md#0x1_coin_withdraw">withdraw</a>&lt;CoinType&gt;(from, amount);
     <a href="coin.md#0x1_coin_deposit">deposit</a>(<b>to</b>, <a href="coin.md#0x1_coin">coin</a>);
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_coin_transfer_agg"></a>
+
+## Function `transfer_agg`
+
+
+
+<pre><code><b>public</b> entry <b>fun</b> <a href="coin.md#0x1_coin_transfer_agg">transfer_agg</a>&lt;CoinType&gt;(from: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, <b>to</b>: <b>address</b>, amount: u64)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> entry <b>fun</b> <a href="coin.md#0x1_coin_transfer_agg">transfer_agg</a>&lt;CoinType&gt;(
+    from: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>,
+    <b>to</b>: <b>address</b>,
+    amount: u64,
+) <b>acquires</b> <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
+    <a href="coin.md#0x1_coin_withdraw_agg">withdraw_agg</a>&lt;CoinType&gt;(from, amount);
+    <a href="coin.md#0x1_coin_deposit_agg">deposit_agg</a>&lt;CoinType&gt;(<b>to</b>, amount);
 }
 </code></pre>
 
@@ -1429,6 +1660,45 @@ Withdraw specifed <code>amount</code> of coin <code>CoinType</code> from the sig
     );
 
     <a href="coin.md#0x1_coin_extract">extract</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount)
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_coin_withdraw_agg"></a>
+
+## Function `withdraw_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_withdraw_agg">withdraw_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, amount: u64)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_withdraw_agg">withdraw_agg</a>&lt;CoinType&gt;(
+    <a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>,
+    amount: u64,
+) <b>acquires</b> <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
+    <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
+    <b>assert</b>!(
+        <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
+        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_not_found">error::not_found</a>(<a href="coin.md#0x1_coin_ECOIN_STORE_NOT_PUBLISHED">ECOIN_STORE_NOT_PUBLISHED</a>),
+    );
+
+    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
+    <b>assert</b>!(
+        !coin_store.frozen,
+        <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_permission_denied">error::permission_denied</a>(<a href="coin.md#0x1_coin_EFROZEN">EFROZEN</a>),
+    );
+
+    <a href="coin.md#0x1_coin_extract_agg">extract_agg</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
 }
 </code></pre>
 
@@ -2031,7 +2301,7 @@ Updating <code>Account.guid_creation_num</code> will not overflow.
 <pre><code><b>pragma</b> aborts_if_is_partial;
 <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
 <b>let</b> acc = <b>global</b>&lt;<a href="account.md#0x1_account_Account">account::Account</a>&gt;(account_addr);
-<b>aborts_if</b> acc.guid_creation_num + 2 &gt; MAX_U64;
+<b>aborts_if</b> acc.guid_creation_num + 2 &gt; <a href="coin.md#0x1_coin_MAX_U64">MAX_U64</a>;
 <b>aborts_if</b> <b>exists</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
 <b>aborts_if</b> !<b>exists</b>&lt;<a href="account.md#0x1_account_Account">account::Account</a>&gt;(account_addr);
 <b>ensures</b> <b>exists</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
