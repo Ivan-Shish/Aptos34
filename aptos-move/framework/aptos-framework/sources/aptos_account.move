@@ -22,6 +22,11 @@ module aptos_framework::aptos_account {
         coin::register<AptosCoin>(&signer);
     }
 
+    public entry fun create_account_agg(auth_key: address, parallelizable: bool) {
+        let signer = account::create_account(auth_key);
+        coin::register_agg<AptosCoin>(&signer, parallelizable);
+    }
+
     public entry fun transfer(source: &signer, to: address, amount: u64) {
         if (!account::exists_at(to)) {
             create_account(to)
