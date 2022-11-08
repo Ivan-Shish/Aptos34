@@ -7,6 +7,7 @@
 
 -  [Constants](#@Constants_0)
 -  [Function `create_account`](#0x1_aptos_account_create_account)
+-  [Function `create_account_agg`](#0x1_aptos_account_create_account_agg)
 -  [Function `transfer`](#0x1_aptos_account_transfer)
 -  [Function `assert_account_exists`](#0x1_aptos_account_assert_account_exists)
 -  [Function `assert_account_is_registered_for_apt`](#0x1_aptos_account_assert_account_is_registered_for_apt)
@@ -64,6 +65,31 @@ Basic account creation methods.
 <pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account">create_account</a>(auth_key: <b>address</b>) {
     <b>let</b> <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a> = <a href="account.md#0x1_account_create_account">account::create_account</a>(auth_key);
     <a href="coin.md#0x1_coin_register">coin::register</a>&lt;AptosCoin&gt;(&<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>);
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_aptos_account_create_account_agg"></a>
+
+## Function `create_account_agg`
+
+
+
+<pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account_agg">create_account_agg</a>(auth_key: <b>address</b>, parallelizable: bool)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account_agg">create_account_agg</a>(auth_key: <b>address</b>, parallelizable: bool) {
+    <b>let</b> <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a> = <a href="account.md#0x1_account_create_account">account::create_account</a>(auth_key);
+    <a href="coin.md#0x1_coin_register_agg">coin::register_agg</a>&lt;AptosCoin&gt;(&<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable);
 }
 </code></pre>
 

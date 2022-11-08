@@ -81,6 +81,11 @@ pub enum EntryFunctionCall {
         auth_key: AccountAddress,
     },
 
+    AptosAccountCreateAccountAgg {
+        auth_key: AccountAddress,
+        parallelizable: bool,
+    },
+
     AptosAccountTransfer {
         to: AccountAddress,
         amount: u64,
@@ -133,6 +138,12 @@ pub enum EntryFunctionCall {
 
     /// Transfers `amount` of coins `CoinType` from `from` to `to`.
     CoinTransfer {
+        coin_type: TypeTag,
+        to: AccountAddress,
+        amount: u64,
+    },
+
+    CoinTransferAgg {
         coin_type: TypeTag,
         to: AccountAddress,
         amount: u64,
@@ -497,6 +508,10 @@ impl EntryFunctionCall {
                 cap_update_table,
             ),
             AptosAccountCreateAccount { auth_key } => aptos_account_create_account(auth_key),
+            AptosAccountCreateAccountAgg {
+                auth_key,
+                parallelizable,
+            } => aptos_account_create_account_agg(auth_key, parallelizable),
             AptosAccountTransfer { to, amount } => aptos_account_transfer(to, amount),
             AptosCoinClaimMintCapability {} => aptos_coin_claim_mint_capability(),
             AptosCoinDelegateMintCapability { to } => aptos_coin_delegate_mint_capability(to),
@@ -529,6 +544,11 @@ impl EntryFunctionCall {
                 to,
                 amount,
             } => coin_transfer(coin_type, to, amount),
+            CoinTransferAgg {
+                coin_type,
+                to,
+                amount,
+            } => coin_transfer_agg(coin_type, to, amount),
             CoinUpgradeSupply { coin_type } => coin_upgrade_supply(coin_type),
             ManagedCoinBurn { coin_type, amount } => managed_coin_burn(coin_type, amount),
             ManagedCoinInitialize {
@@ -850,6 +870,27 @@ pub fn aptos_account_create_account(auth_key: AccountAddress) -> TransactionPayl
     ))
 }
 
+pub fn aptos_account_create_account_agg(
+    auth_key: AccountAddress,
+    parallelizable: bool,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("aptos_account").to_owned(),
+        ),
+        ident_str!("create_account_agg").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&auth_key).unwrap(),
+            bcs::to_bytes(&parallelizable).unwrap(),
+        ],
+    ))
+}
+
 pub fn aptos_account_transfer(to: AccountAddress, amount: u64) -> TransactionPayload {
     TransactionPayload::EntryFunction(EntryFunction::new(
         ModuleId::new(
@@ -1020,6 +1061,25 @@ pub fn coin_transfer(coin_type: TypeTag, to: AccountAddress, amount: u64) -> Tra
             ident_str!("coin").to_owned(),
         ),
         ident_str!("transfer").to_owned(),
+        vec![coin_type],
+        vec![bcs::to_bytes(&to).unwrap(), bcs::to_bytes(&amount).unwrap()],
+    ))
+}
+
+pub fn coin_transfer_agg(
+    coin_type: TypeTag,
+    to: AccountAddress,
+    amount: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("coin").to_owned(),
+        ),
+        ident_str!("transfer_agg").to_owned(),
         vec![coin_type],
         vec![bcs::to_bytes(&to).unwrap(), bcs::to_bytes(&amount).unwrap()],
     ))
@@ -2147,6 +2207,19 @@ mod decoder {
         }
     }
 
+    pub fn aptos_account_create_account_agg(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::AptosAccountCreateAccountAgg {
+                auth_key: bcs::from_bytes(script.args().get(0)?).ok()?,
+                parallelizable: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn aptos_account_transfer(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::AptosAccountTransfer {
@@ -2246,6 +2319,18 @@ mod decoder {
     pub fn coin_transfer(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::CoinTransfer {
+                coin_type: script.ty_args().get(0)?.clone(),
+                to: bcs::from_bytes(script.args().get(0)?).ok()?,
+                amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn coin_transfer_agg(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::CoinTransferAgg {
                 coin_type: script.ty_args().get(0)?.clone(),
                 to: bcs::from_bytes(script.args().get(0)?).ok()?,
                 amount: bcs::from_bytes(script.args().get(1)?).ok()?,
@@ -2910,6 +2995,10 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
             Box::new(decoder::aptos_account_create_account),
         );
         map.insert(
+            "aptos_account_create_account_agg".to_string(),
+            Box::new(decoder::aptos_account_create_account_agg),
+        );
+        map.insert(
             "aptos_account_transfer".to_string(),
             Box::new(decoder::aptos_account_transfer),
         );
@@ -2944,6 +3033,10 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
         map.insert(
             "coin_transfer".to_string(),
             Box::new(decoder::coin_transfer),
+        );
+        map.insert(
+            "coin_transfer_agg".to_string(),
+            Box::new(decoder::coin_transfer_agg),
         );
         map.insert(
             "coin_upgrade_supply".to_string(),
