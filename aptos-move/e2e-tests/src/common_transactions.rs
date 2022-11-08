@@ -43,6 +43,7 @@ pub fn empty_txn(
 pub fn create_account_txn_new(
     sender: &Account,
     new_account: &Account,
+    balance: u64,
     parallelizable: bool,
     seq_num: u64,
 ) -> SignedTransaction {
@@ -50,6 +51,7 @@ pub fn create_account_txn_new(
         .transaction()
         .payload(aptos_stdlib::aptos_account_create_account_agg(
             *new_account.address(),
+            balance,
             parallelizable,
         ))
         .sequence_number(seq_num)

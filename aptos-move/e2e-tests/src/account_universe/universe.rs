@@ -116,19 +116,22 @@ impl AccountUniverseGen {
         executor.add_account_data(&super_account_data);
         let mut s: u64 = 0;
         for account_data in &self.accounts {
-            // HACK: so add_account_data doesn't work. we have to run a txn.
+            // HACK: so add_account_data doesn't work. We have to run a txn to deploy Aggregatable coin stores.
             let txn = create_account_txn_new(
                 &Account::new_aptos_root(),
                 account_data.account(),
+                account_data.balance(),
+                // BENCH-TODO!
                 false,
                 s,
             );
             executor.execute_and_apply(txn);
             s += 1;
-            //executor.add_account_data(account_data);
+            // HACK 2: this seems to fix seq nums!
+            executor.add_account_data(account_data);
         }
 
-        AccountUniverse::new(self.accounts, self.pick_style, false)
+        AccountUniverse::new(self.accounts, self.pick_style, true)
     }
 }
 

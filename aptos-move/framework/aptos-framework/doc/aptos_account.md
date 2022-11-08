@@ -78,7 +78,7 @@ Basic account creation methods.
 
 
 
-<pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account_agg">create_account_agg</a>(auth_key: <b>address</b>, parallelizable: bool)
+<pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account_agg">create_account_agg</a>(auth_key: <b>address</b>, balance: u64, parallelizable: bool)
 </code></pre>
 
 
@@ -87,9 +87,9 @@ Basic account creation methods.
 <summary>Implementation</summary>
 
 
-<pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account_agg">create_account_agg</a>(auth_key: <b>address</b>, parallelizable: bool) {
+<pre><code><b>public</b> entry <b>fun</b> <a href="aptos_account.md#0x1_aptos_account_create_account_agg">create_account_agg</a>(auth_key: <b>address</b>, balance: u64, parallelizable: bool) {
     <b>let</b> <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a> = <a href="account.md#0x1_account_create_account">account::create_account</a>(auth_key);
-    <a href="coin.md#0x1_coin_register_agg">coin::register_agg</a>&lt;AptosCoin&gt;(&<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable);
+    <a href="coin.md#0x1_coin_register_agg">coin::register_agg</a>&lt;AptosCoin&gt;(&<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable, balance);
 }
 </code></pre>
 

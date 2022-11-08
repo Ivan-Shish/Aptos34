@@ -83,6 +83,7 @@ pub enum EntryFunctionCall {
 
     AptosAccountCreateAccountAgg {
         auth_key: AccountAddress,
+        balance: u64,
         parallelizable: bool,
     },
 
@@ -510,8 +511,9 @@ impl EntryFunctionCall {
             AptosAccountCreateAccount { auth_key } => aptos_account_create_account(auth_key),
             AptosAccountCreateAccountAgg {
                 auth_key,
+                balance,
                 parallelizable,
-            } => aptos_account_create_account_agg(auth_key, parallelizable),
+            } => aptos_account_create_account_agg(auth_key, balance, parallelizable),
             AptosAccountTransfer { to, amount } => aptos_account_transfer(to, amount),
             AptosCoinClaimMintCapability {} => aptos_coin_claim_mint_capability(),
             AptosCoinDelegateMintCapability { to } => aptos_coin_delegate_mint_capability(to),
@@ -872,6 +874,7 @@ pub fn aptos_account_create_account(auth_key: AccountAddress) -> TransactionPayl
 
 pub fn aptos_account_create_account_agg(
     auth_key: AccountAddress,
+    balance: u64,
     parallelizable: bool,
 ) -> TransactionPayload {
     TransactionPayload::EntryFunction(EntryFunction::new(
@@ -886,6 +889,7 @@ pub fn aptos_account_create_account_agg(
         vec![],
         vec![
             bcs::to_bytes(&auth_key).unwrap(),
+            bcs::to_bytes(&balance).unwrap(),
             bcs::to_bytes(&parallelizable).unwrap(),
         ],
     ))
@@ -2213,7 +2217,8 @@ mod decoder {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::AptosAccountCreateAccountAgg {
                 auth_key: bcs::from_bytes(script.args().get(0)?).ok()?,
-                parallelizable: bcs::from_bytes(script.args().get(1)?).ok()?,
+                balance: bcs::from_bytes(script.args().get(1)?).ok()?,
+                parallelizable: bcs::from_bytes(script.args().get(2)?).ok()?,
             })
         } else {
             None
