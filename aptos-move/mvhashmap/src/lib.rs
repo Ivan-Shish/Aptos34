@@ -17,7 +17,7 @@ use std::{
 #[cfg(test)]
 mod unit_tests;
 
-pub const DELTA_READ_SHORTCUT: bool = true;
+pub const DELTA_READ_SHORTCUT: bool = false;
 
 // TODO: re-use definitions with the scheduler.
 pub type TxnIndex = usize;

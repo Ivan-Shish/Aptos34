@@ -15,3 +15,11 @@ pub fn aptos_coin_transfer(to: AccountAddress, amount: u64) -> TransactionPayloa
         amount,
     )
 }
+
+pub fn aptos_coin_transfer_agg(to: AccountAddress, amount: u64) -> TransactionPayload {
+    coin_transfer_agg(
+        aptos_types::utility_coin::APTOS_COIN_TYPE.clone(),
+        to,
+        amount,
+    )
+}
