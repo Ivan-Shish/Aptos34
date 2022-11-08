@@ -70,6 +70,19 @@ module aptos_framework::coin {
         value: u64,
     }
 
+    struct AggregatableCoin<phantom CoinType> has store {
+        /// Amount of coin this address has.
+        aggregator: OptionalAggregator,
+    }
+
+    struct AggregatableCoinStore<phantom CoinType> has key {
+        coin: AggregatableCoin<CoinType>,
+        frozen: bool,
+        // deposit_events: EventHandle<DepositEvent>,
+        // withdraw_events: EventHandle<WithdrawEvent>,
+    }
+
+
     /// A holder of a specific coin types and associated event handles.
     /// These are kept in a single resource to ensure locality of data.
     struct CoinStore<phantom CoinType> has key {
@@ -80,6 +93,7 @@ module aptos_framework::coin {
     }
 
     /// Maximum possible coin supply.
+    const MAX_U64: u128 = 18446744073709551615;
     const MAX_U128: u128 = 340282366920938463463374607431768211455;
 
     /// Configuration that controls the behavior of total coin supply. If the field
@@ -256,6 +270,26 @@ module aptos_framework::coin {
         merge(&mut coin_store.coin, coin);
     }
 
+    public fun deposit_agg<CoinType>(account_addr: address, amount: u64) acquires CoinStore {
+        assert!(
+            is_account_registered<CoinType>(account_addr),
+            error::not_found(ECOIN_STORE_NOT_PUBLISHED),
+        );
+
+        let coin_store = borrow_global_mut<CoinStore<CoinType>>(account_addr);
+        assert!(
+            !coin_store.frozen,
+            error::permission_denied(EFROZEN),
+        );
+
+        // event::emit_event<DepositEvent>(
+        //     &mut coin_store.deposit_events,
+        //     DepositEvent { amount: coin.value },
+        // );
+
+        merge_agg(&mut coin_store.coin, amount);
+    }
+
     /// Destroys a zero-value coin. Calls will fail if the `value` in the passed-in `token` is non-zero
     /// so it is impossible to "burn" any non-zero amount of `Coin` without having
     /// a `BurnCapability` for the specific `CoinType`.
@@ -269,6 +303,11 @@ module aptos_framework::coin {
         assert!(coin.value >= amount, error::invalid_argument(EINSUFFICIENT_BALANCE));
         coin.value = coin.value - amount;
         Coin { value: amount }
+    }
+
+    public fun extract_agg<CoinType>(coin: &mut AggregatableCoin<CoinType>, amount: u64) {
+        let amount_u128 = (amount as u128);
+        optional_aggregator::sub(&mut coin.aggregator, amount_u128);
     }
 
     /// Extracts the entire amount from the passed-in `coin`, where the original token is modified in place.
@@ -393,6 +432,11 @@ module aptos_framework::coin {
         let Coin { value: _ } = source_coin;
     }
 
+    public fun merge_agg<CoinType>(dst_coin: &mut AggregatableCoin<CoinType>, amount: u64) {
+        let amount_u128 = (amount as u128);
+        optional_aggregator::add(&mut dst_coin.aggregator, amount_u128);
+    }
+
     /// Mint new `Coin` with capability.
     /// The capability `_cap` should be passed as reference to `MintCapability<CoinType>`.
     /// Returns minted `Coin`.
@@ -430,6 +474,21 @@ module aptos_framework::coin {
         move_to(account, coin_store);
     }
 
+    public fun register_agg<CoinType>(account: &signer, parallelizable: bool) {
+        let account_addr = signer::address_of(account);
+        assert!(
+            !is_account_registered<CoinType>(account_addr),
+            error::already_exists(ECOIN_STORE_ALREADY_PUBLISHED),
+        );
+
+        account::register_coin<CoinType>(account_addr);
+        let coin_store = AggregatableCoinStore<CoinType> {
+            coin: AggregatableCoin { aggregator: optional_aggregator::new(MAX_U64, parallelizable) },
+            frozen: false,
+        };
+        move_to(account, coin_store);
+    }
+
     /// Transfers `amount` of coins `CoinType` from `from` to `to`.
     public entry fun transfer<CoinType>(
         from: &signer,
@@ -438,6 +497,15 @@ module aptos_framework::coin {
     ) acquires CoinStore {
         let coin = withdraw<CoinType>(from, amount);
         deposit(to, coin);
+    }
+
+    public entry fun transfer_agg<CoinType>(
+        from: &signer,
+        to: address,
+        amount: u64,
+    ) acquires AggregatableCoinStore {
+        withdraw_agg<CoinType>(from, amount);
+        deposit_agg(to, amount);
     }
 
     /// Returns the `value` passed in `coin`.
@@ -468,6 +536,25 @@ module aptos_framework::coin {
         );
 
         extract(&mut coin_store.coin, amount)
+    }
+
+    public fun withdraw_agg<CoinType>(
+        account: &signer,
+        amount: u64,
+    ) acquires AggregatableCoinStore {
+        let account_addr = signer::address_of(account);
+        assert!(
+            is_account_registered<CoinType>(account_addr),
+            error::not_found(ECOIN_STORE_NOT_PUBLISHED),
+        );
+
+        let coin_store = borrow_global_mut<AggregatableCoinStore<CoinType>>(account_addr);
+        assert!(
+            !coin_store.frozen,
+            error::permission_denied(EFROZEN),
+        );
+
+        extract_agg(&mut coin_store.coin, amount);
     }
 
     /// Create a new `Coin<CoinType>` with a value of `0`.
