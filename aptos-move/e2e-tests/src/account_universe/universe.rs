@@ -4,8 +4,9 @@
 //! Logic for account universes. This is not in the parent module to enforce privacy.
 
 use crate::{
-    account::AccountData,
+    account::{Account, AccountData},
     account_universe::{default_num_accounts, default_num_transactions, AccountCurrent},
+    common_transactions::{create_account_txn, create_account_txn_new},
     executor::FakeExecutor,
 };
 use aptos_proptest_helpers::{pick_slice_idxs, Index};
@@ -100,6 +101,7 @@ impl AccountUniverseGen {
         for account_data in &self.accounts {
             executor.add_account_data(account_data);
         }
+        println!("Never called");
 
         AccountUniverse::new(self.accounts, self.pick_style, false)
     }
@@ -110,11 +112,23 @@ impl AccountUniverseGen {
     /// The stability mode causes new accounts to be dropped, since those accounts will usually
     /// not be funded enough.
     pub fn setup_gas_cost_stability(self, executor: &mut FakeExecutor) -> AccountUniverse {
+        let super_account_data = AccountData::new(1_000_000_000_000, 0);
+        executor.add_account_data(&super_account_data);
+        let mut s: u64 = 0;
         for account_data in &self.accounts {
-            executor.add_account_data(account_data);
+            // HACK: so add_account_data doesn't work. we have to run a txn.
+            let txn = create_account_txn_new(
+                &Account::new_aptos_root(),
+                account_data.account(),
+                false,
+                s,
+            );
+            executor.execute_and_apply(txn);
+            s += 1;
+            //executor.add_account_data(account_data);
         }
 
-        AccountUniverse::new(self.accounts, self.pick_style, true)
+        AccountUniverse::new(self.accounts, self.pick_style, false)
     }
 }
 

@@ -37,7 +37,8 @@ impl AUTransactionGen for CreateAccountGen {
     ) -> (SignedTransaction, (TransactionStatus, u64)) {
         let sender = universe.pick(self.sender).1;
 
-        // BENCH-TODO!
+        // THIS IS NOT CALLED BY BENCHMARK !!!!!!!
+        panic!("Supposed to be never called!");
         let txn = create_account_txn_new(
             sender.account(),
             &self.new_account,
@@ -93,7 +94,8 @@ impl AUTransactionGen for CreateExistingAccountGen {
             ..
         } = self.sender_receiver.pick(universe);
 
-        // BENCH-TODO!
+        // THIS IS NOT CALLED BY BENCHMARK !!!!!!!
+        panic!("Supposed to be never called");
         let txn = create_account_txn_new(
             sender.account(),
             receiver.account(),
