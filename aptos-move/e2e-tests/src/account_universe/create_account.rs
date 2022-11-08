@@ -6,7 +6,7 @@ use crate::{
     account_universe::{
         txn_one_account_result, AUTransactionGen, AccountPair, AccountPairGen, AccountUniverse,
     },
-    common_transactions::create_account_txn,
+    common_transactions::{create_account_txn, create_account_txn_new},
     gas_costs,
 };
 use aptos_proptest_helpers::Index;
@@ -37,7 +37,14 @@ impl AUTransactionGen for CreateAccountGen {
     ) -> (SignedTransaction, (TransactionStatus, u64)) {
         let sender = universe.pick(self.sender).1;
 
-        let txn = create_account_txn(sender.account(), &self.new_account, sender.sequence_number);
+        // BENCH-TODO!
+        let txn = create_account_txn_new(
+            sender.account(),
+            &self.new_account,
+            true,
+            sender.sequence_number,
+        );
+        // let txn = create_account_txn(sender.account(), &self.new_account, sender.sequence_number);
 
         let mut gas_used = sender.create_account_gas_cost();
         let low_balance_gas_used = sender.create_account_low_balance_gas_cost();
@@ -86,7 +93,14 @@ impl AUTransactionGen for CreateExistingAccountGen {
             ..
         } = self.sender_receiver.pick(universe);
 
-        let txn = create_account_txn(sender.account(), receiver.account(), sender.sequence_number);
+        // BENCH-TODO!
+        let txn = create_account_txn_new(
+            sender.account(),
+            receiver.account(),
+            true,
+            sender.sequence_number,
+        );
+        // let txn = create_account_txn(sender.account(), receiver.account(), sender.sequence_number);
 
         // This transaction should never work, but it will fail differently if there's not enough
         // gas to reserve.

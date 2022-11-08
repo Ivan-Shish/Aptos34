@@ -3,7 +3,7 @@
 
 use crate::{
     account_universe::{AUTransactionGen, AccountPair, AccountPairGen, AccountUniverse},
-    common_transactions::peer_to_peer_txn,
+    common_transactions::{peer_to_peer_txn, peer_to_peer_txn_new},
 };
 use aptos_types::{
     transaction::{ExecutionStatus, SignedTransaction, TransactionStatus},
@@ -40,7 +40,9 @@ impl AUTransactionGen for P2PTransferGen {
             ..
         } = self.sender_receiver.pick(universe);
 
-        let txn = peer_to_peer_txn(
+        // BENCH-TODO!
+        let txn = peer_to_peer_txn_new(
+            // let txn = peer_to_peer_txn(
             sender.account(),
             receiver.account(),
             sender.sequence_number,

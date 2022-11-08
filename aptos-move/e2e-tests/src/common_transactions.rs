@@ -40,7 +40,7 @@ pub fn empty_txn(
 
 /// Returns a transaction to create a new account with the given arguments.
 /// THIS CREATES PARALLELIZABLE ACCOUNTS!
-pub fn create_account_txn(
+pub fn create_account_txn_new(
     sender: &Account,
     new_account: &Account,
     parallelizable: bool,
@@ -57,24 +57,24 @@ pub fn create_account_txn(
 }
 
 // OLD CODE
-// pub fn create_account_txn(
-//     sender: &Account,
-//     new_account: &Account,
-//     seq_num: u64,
-// ) -> SignedTransaction {
-//     sender
-//         .transaction()
-//         .payload(aptos_stdlib::aptos_account_create_account(
-//             *new_account.address(),
-//         ))
-//         .sequence_number(seq_num)
-//         .sign()
-// }
+pub fn create_account_txn(
+    sender: &Account,
+    new_account: &Account,
+    seq_num: u64,
+) -> SignedTransaction {
+    sender
+        .transaction()
+        .payload(aptos_stdlib::aptos_account_create_account(
+            *new_account.address(),
+        ))
+        .sequence_number(seq_num)
+        .sign()
+}
 
 /// Returns a transaction to transfer coin from one account to another (possibly new) one, with the
 /// given arguments.
 /// THIS USES AGGREGATOR AS BALANCE!
-pub fn peer_to_peer_txn(
+pub fn peer_to_peer_txn_new(
     sender: &Account,
     receiver: &Account,
     seq_num: u64,
@@ -91,20 +91,20 @@ pub fn peer_to_peer_txn(
         .sign()
 }
 
-// NO AGGREGATOR
-// pub fn peer_to_peer_txn(
-//     sender: &Account,
-//     receiver: &Account,
-//     seq_num: u64,
-//     transfer_amount: u64,
-// ) -> SignedTransaction {
-//     // get a SignedTransaction
-//     sender
-//         .transaction()
-//         .payload(aptos_stdlib::aptos_coin_transfer(
-//             *receiver.address(),
-//             transfer_amount,
-//         ))
-//         .sequence_number(seq_num)
-//         .sign()
-// }
+// NO AGGREGATOR, OLD CODE
+pub fn peer_to_peer_txn(
+    sender: &Account,
+    receiver: &Account,
+    seq_num: u64,
+    transfer_amount: u64,
+) -> SignedTransaction {
+    // get a SignedTransaction
+    sender
+        .transaction()
+        .payload(aptos_stdlib::aptos_coin_transfer(
+            *receiver.address(),
+            transfer_amount,
+        ))
+        .sequence_number(seq_num)
+        .sign()
+}

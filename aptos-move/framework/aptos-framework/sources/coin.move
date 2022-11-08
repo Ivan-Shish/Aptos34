@@ -229,6 +229,19 @@ module aptos_framework::coin {
         }
     }
 
+    public fun burn_agg<CoinType>(
+        amount: u64,
+        _cap: &BurnCapability<CoinType>,
+    ) acquires CoinInfo {
+        assert!(amount > 0, error::invalid_argument(EZERO_COIN_AMOUNT));
+
+        let maybe_supply = &mut borrow_global_mut<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
+        if (option::is_some(maybe_supply)) {
+            let supply = option::borrow_mut(maybe_supply);
+            optional_aggregator::sub(supply, (amount as u128));
+        }
+    }
+
     /// Burn `coin` from the specified `account` with capability.
     /// The capability `burn_cap` should be passed as a reference to `BurnCapability<CoinType>`.
     /// This function shouldn't fail as it's called as part of transaction fee burning.
@@ -238,15 +251,15 @@ module aptos_framework::coin {
         account_addr: address,
         amount: u64,
         burn_cap: &BurnCapability<CoinType>,
-    ) acquires CoinInfo, CoinStore {
+    ) acquires CoinInfo, AggregatableCoinStore {
         // Skip burning if amount is zero. This shouldn't error out as it's called as part of transaction fee burning.
         if (amount == 0) {
             return
         };
 
-        let coin_store = borrow_global_mut<CoinStore<CoinType>>(account_addr);
-        let coin_to_burn = extract(&mut coin_store.coin, amount);
-        burn(coin_to_burn, burn_cap);
+        let coin_store = borrow_global_mut<AggregatableCoinStore<CoinType>>(account_addr);
+        extract_agg(&mut coin_store.coin, amount);
+        burn_agg(amount, burn_cap);
     }
 
     /// Deposit the coin balance into the recipient's account and emit an event.
@@ -281,11 +294,6 @@ module aptos_framework::coin {
             !coin_store.frozen,
             error::permission_denied(EFROZEN),
         );
-
-        // event::emit_event<DepositEvent>(
-        //     &mut coin_store.deposit_events,
-        //     DepositEvent { amount: coin.value },
-        // );
 
         merge_agg(&mut coin_store.coin, amount);
     }

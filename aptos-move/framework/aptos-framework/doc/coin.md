@@ -29,6 +29,7 @@ This module provides the foundation for typesafe Coins.
 -  [Function `decimals`](#0x1_coin_decimals)
 -  [Function `supply`](#0x1_coin_supply)
 -  [Function `burn`](#0x1_coin_burn)
+-  [Function `burn_agg`](#0x1_coin_burn_agg)
 -  [Function `burn_from`](#0x1_coin_burn_from)
 -  [Function `deposit`](#0x1_coin_deposit)
 -  [Function `deposit_agg`](#0x1_coin_deposit_agg)
@@ -918,6 +919,39 @@ The capability <code>_cap</code> should be passed as a reference to <code><a hre
 
 </details>
 
+<a name="0x1_coin_burn_agg"></a>
+
+## Function `burn_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_burn_agg">burn_agg</a>&lt;CoinType&gt;(amount: u64, _cap: &<a href="coin.md#0x1_coin_BurnCapability">coin::BurnCapability</a>&lt;CoinType&gt;)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_burn_agg">burn_agg</a>&lt;CoinType&gt;(
+    amount: u64,
+    _cap: &<a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;,
+) <b>acquires</b> <a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a> {
+    <b>assert</b>!(amount &gt; 0, <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_invalid_argument">error::invalid_argument</a>(<a href="coin.md#0x1_coin_EZERO_COIN_AMOUNT">EZERO_COIN_AMOUNT</a>));
+
+    <b>let</b> maybe_supply = &<b>mut</b> <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(<a href="coin.md#0x1_coin_coin_address">coin_address</a>&lt;CoinType&gt;()).supply;
+    <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
+        <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
+        <a href="optional_aggregator.md#0x1_optional_aggregator_sub">optional_aggregator::sub</a>(supply, (amount <b>as</b> u128));
+    }
+}
+</code></pre>
+
+
+
+</details>
+
 <a name="0x1_coin_burn_from"></a>
 
 ## Function `burn_from`
@@ -942,15 +976,15 @@ Note: This bypasses CoinStore::frozen -- coins within a frozen CoinStore can be 
     account_addr: <b>address</b>,
     amount: u64,
     burn_cap: &<a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;,
-) <b>acquires</b> <a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>, <a href="coin.md#0x1_coin_CoinStore">CoinStore</a> {
+) <b>acquires</b> <a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>, <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
     // Skip burning <b>if</b> amount is zero. This shouldn't <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">error</a> out <b>as</b> it's called <b>as</b> part of transaction fee burning.
     <b>if</b> (amount == 0) {
         <b>return</b>
     };
 
-    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
-    <b>let</b> coin_to_burn = <a href="coin.md#0x1_coin_extract">extract</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
-    <a href="coin.md#0x1_coin_burn">burn</a>(coin_to_burn, burn_cap);
+    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
+    <a href="coin.md#0x1_coin_extract_agg">extract_agg</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
+    <a href="coin.md#0x1_coin_burn_agg">burn_agg</a>(amount, burn_cap);
 }
 </code></pre>
 
@@ -1025,11 +1059,6 @@ Deposit the coin balance into the recipient's account and emit an event.
         !coin_store.frozen,
         <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_permission_denied">error::permission_denied</a>(<a href="coin.md#0x1_coin_EFROZEN">EFROZEN</a>),
     );
-
-    // <a href="event.md#0x1_event_emit_event">event::emit_event</a>&lt;<a href="coin.md#0x1_coin_DepositEvent">DepositEvent</a>&gt;(
-    //     &<b>mut</b> coin_store.deposit_events,
-    //     <a href="coin.md#0x1_coin_DepositEvent">DepositEvent</a> { amount: <a href="coin.md#0x1_coin">coin</a>.value },
-    // );
 
     <a href="coin.md#0x1_coin_merge_agg">merge_agg</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
 }

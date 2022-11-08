@@ -37,10 +37,10 @@ where
     S::Value: AUTransactionGen,
 {
     /// The number of accounts created by default.
-    pub const DEFAULT_NUM_ACCOUNTS: usize = 100;
+    pub const DEFAULT_NUM_ACCOUNTS: usize = 2; // BENCH-TODO! manipulate here
 
     /// The number of transactions created by default.
-    pub const DEFAULT_NUM_TRANSACTIONS: usize = 1000;
+    pub const DEFAULT_NUM_TRANSACTIONS: usize = 2; // BENCH-TODO! manipulate here
 
     /// Creates a new transaction bencher with default settings.
     pub fn new(strategy: S) -> Self {
@@ -188,8 +188,11 @@ impl TransactionBenchState {
     fn execute(self) {
         // The output is ignored here since we're just testing transaction performance, not trying
         // to assert correctness.
-        AptosVM::execute_block(self.transactions, self.executor.get_state_view())
+        let txns = AptosVM::execute_block(self.transactions, self.executor.get_state_view())
             .expect("VM should not fail to start");
+        for t in txns {
+            println!("{:?}", t);
+        }
     }
 
     /// Executes this state in a single block via parallel execution.
@@ -199,7 +202,9 @@ impl TransactionBenchState {
         ParallelAptosVM::execute_block(
             self.transactions,
             self.executor.get_state_view(),
-            num_cpus::get(),
+            // BENCH-TODO! Number of threads for experiments here.
+            8,
+            // num_cpus::get(),
         )
         .expect("VM should not fail to start");
     }
