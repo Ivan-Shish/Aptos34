@@ -5,8 +5,6 @@
 //! (for accessing the storage) and an operation: a partial function with a
 //! postcondition.
 
-use std::collections::BTreeMap;
-
 use crate::module::AGGREGATOR_MODULE;
 use aptos_state_view::StateView;
 use aptos_types::{
@@ -15,6 +13,7 @@ use aptos_types::{
     write_set::{WriteOp, WriteSetMut},
 };
 use move_binary_format::errors::{Location, PartialVMError, PartialVMResult};
+use std::collections::BTreeMap;
 
 /// When `Addition` operation overflows the `limit`.
 const EADD_OVERFLOW: u64 = 0x02_0001;

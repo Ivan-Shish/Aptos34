@@ -9,7 +9,10 @@ use crate::{
     move_vm_ext::MoveResolverExt,
     parallel_executor::{storage_wrapper::VersionedView, AptosTransactionOutput},
 };
-use aptos_aggregator::{delta_change_set::DeltaChangeSet, transaction::TransactionOutputExt};
+use aptos_aggregator::{
+    delta_change_set::{deserialize, DeltaChangeSet},
+    transaction::TransactionOutputExt,
+};
 use aptos_logger::prelude::*;
 use aptos_parallel_executor::{
     executor::MVHashMapView,
@@ -129,6 +132,6 @@ impl<'a, S: 'a + StateView> ExecutorTask for AptosVMWrapper<'a, S> {
     }
 
     fn get_storage_value(&self, key: &StateKey) -> u128 {
-        self.base_view.read(key).unwrap()
+        deserialize(&self.base_view.get_state_value(key).unwrap().unwrap())
     }
 }

@@ -11,7 +11,7 @@ use aptos_types::{
     vm_status::{StatusCode, VMStatus},
     write_set::WriteOp,
 };
-use move_binary_format::errors::Location;
+// use move_binary_format::errors::Location;
 
 pub(crate) struct VersionedView<'a, S: StateView> {
     base_view: &'a S,
@@ -53,7 +53,7 @@ impl<'a, S: StateView> StateView for VersionedView<'a, S> {
             read_attempt = self.hashmap_view.read(state_key);
         }
 
-        match self.hashmap_view.read(state_key) {
+        match read_attempt {
             ReadResult::Value(v) => Ok(match v.as_ref() {
                 WriteOp::Modification(w) | WriteOp::Creation(w) => Some(w.clone()),
                 WriteOp::Deletion => None,
