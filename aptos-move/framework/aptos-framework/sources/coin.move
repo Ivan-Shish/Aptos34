@@ -482,7 +482,7 @@ module aptos_framework::coin {
         move_to(account, coin_store);
     }
 
-    public fun register_agg<CoinType>(account: &signer, parallelizable: bool) {
+    public fun register_agg<CoinType>(account: &signer, parallelizable: bool, balance: u64) {
         let account_addr = signer::address_of(account);
         assert!(
             !is_account_registered<CoinType>(account_addr),
@@ -490,8 +490,10 @@ module aptos_framework::coin {
         );
 
         account::register_coin<CoinType>(account_addr);
+        let aggregator = optional_aggregator::new(MAX_U64, parallelizable);
+        optional_aggregator::add(&mut aggregator, (balance as u128));
         let coin_store = AggregatableCoinStore<CoinType> {
-            coin: AggregatableCoin { aggregator: optional_aggregator::new(MAX_U64, parallelizable) },
+            coin: AggregatableCoin { aggregator, },
             frozen: false,
         };
         move_to(account, coin_store);

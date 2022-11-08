@@ -1538,7 +1538,7 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
 
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool)
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool, balance: u64)
 </code></pre>
 
 
@@ -1547,7 +1547,7 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
 <summary>Implementation</summary>
 
 
-<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool) {
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool, balance: u64) {
     <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
     <b>assert</b>!(
         !<a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
@@ -1555,8 +1555,10 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
     );
 
     <a href="account.md#0x1_account_register_coin">account::register_coin</a>&lt;CoinType&gt;(account_addr);
+    <b>let</b> <a href="aggregator.md#0x1_aggregator">aggregator</a> = <a href="optional_aggregator.md#0x1_optional_aggregator_new">optional_aggregator::new</a>(<a href="coin.md#0x1_coin_MAX_U64">MAX_U64</a>, parallelizable);
+    <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(&<b>mut</b> <a href="aggregator.md#0x1_aggregator">aggregator</a>, (balance <b>as</b> u128));
     <b>let</b> coin_store = <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt; {
-        <a href="coin.md#0x1_coin">coin</a>: <a href="coin.md#0x1_coin_AggregatableCoin">AggregatableCoin</a> { <a href="aggregator.md#0x1_aggregator">aggregator</a>: <a href="optional_aggregator.md#0x1_optional_aggregator_new">optional_aggregator::new</a>(<a href="coin.md#0x1_coin_MAX_U64">MAX_U64</a>, parallelizable) },
+        <a href="coin.md#0x1_coin">coin</a>: <a href="coin.md#0x1_coin_AggregatableCoin">AggregatableCoin</a> { <a href="aggregator.md#0x1_aggregator">aggregator</a>, },
         frozen: <b>false</b>,
     };
     <b>move_to</b>(<a href="account.md#0x1_account">account</a>, coin_store);

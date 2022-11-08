@@ -39,13 +39,7 @@ impl AUTransactionGen for CreateAccountGen {
 
         // THIS IS NOT CALLED BY BENCHMARK !!!!!!!
         panic!("Supposed to be never called!");
-        let txn = create_account_txn_new(
-            sender.account(),
-            &self.new_account,
-            true,
-            sender.sequence_number,
-        );
-        // let txn = create_account_txn(sender.account(), &self.new_account, sender.sequence_number);
+        let txn = create_account_txn(sender.account(), &self.new_account, sender.sequence_number);
 
         let mut gas_used = sender.create_account_gas_cost();
         let low_balance_gas_used = sender.create_account_low_balance_gas_cost();
@@ -96,13 +90,7 @@ impl AUTransactionGen for CreateExistingAccountGen {
 
         // THIS IS NOT CALLED BY BENCHMARK !!!!!!!
         panic!("Supposed to be never called");
-        let txn = create_account_txn_new(
-            sender.account(),
-            receiver.account(),
-            true,
-            sender.sequence_number,
-        );
-        // let txn = create_account_txn(sender.account(), receiver.account(), sender.sequence_number);
+        let txn = create_account_txn(sender.account(), receiver.account(), sender.sequence_number);
 
         // This transaction should never work, but it will fail differently if there's not enough
         // gas to reserve.
