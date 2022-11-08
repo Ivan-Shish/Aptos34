@@ -270,13 +270,13 @@ module aptos_framework::coin {
         merge(&mut coin_store.coin, coin);
     }
 
-    public fun deposit_agg<CoinType>(account_addr: address, amount: u64) acquires CoinStore {
+    public fun deposit_agg<CoinType>(account_addr: address, amount: u64) acquires AggregatableCoinStore {
         assert!(
             is_account_registered<CoinType>(account_addr),
             error::not_found(ECOIN_STORE_NOT_PUBLISHED),
         );
 
-        let coin_store = borrow_global_mut<CoinStore<CoinType>>(account_addr);
+        let coin_store = borrow_global_mut<AggregatableCoinStore<CoinType>>(account_addr);
         assert!(
             !coin_store.frozen,
             error::permission_denied(EFROZEN),
