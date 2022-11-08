@@ -505,7 +505,7 @@ module aptos_framework::coin {
         amount: u64,
     ) acquires AggregatableCoinStore {
         withdraw_agg<CoinType>(from, amount);
-        deposit_agg(to, amount);
+        deposit_agg<CoinType>(to, amount);
     }
 
     /// Returns the `value` passed in `coin`.
