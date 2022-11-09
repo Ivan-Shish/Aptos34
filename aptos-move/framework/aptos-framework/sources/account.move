@@ -210,7 +210,7 @@ module aptos_framework::account {
             error::out_of_range(ESEQUENCE_NUMBER_TOO_BIG)
         );
 
-        *sequence_number = *sequence_number + 1;
+        //*sequence_number = *sequence_number + 1;
     }
 
     public fun get_authentication_key(addr: address): vector<u8> acquires Account {
