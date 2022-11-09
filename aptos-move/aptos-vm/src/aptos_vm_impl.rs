@@ -293,17 +293,17 @@ impl AptosVMImpl {
         // The submitted gas price is less than the minimum gas unit price set by the VM.
         // NB: MIN_PRICE_PER_GAS_UNIT may equal zero, but need not in the future. Hence why
         // we turn off the clippy warning.
-        #[allow(clippy::absurd_extreme_comparisons)]
-        let below_min_bound = txn_data.gas_unit_price() < txn_gas_params.min_price_per_gas_unit;
-        if below_min_bound {
-            warn!(
-                *log_context,
-                "[VM] Gas unit error; min {}, submitted {}",
-                txn_gas_params.min_price_per_gas_unit,
-                txn_data.gas_unit_price(),
-            );
-            return Err(VMStatus::Error(StatusCode::GAS_UNIT_PRICE_BELOW_MIN_BOUND));
-        }
+        // #[allow(clippy::absurd_extreme_comparisons)]
+        // let below_min_bound = txn_data.gas_unit_price() < txn_gas_params.min_price_per_gas_unit;
+        // if below_min_bound {
+        //     warn!(
+        //         *log_context,
+        //         "[VM] Gas unit error; min {}, submitted {}",
+        //         txn_gas_params.min_price_per_gas_unit,
+        //         txn_data.gas_unit_price(),
+        //     );
+        //     return Err(VMStatus::Error(StatusCode::GAS_UNIT_PRICE_BELOW_MIN_BOUND));
+        // }
 
         // The submitted gas price is greater than the maximum gas unit price set by the VM.
         if txn_data.gas_unit_price() > txn_gas_params.max_price_per_gas_unit {
