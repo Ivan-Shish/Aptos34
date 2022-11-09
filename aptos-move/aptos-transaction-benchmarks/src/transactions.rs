@@ -13,7 +13,9 @@ use aptos_vm::{
 };
 use criterion::{measurement::Measurement, BatchSize, Bencher};
 use language_e2e_tests::{
-    account_universe::{log_balance_strategy, AUTransactionGen, AccountUniverseGen},
+    account_universe::{
+        log_balance_strategy, preset_strategy, AUTransactionGen, AccountUniverseGen,
+    },
     executor::FakeExecutor,
     gas_costs::TXN_RESERVED,
 };
@@ -23,12 +25,15 @@ use proptest::{
     test_runner::TestRunner,
 };
 
+use crate::config;
+
 /// Benchmarking support for transactions.
 #[derive(Clone, Debug)]
 pub struct TransactionBencher<S> {
     num_accounts: usize,
     num_transactions: usize,
     strategy: S,
+    concurrency_level: usize,
 }
 
 impl<S> TransactionBencher<S>
@@ -36,18 +41,28 @@ where
     S: Strategy,
     S::Value: AUTransactionGen,
 {
-    /// The number of accounts created by default.
-    pub const DEFAULT_NUM_ACCOUNTS: usize = 2; // BENCH-TODO! manipulate here
-
-    /// The number of transactions created by default.
-    pub const DEFAULT_NUM_TRANSACTIONS: usize = 1000; // BENCH-TODO! manipulate here
+    /// Creates a new transaction bencher with default settings.
+    pub fn new_all(
+        strategy: S,
+        num_accounts: usize,
+        num_transactions: usize,
+        concurrency_level: usize,
+    ) -> Self {
+        Self {
+            num_accounts,
+            num_transactions,
+            strategy,
+            concurrency_level,
+        }
+    }
 
     /// Creates a new transaction bencher with default settings.
     pub fn new(strategy: S) -> Self {
         Self {
-            num_accounts: Self::DEFAULT_NUM_ACCOUNTS,
-            num_transactions: Self::DEFAULT_NUM_TRANSACTIONS,
+            num_accounts: config::NUM_ACCOUNTS,
+            num_transactions: config::NUM_TRANSACTIONS,
             strategy,
+            concurrency_level: config::CONCURRENCY_LEVEL,
         }
     }
 
@@ -71,6 +86,7 @@ where
                     &self.strategy,
                     self.num_accounts,
                     self.num_transactions,
+                    self.concurrency_level,
                 )
             },
             |state| state.execute(),
@@ -87,6 +103,7 @@ where
                     &self.strategy,
                     self.num_accounts,
                     self.num_transactions,
+                    self.concurrency_level,
                 )
             },
             |state| state.execute_parallel(),
@@ -109,11 +126,17 @@ struct TransactionBenchState {
     //    executors.
     executor: FakeExecutor,
     transactions: Vec<Transaction>,
+    concurrency_level: usize,
 }
 
 impl TransactionBenchState {
     /// Creates a new benchmark state with the given number of accounts and transactions.
-    fn with_size<S>(strategy: S, num_accounts: usize, num_transactions: usize) -> Self
+    fn with_size<S>(
+        strategy: S,
+        num_accounts: usize,
+        num_transactions: usize,
+        concurrency_level: usize,
+    ) -> Self
     where
         S: Strategy,
         S::Value: AUTransactionGen,
@@ -122,6 +145,7 @@ impl TransactionBenchState {
             strategy,
             universe_strategy(num_accounts, num_transactions),
             num_transactions,
+            concurrency_level,
         );
 
         // Insert a blockmetadata transaction at the beginning to better simulate the real life traffic.
@@ -152,6 +176,7 @@ impl TransactionBenchState {
         strategy: S,
         universe_strategy: impl Strategy<Value = AccountUniverseGen>,
         num_transactions: usize,
+        concurrency_level: usize,
     ) -> Self
     where
         S: Strategy,
@@ -167,7 +192,7 @@ impl TransactionBenchState {
         // Run in gas-cost-stability mode for now -- this ensures that new accounts are ignored.
         // XXX We may want to include new accounts in case they have interesting performance
         // characteristics.
-        let mut universe = universe.setup_gas_cost_stability(&mut executor);
+        let mut universe = universe.init_for_benchmarking(&mut executor);
 
         let transaction_gens = vec(strategy, num_transactions)
             .new_tree(&mut runner)
@@ -181,6 +206,7 @@ impl TransactionBenchState {
         Self {
             executor,
             transactions,
+            concurrency_level,
         }
     }
 
@@ -190,7 +216,6 @@ impl TransactionBenchState {
         // to assert correctness.
         AptosVM::execute_block(self.transactions, self.executor.get_state_view())
             .expect("VM should not fail to start");
-        // println!("Seq -- {:?}", txns[1]);
     }
 
     /// Executes this state in a single block via parallel execution.
@@ -200,12 +225,9 @@ impl TransactionBenchState {
         ParallelAptosVM::execute_block(
             self.transactions,
             self.executor.get_state_view(),
-            // BENCH-TODO! Number of threads for experiments here.
-            8,
-            // num_cpus::get(),
+            self.concurrency_level,
         )
         .expect("VM should not fail to start");
-        // println!("Par -- {:?}", txns[1]);
     }
 }
 
@@ -216,6 +238,8 @@ fn universe_strategy(
 ) -> impl Strategy<Value = AccountUniverseGen> {
     // Multiply by 5 past the number of  to provide
     let max_balance = TXN_RESERVED * num_transactions as u64 * 5;
-    let balance_strategy = log_balance_strategy(max_balance);
+    //let balance_strategy = log_balance_strategy(max_balance);
+    let balance_strategy =
+        preset_strategy(config::MIN_ACCOUNT_BALANCE, config::MAX_ACCOUNT_BALANCE);
     AccountUniverseGen::strategy(num_accounts, balance_strategy)
 }

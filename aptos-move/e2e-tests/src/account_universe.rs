@@ -316,6 +316,11 @@ pub fn log_balance_strategy(max_balance: u64) -> impl Strategy<Value = u64> {
     Union::new(strategies)
 }
 
+pub fn preset_strategy(min_balance: u64, max_balance: u64) -> impl Strategy<Value = u64> {
+    assert!(max_balance > min_balance, "minimum to make sense");
+    min_balance..max_balance
+}
+
 /// A strategy that returns a random transaction.
 pub fn all_transactions_strategy(
     min: u64,

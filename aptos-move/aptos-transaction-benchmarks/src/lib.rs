@@ -3,5 +3,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod config;
 pub mod measurement;
 pub mod transactions;

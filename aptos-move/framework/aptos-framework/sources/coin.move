@@ -182,6 +182,10 @@ module aptos_framework::coin {
         exists<CoinStore<CoinType>>(account_addr)
     }
 
+    public fun is_account_registered_agg<CoinType>(account_addr: address): bool {
+        exists<AggregatableCoinStore<CoinType>>(account_addr)
+    }
+
     /// Returns the name of the coin.
     public fun name<CoinType>(): string::String acquires CoinInfo {
         borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).name
@@ -285,7 +289,7 @@ module aptos_framework::coin {
 
     public fun deposit_agg<CoinType>(account_addr: address, amount: u64) acquires AggregatableCoinStore {
         assert!(
-            is_account_registered<CoinType>(account_addr),
+            is_account_registered_agg<CoinType>(account_addr),
             error::not_found(ECOIN_STORE_NOT_PUBLISHED),
         );
 
@@ -485,7 +489,7 @@ module aptos_framework::coin {
     public fun register_agg<CoinType>(account: &signer, parallelizable: bool, balance: u64) {
         let account_addr = signer::address_of(account);
         assert!(
-            !is_account_registered<CoinType>(account_addr),
+            !is_account_registered_agg<CoinType>(account_addr),
             error::already_exists(ECOIN_STORE_ALREADY_PUBLISHED),
         );
 
@@ -554,7 +558,7 @@ module aptos_framework::coin {
     ) acquires AggregatableCoinStore {
         let account_addr = signer::address_of(account);
         assert!(
-            is_account_registered<CoinType>(account_addr),
+            is_account_registered_agg<CoinType>(account_addr),
             error::not_found(ECOIN_STORE_NOT_PUBLISHED),
         );
 

@@ -17,6 +17,7 @@ use std::{
 #[cfg(test)]
 mod unit_tests;
 
+// PAPER-BENCHMARK
 pub const DELTA_READ_SHORTCUT: bool = false;
 
 // TODO: re-use definitions with the scheduler.

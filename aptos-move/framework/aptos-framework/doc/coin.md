@@ -24,6 +24,7 @@ This module provides the foundation for typesafe Coins.
 -  [Function `balance`](#0x1_coin_balance)
 -  [Function `is_coin_initialized`](#0x1_coin_is_coin_initialized)
 -  [Function `is_account_registered`](#0x1_coin_is_account_registered)
+-  [Function `is_account_registered_agg`](#0x1_coin_is_account_registered_agg)
 -  [Function `name`](#0x1_coin_name)
 -  [Function `symbol`](#0x1_coin_symbol)
 -  [Function `decimals`](#0x1_coin_decimals)
@@ -773,6 +774,30 @@ Returns <code><b>true</b></code> if <code>account_addr</code> is registered to r
 
 </details>
 
+<a name="0x1_coin_is_account_registered_agg"></a>
+
+## Function `is_account_registered_agg`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_is_account_registered_agg">is_account_registered_agg</a>&lt;CoinType&gt;(account_addr: <b>address</b>): bool
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_is_account_registered_agg">is_account_registered_agg</a>&lt;CoinType&gt;(account_addr: <b>address</b>): bool {
+    <b>exists</b>&lt;<a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt;&gt;(account_addr)
+}
+</code></pre>
+
+
+
+</details>
+
 <a name="0x1_coin_name"></a>
 
 ## Function `name`
@@ -1050,7 +1075,7 @@ Deposit the coin balance into the recipient's account and emit an event.
 
 <pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_deposit_agg">deposit_agg</a>&lt;CoinType&gt;(account_addr: <b>address</b>, amount: u64) <b>acquires</b> <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
     <b>assert</b>!(
-        <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
+        <a href="coin.md#0x1_coin_is_account_registered_agg">is_account_registered_agg</a>&lt;CoinType&gt;(account_addr),
         <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_not_found">error::not_found</a>(<a href="coin.md#0x1_coin_ECOIN_STORE_NOT_PUBLISHED">ECOIN_STORE_NOT_PUBLISHED</a>),
     );
 
@@ -1550,7 +1575,7 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
 <pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_register_agg">register_agg</a>&lt;CoinType&gt;(<a href="account.md#0x1_account">account</a>: &<a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>, parallelizable: bool, balance: u64) {
     <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
     <b>assert</b>!(
-        !<a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
+        !<a href="coin.md#0x1_coin_is_account_registered_agg">is_account_registered_agg</a>&lt;CoinType&gt;(account_addr),
         <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_already_exists">error::already_exists</a>(<a href="coin.md#0x1_coin_ECOIN_STORE_ALREADY_PUBLISHED">ECOIN_STORE_ALREADY_PUBLISHED</a>),
     );
 
@@ -1719,7 +1744,7 @@ Withdraw specifed <code>amount</code> of coin <code>CoinType</code> from the sig
 ) <b>acquires</b> <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
     <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
     <b>assert</b>!(
-        <a href="coin.md#0x1_coin_is_account_registered">is_account_registered</a>&lt;CoinType&gt;(account_addr),
+        <a href="coin.md#0x1_coin_is_account_registered_agg">is_account_registered_agg</a>&lt;CoinType&gt;(account_addr),
         <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_not_found">error::not_found</a>(<a href="coin.md#0x1_coin_ECOIN_STORE_NOT_PUBLISHED">ECOIN_STORE_NOT_PUBLISHED</a>),
     );
 
@@ -2235,27 +2260,6 @@ The creator of <code>CoinType</code> must be <code>@aptos_framework</code>.
     name: name.bytes,
     symbol: symbol.bytes
 };
-</code></pre>
-
-
-Make sure <code>name</code> and <code>symbol</code> are legal length.
-Only the creator of <code>CoinType</code> can initialize.
-
-
-<a name="0x1_coin_InitializeInternalSchema"></a>
-
-
-<pre><code><b>schema</b> <a href="coin.md#0x1_coin_InitializeInternalSchema">InitializeInternalSchema</a>&lt;CoinType&gt; {
-    <a href="account.md#0x1_account">account</a>: <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">signer</a>;
-    name: <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;;
-    symbol: <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;;
-    <b>let</b> account_addr = <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer_address_of">signer::address_of</a>(<a href="account.md#0x1_account">account</a>);
-    <b>let</b> coin_address = <a href="../../aptos-stdlib/doc/type_info.md#0x1_type_info_type_of">type_info::type_of</a>&lt;CoinType&gt;().account_address;
-    <b>aborts_if</b> coin_address != account_addr;
-    <b>aborts_if</b> <b>exists</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(account_addr);
-    <b>aborts_if</b> len(name) &gt; <a href="coin.md#0x1_coin_MAX_COIN_NAME_LENGTH">MAX_COIN_NAME_LENGTH</a>;
-    <b>aborts_if</b> len(symbol) &gt; <a href="coin.md#0x1_coin_MAX_COIN_SYMBOL_LENGTH">MAX_COIN_SYMBOL_LENGTH</a>;
-}
 </code></pre>
 
 

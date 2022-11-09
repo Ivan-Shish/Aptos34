@@ -112,8 +112,18 @@ impl AccountUniverseGen {
     /// The stability mode causes new accounts to be dropped, since those accounts will usually
     /// not be funded enough.
     pub fn setup_gas_cost_stability(self, executor: &mut FakeExecutor) -> AccountUniverse {
+        for account_data in &self.accounts {
+            executor.add_account_data(account_data);
+        }
+
+        AccountUniverse::new(self.accounts, self.pick_style, true)
+    }
+
+    pub fn init_for_benchmarking(self, executor: &mut FakeExecutor) -> AccountUniverse {
+        // Super-user to fund accounts.
         let super_account_data = AccountData::new(1_000_000_000_000, 0);
         executor.add_account_data(&super_account_data);
+
         let mut s: u64 = 0;
         for account_data in &self.accounts {
             // HACK: so add_account_data doesn't work. We have to run a txn to deploy Aggregatable coin stores.
@@ -121,14 +131,12 @@ impl AccountUniverseGen {
                 &Account::new_aptos_root(),
                 account_data.account(),
                 account_data.balance(),
-                // BENCH-TODO!
+                // PAPER-BENCHMARK
                 true,
                 s,
             );
             executor.execute_and_apply(txn);
             s += 1;
-            // HACK 2: this seems to fix seq nums!
-            executor.add_account_data(account_data);
         }
 
         AccountUniverse::new(self.accounts, self.pick_style, true)
