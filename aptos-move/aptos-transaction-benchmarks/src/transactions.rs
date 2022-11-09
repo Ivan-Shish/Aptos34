@@ -37,7 +37,7 @@ where
     S::Value: AUTransactionGen,
 {
     /// The number of accounts created by default.
-    pub const DEFAULT_NUM_ACCOUNTS: usize = 100; // BENCH-TODO! manipulate here
+    pub const DEFAULT_NUM_ACCOUNTS: usize = 2; // BENCH-TODO! manipulate here
 
     /// The number of transactions created by default.
     pub const DEFAULT_NUM_TRANSACTIONS: usize = 1000; // BENCH-TODO! manipulate here
@@ -190,6 +190,7 @@ impl TransactionBenchState {
         // to assert correctness.
         AptosVM::execute_block(self.transactions, self.executor.get_state_view())
             .expect("VM should not fail to start");
+        // println!("Seq -- {:?}", txns[1]);
     }
 
     /// Executes this state in a single block via parallel execution.
@@ -204,6 +205,7 @@ impl TransactionBenchState {
             // num_cpus::get(),
         )
         .expect("VM should not fail to start");
+        // println!("Par -- {:?}", txns[1]);
     }
 }
 
