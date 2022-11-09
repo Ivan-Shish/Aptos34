@@ -65,7 +65,7 @@ module aptos_framework::coin {
     /// Core data structures
 
     /// Main structure representing a coin/token in an account's custody.
-    struct Coin<phantom CoinType> has store {
+    struct Coin<phantom CoinType> has store, drop {
         /// Amount of coin this address has.
         value: u64,
     }
@@ -182,6 +182,11 @@ module aptos_framework::coin {
         exists<CoinStore<CoinType>>(account_addr)
     }
 
+    /// Returns `true` if `account_addr` is registered to receive `CoinType`.
+    public fun is_account_registered_agg<CoinType>(account_addr: address): bool {
+        exists<AggregatableCoinStore<CoinType>>(account_addr)
+    }
+
     /// Returns the name of the coin.
     public fun name<CoinType>(): string::String acquires CoinInfo {
         borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).name
@@ -264,37 +269,27 @@ module aptos_framework::coin {
 
     /// Deposit the coin balance into the recipient's account and emit an event.
     public fun deposit<CoinType>(account_addr: address, coin: Coin<CoinType>) acquires CoinStore {
-        assert!(
-            is_account_registered<CoinType>(account_addr),
-            error::not_found(ECOIN_STORE_NOT_PUBLISHED),
-        );
+        // assert!(
+        //     is_account_registered<CoinType>(account_addr),
+        //     error::not_found(ECOIN_STORE_NOT_PUBLISHED),
+        // );
 
-        let coin_store = borrow_global_mut<CoinStore<CoinType>>(account_addr);
-        assert!(
-            !coin_store.frozen,
-            error::permission_denied(EFROZEN),
-        );
+        let coin_store = borrow_global<CoinStore<CoinType>>(account_addr);
+        // assert!(
+        //     !coin_store.frozen,
+        //     error::permission_denied(EFROZEN),
+        // );
 
-        event::emit_event<DepositEvent>(
-            &mut coin_store.deposit_events,
-            DepositEvent { amount: coin.value },
-        );
+        // event::emit_event<DepositEvent>(
+        //     &mut coin_store.deposit_events,
+        //     DepositEvent { amount: coin.value },
+        // );
 
-        merge(&mut coin_store.coin, coin);
+        // merge(&mut coin_store.coin, coin);
     }
 
     public fun deposit_agg<CoinType>(account_addr: address, amount: u64) acquires AggregatableCoinStore {
-        assert!(
-            is_account_registered<CoinType>(account_addr),
-            error::not_found(ECOIN_STORE_NOT_PUBLISHED),
-        );
-
         let coin_store = borrow_global_mut<AggregatableCoinStore<CoinType>>(account_addr);
-        assert!(
-            !coin_store.frozen,
-            error::permission_denied(EFROZEN),
-        );
-
         merge_agg(&mut coin_store.coin, amount);
     }
 
@@ -485,7 +480,7 @@ module aptos_framework::coin {
     public fun register_agg<CoinType>(account: &signer, parallelizable: bool, balance: u64) {
         let account_addr = signer::address_of(account);
         assert!(
-            !is_account_registered<CoinType>(account_addr),
+            !is_account_registered_agg<CoinType>(account_addr),
             error::already_exists(ECOIN_STORE_ALREADY_PUBLISHED),
         );
 
@@ -529,23 +524,24 @@ module aptos_framework::coin {
         amount: u64,
     ): Coin<CoinType> acquires CoinStore {
         let account_addr = signer::address_of(account);
-        assert!(
-            is_account_registered<CoinType>(account_addr),
-            error::not_found(ECOIN_STORE_NOT_PUBLISHED),
-        );
+        // assert!(
+        //     is_account_registered<CoinType>(account_addr),
+        //     error::not_found(ECOIN_STORE_NOT_PUBLISHED),
+        // );
 
-        let coin_store = borrow_global_mut<CoinStore<CoinType>>(account_addr);
-        assert!(
-            !coin_store.frozen,
-            error::permission_denied(EFROZEN),
-        );
+        let coin_store = borrow_global<CoinStore<CoinType>>(account_addr);
+        // assert!(
+        //     !coin_store.frozen,
+        //     error::permission_denied(EFROZEN),
+        // );
 
-        event::emit_event<WithdrawEvent>(
-            &mut coin_store.withdraw_events,
-            WithdrawEvent { amount },
-        );
+        // event::emit_event<WithdrawEvent>(
+        //     &mut coin_store.withdraw_events,
+        //     WithdrawEvent { amount },
+        // );
 
-        extract(&mut coin_store.coin, amount)
+        zero<CoinType>()
+        // extract(&mut coin_store.coin, amount)
     }
 
     public fun withdraw_agg<CoinType>(
@@ -553,17 +549,7 @@ module aptos_framework::coin {
         amount: u64,
     ) acquires AggregatableCoinStore {
         let account_addr = signer::address_of(account);
-        assert!(
-            is_account_registered<CoinType>(account_addr),
-            error::not_found(ECOIN_STORE_NOT_PUBLISHED),
-        );
-
         let coin_store = borrow_global_mut<AggregatableCoinStore<CoinType>>(account_addr);
-        assert!(
-            !coin_store.frozen,
-            error::permission_denied(EFROZEN),
-        );
-
         extract_agg(&mut coin_store.coin, amount);
     }
 

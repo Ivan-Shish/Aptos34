@@ -40,9 +40,9 @@ impl AUTransactionGen for P2PTransferGen {
             ..
         } = self.sender_receiver.pick(universe);
 
-        // BENCH-TODO!
+        // BENCHMARK-CHANGE:
+        // let txn = peer_to_peer_txn(
         let txn = peer_to_peer_txn_new(
-            // let txn = peer_to_peer_txn(
             sender.account(),
             receiver.account(),
             sender.sequence_number,

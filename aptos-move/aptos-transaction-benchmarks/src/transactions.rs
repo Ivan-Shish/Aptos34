@@ -1,9 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashSet;
+
+use crate::config;
 use aptos_bitvec::BitVec;
 use aptos_crypto::HashValue;
 use aptos_types::{
+    access_path::AccessPath,
     block_metadata::BlockMetadata,
     on_chain_config::{OnChainConfig, ValidatorSet},
     transaction::Transaction,
@@ -13,9 +17,8 @@ use aptos_vm::{
 };
 use criterion::{measurement::Measurement, BatchSize, Bencher};
 use language_e2e_tests::{
-    account_universe::{log_balance_strategy, AUTransactionGen, AccountUniverseGen},
+    account_universe::{predefined_strategy, AUTransactionGen, AccountUniverseGen},
     executor::FakeExecutor,
-    gas_costs::TXN_RESERVED,
 };
 use proptest::{
     collection::vec,
@@ -36,17 +39,11 @@ where
     S: Strategy,
     S::Value: AUTransactionGen,
 {
-    /// The number of accounts created by default.
-    pub const DEFAULT_NUM_ACCOUNTS: usize = 2; // BENCH-TODO! manipulate here
-
-    /// The number of transactions created by default.
-    pub const DEFAULT_NUM_TRANSACTIONS: usize = 1000; // BENCH-TODO! manipulate here
-
     /// Creates a new transaction bencher with default settings.
     pub fn new(strategy: S) -> Self {
         Self {
-            num_accounts: Self::DEFAULT_NUM_ACCOUNTS,
-            num_transactions: Self::DEFAULT_NUM_TRANSACTIONS,
+            num_accounts: config::NUM_ACCOUNTS,
+            num_transactions: config::NUM_TRANSACTIONS_IN_BLOCK,
             strategy,
         }
     }
@@ -163,11 +160,26 @@ impl TransactionBenchState {
             .expect("creating a new value should succeed")
             .current();
 
+        println!("Created new FakeDataStore with ...");
         let mut executor = FakeExecutor::from_head_genesis();
-        // Run in gas-cost-stability mode for now -- this ensures that new accounts are ignored.
-        // XXX We may want to include new accounts in case they have interesting performance
-        // characteristics.
-        let mut universe = universe.setup_gas_cost_stability(&mut executor);
+        let mut universe = universe.init_agg_accounts(&mut executor);
+
+        // let mut addrs: HashSet<aptos_types::account_address::AccountAddress> = HashSet::new();
+        // for account in &universe.accounts {
+        //     addrs.insert(*account.account().address());
+        // }
+
+        // for (k, v) in &executor.get_state_view().state_data {
+        //     match k {
+        //         aptos_types::state_store::state_key::StateKey::AccessPath(a) => {
+        //             if addrs.contains(&a.address) {
+        //                 println!("{:?} for address {:?}", a.get_struct_tag(), a.address);
+        //             }
+        //         }
+        //         _ => {}
+        //     }
+        // }
+        // panic!();
 
         let transaction_gens = vec(strategy, num_transactions)
             .new_tree(&mut runner)
@@ -177,6 +189,10 @@ impl TransactionBenchState {
             .into_iter()
             .map(|txn_gen| Transaction::UserTransaction(txn_gen.apply(&mut universe).0))
             .collect();
+        // for txn in &transactions {
+        //     println!("{:?}", txn);
+        // }
+        // panic!();
 
         Self {
             executor,
@@ -190,7 +206,6 @@ impl TransactionBenchState {
         // to assert correctness.
         AptosVM::execute_block(self.transactions, self.executor.get_state_view())
             .expect("VM should not fail to start");
-        // println!("Seq -- {:?}", txns[1]);
     }
 
     /// Executes this state in a single block via parallel execution.
@@ -201,21 +216,19 @@ impl TransactionBenchState {
             self.transactions,
             self.executor.get_state_view(),
             // BENCH-TODO! Number of threads for experiments here.
-            8,
+            config::CONCURRENCY_LEVEL,
             // num_cpus::get(),
         )
         .expect("VM should not fail to start");
-        // println!("Par -- {:?}", txns[1]);
     }
 }
 
 /// Returns a strategy for the account universe customized for benchmarks.
 fn universe_strategy(
     num_accounts: usize,
-    num_transactions: usize,
+    _num_transactions: usize,
 ) -> impl Strategy<Value = AccountUniverseGen> {
-    // Multiply by 5 past the number of  to provide
-    let max_balance = TXN_RESERVED * num_transactions as u64 * 5;
-    let balance_strategy = log_balance_strategy(max_balance);
+    let balance_strategy =
+        predefined_strategy(config::MIN_ACCOUNT_BALANCE, config::MAX_ACCOUNT_BALANCE);
     AccountUniverseGen::strategy(num_accounts, balance_strategy)
 }

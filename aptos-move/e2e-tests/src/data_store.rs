@@ -39,7 +39,7 @@ pub static GENESIS_CHANGE_SET_MAINNET: Lazy<ChangeSet> =
 /// `RemoteCache` is needed.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct FakeDataStore {
-    state_data: HashMap<StateKey, Vec<u8>>,
+    pub state_data: HashMap<StateKey, Vec<u8>>,
 }
 
 impl FakeDataStore {

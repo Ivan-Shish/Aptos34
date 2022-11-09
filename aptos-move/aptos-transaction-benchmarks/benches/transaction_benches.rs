@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_transaction_benchmarks::{
-    measurement::wall_time_measurement, transactions::TransactionBencher,
+    config, measurement::wall_time_measurement, transactions::TransactionBencher,
 };
 use criterion::{criterion_group, criterion_main, measurement::Measurement, Criterion};
 use language_e2e_tests::account_universe::P2PTransferGen;
@@ -14,12 +14,18 @@ use proptest::prelude::*;
 
 fn peer_to_peer<M: Measurement + 'static>(c: &mut Criterion<M>) {
     c.bench_function("peer_to_peer", |b| {
-        let bencher = TransactionBencher::new(any_with::<P2PTransferGen>((1, 10)));
+        let bencher = TransactionBencher::new(any_with::<P2PTransferGen>((
+            config::MIN_TRANSFER,
+            config::MAX_TRANSFER,
+        )));
         bencher.bench(b)
     });
 
     c.bench_function("peer_to_peer_parallel", |b| {
-        let bencher = TransactionBencher::new(any_with::<P2PTransferGen>((1, 10)));
+        let bencher = TransactionBencher::new(any_with::<P2PTransferGen>((
+            config::MIN_TRANSFER,
+            config::MAX_TRANSFER,
+        )));
         bencher.bench_parallel(b)
     });
 }

@@ -21,7 +21,7 @@ use proptest_derive::Arbitrary;
 /// For more, see the [`account_universe` module documentation][self].
 #[derive(Clone, Debug)]
 pub struct AccountUniverseGen {
-    accounts: Vec<AccountData>,
+    pub accounts: Vec<AccountData>,
     pick_style: AccountPickStyle,
 }
 
@@ -30,7 +30,7 @@ pub struct AccountUniverseGen {
 /// For more, see the [`account_universe` module documentation][self].
 #[derive(Clone, Debug)]
 pub struct AccountUniverse {
-    accounts: Vec<AccountCurrent>,
+    pub accounts: Vec<AccountCurrent>,
     picker: AccountPicker,
     /// Whether to ignore any new accounts that transactions add to the universe.
     ignore_new_accounts: bool,
@@ -112,25 +112,33 @@ impl AccountUniverseGen {
     /// The stability mode causes new accounts to be dropped, since those accounts will usually
     /// not be funded enough.
     pub fn setup_gas_cost_stability(self, executor: &mut FakeExecutor) -> AccountUniverse {
-        let super_account_data = AccountData::new(1_000_000_000_000, 0);
-        executor.add_account_data(&super_account_data);
-        let mut s: u64 = 0;
         for account_data in &self.accounts {
-            // HACK: so add_account_data doesn't work. We have to run a txn to deploy Aggregatable coin stores.
-            let txn = create_account_txn_new(
-                &Account::new_aptos_root(),
-                account_data.account(),
-                account_data.balance(),
-                // BENCH-TODO!
-                true,
-                s,
-            );
-            executor.execute_and_apply(txn);
-            s += 1;
-            // HACK 2: this seems to fix seq nums!
             executor.add_account_data(account_data);
         }
+        AccountUniverse::new(self.accounts, self.pick_style, true)
+    }
 
+    pub fn init_agg_accounts(self, executor: &mut FakeExecutor) -> AccountUniverse {
+        // Create an account that would create accounts with aggregatable balance.
+        let accoun_creator = AccountData::new(1_000_000_000_000, 0);
+        executor.add_account_data(&accoun_creator);
+
+        let mut seq_num: u64 = 0;
+        for account_data in &self.accounts {
+            // Txn to create a new account with aggregatable balance.
+            let txn = create_account_txn_new(
+                accoun_creator.account(),
+                account_data.account(),
+                account_data.balance(),
+                // BENCHMARK-CHANGE
+                true,
+                seq_num,
+            );
+            executor.execute_and_apply(txn);
+            seq_num += 1;
+        }
+
+        // Now every account in self.accounts has an AggregatableCoinStore resource.
         AccountUniverse::new(self.accounts, self.pick_style, true)
     }
 }
