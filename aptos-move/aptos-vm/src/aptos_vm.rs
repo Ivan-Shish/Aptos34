@@ -40,7 +40,7 @@ use aptos_types::{
         WriteSetPayload,
     },
     vm_status::{AbortLocation, DiscardedVMStatus, StatusCode, VMStatus},
-    write_set::WriteSet,
+    write_set::{WriteSet, WriteSetMut},
 };
 use fail::fail_point;
 use framework::natives::code::PublishRequest;
@@ -280,12 +280,14 @@ impl AptosVM {
         // Also, it is worth mentioning that current VM error handling is
         // rather ugly and has a lot of legacy code. This makes proper error
         // handling quite challenging.
-        let delta_write_set_mut = user_txn_change_set_ext
-            .delta_change_set()
-            .clone()
-            .try_into_write_set_mut(&storage)
-            .expect("something terrible happened when applying aggregator deltas");
-        let delta_write_set = delta_write_set_mut
+
+        // HACK: In order to make aggregators work, we need to avoid reading deltas!
+        // let delta_write_set_mut = user_txn_change_set_ext
+        //     .delta_change_set()
+        //     .clone()
+        //     .try_into_write_set_mut(&storage)
+        //     .expect("something terrible happened when applying aggregator deltas");
+        let delta_write_set = WriteSetMut::new(vec![])
             .freeze()
             .map_err(|_err| VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR))?;
         let storage_with_changes =
