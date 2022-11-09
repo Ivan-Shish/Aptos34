@@ -122,7 +122,7 @@ impl AccountUniverseGen {
                 account_data.account(),
                 account_data.balance(),
                 // BENCH-TODO!
-                false,
+                true,
                 s,
             );
             executor.execute_and_apply(txn);
