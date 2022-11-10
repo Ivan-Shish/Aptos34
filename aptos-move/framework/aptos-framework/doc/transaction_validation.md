@@ -463,8 +463,8 @@ Called by the Adapter
     //     <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error_out_of_range">error::out_of_range</a>(<a href="transaction_validation.md#0x1_transaction_validation_PROLOGUE_ECANT_PAY_GAS_DEPOSIT">PROLOGUE_ECANT_PAY_GAS_DEPOSIT</a>),
     // );
 
-    // HACK: don't burn fees so we don't fail here!
-    // <a href="transaction_fee.md#0x1_transaction_fee_burn_fee">transaction_fee::burn_fee</a>(addr, transaction_fee_amount);
+    // HACK: burn small enough so we don't fail!
+    // <a href="transaction_fee.md#0x1_transaction_fee_burn_fee">transaction_fee::burn_fee</a>(addr, 1);
 
     // HACK: don't increment!
     // Increment sequence number

@@ -24,7 +24,7 @@ use std::sync::Arc;
 #[derive(Arbitrary, Clone, Debug)]
 #[proptest(params = "(u64, u64)")]
 pub struct P2PTransferGen {
-    sender_receiver: AccountPairGen,
+    pub sender_receiver: AccountPairGen,
     #[proptest(strategy = "params.0 ..= params.1")]
     amount: u64,
 }
@@ -40,13 +40,21 @@ impl AUTransactionGen for P2PTransferGen {
             ..
         } = self.sender_receiver.pick(universe);
 
+        // PAPER-BENCHMARKING: enable if accounts.
         let txn = peer_to_peer_txn_new(
-            // let txn = peer_to_peer_txn(
             sender.account(),
             receiver.account(),
             sender.sequence_number,
             self.amount,
         );
+
+        // PAPER-BENCHMARKING: enable if supply.
+        // let txn = peer_to_peer_txn(
+        //     sender.account(),
+        //     receiver.account(),
+        //     sender.sequence_number,
+        //     self.amount,
+        // );
 
         // Now figure out whether the transaction will actually work.
         // This means that we'll get through the main part of the transaction.

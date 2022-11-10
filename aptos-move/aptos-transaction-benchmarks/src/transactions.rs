@@ -192,6 +192,11 @@ impl TransactionBenchState {
         // Run in gas-cost-stability mode for now -- this ensures that new accounts are ignored.
         // XXX We may want to include new accounts in case they have interesting performance
         // characteristics.
+
+        // PAPER-BENCHMARKING: enable if supply.
+        // let mut universe = universe.setup_gas_cost_stability(&mut executor);
+
+        // PAPER-BENCHMARKING: enable if accounts.
         let mut universe = universe.init_for_benchmarking(&mut executor);
 
         let transaction_gens = vec(strategy, num_transactions)

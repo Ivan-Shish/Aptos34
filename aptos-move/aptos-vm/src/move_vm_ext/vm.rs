@@ -72,7 +72,17 @@ impl MoveVmExt {
             _ => vec![],
         };
 
-        extensions.add(NativeTransactionContext::new(script_hash, self.chain_id));
+        let txn_hash_as_u128 = u128::from_be_bytes(
+            txn_hash[..16]
+                .to_vec()
+                .try_into()
+                .expect("should be able to get u128"),
+        );
+        extensions.add(NativeTransactionContext::new(
+            script_hash,
+            txn_hash_as_u128,
+            self.chain_id,
+        ));
         extensions.add(NativeCodeContext::default());
         extensions.add(NativeStateStorageContext::new(remote));
 

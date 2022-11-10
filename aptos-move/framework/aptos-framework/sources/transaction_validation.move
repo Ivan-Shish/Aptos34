@@ -197,8 +197,8 @@ module aptos_framework::transaction_validation {
         //     error::out_of_range(PROLOGUE_ECANT_PAY_GAS_DEPOSIT),
         // );
 
-        // HACK: don't burn fees so we don't fail here!
-        // transaction_fee::burn_fee(addr, transaction_fee_amount);
+        // HACK: burn small enough so we don't fail!
+        // transaction_fee::burn_fee(addr, 1);
 
         // HACK: don't increment!
         // Increment sequence number

@@ -8,6 +8,7 @@ module aptos_framework::coin {
     use aptos_framework::account;
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::optional_aggregator::{Self, OptionalAggregator};
+    use aptos_framework::aggregator_old::{Self, AggregatorOld};
     use aptos_framework::system_addresses;
 
     use aptos_std::type_info;
@@ -113,7 +114,10 @@ module aptos_framework::coin {
         /// be displayed to a user as `5.05` (`505 / 10 ** 2`).
         decimals: u8,
         /// Amount of this coin type in existence.
+
+        // PAPER-BENCHMARK
         supply: Option<OptionalAggregator>,
+        // supply: Option<AggregatorOld>,
     }
 
     /// Event emitted when some amount of a coin is deposited into an account.
@@ -204,12 +208,15 @@ module aptos_framework::coin {
     }
 
     /// Returns the amount of coin in existence.
+    // PAPER-BENCHMARK
     public fun supply<CoinType>(): Option<u128> acquires CoinInfo {
         let maybe_supply = &borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
         if (option::is_some(maybe_supply)) {
             // We do track supply, in this case read from optional aggregator.
             let supply = option::borrow(maybe_supply);
+            // PAPER-BENCHMARK
             let value = optional_aggregator::read(supply);
+            // let value = aggregator_old::drain(supply);
             option::some(value)
         } else {
             option::none()
@@ -229,7 +236,9 @@ module aptos_framework::coin {
         let maybe_supply = &mut borrow_global_mut<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
-            optional_aggregator::sub(supply, (amount as u128));
+            // HACK: add is enough here.
+            optional_aggregator::add(supply, (amount as u128));
+            // aggregator_old::add(supply, (amount as u128));
         }
     }
 
@@ -242,7 +251,9 @@ module aptos_framework::coin {
         let maybe_supply = &mut borrow_global_mut<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
-            optional_aggregator::sub(supply, (amount as u128));
+            // HACK: add is enough here.
+            optional_aggregator::add(supply, (amount as u128));
+            // aggregator_old::add(supply, (amount as u128));
         }
     }
 
@@ -251,7 +262,7 @@ module aptos_framework::coin {
     /// This function shouldn't fail as it's called as part of transaction fee burning.
     ///
     /// Note: This bypasses CoinStore::frozen -- coins within a frozen CoinStore can be burned.
-    public fun burn_from<CoinType>(
+    public fun burn_from_agg<CoinType>(
         account_addr: address,
         amount: u64,
         burn_cap: &BurnCapability<CoinType>,
@@ -264,6 +275,21 @@ module aptos_framework::coin {
         let coin_store = borrow_global_mut<AggregatableCoinStore<CoinType>>(account_addr);
         extract_agg(&mut coin_store.coin, amount);
         burn_agg(amount, burn_cap);
+    }
+
+    public fun burn_from<CoinType>(
+        account_addr: address,
+        amount: u64,
+        burn_cap: &BurnCapability<CoinType>,
+    ) acquires CoinInfo, CoinStore {
+        // Skip burning if amount is zero. This shouldn't error out as it's called as part of transaction fee burning.
+        if (amount == 0) {
+            return
+        };
+
+        let coin_store = borrow_global_mut<CoinStore<CoinType>>(account_addr);
+        let coin_to_burn = extract(&mut coin_store.coin, amount);
+        burn(coin_to_burn, burn_cap);
     }
 
     /// Deposit the coin balance into the recipient's account and emit an event.
@@ -368,6 +394,7 @@ module aptos_framework::coin {
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
 
+            // PAPER-BENCHMARK
             // If supply is tracked and the current implementation uses an integer - upgrade.
             if (!optional_aggregator::is_parallelizable(supply)) {
                 optional_aggregator::switch(supply);
@@ -397,7 +424,11 @@ module aptos_framework::coin {
         monitor_supply: bool,
     ): (BurnCapability<CoinType>, FreezeCapability<CoinType>, MintCapability<CoinType>) {
         system_addresses::assert_aptos_framework(account);
+        // PAPER-BENCHMARKING: enable if accounts.
         initialize_internal(account, name, symbol, decimals, monitor_supply, true)
+
+        // PAPER-BENCHMARKING: enable and later if supply.
+        // initialize_internal(account, name, symbol, decimals, true, true)
     }
 
     fun initialize_internal<CoinType>(
@@ -427,6 +458,8 @@ module aptos_framework::coin {
             name,
             symbol,
             decimals,
+            // PAPER-BENCHMARK
+            // supply: if (monitor_supply) { option::some(aggregator_old::new()) } else { option::none() },
             supply: if (monitor_supply) { option::some(optional_aggregator::new(MAX_U128, parallelizable)) } else { option::none() },
         };
         move_to(account, coin_info);
@@ -463,6 +496,7 @@ module aptos_framework::coin {
         let maybe_supply = &mut borrow_global_mut<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
+            // PAPER-BENCHMARK
             optional_aggregator::add(supply, (amount as u128));
         };
 
@@ -987,78 +1021,78 @@ module aptos_framework::coin {
         initialize_with_aggregator(&other);
     }
 
-    #[test(framework = @aptos_framework)]
-    fun test_supply_initialize(framework: signer) acquires CoinInfo {
-        aggregator_factory::initialize_aggregator_factory_for_test(&framework);
-        initialize_with_aggregator(&framework);
+    // #[test(framework = @aptos_framework)]
+    // fun test_supply_initialize(framework: signer) acquires CoinInfo {
+    //     aggregator_factory::initialize_aggregator_factory_for_test(&framework);
+    //     initialize_with_aggregator(&framework);
 
-        let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
-        let supply = option::borrow_mut(maybe_supply);
+    //     let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
+    //     let supply = option::borrow_mut(maybe_supply);
 
-        // Supply should be parallelizable.
-        assert!(optional_aggregator::is_parallelizable(supply), 0);
+    //     // Supply should be parallelizable.
+    //     assert!(optional_aggregator::is_parallelizable(supply), 0);
 
-        optional_aggregator::add(supply, 100);
-        optional_aggregator::sub(supply, 50);
-        optional_aggregator::add(supply, 950);
-        assert!(optional_aggregator::read(supply) == 1000, 0);
-    }
+    //     optional_aggregator::add(supply, 100);
+    //     optional_aggregator::sub(supply, 50);
+    //     optional_aggregator::add(supply, 950);
+    //     assert!(optional_aggregator::read(supply) == 1000, 0);
+    // }
 
-    #[test(framework = @aptos_framework)]
-    #[expected_failure(abort_code = 0x20001)]
-    fun test_supply_overflow(framework: signer) acquires CoinInfo {
-        aggregator_factory::initialize_aggregator_factory_for_test(&framework);
-        initialize_with_aggregator(&framework);
+    // #[test(framework = @aptos_framework)]
+    // #[expected_failure(abort_code = 0x20001)]
+    // fun test_supply_overflow(framework: signer) acquires CoinInfo {
+    //     aggregator_factory::initialize_aggregator_factory_for_test(&framework);
+    //     initialize_with_aggregator(&framework);
 
-        let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
-        let supply = option::borrow_mut(maybe_supply);
+    //     let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
+    //     let supply = option::borrow_mut(maybe_supply);
 
-        optional_aggregator::add(supply, MAX_U128);
-        optional_aggregator::add(supply, 1);
-        optional_aggregator::sub(supply, 1);
-    }
+    //     optional_aggregator::add(supply, MAX_U128);
+    //     optional_aggregator::add(supply, 1);
+    //     optional_aggregator::sub(supply, 1);
+    // }
 
-    #[test(framework = @aptos_framework)]
-    #[expected_failure(abort_code = 0x5000B)]
-    fun test_supply_upgrade_fails(framework: signer) acquires CoinInfo, SupplyConfig {
-        initialize_supply_config(&framework);
-        aggregator_factory::initialize_aggregator_factory_for_test(&framework);
-        initialize_with_integer(&framework);
+    // #[test(framework = @aptos_framework)]
+    // #[expected_failure(abort_code = 0x5000B)]
+    // fun test_supply_upgrade_fails(framework: signer) acquires CoinInfo, SupplyConfig {
+    //     initialize_supply_config(&framework);
+    //     aggregator_factory::initialize_aggregator_factory_for_test(&framework);
+    //     initialize_with_integer(&framework);
 
-        let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
-        let supply = option::borrow_mut(maybe_supply);
+    //     let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
+    //     let supply = option::borrow_mut(maybe_supply);
 
-        // Supply should be non-parallelizable.
-        assert!(!optional_aggregator::is_parallelizable(supply), 0);
+    //     // Supply should be non-parallelizable.
+    //     assert!(!optional_aggregator::is_parallelizable(supply), 0);
 
-        optional_aggregator::add(supply, 100);
-        optional_aggregator::sub(supply, 50);
-        optional_aggregator::add(supply, 950);
-        assert!(optional_aggregator::read(supply) == 1000, 0);
+    //     optional_aggregator::add(supply, 100);
+    //     optional_aggregator::sub(supply, 50);
+    //     optional_aggregator::add(supply, 950);
+    //     assert!(optional_aggregator::read(supply) == 1000, 0);
 
-        upgrade_supply<FakeMoney>(&framework);
-    }
+    //     upgrade_supply<FakeMoney>(&framework);
+    // }
 
-    #[test(framework = @aptos_framework)]
-    fun test_supply_upgrade(framework: signer) acquires CoinInfo, SupplyConfig {
-        initialize_supply_config(&framework);
-        aggregator_factory::initialize_aggregator_factory_for_test(&framework);
-        initialize_with_integer(&framework);
+    // #[test(framework = @aptos_framework)]
+    // fun test_supply_upgrade(framework: signer) acquires CoinInfo, SupplyConfig {
+    //     initialize_supply_config(&framework);
+    //     aggregator_factory::initialize_aggregator_factory_for_test(&framework);
+    //     initialize_with_integer(&framework);
 
-        // Ensure we have a non-parellelizable non-zero supply.
-        let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
-        let supply = option::borrow_mut(maybe_supply);
-        assert!(!optional_aggregator::is_parallelizable(supply), 0);
-        optional_aggregator::add(supply, 100);
+    //     // Ensure we have a non-parellelizable non-zero supply.
+    //     let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
+    //     let supply = option::borrow_mut(maybe_supply);
+    //     assert!(!optional_aggregator::is_parallelizable(supply), 0);
+    //     optional_aggregator::add(supply, 100);
 
-        // Upgrade.
-        allow_supply_upgrades(&framework, true);
-        upgrade_supply<FakeMoney>(&framework);
+    //     // Upgrade.
+    //     allow_supply_upgrades(&framework, true);
+    //     upgrade_supply<FakeMoney>(&framework);
 
-        // Check supply again.
-        let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
-        let supply = option::borrow_mut(maybe_supply);
-        assert!(optional_aggregator::is_parallelizable(supply), 0);
-        assert!(optional_aggregator::read(supply) == 100, 0);
-    }
+    //     // Check supply again.
+    //     let maybe_supply = &mut borrow_global_mut<CoinInfo<FakeMoney>>(coin_address<FakeMoney>()).supply;
+    //     let supply = option::borrow_mut(maybe_supply);
+    //     assert!(optional_aggregator::is_parallelizable(supply), 0);
+    //     assert!(optional_aggregator::read(supply) == 100, 0);
+    // }
 }

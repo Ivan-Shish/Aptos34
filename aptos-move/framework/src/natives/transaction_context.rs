@@ -19,15 +19,17 @@ use std::sync::Arc;
 #[derive(Tid)]
 pub struct NativeTransactionContext {
     script_hash: Vec<u8>,
+    txn_hash: u128,
     chain_id: u8,
 }
 
 impl NativeTransactionContext {
     /// Create a new instance of a native transaction context. This must be passed in via an
     /// extension into VM session functions.
-    pub fn new(script_hash: Vec<u8>, chain_id: u8) -> Self {
+    pub fn new(script_hash: Vec<u8>, txn_hash: u128, chain_id: u8) -> Self {
         Self {
             script_hash,
+            txn_hash,
             chain_id,
         }
     }
@@ -35,6 +37,37 @@ impl NativeTransactionContext {
     pub fn chain_id(&self) -> u8 {
         self.chain_id
     }
+}
+
+/***************************************************************************************************
+ * native fun get_bucket
+ *
+ *   gas cost: base_cost
+ *
+ **************************************************************************************************/
+#[derive(Clone, Debug)]
+pub struct GetBucketGasParameters {
+    pub base: InternalGas,
+}
+
+fn native_get_bucket(
+    gas_params: &GetBucketGasParameters,
+    context: &mut NativeContext,
+    mut _ty_args: Vec<Type>,
+    _args: VecDeque<Value>,
+) -> PartialVMResult<NativeResult> {
+    let transaction_context = context.extensions().get::<NativeTransactionContext>();
+
+    const NUM_BUCKETS: u128 = 100;
+    let index = (transaction_context.txn_hash % NUM_BUCKETS) as u64;
+    Ok(NativeResult::ok(
+        gas_params.base,
+        smallvec![Value::u64(index)],
+    ))
+}
+
+pub fn make_native_get_bucket(gas_params: GetBucketGasParameters) -> NativeFunction {
+    Arc::new(move |context, ty_args, args| native_get_bucket(&gas_params, context, ty_args, args))
 }
 
 /***************************************************************************************************
@@ -75,13 +108,17 @@ pub fn make_native_get_script_hash(gas_params: GetScriptHashGasParameters) -> Na
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub get_script_hash: GetScriptHashGasParameters,
+    pub get_bucket: GetBucketGasParameters,
 }
 
 pub fn make_all(gas_params: GasParameters) -> impl Iterator<Item = (String, NativeFunction)> {
-    let natives = [(
-        "get_script_hash",
-        make_native_get_script_hash(gas_params.get_script_hash),
-    )];
+    let natives = [
+        (
+            "get_script_hash",
+            make_native_get_script_hash(gas_params.get_script_hash),
+        ),
+        ("get_bucket", make_native_get_bucket(gas_params.get_bucket)),
+    ];
 
     crate::natives::helpers::make_module_natives(natives)
 }
