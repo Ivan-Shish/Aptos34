@@ -116,8 +116,8 @@ module aptos_framework::coin {
         /// Amount of this coin type in existence.
 
         // PAPER-BENCHMARK
-        supply: Option<OptionalAggregator>,
-        // supply: Option<AggregatorOld>,
+        // supply: Option<OptionalAggregator>,
+        supply: Option<AggregatorOld>,
     }
 
     /// Event emitted when some amount of a coin is deposited into an account.
@@ -215,8 +215,8 @@ module aptos_framework::coin {
             // We do track supply, in this case read from optional aggregator.
             let supply = option::borrow(maybe_supply);
             // PAPER-BENCHMARK
-            let value = optional_aggregator::read(supply);
-            // let value = aggregator_old::drain(supply);
+            // let value = optional_aggregator::read(supply);
+            let value = aggregator_old::drain(supply);
             option::some(value)
         } else {
             option::none()
@@ -237,8 +237,8 @@ module aptos_framework::coin {
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
             // HACK: add is enough here.
-            optional_aggregator::add(supply, (amount as u128));
-            // aggregator_old::add(supply, (amount as u128));
+            // optional_aggregator::add(supply, (amount as u128));
+            aggregator_old::add(supply, (amount as u128));
         }
     }
 
@@ -252,8 +252,8 @@ module aptos_framework::coin {
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
             // HACK: add is enough here.
-            optional_aggregator::add(supply, (amount as u128));
-            // aggregator_old::add(supply, (amount as u128));
+            // optional_aggregator::add(supply, (amount as u128));
+            aggregator_old::add(supply, (amount as u128));
         }
     }
 
@@ -396,9 +396,9 @@ module aptos_framework::coin {
 
             // PAPER-BENCHMARK
             // If supply is tracked and the current implementation uses an integer - upgrade.
-            if (!optional_aggregator::is_parallelizable(supply)) {
-                optional_aggregator::switch(supply);
-            }
+            // if (!optional_aggregator::is_parallelizable(supply)) {
+            //     optional_aggregator::switch(supply);
+            // }
         }
     }
 
@@ -412,7 +412,7 @@ module aptos_framework::coin {
         decimals: u8,
         monitor_supply: bool,
     ): (BurnCapability<CoinType>, FreezeCapability<CoinType>, MintCapability<CoinType>) {
-        initialize_internal(account, name, symbol, decimals, true, false)
+        initialize_internal(account, name, symbol, decimals, true, true)
     }
 
     /// Same as `initialize` but supply can be initialized to parallelizable aggregator.
@@ -428,7 +428,7 @@ module aptos_framework::coin {
         // initialize_internal(account, name, symbol, decimals, monitor_supply, true)
 
         // PAPER-BENCHMARKING: enable and later if supply.
-        initialize_internal(account, name, symbol, decimals, true, false)
+        initialize_internal(account, name, symbol, decimals, true, true)
     }
 
     fun initialize_internal<CoinType>(
@@ -459,8 +459,8 @@ module aptos_framework::coin {
             symbol,
             decimals,
             // PAPER-BENCHMARK
-            // supply: if (monitor_supply) { option::some(aggregator_old::new()) } else { option::none() },
-            supply: if (monitor_supply) { option::some(optional_aggregator::new(MAX_U128, parallelizable)) } else { option::none() },
+            supply: if (monitor_supply) { option::some(aggregator_old::new()) } else { option::none() },
+            // supply: if (monitor_supply) { option::some(optional_aggregator::new(MAX_U128, parallelizable)) } else { option::none() },
         };
         move_to(account, coin_info);
 
@@ -497,7 +497,7 @@ module aptos_framework::coin {
         if (option::is_some(maybe_supply)) {
             let supply = option::borrow_mut(maybe_supply);
             // PAPER-BENCHMARK
-            optional_aggregator::add(supply, (amount as u128));
+            // optional_aggregator::add(supply, (amount as u128));
         };
 
         Coin<CoinType> { value: amount }

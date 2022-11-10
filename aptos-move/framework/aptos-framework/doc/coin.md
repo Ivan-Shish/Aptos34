@@ -89,6 +89,7 @@ This module provides the foundation for typesafe Coins.
 
 
 <pre><code><b>use</b> <a href="account.md#0x1_account">0x1::account</a>;
+<b>use</b> <a href="aggregator_old.md#0x1_aggregator_old">0x1::aggregator_old</a>;
 <b>use</b> <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">0x1::error</a>;
 <b>use</b> <a href="event.md#0x1_event">0x1::event</a>;
 <b>use</b> <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option">0x1::option</a>;
@@ -305,7 +306,7 @@ Information about a specific coin type. Stored on the creator of the coin's acco
  be displayed to a user as <code>5.05</code> (<code>505 / 10 ** 2</code>).
 </dd>
 <dt>
-<code>supply: <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_Option">option::Option</a>&lt;<a href="optional_aggregator.md#0x1_optional_aggregator_OptionalAggregator">optional_aggregator::OptionalAggregator</a>&gt;</code>
+<code>supply: <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_Option">option::Option</a>&lt;<a href="aggregator_old.md#0x1_aggregator_old_AggregatorOld">aggregator_old::AggregatorOld</a>&gt;</code>
 </dt>
 <dd>
  Amount of this coin type in existence.
@@ -898,8 +899,8 @@ Returns the amount of coin in existence.
         // We do track supply, in this case read from optional <a href="aggregator.md#0x1_aggregator">aggregator</a>.
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow">option::borrow</a>(maybe_supply);
         // PAPER-BENCHMARK
-        <b>let</b> value = <a href="optional_aggregator.md#0x1_optional_aggregator_read">optional_aggregator::read</a>(supply);
-        // <b>let</b> value = <a href="aggregator_old.md#0x1_aggregator_old_drain">aggregator_old::drain</a>(supply);
+        // <b>let</b> value = <a href="optional_aggregator.md#0x1_optional_aggregator_read">optional_aggregator::read</a>(supply);
+        <b>let</b> value = <a href="aggregator_old.md#0x1_aggregator_old_drain">aggregator_old::drain</a>(supply);
         <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(value)
     } <b>else</b> {
         <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>()
@@ -939,8 +940,8 @@ The capability <code>_cap</code> should be passed as a reference to <code><a hre
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
         // HACK: add is enough here.
-        <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
-        // <a href="aggregator_old.md#0x1_aggregator_old_add">aggregator_old::add</a>(supply, (amount <b>as</b> u128));
+        // <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
+        <a href="aggregator_old.md#0x1_aggregator_old_add">aggregator_old::add</a>(supply, (amount <b>as</b> u128));
     }
 }
 </code></pre>
@@ -974,8 +975,8 @@ The capability <code>_cap</code> should be passed as a reference to <code><a hre
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
         // HACK: add is enough here.
-        <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
-        // <a href="aggregator_old.md#0x1_aggregator_old_add">aggregator_old::add</a>(supply, (amount <b>as</b> u128));
+        // <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
+        <a href="aggregator_old.md#0x1_aggregator_old_add">aggregator_old::add</a>(supply, (amount <b>as</b> u128));
     }
 }
 </code></pre>
@@ -1338,9 +1339,9 @@ available.
 
         // PAPER-BENCHMARK
         // If supply is tracked and the current implementation uses an integer - upgrade.
-        <b>if</b> (!<a href="optional_aggregator.md#0x1_optional_aggregator_is_parallelizable">optional_aggregator::is_parallelizable</a>(supply)) {
-            <a href="optional_aggregator.md#0x1_optional_aggregator_switch">optional_aggregator::switch</a>(supply);
-        }
+        // <b>if</b> (!<a href="optional_aggregator.md#0x1_optional_aggregator_is_parallelizable">optional_aggregator::is_parallelizable</a>(supply)) {
+        //     <a href="optional_aggregator.md#0x1_optional_aggregator_switch">optional_aggregator::switch</a>(supply);
+        // }
     }
 }
 </code></pre>
@@ -1374,7 +1375,7 @@ The given signer also becomes the account hosting the information  about the coi
     decimals: u8,
     monitor_supply: bool,
 ): (<a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;, <a href="coin.md#0x1_coin_FreezeCapability">FreezeCapability</a>&lt;CoinType&gt;, <a href="coin.md#0x1_coin_MintCapability">MintCapability</a>&lt;CoinType&gt;) {
-    <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, <b>true</b>, <b>false</b>)
+    <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, <b>true</b>, <b>true</b>)
 }
 </code></pre>
 
@@ -1410,7 +1411,7 @@ Same as <code>initialize</code> but supply can be initialized to parallelizable 
     // <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, monitor_supply, <b>true</b>)
 
     // PAPER-BENCHMARKING: enable and later <b>if</b> supply.
-    <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, <b>true</b>, <b>false</b>)
+    <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, <b>true</b>, <b>true</b>)
 }
 </code></pre>
 
@@ -1461,8 +1462,8 @@ Same as <code>initialize</code> but supply can be initialized to parallelizable 
         symbol,
         decimals,
         // PAPER-BENCHMARK
-        // supply: <b>if</b> (monitor_supply) { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(<a href="aggregator_old.md#0x1_aggregator_old_new">aggregator_old::new</a>()) } <b>else</b> { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>() },
-        supply: <b>if</b> (monitor_supply) { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(<a href="optional_aggregator.md#0x1_optional_aggregator_new">optional_aggregator::new</a>(<a href="coin.md#0x1_coin_MAX_U128">MAX_U128</a>, parallelizable)) } <b>else</b> { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>() },
+        supply: <b>if</b> (monitor_supply) { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(<a href="aggregator_old.md#0x1_aggregator_old_new">aggregator_old::new</a>()) } <b>else</b> { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>() },
+        // supply: <b>if</b> (monitor_supply) { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(<a href="optional_aggregator.md#0x1_optional_aggregator_new">optional_aggregator::new</a>(<a href="coin.md#0x1_coin_MAX_U128">MAX_U128</a>, parallelizable)) } <b>else</b> { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>() },
     };
     <b>move_to</b>(<a href="account.md#0x1_account">account</a>, coin_info);
 
@@ -1559,7 +1560,7 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
         // PAPER-BENCHMARK
-        <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
+        // <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
     };
 
     <a href="coin.md#0x1_coin_Coin">Coin</a>&lt;CoinType&gt; { value: amount }

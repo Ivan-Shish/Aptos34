@@ -13,6 +13,8 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+pub const NUM_BUCKETS: u128 = 10;
+
 /// The native transaction context extension. This needs to be attached to the
 /// NativeContextExtensions value which is passed into session functions, so its accessible from
 /// natives of this extension.
@@ -58,7 +60,6 @@ fn native_get_bucket(
 ) -> PartialVMResult<NativeResult> {
     let transaction_context = context.extensions().get::<NativeTransactionContext>();
 
-    const NUM_BUCKETS: u128 = 100;
     let index = (transaction_context.txn_hash % NUM_BUCKETS) as u64;
     Ok(NativeResult::ok(
         gas_params.base,
