@@ -31,6 +31,7 @@ This module provides the foundation for typesafe Coins.
 -  [Function `supply`](#0x1_coin_supply)
 -  [Function `burn`](#0x1_coin_burn)
 -  [Function `burn_agg`](#0x1_coin_burn_agg)
+-  [Function `burn_from_agg`](#0x1_coin_burn_from_agg)
 -  [Function `burn_from`](#0x1_coin_burn_from)
 -  [Function `deposit`](#0x1_coin_deposit)
 -  [Function `deposit_agg`](#0x1_coin_deposit_agg)
@@ -896,7 +897,9 @@ Returns the amount of coin in existence.
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         // We do track supply, in this case read from optional <a href="aggregator.md#0x1_aggregator">aggregator</a>.
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow">option::borrow</a>(maybe_supply);
+        // PAPER-BENCHMARK
         <b>let</b> value = <a href="optional_aggregator.md#0x1_optional_aggregator_read">optional_aggregator::read</a>(supply);
+        // <b>let</b> value = <a href="aggregator_old.md#0x1_aggregator_old_drain">aggregator_old::drain</a>(supply);
         <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(value)
     } <b>else</b> {
         <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>()
@@ -935,7 +938,9 @@ The capability <code>_cap</code> should be passed as a reference to <code><a hre
     <b>let</b> maybe_supply = &<b>mut</b> <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(<a href="coin.md#0x1_coin_coin_address">coin_address</a>&lt;CoinType&gt;()).supply;
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
-        <a href="optional_aggregator.md#0x1_optional_aggregator_sub">optional_aggregator::sub</a>(supply, (amount <b>as</b> u128));
+        // HACK: add is enough here.
+        <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
+        // <a href="aggregator_old.md#0x1_aggregator_old_add">aggregator_old::add</a>(supply, (amount <b>as</b> u128));
     }
 }
 </code></pre>
@@ -968,8 +973,50 @@ The capability <code>_cap</code> should be passed as a reference to <code><a hre
     <b>let</b> maybe_supply = &<b>mut</b> <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(<a href="coin.md#0x1_coin_coin_address">coin_address</a>&lt;CoinType&gt;()).supply;
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
-        <a href="optional_aggregator.md#0x1_optional_aggregator_sub">optional_aggregator::sub</a>(supply, (amount <b>as</b> u128));
+        // HACK: add is enough here.
+        <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
+        // <a href="aggregator_old.md#0x1_aggregator_old_add">aggregator_old::add</a>(supply, (amount <b>as</b> u128));
     }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_coin_burn_from_agg"></a>
+
+## Function `burn_from_agg`
+
+Burn <code><a href="coin.md#0x1_coin">coin</a></code> from the specified <code><a href="account.md#0x1_account">account</a></code> with capability.
+The capability <code>burn_cap</code> should be passed as a reference to <code><a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;</code>.
+This function shouldn't fail as it's called as part of transaction fee burning.
+
+Note: This bypasses CoinStore::frozen -- coins within a frozen CoinStore can be burned.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_burn_from_agg">burn_from_agg</a>&lt;CoinType&gt;(account_addr: <b>address</b>, amount: u64, burn_cap: &<a href="coin.md#0x1_coin_BurnCapability">coin::BurnCapability</a>&lt;CoinType&gt;)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_burn_from_agg">burn_from_agg</a>&lt;CoinType&gt;(
+    account_addr: <b>address</b>,
+    amount: u64,
+    burn_cap: &<a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;,
+) <b>acquires</b> <a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>, <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
+    // Skip burning <b>if</b> amount is zero. This shouldn't <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">error</a> out <b>as</b> it's called <b>as</b> part of transaction fee burning.
+    <b>if</b> (amount == 0) {
+        <b>return</b>
+    };
+
+    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
+    <a href="coin.md#0x1_coin_extract_agg">extract_agg</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
+    <a href="coin.md#0x1_coin_burn_agg">burn_agg</a>(amount, burn_cap);
 }
 </code></pre>
 
@@ -981,11 +1028,6 @@ The capability <code>_cap</code> should be passed as a reference to <code><a hre
 
 ## Function `burn_from`
 
-Burn <code><a href="coin.md#0x1_coin">coin</a></code> from the specified <code><a href="account.md#0x1_account">account</a></code> with capability.
-The capability <code>burn_cap</code> should be passed as a reference to <code><a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;</code>.
-This function shouldn't fail as it's called as part of transaction fee burning.
-
-Note: This bypasses CoinStore::frozen -- coins within a frozen CoinStore can be burned.
 
 
 <pre><code><b>public</b> <b>fun</b> <a href="coin.md#0x1_coin_burn_from">burn_from</a>&lt;CoinType&gt;(account_addr: <b>address</b>, amount: u64, burn_cap: &<a href="coin.md#0x1_coin_BurnCapability">coin::BurnCapability</a>&lt;CoinType&gt;)
@@ -1001,15 +1043,15 @@ Note: This bypasses CoinStore::frozen -- coins within a frozen CoinStore can be 
     account_addr: <b>address</b>,
     amount: u64,
     burn_cap: &<a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;,
-) <b>acquires</b> <a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>, <a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a> {
+) <b>acquires</b> <a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>, <a href="coin.md#0x1_coin_CoinStore">CoinStore</a> {
     // Skip burning <b>if</b> amount is zero. This shouldn't <a href="../../aptos-stdlib/../move-stdlib/doc/error.md#0x1_error">error</a> out <b>as</b> it's called <b>as</b> part of transaction fee burning.
     <b>if</b> (amount == 0) {
         <b>return</b>
     };
 
-    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_AggregatableCoinStore">AggregatableCoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
-    <a href="coin.md#0x1_coin_extract_agg">extract_agg</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
-    <a href="coin.md#0x1_coin_burn_agg">burn_agg</a>(amount, burn_cap);
+    <b>let</b> coin_store = <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_CoinStore">CoinStore</a>&lt;CoinType&gt;&gt;(account_addr);
+    <b>let</b> coin_to_burn = <a href="coin.md#0x1_coin_extract">extract</a>(&<b>mut</b> coin_store.<a href="coin.md#0x1_coin">coin</a>, amount);
+    <a href="coin.md#0x1_coin_burn">burn</a>(coin_to_burn, burn_cap);
 }
 </code></pre>
 
@@ -1294,6 +1336,7 @@ available.
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
 
+        // PAPER-BENCHMARK
         // If supply is tracked and the current implementation uses an integer - upgrade.
         <b>if</b> (!<a href="optional_aggregator.md#0x1_optional_aggregator_is_parallelizable">optional_aggregator::is_parallelizable</a>(supply)) {
             <a href="optional_aggregator.md#0x1_optional_aggregator_switch">optional_aggregator::switch</a>(supply);
@@ -1363,7 +1406,11 @@ Same as <code>initialize</code> but supply can be initialized to parallelizable 
     monitor_supply: bool,
 ): (<a href="coin.md#0x1_coin_BurnCapability">BurnCapability</a>&lt;CoinType&gt;, <a href="coin.md#0x1_coin_FreezeCapability">FreezeCapability</a>&lt;CoinType&gt;, <a href="coin.md#0x1_coin_MintCapability">MintCapability</a>&lt;CoinType&gt;) {
     <a href="system_addresses.md#0x1_system_addresses_assert_aptos_framework">system_addresses::assert_aptos_framework</a>(<a href="account.md#0x1_account">account</a>);
+    // PAPER-BENCHMARKING: enable <b>if</b> accounts.
     <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, monitor_supply, <b>true</b>)
+
+    // PAPER-BENCHMARKING: enable and later <b>if</b> supply.
+    // <a href="coin.md#0x1_coin_initialize_internal">initialize_internal</a>(<a href="account.md#0x1_account">account</a>, name, symbol, decimals, <b>true</b>, <b>true</b>)
 }
 </code></pre>
 
@@ -1413,6 +1460,8 @@ Same as <code>initialize</code> but supply can be initialized to parallelizable 
         name,
         symbol,
         decimals,
+        // PAPER-BENCHMARK
+        // supply: <b>if</b> (monitor_supply) { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(<a href="aggregator_old.md#0x1_aggregator_old_new">aggregator_old::new</a>()) } <b>else</b> { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>() },
         supply: <b>if</b> (monitor_supply) { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_some">option::some</a>(<a href="optional_aggregator.md#0x1_optional_aggregator_new">optional_aggregator::new</a>(<a href="coin.md#0x1_coin_MAX_U128">MAX_U128</a>, parallelizable)) } <b>else</b> { <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_none">option::none</a>() },
     };
     <b>move_to</b>(<a href="account.md#0x1_account">account</a>, coin_info);
@@ -1509,6 +1558,7 @@ Returns minted <code><a href="coin.md#0x1_coin_Coin">Coin</a></code>.
     <b>let</b> maybe_supply = &<b>mut</b> <b>borrow_global_mut</b>&lt;<a href="coin.md#0x1_coin_CoinInfo">CoinInfo</a>&lt;CoinType&gt;&gt;(<a href="coin.md#0x1_coin_coin_address">coin_address</a>&lt;CoinType&gt;()).supply;
     <b>if</b> (<a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_is_some">option::is_some</a>(maybe_supply)) {
         <b>let</b> supply = <a href="../../aptos-stdlib/../move-stdlib/doc/option.md#0x1_option_borrow_mut">option::borrow_mut</a>(maybe_supply);
+        // PAPER-BENCHMARK
         <a href="optional_aggregator.md#0x1_optional_aggregator_add">optional_aggregator::add</a>(supply, (amount <b>as</b> u128));
     };
 

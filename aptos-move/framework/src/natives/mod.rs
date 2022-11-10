@@ -150,6 +150,7 @@ impl GasParameters {
             },
             transaction_context: transaction_context::GasParameters {
                 get_script_hash: transaction_context::GetScriptHashGasParameters { base: 0.into() },
+                get_bucket: transaction_context::GetBucketGasParameters { base: 0.into() },
             },
             code: code::GasParameters {
                 request_publish: code::RequestPublishGasParameters {

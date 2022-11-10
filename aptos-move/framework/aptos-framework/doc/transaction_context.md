@@ -6,6 +6,7 @@
 
 
 -  [Function `get_script_hash`](#0x1_transaction_context_get_script_hash)
+-  [Function `get_bucket`](#0x1_transaction_context_get_bucket)
 -  [Specification](#@Specification_0)
     -  [Function `get_script_hash`](#@Specification_0_get_script_hash)
 
@@ -31,6 +32,28 @@ Return the script hash of the current entry function.
 
 
 <pre><code><b>public</b> <b>native</b> <b>fun</b> <a href="transaction_context.md#0x1_transaction_context_get_script_hash">get_script_hash</a>(): <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;;
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_transaction_context_get_bucket"></a>
+
+## Function `get_bucket`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="transaction_context.md#0x1_transaction_context_get_bucket">get_bucket</a>(): u64
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>native</b> <b>fun</b> <a href="transaction_context.md#0x1_transaction_context_get_bucket">get_bucket</a>(): u64;
 </code></pre>
 
 
