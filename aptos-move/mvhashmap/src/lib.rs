@@ -18,7 +18,7 @@ use std::{
 mod unit_tests;
 
 // PAPER-BENCHMARK
-pub const DELTA_READ_SHORTCUT: bool = false;
+pub const DELTA_READ_SHORTCUT: bool = true;
 
 // TODO: re-use definitions with the scheduler.
 pub type TxnIndex = usize;
@@ -331,15 +331,23 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                             if DELTA_READ_SHORTCUT {
                                 if let Some((_, shortcut_value)) = maybe_shortcut {
                                     if (*idx as i64) < safe_idx {
-                                        if *idx < 3 {
-                                            // println!(
-                                            //     "Taking shortcut at idx = {}, safe_idx = {}",
-                                            //     *idx, safe_idx
-                                            // );
-                                        }
-
                                         // Assuming idx is committed.
-                                        return Ok(Resolved(*shortcut_value));
+                                        return accumulator
+                                            .map_err(|_| DeltaApplicationFailure)
+                                            .and_then(|a| {
+                                                // Apply accumulated delta to resolve the aggregator value.
+                                                a.apply_to(*shortcut_value)
+                                                    .map(|result| Resolved(result))
+                                                    .map_err(|_| DeltaApplicationFailure)
+                                            });
+
+                                        // if *idx < 3 {
+                                        // println!(
+                                        //     "Taking shortcut at idx = {}, safe_idx = {}",
+                                        //     *idx, safe_idx
+                                        // );
+                                        // }
+                                        // return Ok(Resolved(value));
                                     }
                                 }
                             }

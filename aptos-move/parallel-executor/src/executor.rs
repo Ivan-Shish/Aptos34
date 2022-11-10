@@ -35,7 +35,7 @@ pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
 pub const DELTA_FAILURE_AGGREGATOR_VALUE: u128 = 0;
 
 // PAPER-BENCHMARK
-pub const VALIDATE_DELTAS: bool = true;
+pub const VALIDATE_DELTAS: bool = false;
 
 /// A struct that is always used by a single thread performing an execution task. The struct is
 /// passed to the VM and acts as a proxy to resolve reads first in the shared multi-version
@@ -289,6 +289,7 @@ where
         scheduler: &'a Scheduler,
         safe_idx: &AtomicI64,
         executor: &E,
+        concurrency_level: usize,
     ) -> SchedulerTask<'a> {
         use MVHashMapError::*;
         use MVHashMapOutput::*;
@@ -369,15 +370,34 @@ where
                                         d,
                                     ) {
                                         if DELTA_READ_SHORTCUT {
+                                            // let safe = safe_idx.load(Ordering::SeqCst);
+                                            // if safe > idx_to_validate as i64 {
+                                            //     panic!();
+                                            //     println!(
+                                            //         "safe = {}, idx to val = {}",
+                                            //         safe, idx_to_validate
+                                            //     );
+                                            //     safe_idx.store(-4000, Ordering::SeqCst);
+                                            //     scheduler.increment_validation_gen();
+                                            //     // 0?
+                                            //     scheduler.decrease_validation_idx(0);
+                                            // }
+
+                                            // Note: Validations going in parallel and only validating
+                                            // errors for deltas could cause a problem?
                                             // println!("recorded shortcut at idx = {}", idx_to_validate);
                                             // Recorded a new shortcut, check if the
                                             // index was considered safe.
                                             // TODO: change Ordering.
                                             let pre = safe_idx.fetch_min(
-                                                idx_to_validate as i64,
+                                                idx_to_validate as i64 - concurrency_level as i64,
                                                 Ordering::SeqCst,
                                             );
                                             if pre > idx_to_validate as i64 {
+                                                // safe_idx.fetch_min(
+                                                //     (idx_to_validate as i64) - 5,
+                                                //     Ordering::SeqCst,
+                                                // );
                                                 // if idx_to_validate < 50 {
                                                 // println!(
                                                 //     "DEC pre {} new {}",
@@ -450,6 +470,7 @@ where
         scheduler: &Scheduler,
         safe_idx: &AtomicI64,
         mut head_idx: Option<usize>,
+        concurrency_level: usize,
     ) {
         // Make executor for each task. TODO: fast concurrent executor.
         let executor = E::init(*executor_arguments);
@@ -476,6 +497,7 @@ where
                         scheduler,
                         safe_idx,
                         &executor,
+                        concurrency_level,
                     )
                 }
                 SchedulerTask::ExecutionTask(version_to_execute, None, guard) => {
@@ -531,7 +553,7 @@ where
         assert!(self.concurrency_level > 1, "Must use sequential execution");
         assert!(!DELTA_READ_SHORTCUT || VALIDATE_DELTAS);
 
-        let safe_idx = AtomicI64::new(-4 * self.concurrency_level as i64);
+        let safe_idx = AtomicI64::new(-4 * (self.concurrency_level as i64 + 1));
 
         let versioned_data_cache = MVHashMap::new();
 
@@ -559,6 +581,7 @@ where
                         } else {
                             None
                         },
+                        self.concurrency_level,
                     );
                 });
             }

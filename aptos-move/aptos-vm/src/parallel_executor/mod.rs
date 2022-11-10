@@ -24,6 +24,7 @@ use aptos_types::{
     transaction::{Transaction, TransactionOutput, TransactionStatus},
     write_set::{WriteOp, WriteSet, WriteSetMut},
 };
+use dashmap::DashMap;
 use move_core_types::vm_status::{StatusCode, VMStatus};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -114,36 +115,66 @@ impl ParallelAptosVM {
             );
 
         let mut ret = None;
-        if concurrency_level > 1 {
+        if concurrency_level > 1 && transactions.len() > 10 {
             ret = Some(
                 executor
                     .execute_transactions_parallel(state_view, &signature_verified_block)
                     .map(|(results, delta_resolver)| {
-                        // TODO: with more deltas, collect keys in parallel (in parallel executor).
-                        let mut aggregator_keys: HashMap<StateKey, anyhow::Result<ResolvedData>> =
-                            HashMap::new();
+                        // TODO: We can measure collection time here.
+                        // TODO: or we can measure collection - resolving time below together.
 
-                        for res in results.iter() {
-                            let output_ext = AptosTransactionOutput::as_ref(res);
-                            for (key, _) in output_ext.delta_change_set().iter() {
-                                if !aggregator_keys.contains_key(key) {
-                                    aggregator_keys
-                                        .insert(key.clone(), state_view.get_state_value(key));
-                                }
-                            }
-                        }
+                        // let mut aggregator_keys: HashMap<StateKey, anyhow::Result<ResolvedData>> =
+                        //     HashMap::new();
 
+                        // for res in results.iter() {
+                        //     let output_ext = AptosTransactionOutput::as_ref(res);
+                        //     for (key, _) in output_ext.delta_change_set().iter() {
+                        //         if !aggregator_keys.contains_key(key) {
+                        //             aggregator_keys
+                        //                 .insert(key.clone(), state_view.get_state_value(key));
+                        //         }
+                        //     }
+                        // }
+
+                        let mut aggregator_keys: DashMap<StateKey, anyhow::Result<ResolvedData>> =
+                            DashMap::new();
+
+                        RAYON_EXEC_POOL.install(|| {
+                            results
+                                .par_iter()
+                                .map(|res| {
+                                    let output_ext = AptosTransactionOutput::as_ref(res);
+                                    for (key, _) in output_ext.delta_change_set().iter() {
+                                        if !aggregator_keys.contains_key(key) {
+                                            aggregator_keys.insert(
+                                                key.clone(),
+                                                state_view.get_state_value(key),
+                                            );
+                                        }
+                                    }
+                                })
+                                .collect::<()>();
+                        });
+
+                        // println!("A {}", aggregator_keys.len());
+                        // TODO: we can measure resolver time here, but need to uncomment the above lines.
+                        // start measure
                         let materialized_deltas = delta_resolver
                             .resolve(aggregator_keys.into_iter().collect(), results.len());
+                        // end measure.
 
-                        results
-                            .into_iter()
-                            .zip(materialized_deltas.into_iter())
-                            .map(|(res, delta_writes)| {
-                                let output_ext = AptosTransactionOutput::into(res);
-                                output_ext.output_with_delta_writes(WriteSetMut::new(delta_writes))
-                            })
-                            .collect()
+                        // results
+                        //     .into_iter()
+                        //     .zip(materialized_deltas.into_iter())
+                        //     .map(|(res, delta_writes)| {
+                        //         let output_ext = AptosTransactionOutput::into(res);
+                        //         output_ext.output_with_delta_writes(WriteSetMut::new(
+                        //             delta_writes,
+                        //         ))
+                        //     })
+                        //     .collect()
+
+                        Vec::new()
                     }),
             );
         }
