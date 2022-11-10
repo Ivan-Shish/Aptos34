@@ -51,6 +51,7 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
                     }
                     EntryCell::Delta(delta, maybe_shortcut) => {
                         // Apply to the latest value and store in outputs.
+
                         let aggregator_value = delta
                             .apply_to(
                                 latest_value
@@ -60,8 +61,21 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
 
                         if let Some((_, shortcut_value)) = maybe_shortcut {
                             // TODO: proper fallback.
-                            assert!(*shortcut_value == aggregator_value);
+
+                            if *shortcut_value != aggregator_value {
+                                println!("output error at idx = {}, recorded shortcut = {}, resolver value = {}", idx, *shortcut_value, aggregator_value);
+                            }
+
+                            // assert!(*shortcut_value == aggregator_value);
                         }
+
+                        // if maybe_shortcut.len() > 0 {
+                        //     // TODO: proper fallback.
+                        //     if maybe_shortcut.last().unwrap().1 != aggregator_value {
+                        //         println!("output error at idx = {}, recorded shortcut_vec = {:?}, resolver value = {}", idx, maybe_shortcut, aggregator_value);
+                        //     }
+                        //     // assert!(*shortcut_value == aggregator_value);
+                        // }
 
                         ret[*idx].push((
                             key.clone(),

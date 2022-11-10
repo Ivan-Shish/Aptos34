@@ -47,6 +47,7 @@ pub enum EntryCell<V> {
     /// Recorded in the shared multi-version data-structure for each delta.
     /// First is validation generation, second actual shortcut
     Delta(DeltaOp, Option<(usize, u128)>),
+    // Delta(DeltaOp, Vec<(usize, u128)>),
 }
 
 impl<V> Entry<V> {
@@ -61,6 +62,7 @@ impl<V> Entry<V> {
         Entry {
             flag: AtomicUsize::new(flag),
             cell: EntryCell::Delta(data, None),
+            // cell: EntryCell::Delta(data, Vec::new()),
         }
     }
 
@@ -70,6 +72,17 @@ impl<V> Entry<V> {
             cell: EntryCell::Delta(data, Some((gen, val))),
         }
     }
+
+    // fn new_delta_with_shortcut(
+    //     flag: usize,
+    //     data: DeltaOp,
+    //     gen_val: Vec<(usize, u128)>,
+    // ) -> Entry<V> {
+    //     Entry {
+    //         flag: AtomicUsize::new(flag),
+    //         cell: EntryCell::Delta(data, gen_val),
+    //     }
+    // }
 
     fn flag(&self) -> usize {
         self.flag.load(Ordering::SeqCst)
@@ -84,13 +97,30 @@ impl<V> Entry<V> {
             return None;
         }
 
-        if let EntryCell::Delta(op, Some((stored_gen, _))) = self.cell {
-            if stored_gen < gen {
-                return Some(op);
+        match self.cell {
+            EntryCell::Delta(op, Some((stored_gen, _))) => {
+                if stored_gen < gen {
+                    Some(op)
+                } else {
+                    // println!("No update {} >= {}", stored_gen, gen);
+                    None
+                }
             }
+            EntryCell::Delta(op, None) => Some(op),
+            _ => None,
         }
-        None
     }
+
+    // fn must_update_shortcut(&self) -> Option<(DeltaOp, Vec<(usize, u128)>)> {
+    //     if self.flag() == FLAG_ESTIMATE {
+    //         return None;
+    //     }
+
+    //     match &self.cell {
+    //         EntryCell::Delta(op, shortcuts) => Some((*op, shortcuts.clone())),
+    //         _ => None,
+    //     }
+    // }
 }
 
 /// Main multi-version data-structure used by threads to read/write during parallel
@@ -187,21 +217,42 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
             .mark_estimate();
     }
 
-    pub fn record_shortcut(&self, key: &K, txn_idx: TxnIndex, gen: usize, value: u128) -> bool {
+    pub fn record_shortcut(
+        &self,
+        key: &K,
+        txn_idx: TxnIndex,
+        gen: usize,
+        value: u128,
+        validated_op: &DeltaOp,
+    ) -> bool {
         // let mut map = self.data.get(key).expect("Path must exist");
         let mut map = self.data.entry(key.clone()).or_insert(BTreeMap::new());
         let mut op = None;
+        // let mut vec = Vec::new();
         if let Some(entry) = map.get(&txn_idx) {
+            // println!("aaaa {}, {}, {}", txn_idx, gen, value);
             if let Some(d_op) = entry.must_update_shortcut(gen) {
                 op = Some(d_op);
             }
+
+            // if let Some((d_op, v)) = entry.must_update_shortcut() {
+            //     op = Some(d_op);
+            //     vec = v;
+            // }
         }
         if let Some(op) = op {
+            // if op == *validated_op {
+            // vec.push((gen, value));
+            // vec.sort();
+
             map.insert(
                 txn_idx,
                 CachePadded::new(Entry::new_delta_with_shortcut(FLAG_DONE, op, gen, value)),
             );
             return true;
+            // } // else {
+            //     unreachable!();
+            // }
         }
         false
     }
@@ -219,10 +270,12 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
         &self,
         key: &K,
         txn_idx: TxnIndex,
-        safe_idx: usize,
+        safe_idx: i64,
     ) -> anyhow::Result<MVHashMapOutput<V>, MVHashMapError> {
         use MVHashMapError::*;
         use MVHashMapOutput::*;
+
+        // TODO: use Delta::Empty
 
         match self.data.get(key) {
             Some(tree) => {
@@ -277,7 +330,14 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                         (EntryCell::Delta(delta, maybe_shortcut), Some(accumulator)) => {
                             if DELTA_READ_SHORTCUT {
                                 if let Some((_, shortcut_value)) = maybe_shortcut {
-                                    if *idx < safe_idx {
+                                    if (*idx as i64) < safe_idx {
+                                        if *idx < 3 {
+                                            // println!(
+                                            //     "Taking shortcut at idx = {}, safe_idx = {}",
+                                            //     *idx, safe_idx
+                                            // );
+                                        }
+
                                         // Assuming idx is committed.
                                         return Ok(Resolved(*shortcut_value));
                                     }
@@ -319,7 +379,10 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                         None => Err(Unresolved),
                     },
                     Some(Err(_)) => Err(DeltaApplicationFailure),
-                    None => Err(NotFound),
+                    None => match self.storage_values.get(key) {
+                        Some(storage_value) => Ok(Resolved(*storage_value)),
+                        None => Err(NotFound),
+                    },
                 }
             }
             None => Err(NotFound),

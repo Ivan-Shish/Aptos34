@@ -6,6 +6,7 @@ use crate::{
     scheduler::{Incarnation, TxnIndex, Version},
     task::{ExecutionStatus, ModulePath, Transaction, TransactionOutput},
 };
+use aptos_aggregator::delta_change_set::DeltaOp;
 use aptos_types::access_path::AccessPath;
 use arc_swap::ArcSwapOption;
 use crossbeam::utils::CachePadded;
@@ -23,7 +24,7 @@ type TxnOutput<T, E> = ExecutionStatus<T, Error<E>>;
 type KeySet<T> = HashSet<<<T as TransactionOutput>::T as Transaction>::Key>;
 
 /// Information about the read which is used by validation.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 enum ReadKind {
     /// Read returned a value from the multi-version data-structure, with index
     /// and incarnation number of the execution associated with the write of
@@ -84,6 +85,10 @@ impl<K: ModulePath> ReadDescriptor<K> {
     // Does the read descriptor describe a read from MVHashMap w. a specified version.
     pub fn validate_version(&self, version: Version) -> bool {
         let (txn_idx, incarnation) = version;
+
+        if self.kind != ReadKind::Version(txn_idx, incarnation) {
+            // println!("{:?}", self.kind);
+        }
         self.kind == ReadKind::Version(txn_idx, incarnation)
     }
 
@@ -217,14 +222,19 @@ impl<K: ModulePath, T: TransactionOutput, E: Send + Clone> TxnLastInputOutput<K,
     }
 
     // output: modified by deltas.
-    pub fn modified_delta_keys(&self, txn_idx: TxnIndex) -> KeySet<T> {
+    pub fn modified_deltas(
+        &self,
+        txn_idx: TxnIndex,
+    ) -> Vec<(<<T as TransactionOutput>::T as Transaction>::Key, DeltaOp)> {
         match &self.outputs[txn_idx].load_full() {
             None => unreachable!(),
             Some(txn_output) => match txn_output.as_ref() {
                 ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    t.get_deltas().into_iter().map(|(k, _)| k).collect()
+                    t.get_deltas()
+                    // .iter().cloned()
+                    // into_iter().map(|(k, _)| k).collect()
                 }
-                ExecutionStatus::Abort(_) => HashSet::new(),
+                ExecutionStatus::Abort(_) => Vec::new(),
             },
         }
     }

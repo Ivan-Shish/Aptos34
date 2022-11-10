@@ -35,7 +35,7 @@ pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
 pub const DELTA_FAILURE_AGGREGATOR_VALUE: u128 = 0;
 
 // PAPER-BENCHMARK
-pub const VALIDATE_DELTAS: bool = false;
+pub const VALIDATE_DELTAS: bool = true;
 
 /// A struct that is always used by a single thread performing an execution task. The struct is
 /// passed to the VM and acts as a proxy to resolve reads first in the shared multi-version
@@ -49,7 +49,7 @@ pub struct MVHashMapView<'a, K, V> {
     txn_idx: TxnIndex,
     scheduler: &'a Scheduler,
     captured_reads: Mutex<Vec<ReadDescriptor<K>>>,
-    safe_idx: usize,
+    safe_idx: i64,
 }
 
 /// A struct which describes the result of the read from the proxy. The client
@@ -216,7 +216,7 @@ where
             txn_idx: idx_to_execute,
             scheduler,
             captured_reads: Mutex::new(Vec::new()),
-            safe_idx: safe_idx.load(Ordering::SeqCst) as usize,
+            safe_idx: safe_idx.load(Ordering::SeqCst),
         };
 
         // VM execution.
@@ -298,16 +298,29 @@ where
             .read_set(idx_to_validate)
             .expect("Prior read-set must be recorded");
 
-        let safe_idx_watermark = safe_idx.load(Ordering::SeqCst) as usize;
-
-        let val_gen = scheduler.validation_generation();
+        let safe_idx_watermark = safe_idx.load(Ordering::SeqCst);
 
         let mut valid = read_set.iter().all(|r| {
             match versioned_data_cache.read(r.path(), idx_to_validate, safe_idx_watermark) {
-                Ok(Version(version, _)) => r.validate_version(version),
-                Ok(Resolved(value)) => r.validate_resolved(value),
-                Err(Dependency(_)) => false, // Dependency implies a validation failure.
+                Ok(Version(version, _)) => {
+                    let a = r.validate_version(version);
+                    // if !a {
+                    //     println!("{:?}, {}", version, idx_to_validate);
+                    // }
+                    a
+                    // true
+                }
+                Ok(Resolved(value)) => {
+                    unreachable!("shouldn't read table entry");
+                    r.validate_resolved(value)
+                }
+                Err(Dependency(_)) => {
+                    unreachable!("shouldn't have dep");
+                    false // Dependency implies a validation failure.
+                }
                 Err(Unresolved) => {
+                    unreachable!("shouldn't have unresolved read - table entry read");
+                    // println!("v f {}", idx_to_validate);
                     versioned_data_cache
                         .record_storage_value(r.path(), executor.get_storage_value(r.path()));
                     false
@@ -322,50 +335,88 @@ where
                 Err(DeltaApplicationFailure) => r.validate_delta_application_failure(),
             }
         });
+        // enforce no aborts for now. TODO: revert.
+        // assert!(valid);
 
-        if VALIDATE_DELTAS {
-            let delta_keys = last_input_output.modified_delta_keys(idx_to_validate);
+        if valid && VALIDATE_DELTAS {
+            let val_gen = scheduler.validation_generation();
+
+            let deltas = last_input_output.modified_deltas(idx_to_validate);
             // println!("num delta keys {}", delta_keys.len());
             valid = valid
-                & delta_keys.iter().all(|k| {
-                    match versioned_data_cache.read(k, idx_to_validate + 1, safe_idx_watermark) {
+                & deltas.iter().all(|(k, d)| {
+                    match versioned_data_cache.read(k, idx_to_validate, safe_idx_watermark) {
                         Ok(Version(_, _)) => unreachable!(),
-                        Ok(Resolved(value)) => {
-                            // overwrite the shortcut inside the read,
-                            // this requires also providing validation generation.
-                            // if overwritten, in current true cases, also return
-                            // a corresponding indicator. When this is returned,
-                            // fetch_min on the same index. If fetch min succeeds,
-                            // must also reduce the validation index, which can
-                            // be accomplished by just aborting here.
-                            if versioned_data_cache.record_shortcut(
-                                k,
-                                idx_to_validate,
-                                val_gen,
-                                value,
-                            ) {
-                                // Recorded a new shortcut, check if the
-                                // index was considered safe.
-                                // TODO: change Ordering.
-                                if safe_idx.fetch_min(idx_to_validate as i64, Ordering::SeqCst)
-                                    > idx_to_validate as i64
-                                {
-                                    // Fail validation, this guarantees
-                                    // an abort and validation index reset.
-                                    // Hence all shortcuts will get updated.
-                                    return false;
+                        Ok(Resolved(prev_value)) => {
+                            match d.apply_to(prev_value) {
+                                Err(_) => {
+                                    unreachable!();
+                                    false
+                                }
+                                Ok(value) => {
+                                    // overwrite the shortcut inside the read,
+                                    // this requires also providing validation generation.
+                                    // if overwritten, in current true cases, also return
+                                    // a corresponding indicator. When this is returned,
+                                    // fetch_min on the same index. If fetch min succeeds,
+                                    // must also reduce the validation index, which can
+                                    // be accomplished by just aborting here.
+                                    if versioned_data_cache.record_shortcut(
+                                        k,
+                                        idx_to_validate,
+                                        val_gen,
+                                        value,
+                                        d,
+                                    ) {
+                                        if DELTA_READ_SHORTCUT {
+                                            // println!("recorded shortcut at idx = {}", idx_to_validate);
+                                            // Recorded a new shortcut, check if the
+                                            // index was considered safe.
+                                            // TODO: change Ordering.
+                                            let pre = safe_idx.fetch_min(
+                                                idx_to_validate as i64,
+                                                Ordering::SeqCst,
+                                            );
+                                            if pre > idx_to_validate as i64 {
+                                                // if idx_to_validate < 50 {
+                                                // println!(
+                                                //     "DEC pre {} new {}",
+                                                //     pre, idx_to_validate
+                                                // );
+                                                // }
+                                                scheduler.increment_validation_gen();
+                                                scheduler.decrease_validation_idx(idx_to_validate);
+
+                                                // Fail validation, this guarantees
+                                                // an abort and validation index reset.
+                                                // Hence all shortcuts will get updated.
+                                                // EDIT: wrong, because old incarnation may not abort.
+                                                // return false;
+                                            }
+                                        }
+                                    }
+
+                                    true
                                 }
                             }
-                            true
                         }
                         Err(Dependency(_)) => false, // Dependency implies a validation failure.
                         Err(Unresolved) => {
                             versioned_data_cache
                                 .record_storage_value(k, executor.get_storage_value(k));
+                            // TODO: can read again, apply.
                             false
                         }
-                        Err(NotFound) => unreachable!(),
-                        Err(DeltaApplicationFailure) => false,
+                        Err(NotFound) => {
+                            versioned_data_cache
+                                .record_storage_value(k, executor.get_storage_value(k));
+                            // TODO: can read again, apply.
+                            false
+                        }
+                        Err(DeltaApplicationFailure) => {
+                            unreachable!();
+                            false
+                        }
                     }
                 });
         }
@@ -411,7 +462,10 @@ where
                         if version_to_validate.0 > idx {
                             let diff = (version_to_validate.0 - idx) as i64;
                             head_idx = Some(version_to_validate.0);
-                            safe_idx.fetch_add(diff, Ordering::SeqCst);
+                            let pre = safe_idx.fetch_add(diff, Ordering::SeqCst);
+                            // if pre < 10 {
+                            // println!("INC {} {} prev safe {}", idx, version_to_validate.0, pre);
+                            // }
                         }
                     }
                     self.validate(
@@ -429,7 +483,10 @@ where
                         if version_to_execute.0 > idx {
                             let diff = (version_to_execute.0 - idx) as i64;
                             head_idx = Some(version_to_execute.0);
-                            safe_idx.fetch_add(diff, Ordering::SeqCst);
+                            let pre = safe_idx.fetch_add(diff, Ordering::SeqCst);
+                            // if pre < 10 {
+                            // println!("INC {} {} prev safe {}", idx, version_to_execute.0, pre);
+                            // }
                         }
                     }
                     self.execute(

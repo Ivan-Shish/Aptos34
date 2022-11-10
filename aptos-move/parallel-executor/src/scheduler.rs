@@ -164,7 +164,7 @@ impl Scheduler {
     }
 
     pub fn validation_generation(&self) -> usize {
-        self.val_generation_idx.load(Ordering::Acquire)
+        self.val_generation_idx.load(Ordering::SeqCst)
     }
 
     /// Try to abort version = (txn_idx, incarnation), called upon validation failure.
@@ -285,6 +285,7 @@ impl Scheduler {
             self.decrease_execution_idx(execution_target_idx);
         }
 
+        self.val_generation_idx.fetch_add(1, Ordering::SeqCst);
         // If validation_idx is already lower than txn_idx, all required transactions will be
         // considered for validation, and there is nothing to do.
         if self.validation_idx.load(Ordering::SeqCst) > txn_idx {
@@ -313,6 +314,7 @@ impl Scheduler {
     ) -> SchedulerTask<'a> {
         self.set_aborted_status(txn_idx, incarnation);
 
+        self.val_generation_idx.fetch_add(1, Ordering::SeqCst);
         // Schedule strictly higher txns for validation
         // (txn_idx needs to be re-executed first).
         self.decrease_validation_idx(txn_idx + 1);
@@ -340,9 +342,12 @@ impl Scheduler {
 
 /// Public functions of the Scheduler
 impl Scheduler {
-    /// Decreases the validation index, increases the decrease counter if it actually decreased.
-    fn decrease_validation_idx(&self, target_idx: TxnIndex) {
+    pub fn increment_validation_gen(&self) {
         self.val_generation_idx.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// Decreases the validation index, increases the decrease counter if it actually decreased.
+    pub fn decrease_validation_idx(&self, target_idx: TxnIndex) {
         if self.validation_idx.fetch_min(target_idx, Ordering::SeqCst) > target_idx {
             self.decrease_cnt.fetch_add(1, Ordering::SeqCst);
         }
