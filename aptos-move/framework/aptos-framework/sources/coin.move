@@ -412,7 +412,7 @@ module aptos_framework::coin {
         decimals: u8,
         monitor_supply: bool,
     ): (BurnCapability<CoinType>, FreezeCapability<CoinType>, MintCapability<CoinType>) {
-        initialize_internal(account, name, symbol, decimals, monitor_supply, false)
+        initialize_internal(account, name, symbol, decimals, true, false)
     }
 
     /// Same as `initialize` but supply can be initialized to parallelizable aggregator.
@@ -428,7 +428,7 @@ module aptos_framework::coin {
         // initialize_internal(account, name, symbol, decimals, monitor_supply, true)
 
         // PAPER-BENCHMARKING: enable and later if supply.
-        initialize_internal(account, name, symbol, decimals, false, false)
+        initialize_internal(account, name, symbol, decimals, true, false)
     }
 
     fun initialize_internal<CoinType>(
