@@ -13,18 +13,18 @@ module aptos_framework::transaction_fee {
     /// Burn transaction fees in epilogue.
     public(friend) fun burn_fee(account: address, fee: u64) acquires AptosCoinCapabilities {
         // PAPER-BENCHMARK: if supply.
-        // coin::burn_from<AptosCoin>(
-        //     account,
-        //     fee,
-        //     &borrow_global<AptosCoinCapabilities>(@aptos_framework).burn_cap,
-        // );
-
-        // PAPER-BENCHMARK: if accounts.
-        coin::burn_from_agg<AptosCoin>(
+        coin::burn_from<AptosCoin>(
             account,
             fee,
             &borrow_global<AptosCoinCapabilities>(@aptos_framework).burn_cap,
         );
+
+        // PAPER-BENCHMARK: if accounts.
+        // coin::burn_from_agg<AptosCoin>(
+        //     account,
+        //     fee,
+        //     &borrow_global<AptosCoinCapabilities>(@aptos_framework).burn_cap,
+        // );
     }
 
     /// Only called during genesis.

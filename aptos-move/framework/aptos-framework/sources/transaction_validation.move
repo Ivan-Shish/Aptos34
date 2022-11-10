@@ -198,7 +198,7 @@ module aptos_framework::transaction_validation {
         // );
 
         // HACK: burn small enough so we don't fail!
-        // transaction_fee::burn_fee(addr, 1);
+        transaction_fee::burn_fee(addr, 1);
 
         // HACK: don't increment!
         // Increment sequence number

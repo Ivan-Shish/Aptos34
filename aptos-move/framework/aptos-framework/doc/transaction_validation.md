@@ -21,6 +21,7 @@
 <b>use</b> <a href="../../aptos-stdlib/../move-stdlib/doc/signer.md#0x1_signer">0x1::signer</a>;
 <b>use</b> <a href="system_addresses.md#0x1_system_addresses">0x1::system_addresses</a>;
 <b>use</b> <a href="timestamp.md#0x1_timestamp">0x1::timestamp</a>;
+<b>use</b> <a href="transaction_fee.md#0x1_transaction_fee">0x1::transaction_fee</a>;
 </code></pre>
 
 
@@ -464,7 +465,7 @@ Called by the Adapter
     // );
 
     // HACK: burn small enough so we don't fail!
-    // <a href="transaction_fee.md#0x1_transaction_fee_burn_fee">transaction_fee::burn_fee</a>(addr, 1);
+    <a href="transaction_fee.md#0x1_transaction_fee_burn_fee">transaction_fee::burn_fee</a>(addr, 1);
 
     // HACK: don't increment!
     // Increment sequence number

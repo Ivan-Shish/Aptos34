@@ -194,10 +194,10 @@ impl TransactionBenchState {
         // characteristics.
 
         // PAPER-BENCHMARKING: enable if supply.
-        // let mut universe = universe.setup_gas_cost_stability(&mut executor);
+        let mut universe = universe.setup_gas_cost_stability(&mut executor);
 
         // PAPER-BENCHMARKING: enable if accounts.
-        let mut universe = universe.init_for_benchmarking(&mut executor);
+        // let mut universe = universe.init_for_benchmarking(&mut executor);
 
         let transaction_gens = vec(strategy, num_transactions)
             .new_tree(&mut runner)

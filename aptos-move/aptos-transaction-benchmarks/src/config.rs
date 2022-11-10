@@ -4,12 +4,12 @@
 // PAPER-BENCHMARK.
 
 /// The number of accounts created by default.
-pub const NUM_ACCOUNTS: usize = 2;
+pub const NUM_ACCOUNTS: usize = 100;
 
 /// The number of transactions created by default.
 pub const NUM_TRANSACTIONS: usize = 1000;
 
-pub const CONCURRENCY_LEVEL: usize = 8;
+pub const CONCURRENCY_LEVEL: usize = 2;
 
 pub const MIN_TRANSFER_AMOUNT: u64 = 1;
 pub const MAX_TRANSFER_AMOUNT: u64 = 2;

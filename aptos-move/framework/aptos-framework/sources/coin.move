@@ -425,10 +425,10 @@ module aptos_framework::coin {
     ): (BurnCapability<CoinType>, FreezeCapability<CoinType>, MintCapability<CoinType>) {
         system_addresses::assert_aptos_framework(account);
         // PAPER-BENCHMARKING: enable if accounts.
-        initialize_internal(account, name, symbol, decimals, monitor_supply, true)
+        // initialize_internal(account, name, symbol, decimals, monitor_supply, true)
 
         // PAPER-BENCHMARKING: enable and later if supply.
-        // initialize_internal(account, name, symbol, decimals, true, true)
+        initialize_internal(account, name, symbol, decimals, false, false)
     }
 
     fun initialize_internal<CoinType>(

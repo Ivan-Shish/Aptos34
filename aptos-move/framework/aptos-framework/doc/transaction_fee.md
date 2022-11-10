@@ -62,18 +62,18 @@ Burn transaction fees in epilogue.
 
 <pre><code><b>public</b>(<b>friend</b>) <b>fun</b> <a href="transaction_fee.md#0x1_transaction_fee_burn_fee">burn_fee</a>(<a href="account.md#0x1_account">account</a>: <b>address</b>, fee: u64) <b>acquires</b> <a href="transaction_fee.md#0x1_transaction_fee_AptosCoinCapabilities">AptosCoinCapabilities</a> {
     // PAPER-BENCHMARK: <b>if</b> supply.
-    // <a href="coin.md#0x1_coin_burn_from">coin::burn_from</a>&lt;AptosCoin&gt;(
-    //     <a href="account.md#0x1_account">account</a>,
-    //     fee,
-    //     &<b>borrow_global</b>&lt;<a href="transaction_fee.md#0x1_transaction_fee_AptosCoinCapabilities">AptosCoinCapabilities</a>&gt;(@aptos_framework).burn_cap,
-    // );
-
-    // PAPER-BENCHMARK: <b>if</b> accounts.
-    <a href="coin.md#0x1_coin_burn_from_agg">coin::burn_from_agg</a>&lt;AptosCoin&gt;(
+    <a href="coin.md#0x1_coin_burn_from">coin::burn_from</a>&lt;AptosCoin&gt;(
         <a href="account.md#0x1_account">account</a>,
         fee,
         &<b>borrow_global</b>&lt;<a href="transaction_fee.md#0x1_transaction_fee_AptosCoinCapabilities">AptosCoinCapabilities</a>&gt;(@aptos_framework).burn_cap,
     );
+
+    // PAPER-BENCHMARK: <b>if</b> accounts.
+    // <a href="coin.md#0x1_coin_burn_from_agg">coin::burn_from_agg</a>&lt;AptosCoin&gt;(
+    //     <a href="account.md#0x1_account">account</a>,
+    //     fee,
+    //     &<b>borrow_global</b>&lt;<a href="transaction_fee.md#0x1_transaction_fee_AptosCoinCapabilities">AptosCoinCapabilities</a>&gt;(@aptos_framework).burn_cap,
+    // );
 }
 </code></pre>
 
