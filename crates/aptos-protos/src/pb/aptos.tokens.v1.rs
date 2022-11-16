@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // @generated
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct Tokens {
     #[prost(uint64, tag = "1")]
     pub block_height: u64,
@@ -15,7 +15,7 @@ pub struct Tokens {
     #[prost(message, repeated, tag = "5")]
     pub collection_datas: ::prost::alloc::vec::Vec<CollectionData>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct Token {
     #[prost(message, optional, tag = "1")]
     pub token_id: ::core::option::Option<TokenId>,
@@ -32,7 +32,7 @@ pub struct Token {
     #[prost(string, optional, tag = "7")]
     pub table_type: ::core::option::Option<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct TokenData {
     #[prost(message, optional, tag = "1")]
     pub token_data_id: ::core::option::Option<TokenDataId>,
@@ -65,14 +65,14 @@ pub struct TokenData {
     #[prost(string, tag = "15")]
     pub default_properties: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct TokenId {
     #[prost(message, optional, tag = "1")]
     pub token_data_id: ::core::option::Option<TokenDataId>,
     #[prost(uint64, tag = "2")]
     pub property_version: u64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct TokenDataId {
     #[prost(string, tag = "1")]
     pub creator_address: ::prost::alloc::string::String,
@@ -81,7 +81,7 @@ pub struct TokenDataId {
     #[prost(string, tag = "3")]
     pub name: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, ::prost::Message)]
 pub struct CollectionData {
     #[prost(string, tag = "1")]
     pub creator_address: ::prost::alloc::string::String,

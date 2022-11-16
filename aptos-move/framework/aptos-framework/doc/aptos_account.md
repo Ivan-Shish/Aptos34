@@ -11,10 +11,10 @@
 -  [Function `assert_account_exists`](#0x1_aptos_account_assert_account_exists)
 -  [Function `assert_account_is_registered_for_apt`](#0x1_aptos_account_assert_account_is_registered_for_apt)
 -  [Specification](#@Specification_1)
-    -  [Function `create_account`](#@Specification_1_create_account)
-    -  [Function `transfer`](#@Specification_1_transfer)
-    -  [Function `assert_account_exists`](#@Specification_1_assert_account_exists)
-    -  [Function `assert_account_is_registered_for_apt`](#@Specification_1_assert_account_is_registered_for_apt)
+   -  [Function `create_account`](#@Specification_1_create_account)
+   -  [Function `transfer`](#@Specification_1_transfer)
+   -  [Function `assert_account_exists`](#@Specification_1_assert_account_exists)
+   -  [Function `assert_account_is_registered_for_apt`](#@Specification_1_assert_account_is_registered_for_apt)
 
 
 <pre><code><b>use</b> <a href="account.md#0x1_account">0x1::account</a>;
