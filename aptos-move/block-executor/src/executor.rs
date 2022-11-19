@@ -147,14 +147,14 @@ impl<
     }
 }
 
-pub struct ParallelTransactionExecutor<T: Transaction, E: ExecutorTask> {
+pub struct BlockExecutor<T: Transaction, E: ExecutorTask> {
     // number of active concurrent tasks, corresponding to the maximum number of rayon
     // threads that may be concurrently participating in parallel execution.
     concurrency_level: usize,
     phantom: PhantomData<(T, E)>,
 }
 
-impl<T, E> ParallelTransactionExecutor<T, E>
+impl<T, E> BlockExecutor<T, E>
 where
     T: Transaction,
     E: ExecutorTask<T = T>,
