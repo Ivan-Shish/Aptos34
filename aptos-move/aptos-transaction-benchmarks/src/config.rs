@@ -7,7 +7,7 @@
 pub const NUM_ACCOUNTS: usize = 2;
 
 /// The number of transactions created by default.
-pub const NUM_TRANSACTIONS: usize = 1000;
+pub const NUM_TRANSACTIONS: usize = 10000;
 
 pub const CONCURRENCY_LEVEL: usize = 8;
 

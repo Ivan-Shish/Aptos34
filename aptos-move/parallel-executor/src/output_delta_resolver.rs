@@ -1,7 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::executor::RAYON_EXEC_POOL;
+use crate::executor::{RAYON_EXEC_POOL, VALIDATE_DELTAS};
 use aptos_aggregator::delta_change_set::{deserialize, serialize};
 use aptos_types::write_set::{TransactionWrite, WriteOp};
 use mvhashmap::{EntryCell, MVHashMap};
@@ -24,12 +24,24 @@ impl<
         Self { versioned_outputs }
     }
 
+    pub fn internal_aggr_keys(&self) -> Vec<(K, u128)> {
+        // TODO: into entries of dashmap, deconstruct once.
+        let aggregator_keys = self.versioned_outputs.aggregator_entries();
+        if VALIDATE_DELTAS {
+            assert!(
+                aggregator_keys.len() > 0,
+                "must have base values in MVHashMap"
+            );
+        }
+        aggregator_keys
+    }
+
     /// Takes Self, vector of all involved aggregator keys (each with at least one
     /// delta to resolve in the output), resolved values from storage for each key,
     /// and blocksize, and returns a Vec of materialized deltas per transaction index.
     pub fn resolve(
         self,
-        aggregator_keys: Vec<(K, anyhow::Result<ResolvedData>)>,
+        aggregator_keys: Vec<(K, u128)>,
         block_size: usize,
     ) -> Vec<Vec<(K, WriteOp)>> {
         let mut ret: Vec<Vec<(K, WriteOp)>> = (0..block_size).map(|_| Vec::new()).collect();
@@ -40,30 +52,26 @@ impl<
             // for (key, storage_val) in aggregator_keys.into_par_iter() {
 
 	    aggregator_keys.into_par_iter().map(|(key, storage_val)| {
-		let mut latest_value: Option<u128> = match storage_val
-                    .ok() // Was anything found in storage
-                    .map(|value| value.map(|bytes| deserialize(&bytes)))
-		{
-                    None => None,
-                    Some(v) => v,
-		};
+		let mut latest_value = storage_val;
+		// let mut latest_value: Option<u128> = storage_val
+                    // .map(|bytes| deserialize(&bytes));
 
-            let indexed_entries = self
-                .versioned_outputs
-                .entry_map_for_key(&key)
-                .expect("No entries found for the provided key");
-            for (idx, entry) in indexed_entries.iter() {
-                match &entry.cell {
-                    EntryCell::Write(_, data) => {
-                        latest_value = data.extract_raw_bytes().map(|bytes| deserialize(&bytes))
-                    }
+		let indexed_entries = self
+                    .versioned_outputs
+                    .entry_map_for_key(&key)
+                    .expect("No entries found for the provided key");
+		for (idx, entry) in indexed_entries.iter() {
+                    match &entry.cell {
+			EntryCell::Write(_, data) => {
+                            latest_value = data.extract_raw_bytes().map(|bytes| deserialize(&bytes)).unwrap()
+			}
                     EntryCell::Delta(delta, maybe_shortcut) => {
                         // Apply to the latest value and store in outputs.
 
                         let aggregator_value = delta
                             .apply_to(
                                 latest_value
-                                    .expect("Failed to apply delta to (non-existent) aggregator"),
+                                    // .expect("Failed to apply delta to (non-existent) aggregator"),
                             )
                             .expect("Failed to apply aggregator delta output");
 
@@ -82,12 +90,12 @@ impl<
                             // key.clone(),
                             // WriteOp::Modification(serialize(&aggregator_value)),
                         // ));
-                        latest_value = Some(aggregator_value);
+                        latest_value = aggregator_value;
                     }
                 }
             }
 
-        }).collect::<()>();
+            }).collect::<()>();
 	});
         // } else {
         //     for (key, storage_val) in aggregator_keys.into_iter() {

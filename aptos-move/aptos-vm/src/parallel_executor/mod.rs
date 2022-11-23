@@ -10,7 +10,10 @@ use crate::{
     logging::AdapterLogSchema,
     parallel_executor::vm_wrapper::AptosVMWrapper,
 };
-use aptos_aggregator::{delta_change_set::DeltaOp, transaction::TransactionOutputExt};
+use aptos_aggregator::{
+    delta_change_set::{deserialize, DeltaOp},
+    transaction::TransactionOutputExt,
+};
 use aptos_logger::{debug, info};
 use aptos_parallel_executor::{
     errors::Error,
@@ -120,48 +123,38 @@ impl ParallelAptosVM {
                 executor
                     .execute_transactions_parallel(state_view, &signature_verified_block)
                     .map(|(results, delta_resolver)| {
-                        // TODO: We can measure collection time here.
-                        // TODO: or we can measure collection - resolving time below together.
+                        let pre_keys = delta_resolver.internal_aggr_keys();
+                        let aggregator_keys = if pre_keys.len() == 0 {
+                            let mut ds: DashMap<StateKey, u128> = DashMap::new();
 
-                        // let mut aggregator_keys: HashMap<StateKey, anyhow::Result<ResolvedData>> =
-                        //     HashMap::new();
-
-                        // for res in results.iter() {
-                        //     let output_ext = AptosTransactionOutput::as_ref(res);
-                        //     for (key, _) in output_ext.delta_change_set().iter() {
-                        //         if !aggregator_keys.contains_key(key) {
-                        //             aggregator_keys
-                        //                 .insert(key.clone(), state_view.get_state_value(key));
-                        //         }
-                        //     }
-                        // }
-
-                        let mut aggregator_keys: DashMap<StateKey, anyhow::Result<ResolvedData>> =
-                            DashMap::new();
-
-                        RAYON_EXEC_POOL.install(|| {
-                            results
-                                .par_iter()
-                                .map(|res| {
-                                    let output_ext = AptosTransactionOutput::as_ref(res);
-                                    for (key, _) in output_ext.delta_change_set().iter() {
-                                        if !aggregator_keys.contains_key(key) {
-                                            aggregator_keys.insert(
-                                                key.clone(),
-                                                state_view.get_state_value(key),
-                                            );
+                            RAYON_EXEC_POOL.install(|| {
+                                results
+                                    .par_iter()
+                                    .map(|res| {
+                                        let output_ext = AptosTransactionOutput::as_ref(res);
+                                        for (key, _) in output_ext.delta_change_set().iter() {
+                                            if !ds.contains_key(key) {
+                                                let rd = state_view.get_state_value(key).unwrap();
+                                                ds.insert(
+                                                    key.clone(),
+                                                    rd.map(|bytes| deserialize(&bytes)).unwrap(),
+                                                );
+                                            }
                                         }
-                                    }
-                                })
-                                .collect::<()>();
-                        });
+                                    })
+                                    .collect::<()>();
+                            });
 
-                        // println!("A {}", aggregator_keys.len());
-                        // TODO: we can measure resolver time here, but need to uncomment the above lines.
-                        // start measure
-                        let materialized_deltas = delta_resolver
-                            .resolve(aggregator_keys.into_iter().collect(), results.len());
-                        // end measure.
+                            // println!("A");
+                            ds.into_iter().collect()
+                        } else {
+                            pre_keys
+                        };
+
+                        // println!("B {}", aggregator_keys.len());
+
+                        let materialized_deltas =
+                            delta_resolver.resolve(aggregator_keys, results.len());
 
                         // results
                         //     .into_iter()

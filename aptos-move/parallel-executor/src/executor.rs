@@ -35,7 +35,7 @@ pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
 pub const DELTA_FAILURE_AGGREGATOR_VALUE: u128 = 0;
 
 // PAPER-BENCHMARK
-pub const VALIDATE_DELTAS: bool = false;
+pub const VALIDATE_DELTAS: bool = true;
 
 /// A struct that is always used by a single thread performing an execution task. The struct is
 /// passed to the VM and acts as a proxy to resolve reads first in the shared multi-version
@@ -394,6 +394,7 @@ where
                                                 Ordering::SeqCst,
                                             );
                                             if pre > idx_to_validate as i64 {
+                                                // println!("{}", pre - idx_to_validate as i64);
                                                 // safe_idx.fetch_min(
                                                 //     (idx_to_validate as i64) - 5,
                                                 //     Ordering::SeqCst,
@@ -420,6 +421,7 @@ where
                                 }
                             }
                         }
+                        // HANDLING OF THESE.
                         Err(Dependency(_)) => false, // Dependency implies a validation failure.
                         Err(Unresolved) => {
                             versioned_data_cache
