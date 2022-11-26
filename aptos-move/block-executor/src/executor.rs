@@ -10,6 +10,8 @@ use crate::{
     txn_last_input_output::TxnLastInputOutput,
     view::{MVHashMapView, VersionedView},
 };
+use aptos_logger::debug;
+use aptos_types::write_set::WriteOp;
 use mvhashmap::{MVHashMap, MVHashMapError, MVHashMapOutput};
 use num_cpus;
 use once_cell::sync::Lazy;
@@ -237,7 +239,7 @@ where
         }
     }
 
-    pub fn execute_transactions_parallel(
+    pub(crate) fn execute_transactions_parallel(
         &self,
         executor_initial_arguments: E::Argument,
         signature_verified_block: &Vec<T>,
@@ -245,7 +247,7 @@ where
     ) -> Result<
         (
             Vec<E::Output>,
-            OutputDeltaResolver<<T as Transaction>::Key, <T as Transaction>::Value>,
+            Vec<Vec<(<T as Transaction>::Key, WriteOp)>>, // Resolved delta writes per txn
         ),
         E::Error,
     > {
@@ -254,7 +256,7 @@ where
         let versioned_data_cache = MVHashMap::new();
 
         if signature_verified_block.is_empty() {
-            return Ok((vec![], OutputDeltaResolver::new(versioned_data_cache)));
+            return Ok((vec![], vec![]));
         }
 
         let num_txns = signature_verified_block.len();
@@ -311,15 +313,13 @@ where
             Some(err) => Err(err),
             None => {
                 final_results.resize_with(num_txns, E::Output::skip_output);
-                Ok((
-                    final_results,
-                    OutputDeltaResolver::new(versioned_data_cache),
-                ))
+                let delta_resolver = OutputDeltaResolver::new(versioned_data_cache);
+                Ok((final_results, delta_resolver.resolve(base_view, num_txns)))
             }
         }
     }
 
-    pub fn execute_transactions_sequential(
+    pub(crate) fn execute_transactions_sequential(
         &self,
         executor_arguments: E::Argument,
         signature_verified_block: &Vec<T>,
@@ -364,5 +364,55 @@ where
 
         ret.resize_with(num_txns, E::Output::skip_output);
         Ok(ret)
+    }
+
+    pub fn execute_block(
+        &self,
+        executor_arguments: E::Argument,
+        signature_verified_block: Vec<T>,
+        base_view: &dyn DataView<T = T>,
+    ) -> Result<Vec<(E::Output, Vec<(<T as Transaction>::Key, WriteOp)>)>, E::Error> {
+        let num_txns = signature_verified_block.len();
+
+        let mut ret = if self.concurrency_level > 1 {
+            self.execute_transactions_parallel(
+                executor_arguments,
+                &signature_verified_block,
+                base_view,
+            )
+        } else {
+            self.execute_transactions_sequential(
+                executor_arguments,
+                &signature_verified_block,
+                base_view,
+            )
+            .map(|results| (results, vec![Vec::new(); num_txns]))
+        };
+
+        // TODO: change to is_err_and(|e| {}) once stable.
+        if ret.is_err() && *ret.as_ref().err().unwrap() == Error::ModulePathReadWrite {
+            debug!("[Execution]: Module read & written, sequential fallback");
+
+            ret = self
+                .execute_transactions_sequential(
+                    executor_arguments,
+                    &signature_verified_block,
+                    base_view,
+                )
+                .map(|results| (results, vec![Vec::new(); num_txns]))
+        }
+
+        RAYON_EXEC_POOL.spawn(move || {
+            // Explicit async drops.
+            drop(signature_verified_block);
+        });
+
+        // TODO: parallelize when necessary.
+        ret.map(|(results, resolved_deltas)| {
+            results
+                .into_iter()
+                .zip(resolved_deltas.into_iter())
+                .collect()
+        })
     }
 }

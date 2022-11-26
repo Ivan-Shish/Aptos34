@@ -69,6 +69,22 @@ impl<V> Entry<V> {
     }
 }
 
+pub(crate) struct VersionedPath<V> {
+    pub(crate) versioned_map: BTreeMap<TxnIndex, CachePadded<Entry<V>>>,
+    // TODO: this can cache base (storage) value in Option<u128> to facilitate
+    // aggregator validation & reading in the future, if needed.
+    pub(crate) contains_delta: bool,
+}
+
+impl<V: TransactionWrite> VersionedPath<V> {
+    pub fn new() -> Self {
+        Self {
+            versioned_map: BTreeMap::new(),
+            contains_delta: false,
+        }
+    }
+}
+
 /// Main multi-version data-structure used by threads to read/write during parallel
 /// execution. Maps each access path to an interal BTreeMap that contains the indices
 /// of transactions that write at the given access path alongside the corresponding
@@ -78,7 +94,7 @@ impl<V> Entry<V> {
 /// given key, it holds exclusive access and doesn't need to explicitly synchronize
 /// with other reader/writers.
 pub struct MVHashMap<K, V> {
-    data: DashMap<K, BTreeMap<TxnIndex, CachePadded<Entry<V>>>>,
+    data: DashMap<K, VersionedPath<V>>,
 }
 
 /// Returned as Err(..) when failed to read from the multi-version data-structure.
@@ -117,7 +133,20 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
 
     /// For processing outputs - removes the BTreeMap from the MVHashMap.
     pub fn entry_map_for_key(&self, key: &K) -> Option<BTreeMap<TxnIndex, CachePadded<Entry<V>>>> {
-        self.data.remove(key).map(|(_, tree)| tree)
+        self.data
+            .remove(key)
+            .map(|(_, v)| v)
+            .map(|p| p.versioned_map)
+    }
+
+    /// Returns the list of keys that had an associated delta entry at any prior point.
+    pub fn aggregator_keys(&self) -> Vec<K> {
+        // TODO: parallelize if & when needed.
+        self.data
+            .iter()
+            .filter(|entry| entry.value().contains_delta)
+            .map(|entry| entry.key().clone())
+            .collect()
     }
 
     /// Add a write of versioned data at a specified key. If the entry is overwritten, asserts
@@ -125,8 +154,8 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
     pub fn add_write(&self, key: &K, version: Version, data: V) {
         let (txn_idx, incarnation) = version;
 
-        let mut map = self.data.entry(key.clone()).or_insert(BTreeMap::new());
-        let prev_entry = map.insert(
+        let mut vp = self.data.entry(key.clone()).or_insert(VersionedPath::new());
+        let prev_entry = vp.versioned_map.insert(
             txn_idx,
             CachePadded::new(Entry::new_write_from(FLAG_DONE, incarnation, data)),
         );
@@ -143,18 +172,20 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
 
     /// Add a delta at a specified key.
     pub fn add_delta(&self, key: &K, txn_idx: usize, delta: DeltaOp) {
-        let mut map = self.data.entry(key.clone()).or_insert(BTreeMap::new());
-        map.insert(
+        let mut vp = self.data.entry(key.clone()).or_insert(VersionedPath::new());
+        vp.versioned_map.insert(
             txn_idx,
             CachePadded::new(Entry::new_delta_from(FLAG_DONE, delta)),
         );
+        vp.contains_delta = true;
     }
 
     /// Mark an entry from transaction 'txn_idx' at access path 'key' as an estimated write
     /// (for future incarnation). Will panic if the entry is not in the data-structure.
     pub fn mark_estimate(&self, key: &K, txn_idx: TxnIndex) {
-        let map = self.data.get(key).expect("Path must exist");
-        map.get(&txn_idx)
+        let vp = self.data.get(key).expect("Path must exist");
+        vp.versioned_map
+            .get(&txn_idx)
             .expect("Entry by txn must exist")
             .mark_estimate();
     }
@@ -163,8 +194,8 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
     /// if the access path has never been written before.
     pub fn delete(&self, key: &K, txn_idx: TxnIndex) {
         // TODO: investigate logical deletion.
-        let mut map = self.data.get_mut(key).expect("Path must exist");
-        map.remove(&txn_idx);
+        let mut vp = self.data.get_mut(key).expect("Path must exist");
+        vp.versioned_map.remove(&txn_idx);
     }
 
     /// Read entry from transaction 'txn_idx' at access path 'key'.
@@ -173,8 +204,8 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
         use MVHashMapOutput::*;
 
         match self.data.get(key) {
-            Some(tree) => {
-                let mut iter = tree.range(0..txn_idx);
+            Some(vp) => {
+                let mut iter = vp.versioned_map.range(0..txn_idx);
 
                 // If read encounters a delta, it must traverse the block of transactions
                 // (top-down) until it encounters a write or reaches the end of the block.

@@ -344,6 +344,7 @@ dependencies = [
  "anyhow",
  "aptos-aggregator",
  "aptos-infallible",
+ "aptos-logger",
  "aptos-metrics-core",
  "aptos-state-view",
  "aptos-types",
