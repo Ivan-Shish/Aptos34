@@ -1,12 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::executor::MVHashMapView;
+use crate::view::ResolvedData;
 use aptos_aggregator::delta_change_set::DeltaOp;
+use aptos_state_view::StateViewId;
 use aptos_types::{
     access_path::AccessPath, state_store::state_key::StateKey, write_set::TransactionWrite,
 };
-use std::{collections::btree_map::BTreeMap, fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash};
 
 /// The execution result of a transaction
 #[derive(Debug)]
@@ -68,19 +69,13 @@ pub trait ExecutorTask: Sync {
     /// Create an instance of the transaction executor.
     fn init(args: Self::Argument) -> Self;
 
-    /// Execute one single transaction given the view of the current state as a BTreeMap,
-    fn execute_transaction_btree_view(
+    /// Execute a single transaction given the view of the current state.
+    fn execute_transaction(
         &self,
-        view: &BTreeMap<<Self::T as Transaction>::Key, <Self::T as Transaction>::Value>,
+        view: &dyn DataView<T = Self::T>,
         txn: &Self::T,
         txn_idx: usize,
-    ) -> ExecutionStatus<Self::Output, Self::Error>;
-
-    /// Execute one single transaction given the view of the current state.
-    fn execute_transaction_mvhashmap_view(
-        &self,
-        view: &MVHashMapView<<Self::T as Transaction>::Key, <Self::T as Transaction>::Value>,
-        txn: &Self::T,
+        materialize_deltas: bool,
     ) -> ExecutionStatus<Self::Output, Self::Error>;
 }
 
@@ -102,4 +97,21 @@ pub trait TransactionOutput: Send + Sync {
 
     /// Execution output for transactions that comes after SkipRest signal.
     fn skip_output() -> Self;
+}
+
+/// Generic (over K) StateView's get_state_value functionality. Useful to pass the
+/// storage wrapper (base view) to the executor, and to pass executor's in-progress view
+/// (i.e. incorporating some outputs of the transactions in the block) back to aptos-vm.
+pub trait DataView: Sync {
+    /// Type of transaction and its associated key and value.
+    type T: Transaction;
+
+    /// Get state value given the key of type T::Key.
+    fn get_state_value(
+        &self,
+        state_key: &<Self::T as Transaction>::Key,
+    ) -> anyhow::Result<ResolvedData>;
+
+    /// Useful to pass for logging purposes.
+    fn id(&self) -> StateViewId;
 }

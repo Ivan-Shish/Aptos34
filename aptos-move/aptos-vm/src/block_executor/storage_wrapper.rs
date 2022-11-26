@@ -1,70 +1,74 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::data_cache::{IntoMoveResolver, StorageAdapterOwned};
-use aptos_aggregator::delta_change_set::{deserialize, serialize};
-use aptos_block_executor::executor::{MVHashMapView, ReadResult};
-use aptos_state_view::{StateView, StateViewId};
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::{
-    state_store::state_key::StateKey,
-    vm_status::{StatusCode, VMStatus},
-    write_set::WriteOp,
+use crate::{
+    adapter_common::PreprocessedTransaction,
+    data_cache::{IntoMoveResolver, StorageAdapterOwned},
 };
-use move_binary_format::errors::Location;
+use aptos_block_executor::task::DataView as BlockExecutorDataView;
+use aptos_state_view::{StateView, StateViewId};
+use aptos_types::state_store::{state_key::StateKey, state_storage_usage::StateStorageUsage};
 
-pub(crate) struct VersionedView<'a, S: StateView> {
-    base_view: &'a S,
-    hashmap_view: &'a MVHashMapView<'a, StateKey, WriteOp>,
+/// Type used for accessing base (storage) values.
+pub(crate) struct AptosDataView<'a, S>(pub(crate) &'a S);
+
+impl<'a, S: StateView> BlockExecutorDataView for AptosDataView<'a, S> {
+    type T = PreprocessedTransaction;
+
+    /// Gets the state value for a given state key.
+    fn get_state_value(&self, state_key: &StateKey) -> anyhow::Result<Option<Vec<u8>>> {
+        self.0.get_state_value(state_key)
+    }
+
+    fn id(&self) -> StateViewId {
+        self.0.id()
+    }
 }
 
-impl<'a, S: StateView> VersionedView<'a, S> {
+/// Type used for accessing latest values (i.e. values written by the highest transaction in
+/// the block, o.w. the base value from storage)
+pub(crate) struct AptosVersionedView<'a, S: StateView, D: BlockExecutorDataView + ?Sized> {
+    state_view: &'a S,
+    data_view: &'a D,
+}
+
+impl<'a, S: StateView, D: BlockExecutorDataView<T = PreprocessedTransaction> + ?Sized>
+    AptosVersionedView<'a, S, D>
+{
     pub fn new_view(
-        base_view: &'a S,
-        hashmap_view: &'a MVHashMapView<'a, StateKey, WriteOp>,
-    ) -> StorageAdapterOwned<VersionedView<'a, S>> {
-        VersionedView {
-            base_view,
-            hashmap_view,
+        state_view: &'a S,
+        data_view: &'a D,
+    ) -> StorageAdapterOwned<AptosVersionedView<'a, S, D>> {
+        AptosVersionedView {
+            state_view,
+            data_view,
         }
         .into_move_resolver()
     }
 }
 
-impl<'a, S: StateView> StateView for VersionedView<'a, S> {
+impl<'a, S: StateView, D: BlockExecutorDataView<T = PreprocessedTransaction> + ?Sized> StateView
+    for AptosVersionedView<'a, S, D>
+{
     fn id(&self) -> StateViewId {
-        self.base_view.id()
+        assert_eq!(
+            self.state_view.id(),
+            self.data_view.id(),
+            "Data view used by block executor does not match the state view used for storage"
+        );
+        self.state_view.id()
     }
 
     // Get some data either through the cache or the `StateView` on a cache miss.
     fn get_state_value(&self, state_key: &StateKey) -> anyhow::Result<Option<Vec<u8>>> {
-        match self.hashmap_view.read(state_key) {
-            ReadResult::Value(v) => Ok(match v.as_ref() {
-                WriteOp::Modification(w) | WriteOp::Creation(w) => Some(w.clone()),
-                WriteOp::Deletion => None,
-            }),
-            ReadResult::U128(v) => Ok(Some(serialize(&v))),
-            ReadResult::Unresolved(delta) => {
-                let from_storage = self
-                    .base_view
-                    .get_state_value(state_key)?
-                    .map_or(Err(VMStatus::Error(StatusCode::STORAGE_ERROR)), |bytes| {
-                        Ok(deserialize(&bytes))
-                    })?;
-                let result = delta
-                    .apply_to(from_storage)
-                    .map_err(|pe| pe.finish(Location::Undefined).into_vm_status())?;
-                Ok(Some(serialize(&result)))
-            }
-            ReadResult::None => self.base_view.get_state_value(state_key),
-        }
+        self.data_view.get_state_value(state_key)
     }
 
     fn is_genesis(&self) -> bool {
-        self.base_view.is_genesis()
+        self.state_view.is_genesis()
     }
 
     fn get_usage(&self) -> anyhow::Result<StateStorageUsage> {
-        self.base_view.get_usage()
+        self.state_view.get_usage()
     }
 }

@@ -37,7 +37,7 @@ pub trait StateView: Sync {
     fn get_usage(&self) -> Result<StateStorageUsage>;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StateViewId {
     /// State-sync applying a chunk of transactions.
     ChunkExecution { first_version: Version },
