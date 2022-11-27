@@ -22,6 +22,7 @@ pub enum BootstrappingMode {
     ApplyTransactionOutputsFromGenesis, // Applies transaction outputs (starting at genesis)
     DownloadLatestStates, // Downloads the state keys and values (at the latest version)
     ExecuteTransactionsFromGenesis, // Executes transactions (starting at genesis)
+    ExecuteTransactionsOrApplyOutputsFromGenesis, // Executes transactions or applies outputs from genesis (whichever is fastest)
 }
 
 impl BootstrappingMode {
@@ -34,6 +35,9 @@ impl BootstrappingMode {
             BootstrappingMode::ExecuteTransactionsFromGenesis => {
                 "execute_transactions_from_genesis"
             }
+            BootstrappingMode::ExecuteTransactionsOrApplyOutputsFromGenesis => {
+                "execute_transactions_or_apply_outputs_from_genesis"
+            }
         }
     }
 }
@@ -45,6 +49,7 @@ impl BootstrappingMode {
 pub enum ContinuousSyncingMode {
     ApplyTransactionOutputs, // Applies transaction outputs to stay up-to-date
     ExecuteTransactions,     // Executes transactions to stay up-to-date
+    ExecuteTransactionsOrApplyOutputs, // Executes transactions or applies outputs to stay up-to-date (whichever is fastest)
 }
 
 impl ContinuousSyncingMode {
@@ -52,6 +57,9 @@ impl ContinuousSyncingMode {
         match self {
             ContinuousSyncingMode::ApplyTransactionOutputs => "apply_transaction_outputs",
             ContinuousSyncingMode::ExecuteTransactions => "execute_transactions",
+            ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs => {
+                "execute_transactions_or_apply_outputs"
+            }
         }
     }
 }
@@ -170,6 +178,7 @@ impl Default for DataStreamingServiceConfig {
 pub struct AptosDataClientConfig {
     pub max_num_in_flight_priority_polls: u64, // Max num of in-flight polls for priority peers
     pub max_num_in_flight_regular_polls: u64,  // Max num of in-flight polls for regular peers
+    pub max_num_output_reductions: u64, // The max num of output reductions before transactions are returned
     pub max_response_timeout_ms: u64, // Max timeout (in ms) when waiting for a response (after exponential increases)
     pub response_timeout_ms: u64,     // First timeout (in ms) when waiting for a response
     pub subscription_timeout_ms: u64, // Timeout (in ms) when waiting for a subscription response
@@ -182,6 +191,7 @@ impl Default for AptosDataClientConfig {
         Self {
             max_num_in_flight_priority_polls: 10,
             max_num_in_flight_regular_polls: 10,
+            max_num_output_reductions: 3,
             max_response_timeout_ms: 60000, // 60 seconds
             response_timeout_ms: 10000,     // 10 seconds
             subscription_timeout_ms: 5000,  // 5 seconds

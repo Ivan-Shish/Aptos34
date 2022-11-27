@@ -705,6 +705,16 @@ impl<
                     )
                     .await?
             }
+            BootstrappingMode::ExecuteTransactionsOrApplyOutputsFromGenesis => {
+                self.streaming_client
+                    .get_all_transactions_or_outputs(
+                        next_version,
+                        end_version,
+                        highest_known_ledger_version,
+                        false,
+                    )
+                    .await?
+            }
             bootstrapping_mode => {
                 unreachable!("Bootstrapping mode not supported: {:?}", bootstrapping_mode)
             }
@@ -1131,6 +1141,43 @@ impl<
                     ));
                 }
             }
+            BootstrappingMode::ExecuteTransactionsOrApplyOutputsFromGenesis => {
+                if let Some(transaction_list_with_proof) = transaction_list_with_proof {
+                    let num_transactions = transaction_list_with_proof.transactions.len();
+                    self.storage_synchronizer
+                        .execute_transactions(
+                            notification_id,
+                            transaction_list_with_proof,
+                            proof_ledger_info,
+                            end_of_epoch_ledger_info,
+                        )
+                        .await?;
+                    num_transactions
+                } else if let Some(transaction_outputs_with_proof) = transaction_outputs_with_proof
+                {
+                    let num_transaction_outputs = transaction_outputs_with_proof
+                        .transactions_and_outputs
+                        .len();
+                    self.storage_synchronizer
+                        .apply_transaction_outputs(
+                            notification_id,
+                            transaction_outputs_with_proof,
+                            proof_ledger_info,
+                            end_of_epoch_ledger_info,
+                        )
+                        .await?;
+                    num_transaction_outputs
+                } else {
+                    self.reset_active_stream(Some(NotificationAndFeedback::new(
+                        notification_id,
+                        NotificationFeedback::PayloadTypeIsIncorrect,
+                    )))
+                    .await?;
+                    return Err(Error::InvalidPayload(
+                        "Did not receive transactions or outputs with proof!".into(),
+                    ));
+                }
+            }
             bootstrapping_mode => {
                 unreachable!("Bootstrapping mode not supported: {:?}", bootstrapping_mode)
             }
@@ -1288,6 +1335,22 @@ impl<
                     .await?;
                     return Err(Error::InvalidPayload(
                         "Did not receive transactions with proof!".into(),
+                    ));
+                }
+            }
+            BootstrappingMode::ExecuteTransactionsOrApplyOutputsFromGenesis => {
+                if let Some(transaction_list_with_proof) = transaction_list_with_proof {
+                    transaction_list_with_proof.transactions.len()
+                } else if let Some(output_list_with_proof) = transaction_outputs_with_proof {
+                    output_list_with_proof.transactions_and_outputs.len()
+                } else {
+                    self.reset_active_stream(Some(NotificationAndFeedback::new(
+                        notification_id,
+                        NotificationFeedback::PayloadTypeIsIncorrect,
+                    )))
+                    .await?;
+                    return Err(Error::InvalidPayload(
+                        "Did not receive transactions or outputs with proof!".into(),
                     ));
                 }
             }

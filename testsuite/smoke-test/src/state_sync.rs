@@ -118,6 +118,27 @@ async fn test_full_node_bootstrap_outputs_exponential_backoff() {
 }
 
 #[tokio::test]
+async fn test_full_node_bootstrap_transactions_or_outputs() {
+    // Create a validator swarm of 1 validator node
+    let mut swarm = new_local_swarm_with_aptos(1).await;
+
+    // Create a fullnode config that uses transactions or outputs to sync
+    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
+        BootstrappingMode::ExecuteTransactionsOrApplyOutputsFromGenesis;
+    vfn_config
+        .state_sync
+        .state_sync_driver
+        .continuous_syncing_mode = ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs;
+
+    // Create the fullnode
+    let vfn_peer_id = create_full_node(vfn_config, &mut swarm).await;
+
+    // Test the ability of the fullnode to sync
+    test_full_node_sync(vfn_peer_id, &mut swarm, true).await;
+}
+
+#[tokio::test]
 async fn test_full_node_bootstrap_transactions() {
     // Create a validator swarm of 1 validator node
     let mut swarm = new_local_swarm_with_aptos(1).await;
