@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::{EXECUTOR_BENCHMARK_COMMITTED_TRANSACTION_COUNT, EXECUTOR_BENCHMARK_LATENCY};
 use aptos_crypto::hash::HashValue;
 use aptos_logger::prelude::*;
 use aptos_types::aggregate_signature::AggregateSignature;
@@ -108,10 +109,20 @@ fn report_block(
     block_size: usize,
 ) {
     let total_versions = (version - start_version) as f64;
+    let latency = Instant::now()
+        .duration_since(execution_start_time)
+        .as_millis();
+    EXECUTOR_BENCHMARK_LATENCY
+        .with_label_values(&["bar"])
+        .set(latency as i64);
+    EXECUTOR_BENCHMARK_COMMITTED_TRANSACTION_COUNT
+        .with_label_values(&["bar"])
+        .inc_by(block_size as u64);
+
     info!(
         "Version: {}. latency: {} ms, execute time: {} ms. commit time: {} ms. TPS: {:.0}. Accumulative TPS: {:.0}",
         version,
-        Instant::now().duration_since(execution_start_time).as_millis(),
+        latency,
         execution_time.as_millis(),
         commit_time.as_millis(),
         block_size as f64 / (std::cmp::max(execution_time, commit_time)).as_secs_f64(),

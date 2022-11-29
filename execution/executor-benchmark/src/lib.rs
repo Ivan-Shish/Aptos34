@@ -22,10 +22,22 @@ use aptos_jellyfish_merkle::metrics::{
 use aptosdb::AptosDB;
 
 use crate::pipeline::Pipeline;
+use aptos_metrics_core::{
+    register_int_counter_vec, register_int_gauge_vec, IntCounterVec, IntGaugeVec,
+};
 use aptos_vm::AptosVM;
 use executor::block_executor::BlockExecutor;
-use std::{fs, path::Path};
+use once_cell::sync::Lazy;
+use std::{env, fs, path::Path};
 use storage_interface::DbReaderWriter;
+
+pub static EXECUTOR_BENCHMARK_LATENCY: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!("executor_benchmark_latency_ms", "blah", &["foo"]).unwrap()
+});
+
+pub static EXECUTOR_BENCHMARK_COMMITTED_TRANSACTION_COUNT: Lazy<IntCounterVec> = Lazy::new(|| {
+    register_int_counter_vec!("executor_benchmark_committed_txn_count", "blah", &["foo"]).unwrap()
+});
 
 pub fn init_db_and_executor(config: &NodeConfig) -> (DbReaderWriter, BlockExecutor<AptosVM>) {
     let db = DbReaderWriter::new(
