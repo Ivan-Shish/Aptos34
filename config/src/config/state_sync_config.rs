@@ -98,7 +98,8 @@ pub struct StorageServiceConfig {
     pub max_lru_cache_size: u64,      // Max num of items in the lru cache before eviction
     pub max_network_channel_size: u64, // Max num of pending network messages
     pub max_network_chunk_bytes: u64, // Max num of bytes to send per network message
-    pub max_state_chunk_size: u64,    // Max num of state keys and values per chunk
+    pub max_output_reduction_count: u64, // The max number of output reductions before transactions are returned
+    pub max_state_chunk_size: u64,       // Max num of state keys and values per chunk
     pub max_subscription_period_ms: u64, // Max period (ms) of pending subscription requests
     pub max_transaction_chunk_size: u64, // Max num of transactions per chunk
     pub max_transaction_output_chunk_size: u64, // Max num of transaction outputs per chunk
@@ -113,6 +114,7 @@ impl Default for StorageServiceConfig {
             max_lru_cache_size: 500, // At ~0.6MiB per chunk, this should take no more than 0.5GiB
             max_network_channel_size: 4000,
             max_network_chunk_bytes: MAX_MESSAGE_SIZE as u64,
+            max_output_reduction_count: 3,
             max_state_chunk_size: 2000,
             max_subscription_period_ms: 5000,
             max_transaction_chunk_size: 2000,

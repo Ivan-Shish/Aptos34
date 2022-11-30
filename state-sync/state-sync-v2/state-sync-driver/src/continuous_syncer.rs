@@ -132,6 +132,16 @@ impl<
                     )
                     .await?
             }
+            ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs => {
+                self.streaming_client
+                    .continuously_stream_transactions_or_outputs(
+                        highest_synced_version,
+                        highest_synced_epoch,
+                        false,
+                        sync_request_target,
+                    )
+                    .await?
+            }
         };
         self.speculative_stream_state = Some(SpeculativeStreamState::new(
             highest_epoch_state,
@@ -295,6 +305,44 @@ impl<
                         .await?;
                         return Err(Error::InvalidPayload(
                             "Did not receive transactions with proof!".into(),
+                        ));
+                    }
+                }
+                ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs => {
+                    if let Some(transaction_list_with_proof) = transaction_list_with_proof {
+                        let num_transactions = transaction_list_with_proof.transactions.len();
+                        self.storage_synchronizer
+                            .execute_transactions(
+                                notification_id,
+                                transaction_list_with_proof,
+                                ledger_info_with_signatures.clone(),
+                                None,
+                            )
+                            .await?;
+                        num_transactions
+                    } else if let Some(transaction_outputs_with_proof) =
+                        transaction_outputs_with_proof
+                    {
+                        let num_transaction_outputs = transaction_outputs_with_proof
+                            .transactions_and_outputs
+                            .len();
+                        self.storage_synchronizer
+                            .apply_transaction_outputs(
+                                notification_id,
+                                transaction_outputs_with_proof,
+                                ledger_info_with_signatures.clone(),
+                                None,
+                            )
+                            .await?;
+                        num_transaction_outputs
+                    } else {
+                        self.reset_active_stream(Some(NotificationAndFeedback::new(
+                            notification_id,
+                            NotificationFeedback::PayloadTypeIsIncorrect,
+                        )))
+                        .await?;
+                        return Err(Error::InvalidPayload(
+                            "No transactions or output with proof was provided!".into(),
                         ));
                     }
                 }
