@@ -1367,6 +1367,7 @@ async fn optimal_chunk_size_calculations() {
         max_lru_cache_size: 0,
         max_network_channel_size: 0,
         max_network_chunk_bytes: 0,
+        max_output_reduction_count: 0,
         max_state_chunk_size,
         max_subscription_period_ms: 0,
         max_transaction_chunk_size,
