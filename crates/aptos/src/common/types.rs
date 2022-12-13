@@ -1353,11 +1353,11 @@ impl TransactionOptions {
             let simulated_txn = txns.first().unwrap();
 
             // Check if the transaction will pass, if it doesn't then fail
-            if !simulated_txn.info.success {
-                return Err(CliError::SimulationError(
-                    simulated_txn.info.vm_status.clone(),
-                ));
-            }
+            // if !simulated_txn.info.success {
+            //    return Err(CliError::SimulationError(
+            //        simulated_txn.info.vm_status.clone(),
+            //    ));
+            //}
 
             // Take the gas used and use a headroom factor on it
             let gas_used = simulated_txn.info.gas_used.0;
