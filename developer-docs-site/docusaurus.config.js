@@ -175,6 +175,11 @@ const config = {
                 docId: "tutorials/first-move-module",
               },
               {
+                label: "Mint NFT with CLI",
+                type: "doc",
+                docId: "guides/move-guides/mint-nft-cli",
+              },
+              {
                 label: "Upgrade Move Code",
                 type: "doc",
                 docId: "guides/move-guides/upgrading-move-code",
