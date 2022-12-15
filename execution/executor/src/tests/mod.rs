@@ -390,7 +390,7 @@ fn apply_transaction_by_writeset(
         .collect();
 
     let state_view = ledger_view
-        .verified_state_view(
+        .cached_state_view(
             StateViewId::Miscellaneous,
             Arc::clone(&db.reader),
             Arc::new(SyncProofFetcher::new(db.reader.clone())),
@@ -532,7 +532,7 @@ fn run_transactions_naive(transactions: Vec<Transaction>) -> HashValue {
         let out = ChunkOutput::by_transaction_execution::<MockVM>(
             vec![txn],
             ledger_view
-                .verified_state_view(
+                .cached_state_view(
                     StateViewId::Miscellaneous,
                     Arc::clone(&db.reader),
                     Arc::new(SyncProofFetcher::new(db.reader.clone())),

@@ -123,7 +123,7 @@ pub fn calculate_genesis<V: VMExecutor>(
     // In the very extreme and sad situation of losing quorum among validators, we refer to the
     // second use case said above.
     let genesis_version = executed_trees.version().map_or(0, |v| v + 1);
-    let base_state_view = executed_trees.verified_state_view(
+    let base_state_view = executed_trees.cached_state_view(
         StateViewId::Miscellaneous,
         Arc::clone(&db.reader),
         Arc::new(SyncProofFetcher::new(db.reader.clone())),
@@ -147,7 +147,7 @@ pub fn calculate_genesis<V: VMExecutor>(
         // TODO(aldenhu): fix existing tests before using real timestamp and check on-chain epoch.
         GENESIS_TIMESTAMP_USECS
     } else {
-        let state_view = output.result_view.verified_state_view(
+        let state_view = output.result_view.cached_state_view(
             StateViewId::Miscellaneous,
             Arc::clone(&db.reader),
             Arc::new(SyncProofFetcher::new(db.reader.clone())),

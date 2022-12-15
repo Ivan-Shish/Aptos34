@@ -123,7 +123,7 @@ impl<V: VMExecutor> ChunkExecutorInner<V> {
     }
 
     fn state_view(&self, latest_view: &ExecutedTrees) -> Result<CachedStateView> {
-        latest_view.verified_state_view(
+        latest_view.cached_state_view(
             StateViewId::ChunkExecution {
                 first_version: latest_view.txn_accumulator().num_leaves(),
             },
@@ -324,7 +324,7 @@ impl<V: VMExecutor> TransactionReplayer for ChunkExecutorInner<V> {
         &self,
         mut transactions: Vec<Transaction>,
         mut transaction_infos: Vec<TransactionInfo>,
-        writesets: Vec<WriteSet>,
+        mut write_sets: Vec<WriteSet>,
         events: Vec<Vec<ContractEvent>>,
         txns_to_skip: Arc<BTreeSet<Version>>,
     ) -> Result<()> {
@@ -343,17 +343,20 @@ impl<V: VMExecutor> TransactionReplayer for ChunkExecutorInner<V> {
         for version in txns_to_skip
             .range(current_begin_version + 1..current_begin_version + total_length as u64 + 1)
         {
-            let remaining = transactions.split_off((version - offset) as usize);
-            let remaining_info = transaction_infos.split_off((version - offset) as usize);
+            let split_off = (version - offset) as usize;
+            let remaining = transactions.split_off(split_off);
+            let remaining_info = transaction_infos.split_off(split_off);
+            let remaining_write_sets = write_sets.split_off(split_off);
             let txn_to_skip = transactions.pop().unwrap();
             let txn_info = transaction_infos.pop().unwrap();
+            let write_set = write_sets.pop().unwrap();
 
-            self.replay_impl(transactions, transaction_infos)?;
+            self.replay_impl(transactions, transaction_infos, write_sets)?;
 
             self.apply_transaction_and_output(
                 txn_to_skip,
                 TransactionOutput::new(
-                    writesets[(version - current_begin_version - 1) as usize].clone(),
+                    write_set,
                     events[(version - current_begin_version - 1) as usize].clone(),
                     txn_info.gas_used(),
                     TransactionStatus::Keep(txn_info.status().clone()),
@@ -363,9 +366,10 @@ impl<V: VMExecutor> TransactionReplayer for ChunkExecutorInner<V> {
 
             transactions = remaining;
             transaction_infos = remaining_info;
+            write_sets = remaining_write_sets;
             offset = version + 1;
         }
-        self.replay_impl(transactions, transaction_infos)
+        self.replay_impl(transactions, transaction_infos, write_sets)
     }
 
     fn commit(&self) -> Result<Arc<ExecutedChunk>> {
@@ -378,6 +382,7 @@ impl<V: VMExecutor> ChunkExecutorInner<V> {
         &self,
         transactions: Vec<Transaction>,
         mut transaction_infos: Vec<TransactionInfo>,
+        mut write_sets: Vec<WriteSet>,
     ) -> Result<()> {
         let (_persisted_view, mut latest_view) =
             self.commit_queue.lock().persisted_and_latest_view();
@@ -388,6 +393,10 @@ impl<V: VMExecutor> ChunkExecutorInner<V> {
         while !to_run.as_ref().unwrap().is_empty() {
             // Execute transactions.
             let state_view = self.state_view(&latest_view)?;
+
+            // pre-heat cache
+            state_view.prime_cache_by_write_set(&write_sets)?;
+
             let txns = to_run.take().unwrap();
             let chunk_output = ChunkOutput::by_transaction_execution::<V>(txns, state_view)?;
 
@@ -398,6 +407,7 @@ impl<V: VMExecutor> ChunkExecutorInner<V> {
             let n = executed.to_commit.len();
             executed.ensure_transaction_infos_match(&transaction_infos[..n])?;
             transaction_infos.drain(..n);
+            write_sets.drain(..n);
 
             to_run = Some(to_retry);
             executed_chunk = executed_chunk.combine(executed)?;

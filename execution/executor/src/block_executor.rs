@@ -186,7 +186,7 @@ where
                 "execute_block"
             );
             let _timer = APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS.start_timer();
-            let state_view = parent_view.verified_state_view(
+            let state_view = parent_view.cached_state_view(
                 StateViewId::BlockExecution { block_id },
                 Arc::clone(&self.db.reader),
                 Arc::new(AsyncProofFetcher::new(self.db.reader.clone())),

@@ -90,7 +90,7 @@ impl ExecutedTrees {
             && self.transaction_accumulator.root_hash() == rhs.transaction_accumulator.root_hash()
     }
 
-    pub fn verified_state_view(
+    pub fn cached_state_view(
         &self,
         id: StateViewId,
         reader: Arc<dyn DbReader>,
