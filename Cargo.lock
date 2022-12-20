@@ -929,6 +929,7 @@ dependencies = [
  "rayon",
  "serde 1.0.149",
  "structopt",
+ "thread-priority",
  "toml",
 ]
 

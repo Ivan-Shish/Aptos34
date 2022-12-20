@@ -8,6 +8,7 @@ use aptos_push_metrics::MetricsPusher;
 use aptos_vm::AptosVM;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use thread_priority::*;
 
 #[cfg(unix)]
 #[global_allocator]
@@ -153,6 +154,7 @@ fn main() {
 
     rayon::ThreadPoolBuilder::new()
         .thread_name(|index| format!("rayon-global-{}", index))
+        .start_handler(|index| assert!(ThreadPriority::Max.set_for_current().is_ok()))
         .build_global()
         .expect("Failed to build rayon global thread pool.");
     AptosVM::set_concurrency_level_once(opt.concurrency_level());

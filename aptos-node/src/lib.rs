@@ -187,7 +187,7 @@ pub fn start(
     if create_global_rayon_pool {
         rayon::ThreadPoolBuilder::new()
             .thread_name(|index| format!("rayon-global-{}", index))
-            .start_handler(|index| assert!(ThreadPriority::Min.set_for_current().is_ok()))
+            .start_handler(|index| assert!(ThreadPriority::Max.set_for_current().is_ok()))
             .build_global()
             .expect("Failed to build rayon global thread _pool.");
     }

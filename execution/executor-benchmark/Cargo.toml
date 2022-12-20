@@ -39,6 +39,7 @@ rand = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 structopt = { workspace = true }
+thread-priority = { workspace = true }
 toml = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
