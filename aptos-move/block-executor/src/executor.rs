@@ -15,12 +15,23 @@ use aptos_state_view::TStateView;
 use num_cpus;
 use once_cell::sync::Lazy;
 use std::{collections::btree_map::BTreeMap, marker::PhantomData};
-use thread_priority::ThreadPriority;
+use thread_priority::{
+    set_thread_priority_and_policy, thread_native_id, RealtimeThreadSchedulePolicy, ThreadPriority,
+};
 
 pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get())
-        .start_handler(|index| assert!(ThreadPriority::Max.set_for_current().is_ok()))
+        .start_handler(|index| {
+            assert!(set_thread_priority_and_policy(
+                thread_native_id(),
+                ThreadPriority::Max,
+                thread_priority::ThreadSchedulePolicy::Realtime(
+                    RealtimeThreadSchedulePolicy::RoundRobin
+                )
+            )
+            .is_ok())
+        })
         .thread_name(|index| format!("par_exec_{}", index))
         .build()
         .unwrap()
