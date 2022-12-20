@@ -431,6 +431,7 @@ dependencies = [
  "proptest-derive",
  "rand 0.7.3",
  "rayon",
+ "thread-priority",
 ]
 
 [[package]]
