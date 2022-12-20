@@ -38,6 +38,7 @@ use aptos_db::AptosDB;
 use aptos_event_notifications::EventSubscriptionService;
 use aptos_executor::{chunk_executor::ChunkExecutor, db_bootstrapper::maybe_bootstrap};
 use aptos_framework::ReleaseBundle;
+use aptos_mempool::MempoolClientSender;
 use aptos_mempool_notifications::MempoolNotificationSender;
 use aptos_network::application::storage::PeerMetadataStorage;
 use aptos_network_builder::builder::NetworkBuilder;
@@ -69,9 +70,8 @@ use std::{
     thread,
     time::Instant,
 };
+use thread_priority::*;
 use tokio::runtime::{Builder, Runtime};
-
-use aptos_mempool::MempoolClientSender;
 
 const AC_SMP_CHANNEL_BUFFER_SIZE: usize = 1_024;
 const INTRA_NODE_CHANNEL_BUFFER_SIZE: usize = 1;
@@ -187,6 +187,7 @@ pub fn start(
     if create_global_rayon_pool {
         rayon::ThreadPoolBuilder::new()
             .thread_name(|index| format!("rayon-global-{}", index))
+            .start_handler(|index| assert!(ThreadPriority::Min.set_for_current().is_ok()))
             .build_global()
             .expect("Failed to build rayon global thread _pool.");
     }

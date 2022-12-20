@@ -57,6 +57,7 @@ futures = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
+thread-priority = {workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 
