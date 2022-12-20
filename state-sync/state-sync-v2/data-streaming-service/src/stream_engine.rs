@@ -96,6 +96,7 @@ pub trait DataStreamEngine {
     fn transform_client_response_into_notification(
         &mut self,
         client_request: &DataClientRequest,
+        request_for_missing_data: bool,
         client_response_payload: ResponsePayload,
         notification_id_generator: Arc<U64IdGenerator>,
     ) -> Result<Option<DataNotification>, Error>;
@@ -267,30 +268,34 @@ impl DataStreamEngine for StateStreamEngine {
     fn transform_client_response_into_notification(
         &mut self,
         client_request: &DataClientRequest,
+        request_for_missing_data: bool,
         client_response_payload: ResponsePayload,
         notification_id_generator: Arc<U64IdGenerator>,
     ) -> Result<Option<DataNotification>, Error> {
         match client_request {
             StateValuesWithProof(request) => {
-                verify_client_request_indices(
-                    self.next_stream_index,
-                    request.start_index,
-                    request.end_index,
-                );
+                // If this request was for new data, we need to update our trackers
+                if !request_for_missing_data {
+                    verify_client_request_indices(
+                        self.next_stream_index,
+                        request.start_index,
+                        request.end_index,
+                    );
 
-                // Update the local stream notification tracker
-                self.next_stream_index = request.end_index.checked_add(1).ok_or_else(|| {
-                    Error::IntegerOverflow("Next stream index has overflown!".into())
-                })?;
+                    // Update the local stream notification tracker
+                    self.next_stream_index = request.end_index.checked_add(1).ok_or_else(|| {
+                        Error::IntegerOverflow("Next stream index has overflown!".into())
+                    })?;
 
-                // Check if the stream is complete
-                if request.end_index
-                    == self
+                    // Check if the stream is complete
+                    if request.end_index
+                        == self
                         .get_number_of_states()
                         .checked_sub(1)
                         .ok_or_else(|| Error::IntegerOverflow("End index has overflown!".into()))?
-                {
-                    self.stream_is_complete = true;
+                    {
+                        self.stream_is_complete = true;
+                    }
                 }
 
                 // Create a new data notification
@@ -445,9 +450,12 @@ impl ContinuousTransactionStreamEngine {
         &mut self,
         request_start: Version,
         request_end: Version,
+        request_for_missing_data: bool,
         client_response_payload: ResponsePayload,
         notification_id_generator: Arc<U64IdGenerator>,
     ) -> Result<DataNotification, Error> {
+        println!("Request start and end: {:?} -> {:?}", request_start, request_end);
+        println!("Response payload: {:?}", client_response_payload.get_label());
         // Update the stream version
         let target_ledger_info = self.get_target_ledger_info().clone();
         self.update_stream_version_and_epoch(request_start, request_end, &target_ledger_info)?;
@@ -904,6 +912,7 @@ impl DataStreamEngine for ContinuousTransactionStreamEngine {
     fn transform_client_response_into_notification(
         &mut self,
         client_request: &DataClientRequest,
+        request_for_missing_data: bool,
         client_response_payload: ResponsePayload,
         notification_id_generator: Arc<U64IdGenerator>,
     ) -> Result<Option<DataNotification>, Error> {
@@ -958,6 +967,7 @@ impl DataStreamEngine for ContinuousTransactionStreamEngine {
                     let data_notification = self.create_notification_for_continuous_data(
                         request.start_version,
                         request.end_version,
+                        request_for_missing_data,
                         client_response_payload,
                         notification_id_generator,
                     )?;
@@ -970,6 +980,7 @@ impl DataStreamEngine for ContinuousTransactionStreamEngine {
                     let data_notification = self.create_notification_for_continuous_data(
                         request.start_version,
                         request.end_version,
+                        request_for_missing_data,
                         client_response_payload,
                         notification_id_generator,
                     )?;
@@ -982,6 +993,7 @@ impl DataStreamEngine for ContinuousTransactionStreamEngine {
                     let data_notification = self.create_notification_for_continuous_data(
                         request.start_version,
                         request.end_version,
+                        request_for_missing_data,
                         client_response_payload,
                         notification_id_generator,
                     )?;
@@ -1108,25 +1120,29 @@ impl DataStreamEngine for EpochEndingStreamEngine {
     fn transform_client_response_into_notification(
         &mut self,
         client_request: &DataClientRequest,
+        request_for_missing_data: bool,
         client_response_payload: ResponsePayload,
         notification_id_generator: Arc<U64IdGenerator>,
     ) -> Result<Option<DataNotification>, Error> {
         match client_request {
             EpochEndingLedgerInfos(request) => {
-                verify_client_request_indices(
-                    self.next_stream_epoch,
-                    request.start_epoch,
-                    request.end_epoch,
-                );
+                // If this request was for new data, we need to update our trackers
+                if !request_for_missing_data {
+                    verify_client_request_indices(
+                        self.next_stream_epoch,
+                        request.start_epoch,
+                        request.end_epoch,
+                    );
 
-                // Update the local stream notification tracker
-                self.next_stream_epoch = request.end_epoch.checked_add(1).ok_or_else(|| {
-                    Error::IntegerOverflow("Next stream epoch has overflown!".into())
-                })?;
+                    // Update the local stream notification tracker
+                    self.next_stream_epoch = request.end_epoch.checked_add(1).ok_or_else(|| {
+                        Error::IntegerOverflow("Next stream epoch has overflown!".into())
+                    })?;
 
-                // Check if the stream is complete
-                if request.end_epoch == self.end_epoch {
-                    self.stream_is_complete = true;
+                    // Check if the stream is complete
+                    if request.end_epoch == self.end_epoch {
+                        self.stream_is_complete = true;
+                    }
                 }
 
                 // Create a new data notification
@@ -1328,44 +1344,48 @@ impl DataStreamEngine for TransactionStreamEngine {
     fn transform_client_response_into_notification(
         &mut self,
         client_request: &DataClientRequest,
+        request_for_missing_data: bool,
         client_response_payload: ResponsePayload,
         notification_id_generator: Arc<U64IdGenerator>,
     ) -> Result<Option<DataNotification>, Error> {
-        match &self.request {
-            StreamRequest::GetAllTransactions(stream_request) => match client_request {
-                TransactionsWithProof(request) => {
-                    let stream_end_version = stream_request.end_version;
-                    self.update_stream_version(
-                        request.start_version,
-                        request.end_version,
-                        stream_end_version,
-                    )?;
-                }
-                request => invalid_client_request!(request, self),
-            },
-            StreamRequest::GetAllTransactionOutputs(stream_request) => match client_request {
-                TransactionOutputsWithProof(request) => {
-                    let stream_end_version = stream_request.end_version;
-                    self.update_stream_version(
-                        request.start_version,
-                        request.end_version,
-                        stream_end_version,
-                    )?;
-                }
-                request => invalid_client_request!(request, self),
-            },
-            StreamRequest::GetAllTransactionsOrOutputs(stream_request) => match client_request {
-                TransactionsOrOutputsWithProof(request) => {
-                    let stream_end_version = stream_request.end_version;
-                    self.update_stream_version(
-                        request.start_version,
-                        request.end_version,
-                        stream_end_version,
-                    )?;
-                }
-                request => invalid_client_request!(request, self),
-            },
-            request => invalid_stream_request!(request),
+        // If this request was for new data, we need to update our trackers
+        if !request_for_missing_data {
+            match &self.request {
+                StreamRequest::GetAllTransactions(stream_request) => match client_request {
+                    TransactionsWithProof(request) => {
+                        let stream_end_version = stream_request.end_version;
+                        self.update_stream_version(
+                            request.start_version,
+                            request.end_version,
+                            stream_end_version,
+                        )?;
+                    }
+                    request => invalid_client_request!(request, self),
+                },
+                StreamRequest::GetAllTransactionOutputs(stream_request) => match client_request {
+                    TransactionOutputsWithProof(request) => {
+                        let stream_end_version = stream_request.end_version;
+                        self.update_stream_version(
+                            request.start_version,
+                            request.end_version,
+                            stream_end_version,
+                        )?;
+                    }
+                    request => invalid_client_request!(request, self),
+                },
+                StreamRequest::GetAllTransactionsOrOutputs(stream_request) => match client_request {
+                    TransactionsOrOutputsWithProof(request) => {
+                        let stream_end_version = stream_request.end_version;
+                        self.update_stream_version(
+                            request.start_version,
+                            request.end_version,
+                            stream_end_version,
+                        )?;
+                    }
+                    request => invalid_client_request!(request, self),
+                },
+                request => invalid_stream_request!(request),
+            }
         }
 
         // Create a new data notification

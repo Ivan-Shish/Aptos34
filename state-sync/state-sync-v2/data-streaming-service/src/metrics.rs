@@ -75,6 +75,17 @@ pub static SENT_DATA_REQUESTS: Lazy<IntCounterVec> = Lazy::new(|| {
     .unwrap()
 });
 
+/// Counter for tracking data requests that were retried due to
+/// missing data items.
+pub static MISSING_DATA_REQUESTS: Lazy<IntCounterVec> = Lazy::new(|| {
+    register_int_counter_vec!(
+        "aptos_data_streaming_service_missing_data_requests",
+        "Counters related to missing data requests",
+        &["request_type"]
+    )
+    .unwrap()
+});
+
 /// Counter for tracking data requests that were retried (including
 /// the new timeouts).
 pub static RETRIED_DATA_REQUESTS: Lazy<IntCounterVec> = Lazy::new(|| {

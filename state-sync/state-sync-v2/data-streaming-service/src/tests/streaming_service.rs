@@ -302,6 +302,7 @@ async fn test_notifications_continuous_outputs_limited_chunks() {
                 ledger_info_with_sigs,
                 outputs_with_proofs,
             ) => {
+                println!("Got data payload. Start version: {:?}, num items: {:?}", outputs_with_proofs.first_transaction_output_version, outputs_with_proofs.transactions_and_outputs.len());
                 let first_output_version = outputs_with_proofs
                     .first_transaction_output_version
                     .unwrap();

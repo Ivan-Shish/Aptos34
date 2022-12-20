@@ -400,14 +400,29 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
                 match client_response {
                     Ok(client_response) => {
                         if sanity_check_client_response(client_request, &client_response) {
-                            self.send_data_notification_to_client(client_request, client_response)
+                            if let Some(missing_data) =
+                                identify_missing_data(client_request, &client_response)?
+                            {
+                                self.handle_missing_data(
+                                    client_request,
+                                    client_response,
+                                    missing_data,
+                                )
                                 .await?;
+                                break; // A new request was sent for the missing data
+                            } else {
+                                self.send_data_notification_to_client(
+                                    client_request,
+                                    client_response,
+                                )
+                                .await?; // All requested data was received!
+                            }
                         } else {
                             self.handle_sanity_check_failure(
                                 client_request,
                                 &client_response.context,
                             )?;
-                            break;
+                            break; // The data request is going to be resent
                         }
                     }
                     Err(error) => {
@@ -420,10 +435,11 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
                         {
                             self.stream_engine
                                 .notify_subscription_timeout(client_request)?;
+                            break; // There shouldn't be any pending client requests
                         } else {
                             self.handle_data_client_error(client_request, &error)?;
+                            break; // The data request is going to be resent
                         };
-                        break;
                     }
                 }
             } else {
@@ -450,6 +466,36 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
         } else {
             None
         }
+    }
+
+    /// Sends a data notification to the client along the stream
+    /// and re-requests data that was missing from the original request.
+    /// This is useful for when data responses are truncated, e.g., due
+    /// to network packet size limits.
+    async fn handle_missing_data(
+        &mut self,
+        data_client_request: &DataClientRequest,
+        data_client_response: Response<ResponsePayload>,
+        missing_data_request: DataClientRequest,
+    ) -> Result<(), Error> {
+        // Send the received data to the client now
+        self.send_data_notification_to_client(data_client_request, data_client_response)
+            .await?;
+
+        // Increment the counter for the missing data
+        increment_counter(
+            &metrics::MISSING_DATA_REQUESTS,
+            data_client_request.get_label(),
+        );
+
+        // Send the client request for the missing data
+        let pending_client_response = self.send_client_request(false, missing_data_request);
+
+        // Push the pending response to the head of the sent requests queue
+        self.get_sent_data_requests()
+            .push_front(pending_client_response);
+
+        Ok(())
     }
 
     /// Handles a client response that failed sanity checks
@@ -704,6 +750,148 @@ impl FusedStream for DataStreamListener {
     fn is_terminated(&self) -> bool {
         self.notification_receiver.is_terminated()
     }
+}
+
+/// Identifies if the data client response fully satisfied the
+/// requested data, i.e., all requested data was received. If
+/// not, this method returns a data client request that can be
+/// sent to the network to retrieve the missing data.
+/// Note that the response types are assumed to have already been
+/// sanity checked (i.e., we know request-response types match).
+fn identify_missing_data(
+    data_client_request: &DataClientRequest,
+    data_client_response: &Response<ResponsePayload>,
+) -> Result<Option<DataClientRequest>, Error> {
+    let response = &data_client_response.payload;
+    match data_client_request {
+        DataClientRequest::EpochEndingLedgerInfos(request) => {
+            if let ResponsePayload::EpochEndingLedgerInfos(response) = response {
+                let num_requested_items =
+                    count_items_between_indices(request.start_epoch, request.end_epoch)?;
+                let num_received_items = response.len();
+
+                // Return a data request for any missing data
+                if num_received_items < num_requested_items {
+                    let new_start_epoch =
+                        calculate_new_start_index(request.start_epoch, num_received_items)?;
+                    return Ok(Some(DataClientRequest::EpochEndingLedgerInfos(
+                        EpochEndingLedgerInfosRequest {
+                            start_epoch: new_start_epoch,
+                            end_epoch: request.end_epoch,
+                        },
+                    )));
+                }
+            }
+        }
+        DataClientRequest::StateValuesWithProof(request) => {
+            if let ResponsePayload::StateValuesWithProof(response) = response {
+                let num_requested_items =
+                    count_items_between_indices(request.start_index, request.end_index)?;
+                let num_received_items = response.raw_values.len();
+
+                // Return a data request for any missing data
+                if num_received_items < num_requested_items {
+                    let new_start_index =
+                        calculate_new_start_index(request.start_index, num_received_items)?;
+                    return Ok(Some(DataClientRequest::StateValuesWithProof(
+                        StateValuesWithProofRequest {
+                            version: request.version,
+                            start_index: new_start_index,
+                            end_index: request.end_index,
+                        },
+                    )));
+                }
+            }
+        }
+        DataClientRequest::TransactionsWithProof(request) => {
+            if let ResponsePayload::TransactionsWithProof(response) = response {
+                let num_requested_items =
+                    count_items_between_indices(request.start_version, request.end_version)?;
+                let num_received_items = response.transactions.len();
+
+                // Return a data request for any missing data
+                if num_received_items < num_requested_items {
+                    let new_start_version =
+                        calculate_new_start_index(request.start_version, num_received_items)?;
+                    return Ok(Some(DataClientRequest::TransactionsWithProof(
+                        TransactionsWithProofRequest {
+                            start_version: new_start_version,
+                            end_version: request.end_version,
+                            proof_version: request.proof_version,
+                            include_events: request.include_events,
+                        },
+                    )));
+                }
+            }
+        }
+        DataClientRequest::TransactionOutputsWithProof(request) => {
+            if let ResponsePayload::TransactionOutputsWithProof(response) = response {
+                let num_requested_items =
+                    count_items_between_indices(request.start_version, request.end_version)?;
+                let num_received_items = response.transactions_and_outputs.len();
+
+                // Return a data request for any missing data
+                if num_received_items < num_requested_items {
+                    let new_start_version =
+                        calculate_new_start_index(request.start_version, num_received_items)?;
+                    return Ok(Some(DataClientRequest::TransactionOutputsWithProof(
+                        TransactionOutputsWithProofRequest {
+                            start_version: new_start_version,
+                            end_version: request.end_version,
+                            proof_version: request.proof_version,
+                        },
+                    )));
+                }
+            }
+        }
+        DataClientRequest::TransactionsOrOutputsWithProof(request) => {
+            // Calculate the number of requested and received items
+            let num_requested_items =
+                count_items_between_indices(request.start_version, request.end_version)?;
+            let num_received_items =
+                if let ResponsePayload::TransactionsWithProof(response) = response {
+                    response.transactions.len()
+                } else if let ResponsePayload::TransactionOutputsWithProof(response) = response {
+                    response.transactions_and_outputs.len()
+                } else {
+                    return Ok(None); // This shouldn't happen, so just return
+                };
+
+            // Return a data request for any missing data
+            if num_received_items < num_requested_items {
+                let new_start_version =
+                    calculate_new_start_index(request.start_version, num_received_items)?;
+                return Ok(Some(DataClientRequest::TransactionsOrOutputsWithProof(
+                    TransactionsOrOutputsWithProofRequest {
+                        start_version: new_start_version,
+                        end_version: request.end_version,
+                        proof_version: request.proof_version,
+                        include_events: request.include_events,
+                    },
+                )));
+            }
+        }
+        _ => return Ok(None), // There is no missing data for these request types
+    };
+
+    Ok(None) // There was no missing data
+}
+
+/// Calculates the number of items between the given start and end indices
+fn count_items_between_indices(start_index: u64, end_index: u64) -> Result<usize, Error> {
+    let num_items = end_index
+        .checked_sub(start_index)
+        .and_then(|diff| diff.checked_add(1)) // num_items = end_index - start_index + 1
+        .ok_or_else(|| Error::IntegerOverflow("Num items has overflown!".into()))?;
+    Ok(num_items as usize)
+}
+
+/// Calculates the new start index based on the given
+fn calculate_new_start_index(start_index: u64, num_received_items: usize) -> Result<u64, Error> {
+    let new_start_index = start_index
+        .checked_add(num_received_items as u64) // new_start_index = start_index + num_received_items
+        .ok_or_else(|| Error::IntegerOverflow("New start index has overflown!".into()))?;
+    Ok(new_start_index)
 }
 
 /// Returns true iff the data client response payload matches the expected type
