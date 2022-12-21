@@ -1,7 +1,6 @@
 [package]
 name = "aptos-move-examples"
 description = "Move examples"
-version = "0.1.0"
 
 # Workspace inherited keys
 authors = { workspace = true }
@@ -11,6 +10,7 @@ license = { workspace = true }
 publish = { workspace = true }
 repository = { workspace = true }
 rust-version = { workspace = true }
+version = { workspace = true }
 
 [dependencies]
 aptos-gas = { workspace = true }
