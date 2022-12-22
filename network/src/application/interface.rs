@@ -15,21 +15,23 @@ use async_trait::async_trait;
 use itertools::Itertools;
 use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData, time::Duration};
 
-/// A generic `NetworkInterface` for applications to connect to networking
+/// A generic `NetworkInterface` for applications to connect to the Aptos network.
 ///
-/// Each application would implement their own `NetworkInterface`.  This would hold `AppData` specific
-/// to the application as well as a specific `Sender` for cloning across threads and sending requests.
+/// Each application (e.g., consensus, state sync and mempool) should implement their own
+/// `NetworkInterface` that holds `AppData` specific to the application as well as a
+/// specific `Sender` for cloning across threads and sending network requests.
 #[async_trait]
 pub trait NetworkInterface<TMessage: Message + Send, NetworkSender> {
     /// The application specific key for `AppData`
     type AppDataKey: Clone + Debug + Eq + Hash;
+
     /// The application specific data to be stored
     type AppData: Clone + Debug;
 
-    /// Provides the `PeerMetadataStorage` for other functions.  Not expected to be used externally.
+    /// Provides the `PeerMetadataStorage` for other functions. Not expected to be used externally.
     fn peer_metadata_storage(&self) -> &PeerMetadataStorage;
 
-    /// Give a copy of the sender for the network
+    /// Get a copy of the sender for the network
     fn sender(&self) -> NetworkSender;
 
     /// Retrieve only connected peers
