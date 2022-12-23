@@ -44,7 +44,7 @@ use aptos_logger::prelude::info;
 use aptos_network::{
     peer_manager::{conn_notifs_channel, ConnectionRequestSender, PeerManagerRequestSender},
     protocols::{
-        network::{Event, NewNetworkEvents, NewNetworkSender},
+        network::{Event, NewNetworkEvents},
         wire::handshake::v1::ProtocolIdSet,
     },
     transport::ConnectionMetadata,

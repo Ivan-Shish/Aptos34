@@ -24,9 +24,7 @@ use aptos_network::{
     error::NetworkError,
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
     protocols::{
-        network::{
-            AppConfig, ApplicationNetworkSender, NetworkEvents, NetworkSender, NewNetworkSender,
-        },
+        network::{AppConfig, NetworkEvents, NetworkSender},
         rpc::error::RpcError,
         wire::handshake::v1::ProtocolIdSet,
     },
@@ -150,7 +148,7 @@ pub fn network_endpoint_config() -> AppConfig {
     )
 }
 
-impl NewNetworkSender for ConsensusNetworkSender {
+impl ConsensusNetworkSender {
     fn new(
         peer_mgr_reqs_tx: PeerManagerRequestSender,
         connection_reqs_tx: ConnectionRequestSender,
@@ -199,13 +197,11 @@ impl ConsensusNetworkSender {
 
 #[async_trait]
 impl ApplicationNetworkSender<ConsensusMsg> for ConsensusNetworkSender {
-    /// Send a single message to the destination peer using the available ProtocolId.
     fn send_to(&self, recipient: PeerId, message: ConsensusMsg) -> Result<(), NetworkError> {
         let protocol = self.preferred_protocol_for_peer(recipient, DIRECT_SEND)?;
         self.network_sender.send_to(recipient, protocol, message)
     }
 
-    /// Send a single message to the destination peers using the available ProtocolId.
     fn send_to_many(
         &self,
         recipients: impl Iterator<Item = PeerId>,

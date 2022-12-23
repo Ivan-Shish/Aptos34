@@ -23,10 +23,7 @@ use aptos_event_notifications::{ReconfigNotification, ReconfigNotificationListen
 use aptos_mempool::mocks::MockSharedMempool;
 use aptos_network::{
     peer_manager::{conn_notifs_channel, ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::{
-        network::{NewNetworkEvents, NewNetworkSender},
-        wire::handshake::v1::ProtocolIdSet,
-    },
+    protocols::{network::NewNetworkEvents, wire::handshake::v1::ProtocolIdSet},
     transport::ConnectionMetadata,
     ProtocolId,
 };

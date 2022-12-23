@@ -19,7 +19,7 @@ use aptos_mempool_notifications::{self, MempoolNotifier};
 use aptos_network::{
     application::storage::PeerMetadataStorage,
     peer_manager::{conn_notifs_channel, ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::network::{NewNetworkEvents, NewNetworkSender},
+    protocols::network::NewNetworkEvents,
 };
 use aptos_storage_interface::{mock::MockDbReaderWriter, DbReaderWriter};
 use aptos_types::on_chain_config::OnChainConfigPayload;

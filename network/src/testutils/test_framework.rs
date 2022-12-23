@@ -4,7 +4,7 @@
 use crate::{
     application::storage::PeerMetadataStorage,
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::network::{NewNetworkEvents, NewNetworkSender},
+    protocols::network::NewNetworkEvents,
     testutils::test_node::{
         ApplicationNetworkHandle, ApplicationNode, InboundNetworkHandle, NodeId,
         OutboundMessageReceiver,

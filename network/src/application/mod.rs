@@ -3,6 +3,7 @@
 
 pub mod interface;
 pub mod storage;
+pub mod types;
+
 #[cfg(test)]
 mod tests;
-pub mod types;

@@ -5,6 +5,7 @@
 
 use crate::builder::NetworkBuilder;
 use aptos_channels::aptos_channel;
+use aptos_config::network_id::PeerNetworkId;
 use aptos_config::{
     config::{Peer, PeerRole, PeerSet, RoleType, NETWORK_CHANNEL_SIZE},
     network_id::{NetworkContext, NetworkId},
@@ -12,6 +13,7 @@ use aptos_config::{
 use aptos_crypto::{test_utils::TEST_SEED, x25519, Uniform};
 use aptos_infallible::RwLock;
 use aptos_netcore::transport::ConnectionOrigin;
+use aptos_network::application::interface::ApplicationNetworkInterfaceTrait;
 use aptos_network::{
     application::storage::PeerMetadataStorage,
     error::NetworkError,
@@ -19,10 +21,7 @@ use aptos_network::{
         builder::AuthenticationMode, ConnectionRequestSender, PeerManagerRequestSender,
     },
     protocols::{
-        network::{
-            AppConfig, ApplicationNetworkSender, Event, NetworkEvents, NetworkSender,
-            NewNetworkSender,
-        },
+        network::{AppConfig, Event, NetworkEvents, NetworkSender},
         rpc::error::RpcError,
     },
     ProtocolId,
@@ -40,15 +39,15 @@ use std::{
 };
 use tokio::runtime::Runtime;
 
-const TEST_RPC_PROTOCOL: ProtocolId = ProtocolId::ConsensusRpcBcs;
-const TEST_DIRECT_SEND_PROTOCOL: ProtocolId = ProtocolId::ConsensusDirectSendBcs;
+const TEST_RPC_PROTOCOL_ID: ProtocolId = ProtocolId::ConsensusRpcBcs;
+const TEST_DIRECT_SEND_PROTOCOL_ID: ProtocolId = ProtocolId::ConsensusDirectSendBcs;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct DummyMsg(pub Vec<u8>);
 
 pub fn network_endpoint_config() -> AppConfig {
     AppConfig::p2p(
-        [TEST_RPC_PROTOCOL, TEST_DIRECT_SEND_PROTOCOL],
+        [TEST_RPC_PROTOCOL_ID, TEST_DIRECT_SEND_PROTOCOL_ID],
         aptos_channel::Config::new(NETWORK_CHANNEL_SIZE),
     )
 }
@@ -62,7 +61,7 @@ pub struct DummyNetworkSender {
     inner: NetworkSender<DummyMsg>,
 }
 
-impl NewNetworkSender for DummyNetworkSender {
+impl DummyNetworkSender {
     fn new(
         peer_mgr_reqs_tx: PeerManagerRequestSender,
         connection_reqs_tx: ConnectionRequestSender,
@@ -74,21 +73,24 @@ impl NewNetworkSender for DummyNetworkSender {
 }
 
 #[async_trait]
-impl ApplicationNetworkSender<DummyMsg> for DummyNetworkSender {
-    fn send_to(&self, recipient: PeerId, message: DummyMsg) -> Result<(), NetworkError> {
-        let protocol = TEST_DIRECT_SEND_PROTOCOL;
-        self.inner.send_to(recipient, protocol, message)
+impl ApplicationNetworkInterfaceTrait<DummyMsg> for DummyNetworkSender {
+    async fn send_to_peer(
+        &self,
+        message: DummyMsg,
+        peer: PeerNetworkId,
+    ) -> Result<(), NetworkError> {
+        self.inner
+            .send_to(peer.peer_id(), TEST_DIRECT_SEND_PROTOCOL_ID, message)
     }
 
-    async fn send_rpc(
+    async fn send_to_peer_rpc(
         &self,
-        recipient: PeerId,
         message: DummyMsg,
-        timeout: Duration,
+        rpc_timeout: Duration,
+        peer: PeerNetworkId,
     ) -> Result<DummyMsg, RpcError> {
-        let protocol = TEST_RPC_PROTOCOL;
         self.inner
-            .send_rpc(recipient, protocol, message, timeout)
+            .send_rpc(peer.peer_id(), TEST_RPC_PROTOCOL_ID, message, rpc_timeout)
             .await
     }
 }

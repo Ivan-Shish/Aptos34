@@ -29,10 +29,7 @@ use aptos_network::{
     },
     error::NetworkError,
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::network::{
-        AppConfig, ApplicationNetworkSender, NetworkEvents, NetworkSender, NewNetworkSender,
-        RpcError,
-    },
+    protocols::network::{AppConfig, NetworkEvents, NetworkSender, RpcError},
     transport::ConnectionMetadata,
     ProtocolId,
 };
@@ -105,7 +102,7 @@ pub fn network_endpoint_config(max_broadcasts_per_peer: usize) -> AppConfig {
     )
 }
 
-impl NewNetworkSender for MempoolNetworkSender {
+impl MempoolNetworkSender {
     fn new(
         peer_mgr_reqs_tx: PeerManagerRequestSender,
         connection_reqs_tx: ConnectionRequestSender,
@@ -124,15 +121,6 @@ impl ApplicationNetworkSender<MempoolSyncMsg> for MempoolNetworkSender {
         });
         let protocol = ProtocolId::MempoolDirectSend;
         self.inner.send_to(recipient, protocol, message)
-    }
-
-    async fn send_rpc(
-        &self,
-        _recipient: PeerId,
-        _req_msg: MempoolSyncMsg,
-        _timeout: Duration,
-    ) -> Result<MempoolSyncMsg, RpcError> {
-        unimplemented!("Shared mempool only supports direct send messages!");
     }
 }
 

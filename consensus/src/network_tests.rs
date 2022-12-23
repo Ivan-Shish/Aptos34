@@ -25,7 +25,7 @@ use aptos_network::{
         PeerManagerRequestSender,
     },
     protocols::{
-        network::{NewNetworkEvents, NewNetworkSender, SerializedRequest},
+        network::{NewNetworkEvents, SerializedRequest},
         rpc::InboundRpcRequest,
         wire::handshake::v1::ProtocolIdSet,
     },

@@ -26,10 +26,7 @@ use crate::{
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
     protocols::{
         health_checker::interface::{HealthCheckData, HealthCheckNetworkInterface},
-        network::{
-            AppConfig, ApplicationNetworkSender, Event, NetworkEvents, NetworkSender,
-            NewNetworkSender,
-        },
+        network::{AppConfig, Event, NetworkEvents, NetworkSender},
         rpc::error::RpcError,
     },
     ProtocolId,
@@ -86,7 +83,7 @@ pub fn network_endpoint_config() -> AppConfig {
     )
 }
 
-impl NewNetworkSender for HealthCheckerNetworkSender {
+impl HealthCheckerNetworkSender {
     fn new(
         peer_mgr_reqs_tx: PeerManagerRequestSender,
         connection_reqs_tx: ConnectionRequestSender,
@@ -103,25 +100,6 @@ impl HealthCheckerNetworkSender {
     }
 }
 
-#[async_trait]
-impl ApplicationNetworkSender<HealthCheckerMsg> for HealthCheckerNetworkSender {
-    /// Send a HealthChecker Ping RPC request to remote peer `recipient`. Returns
-    /// the remote peer's future `Pong` reply.
-    ///
-    /// The rpc request can be canceled at any point by dropping the returned
-    /// future.
-    async fn send_rpc(
-        &self,
-        recipient: PeerId,
-        req_msg: HealthCheckerMsg,
-        timeout: Duration,
-    ) -> Result<HealthCheckerMsg, RpcError> {
-        let protocol = ProtocolId::HealthCheckerRpc;
-        self.inner
-            .send_rpc(recipient, protocol, req_msg, timeout)
-            .await
-    }
-}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum HealthCheckerMsg {
     Ping(Ping),

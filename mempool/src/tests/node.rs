@@ -24,7 +24,7 @@ use aptos_network::{
         conn_notifs_channel, ConnectionNotification, ConnectionRequestSender,
         PeerManagerNotification, PeerManagerRequest, PeerManagerRequestSender,
     },
-    protocols::network::{NetworkEvents, NewNetworkEvents, NewNetworkSender},
+    protocols::network::{NetworkEvents, NewNetworkEvents},
     transport::ConnectionMetadata,
     ProtocolId,
 };

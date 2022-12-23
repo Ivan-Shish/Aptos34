@@ -17,7 +17,6 @@ use aptos_channels::aptos_channel;
 use aptos_logger::prelude::*;
 use aptos_short_hex_str::AsShortHexStr;
 use aptos_types::{network_address::NetworkAddress, PeerId};
-use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{
     channel::oneshot,
@@ -264,16 +263,8 @@ pub struct NetworkSender<TMessage> {
     _marker: PhantomData<TMessage>,
 }
 
-/// Trait specifying the signature for `new()` `NetworkSender`s
-pub trait NewNetworkSender {
-    fn new(
-        peer_mgr_reqs_tx: PeerManagerRequestSender,
-        connection_reqs_tx: ConnectionRequestSender,
-    ) -> Self;
-}
-
-impl<TMessage> NewNetworkSender for NetworkSender<TMessage> {
-    fn new(
+impl<TMessage> NetworkSender<TMessage> {
+    pub fn new(
         peer_mgr_reqs_tx: PeerManagerRequestSender,
         connection_reqs_tx: ConnectionRequestSender,
     ) -> Self {
@@ -283,9 +274,7 @@ impl<TMessage> NewNetworkSender for NetworkSender<TMessage> {
             _marker: PhantomData,
         }
     }
-}
 
-impl<TMessage> NetworkSender<TMessage> {
     /// Request that a given Peer be dialed at the provided `NetworkAddress` and
     /// synchronously wait for the request to be performed.
     pub async fn dial_peer(&self, peer: PeerId, addr: NetworkAddress) -> Result<(), NetworkError> {
@@ -349,30 +338,6 @@ impl<TMessage: Message> NetworkSender<TMessage> {
         let res_msg: TMessage = protocol.from_bytes(&res_data)?;
         Ok(res_msg)
     }
-}
-
-/// A simplified version of `NetworkSender` that doesn't use `ProtocolId` in the input
-/// It was already being implemented for every application, but is now standardized
-#[async_trait]
-pub trait ApplicationNetworkSender<TMessage: Send>: Clone {
-    fn send_to(&self, _recipient: PeerId, _message: TMessage) -> Result<(), NetworkError> {
-        unimplemented!()
-    }
-
-    fn send_to_many(
-        &self,
-        _recipients: impl Iterator<Item = PeerId>,
-        _message: TMessage,
-    ) -> Result<(), NetworkError> {
-        unimplemented!()
-    }
-
-    async fn send_rpc(
-        &self,
-        recipient: PeerId,
-        req_msg: TMessage,
-        timeout: Duration,
-    ) -> Result<TMessage, RpcError>;
 }
 
 /// Generalized functionality for any request across `DirectSend` and `Rpc`.

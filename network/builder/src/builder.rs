@@ -33,7 +33,7 @@ use aptos_network::{
     },
     protocols::{
         health_checker::{self, builder::HealthCheckerBuilder},
-        network::{AppConfig, NewNetworkEvents, NewNetworkSender},
+        network::{AppConfig, NewNetworkEvents},
     },
 };
 use aptos_time_service::TimeService;

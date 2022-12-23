@@ -10,9 +10,7 @@ use aptos_network::{
         storage::{LockingHashMap, PeerMetadataStorage},
     },
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::network::{
-        AppConfig, ApplicationNetworkSender, NetworkSender, NewNetworkSender, RpcError,
-    },
+    protocols::network::{AppConfig, NetworkSender, RpcError},
     ProtocolId,
 };
 use aptos_peer_monitoring_service_types::{
@@ -112,7 +110,7 @@ pub struct PeerMonitoringServiceNetworkSender {
     inner: NetworkSender<PeerMonitoringServiceMessage>,
 }
 
-impl NewNetworkSender for PeerMonitoringServiceNetworkSender {
+impl PeerMonitoringServiceNetworkSender {
     fn new(
         peer_manager_request_sender: PeerManagerRequestSender,
         connection_request_sender: ConnectionRequestSender,
@@ -120,24 +118,5 @@ impl NewNetworkSender for PeerMonitoringServiceNetworkSender {
         Self {
             inner: NetworkSender::new(peer_manager_request_sender, connection_request_sender),
         }
-    }
-}
-
-#[async_trait]
-impl ApplicationNetworkSender<PeerMonitoringServiceMessage> for PeerMonitoringServiceNetworkSender {
-    async fn send_rpc(
-        &self,
-        recipient: PeerId,
-        message: PeerMonitoringServiceMessage,
-        timeout: Duration,
-    ) -> Result<PeerMonitoringServiceMessage, RpcError> {
-        self.inner
-            .send_rpc(
-                recipient,
-                ProtocolId::PeerMonitoringServiceRpc,
-                message,
-                timeout,
-            )
-            .await
     }
 }

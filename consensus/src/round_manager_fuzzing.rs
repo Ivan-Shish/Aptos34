@@ -21,10 +21,7 @@ use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
 use aptos_config::config::ConsensusConfig;
 use aptos_consensus_types::proposal_msg::ProposalMsg;
 use aptos_infallible::Mutex;
-use aptos_network::{
-    peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::network::NewNetworkSender,
-};
+use aptos_network::peer_manager::{ConnectionRequestSender, PeerManagerRequestSender};
 use aptos_safety_rules::{test_utils, SafetyRules, TSafetyRules};
 use aptos_types::{
     aggregate_signature::AggregateSignature,

@@ -7,10 +7,7 @@ use crate::{
     peer_manager::{
         self, conn_notifs_channel, ConnectionRequest, PeerManagerNotification, PeerManagerRequest,
     },
-    protocols::{
-        network::{NewNetworkEvents, NewNetworkSender},
-        rpc::InboundRpcRequest,
-    },
+    protocols::{network::NewNetworkEvents, rpc::InboundRpcRequest},
     transport::ConnectionMetadata,
     ProtocolId,
 };

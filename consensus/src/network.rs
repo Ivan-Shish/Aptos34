@@ -22,10 +22,7 @@ use aptos_consensus_types::{
 };
 use aptos_logger::prelude::*;
 use aptos_network::{
-    protocols::{
-        network::{ApplicationNetworkSender, Event},
-        rpc::error::RpcError,
-    },
+    protocols::{network::Event, rpc::error::RpcError},
     ProtocolId,
 };
 use aptos_types::{

@@ -4,15 +4,14 @@
 #![forbid(unsafe_code)]
 
 use aptos_config::network_id::PeerNetworkId;
+use aptos_network::application::interface::ApplicationNetworkInterface;
 use aptos_network::{
     application::{
         interface::{MultiNetworkSender, NetworkInterface},
         storage::{LockingHashMap, PeerMetadataStorage},
     },
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
-    protocols::network::{
-        AppConfig, ApplicationNetworkSender, NetworkSender, NewNetworkSender, RpcError,
-    },
+    protocols::network::{AppConfig, NetworkSender, RpcError},
     ProtocolId,
 };
 use aptos_storage_service_types::requests::StorageServiceRequest;
@@ -103,38 +102,4 @@ pub type StorageServiceMultiSender =
 
 pub fn network_endpoint_config() -> AppConfig {
     AppConfig::client([ProtocolId::StorageServiceRpc])
-}
-
-// TODO(philiphayes): this is a lot of boilerplate for what is effectively a
-// NetworkSender type alias that impls ApplicationNetworkSender... maybe we just
-// add ProtocolId to the APIs so we don't need this extra layer?
-/// The Storage Service network sender for a single network.
-#[derive(Clone, Debug)]
-pub struct StorageServiceNetworkSender {
-    inner: NetworkSender<StorageServiceMessage>,
-}
-
-impl NewNetworkSender for StorageServiceNetworkSender {
-    fn new(
-        peer_mgr_reqs_tx: PeerManagerRequestSender,
-        connection_reqs_tx: ConnectionRequestSender,
-    ) -> Self {
-        Self {
-            inner: NetworkSender::new(peer_mgr_reqs_tx, connection_reqs_tx),
-        }
-    }
-}
-
-#[async_trait]
-impl ApplicationNetworkSender<StorageServiceMessage> for StorageServiceNetworkSender {
-    async fn send_rpc(
-        &self,
-        recipient: PeerId,
-        message: StorageServiceMessage,
-        timeout: Duration,
-    ) -> Result<StorageServiceMessage, RpcError> {
-        self.inner
-            .send_rpc(recipient, ProtocolId::StorageServiceRpc, message, timeout)
-            .await
-    }
 }

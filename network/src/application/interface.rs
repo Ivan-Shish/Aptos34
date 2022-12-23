@@ -1,19 +1,151 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::peer_manager::{ConnectionRequestSender, PeerManagerRequestSender};
+use crate::protocols::network::NetworkSender;
+use crate::protocols::wire::handshake::v1::ProtocolId;
 use crate::{
     application::{
         storage::{LockingHashMap, PeerMetadataStorage},
         types::{PeerInfo, PeerState},
     },
     error::NetworkError,
-    protocols::network::{ApplicationNetworkSender, Message, RpcError},
+    protocols::network::{Message, RpcError},
 };
 use aptos_config::network_id::{NetworkId, PeerNetworkId};
+use aptos_types::network_address::NetworkAddress;
 use aptos_types::PeerId;
 use async_trait::async_trait;
 use itertools::Itertools;
 use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData, time::Duration};
+
+/// A simple interface offered by the networking stack to each application (e.g., consensus,
+/// state sync, mempool, etc.). This interface provides basic support for sending messages,
+/// receiving messages, disconnecting from peers, notifying the network stack of new peers
+/// and managing application specific metadata for each peer (e.g., peer scores and liveness).
+// TODO: API calls for managing metadata, updating state, etc.
+#[async_trait]
+pub trait ApplicationNetworkInterfaceTrait<Message: Send>: Clone {
+    /// Adds the given peer list to the set of discovered peers
+    /// that can potentially be dialed for future connections.
+    async fn add_peers_to_discovery(
+        &self,
+        _peers: &[(PeerNetworkId, NetworkAddress)],
+    ) -> Result<(), NetworkError> {
+        unimplemented!()
+    }
+
+    /// Requests that the network connection for the specified peer
+    /// is disconnected.
+    // TODO: support disconnect reasons.
+    async fn disconnect_from_peer(&self, _peer: PeerNetworkId) -> Result<(), NetworkError> {
+        unimplemented!()
+    }
+
+    /// Sends the given message to the specified peer. Note: this
+    /// method does not guarantee message delivery or handle responses.
+    async fn send_to_peer(
+        &self,
+        _message: Message,
+        _peer: PeerNetworkId,
+    ) -> Result<(), NetworkError> {
+        unimplemented!()
+    }
+
+    /// Sends the given message to each peer in the specified peer list.
+    /// Note: this method does not guarantee message delivery or handle responses.
+    async fn send_to_peers(
+        &self,
+        _message: Message,
+        _peers: &[PeerNetworkId],
+    ) -> Result<(), NetworkError> {
+        unimplemented!()
+    }
+
+    /// Sends the given message to the specified peer with the corresponding
+    /// timeout. Awaits a response from the peer, or hits the timeout
+    /// (whichever occurs first).
+    async fn send_to_peer_rpc(
+        &self,
+        _message: Message,
+        _rpc_timeout: Duration,
+        _peer: PeerNetworkId,
+    ) -> Result<Message, RpcError> {
+        unimplemented!()
+    }
+}
+
+/// A network component that can be used by applications (e.g., consensus,
+/// state sync and mempool, etc.) to interact with the network and other peers.
+#[derive(Clone, Debug)]
+pub struct ApplicationNetworkInterface<Message: Send> {
+    network_sender: NetworkSender<Message>,
+    protocol_id: ProtocolId,
+}
+
+impl<Message: Send> ApplicationNetworkInterface<Message> {
+    fn new(
+        protocol_id: ProtocolId,
+        peer_manager_request_sender: PeerManagerRequestSender,
+        connection_request_sender: ConnectionRequestSender,
+    ) -> Self {
+        Self {
+            protocol_id,
+            network_sender: NetworkSender::new(
+                peer_manager_request_sender,
+                connection_request_sender,
+            ),
+        }
+    }
+}
+
+#[async_trait]
+impl<Message: Send> ApplicationNetworkInterfaceTrait<Message>
+    for ApplicationNetworkInterface<Message>
+{
+    async fn add_peers_to_discovery(
+        &self,
+        _peers: &[(PeerNetworkId, NetworkAddress)],
+    ) -> Result<(), NetworkError> {
+        unimplemented!("Coming soon!")
+    }
+
+    async fn disconnect_from_peer(&self, peer: PeerNetworkId) -> Result<(), NetworkError> {
+        self.network_sender.disconnect_peer(peer.peer_id())
+    }
+
+    async fn send_to_peer(
+        &self,
+        message: Message,
+        peer: PeerNetworkId,
+    ) -> Result<(), NetworkError> {
+        self.network_sender
+            .send_to(peer.peer_id(), self.protocol_id, message)
+    }
+
+    async fn send_to_peers(
+        &self,
+        message: Message,
+        peers: &[PeerNetworkId],
+    ) -> Result<(), NetworkError> {
+        let peers = peers
+            .iter()
+            .map(|peer_network_id| peer_network_id.peer_id());
+        self.network_sender
+            .send_to_many(peers, self.protocol_id, message)
+    }
+
+    async fn send_to_peer_rpc(
+        &self,
+        message: Message,
+        rpc_timeout: Duration,
+        peer: PeerNetworkId,
+    ) -> Result<Message, RpcError> {
+        // TODO: how do we handle the network id??
+        self.network_sender
+            .send_rpc(peer.peer_id(), self.protocol_id, message, rpc_timeout)
+    }
+}
 
 /// A generic `NetworkInterface` for applications to connect to networking
 ///

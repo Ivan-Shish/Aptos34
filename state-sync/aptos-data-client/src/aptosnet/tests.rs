@@ -13,7 +13,7 @@ use aptos_netcore::transport::ConnectionOrigin;
 use aptos_network::{
     application::{interface::MultiNetworkSender, storage::PeerMetadataStorage, types::PeerState},
     peer_manager::{ConnectionRequestSender, PeerManagerRequest, PeerManagerRequestSender},
-    protocols::{network::NewNetworkSender, wire::handshake::v1::ProtocolId},
+    protocols::wire::handshake::v1::ProtocolId,
     transport::ConnectionMetadata,
 };
 use aptos_storage_service_client::{StorageServiceClient, StorageServiceNetworkSender};
