@@ -57,7 +57,7 @@ pub(crate) async fn execute_broadcast<V>(
 {
     let network_interface = &smp.network_interface.clone();
     // If there's no connection, don't bother to broadcast
-    if network_interface.app_data().read(&peer).is_some() {
+    if network_interface.get_app_data().read(&peer).is_some() {
         if let Err(err) = network_interface
             .execute_broadcast(peer, backoff, smp)
             .await
@@ -169,7 +169,7 @@ pub(crate) async fn process_transaction_broadcast<V>(
     log_txn_process_results(&results, Some(peer));
 
     let ack_response = gen_ack_response(request_id, results, &peer);
-    let network_sender = smp.network_interface.sender();
+    let network_sender = smp.network_interface.get_sender();
 
     // Respond to the peer with an ack. Note: ack response messages should be
     // small enough that they always fit within the maximum network message

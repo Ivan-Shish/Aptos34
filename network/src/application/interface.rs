@@ -28,11 +28,11 @@ pub trait NetworkInterface<TMessage: Message + Send, NetworkSender> {
     /// The application specific data to be stored
     type AppData: Clone + Debug;
 
-    /// Provides the `PeerMetadataStorage` for other functions. Not expected to be used externally.
-    fn peer_metadata_storage(&self) -> &PeerMetadataStorage;
+    /// Returns a copy of the `PeerMetadataStorage`
+    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage;
 
-    /// Get a copy of the sender for the network
-    fn sender(&self) -> NetworkSender;
+    /// Returns a copy of the sender for the network
+    fn get_sender(&self) -> NetworkSender;
 
     /// Retrieve only connected peers
     fn connected_peers(&self, network_id: NetworkId) -> HashMap<PeerNetworkId, PeerInfo> {
@@ -47,17 +47,17 @@ pub trait NetworkInterface<TMessage: Message + Send, NetworkSender> {
         network_id: NetworkId,
         filter: F,
     ) -> HashMap<PeerNetworkId, PeerInfo> {
-        self.peer_metadata_storage()
+        self.get_peer_metadata_storage()
             .read_filtered(network_id, filter)
     }
 
-    /// Retrieve PeerInfo for the node
-    fn peers(&self, network_id: NetworkId) -> HashMap<PeerNetworkId, PeerInfo> {
-        self.peer_metadata_storage().read_all(network_id)
+    /// Returns the peers and peer info for the specified network
+    fn get_peer_info(&self, network_id: NetworkId) -> HashMap<PeerNetworkId, PeerInfo> {
+        self.get_peer_metadata_storage().read_all(network_id)
     }
 
     /// Application specific data interface
-    fn app_data(&self) -> &LockingHashMap<Self::AppDataKey, Self::AppData>;
+    fn get_app_data(&self) -> &LockingHashMap<Self::AppDataKey, Self::AppData>;
 }
 
 #[derive(Clone, Debug)]

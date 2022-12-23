@@ -82,17 +82,17 @@ impl NetworkInterface<StorageServiceMessage, StorageServiceMultiSender> for Stor
     type AppDataKey = ();
     type AppData = ();
 
-    fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
+    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata
     }
 
     // TODO(philiphayes): kind of awkward? I don't actually want to expose this...
     // sending should just be a part of the interface itself no?
-    fn sender(&self) -> StorageServiceMultiSender {
+    fn get_sender(&self) -> StorageServiceMultiSender {
         todo!()
     }
 
-    fn app_data(&self) -> &LockingHashMap<Self::AppDataKey, Self::AppData> {
+    fn get_app_data(&self) -> &LockingHashMap<Self::AppDataKey, Self::AppData> {
         todo!()
     }
 }

@@ -20,10 +20,7 @@ use aptos_config::{
 use aptos_id_generator::{IdGenerator, U64IdGenerator};
 use aptos_infallible::RwLock;
 use aptos_logger::prelude::*;
-use aptos_network::{
-    application::interface::NetworkInterface,
-    protocols::{rpc::error::RpcError, wire::handshake::v1::ProtocolId},
-};
+use aptos_network::protocols::{rpc::error::RpcError, wire::handshake::v1::ProtocolId};
 use aptos_storage_service_client::StorageServiceClient;
 use aptos_storage_service_types::requests::{
     DataRequest, EpochEndingLedgerInfoRequest, NewTransactionOutputsWithProofRequest,
@@ -251,7 +248,7 @@ impl AptosNetDataClient {
 
     /// Returns all peers connected to us
     fn get_all_connected_peers(&self) -> Result<Vec<PeerNetworkId>, Error> {
-        let network_peer_metadata = self.network_client.peer_metadata_storage();
+        let network_peer_metadata = self.network_client.get_peer_metadata_storage();
         let connected_peers = network_peer_metadata
             .networks()
             .flat_map(|network_id| {

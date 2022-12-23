@@ -85,15 +85,15 @@ impl NetworkInterface<PeerMonitoringServiceMessage, PeerMonitoringServiceMultiSe
     type AppDataKey = ();
     type AppData = ();
 
-    fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
+    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata
     }
 
-    fn sender(&self) -> PeerMonitoringServiceMultiSender {
+    fn get_sender(&self) -> PeerMonitoringServiceMultiSender {
         unimplemented!("sender() is not required!")
     }
 
-    fn app_data(&self) -> &LockingHashMap<Self::AppDataKey, Self::AppData> {
+    fn get_app_data(&self) -> &LockingHashMap<Self::AppDataKey, Self::AppData> {
         unimplemented!("app_data() is not required!")
     }
 }

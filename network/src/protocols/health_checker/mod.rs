@@ -199,13 +199,13 @@ impl HealthChecker {
 
                     match event {
                         Event::NewPeer(metadata) => {
-                            self.network_interface.app_data().insert(
+                            self.network_interface.get_app_data().insert(
                                 metadata.remote_peer_id,
                                 HealthCheckData::new(self.round)
                             );
                         }
                         Event::LostPeer(metadata) => {
-                            self.network_interface.app_data().remove(
+                            self.network_interface.get_app_data().remove(
                                 &metadata.remote_peer_id
                             );
                         }
@@ -266,7 +266,7 @@ impl HealthChecker {
 
                         tick_handlers.push(Self::ping_peer(
                             self.network_context,
-                            self.network_interface.sender(),
+                            self.network_interface.get_sender(),
                             peer_id,
                             self.round,
                             nonce,
@@ -312,18 +312,21 @@ impl HealthChecker {
             ping.0,
         );
         // Record Ingress HC here and reset failures.
-        let _ = self.network_interface.app_data().write(peer_id, |entry| {
-            match entry {
-                Entry::Vacant(..) => {
-                    // Don't do anything if there isn't an entry
-                }
-                Entry::Occupied(inner) => {
-                    let data = inner.get_mut();
-                    data.failures = 0;
-                }
-            };
-            Ok(())
-        });
+        let _ = self
+            .network_interface
+            .get_app_data()
+            .write(peer_id, |entry| {
+                match entry {
+                    Entry::Vacant(..) => {
+                        // Don't do anything if there isn't an entry
+                    }
+                    Entry::Occupied(inner) => {
+                        let data = inner.get_mut();
+                        data.failures = 0;
+                    }
+                };
+                Ok(())
+            });
 
         let _ = res_tx.send(Ok(message.into()));
     }
@@ -348,22 +351,25 @@ impl HealthChecker {
                     );
                     // Update last successful ping to current round.
                     // If it's not in storage, don't bother updating it
-                    let _ = self.network_interface.app_data().write(peer_id, |entry| {
-                        match entry {
-                            Entry::Vacant(..) => {
-                                // Don't do anything if there isn't an entry
-                            }
-                            Entry::Occupied(inner) => {
-                                let data = inner.get_mut();
-                                // Update state if it's a newer round
-                                if round > data.round {
-                                    data.round = round;
-                                    data.failures = 0;
+                    let _ = self
+                        .network_interface
+                        .get_app_data()
+                        .write(peer_id, |entry| {
+                            match entry {
+                                Entry::Vacant(..) => {
+                                    // Don't do anything if there isn't an entry
                                 }
-                            }
-                        };
-                        Ok(())
-                    });
+                                Entry::Occupied(inner) => {
+                                    let data = inner.get_mut();
+                                    // Update state if it's a newer round
+                                    if round > data.round {
+                                        data.round = round;
+                                        data.failures = 0;
+                                    }
+                                }
+                            };
+                            Ok(())
+                        });
                 } else {
                     warn!(
                         SecurityEvent::InvalidHealthCheckerMsg,
@@ -389,23 +395,26 @@ impl HealthChecker {
                     round,
                     err
                 );
-                let _ = self.network_interface.app_data().write(peer_id, |entry| {
-                    // Don't add in a default in case it's already disconnected
-                    match entry {
-                        Entry::Vacant(..) => {
-                            // Don't do anything if there isn't an entry
-                        }
-                        Entry::Occupied(inner) => {
-                            // If this is the result of an older ping, we ignore it.
-                            // Increment num of failures.
-                            let data = inner.get_mut();
-                            if data.round <= round {
-                                data.failures += 1;
+                let _ = self
+                    .network_interface
+                    .get_app_data()
+                    .write(peer_id, |entry| {
+                        // Don't add in a default in case it's already disconnected
+                        match entry {
+                            Entry::Vacant(..) => {
+                                // Don't do anything if there isn't an entry
+                            }
+                            Entry::Occupied(inner) => {
+                                // If this is the result of an older ping, we ignore it.
+                                // Increment num of failures.
+                                let data = inner.get_mut();
+                                if data.round <= round {
+                                    data.failures += 1;
+                                }
                             }
                         }
-                    }
-                    Ok(())
-                });
+                        Ok(())
+                    });
 
                 // If the ping failures are now more than
                 // `self.ping_failures_tolerated`, we disconnect from the node.
@@ -413,7 +422,7 @@ impl HealthChecker {
                 // ConnectivityManager or the remote peer to re-establish the connection.
                 let failures = self
                     .network_interface
-                    .app_data()
+                    .get_app_data()
                     .read(&peer_id)
                     .map(|data| data.failures)
                     .unwrap_or(0);

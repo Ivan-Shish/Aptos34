@@ -557,15 +557,15 @@ impl NetworkInterface<MempoolSyncMsg, MempoolMultiNetworkSender> for MempoolNetw
     type AppDataKey = PeerNetworkId;
     type AppData = PeerSyncState;
 
-    fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
+    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata_storage
     }
 
-    fn sender(&self) -> MempoolMultiNetworkSender {
+    fn get_sender(&self) -> MempoolMultiNetworkSender {
         self.sender.clone()
     }
 
-    fn app_data(&self) -> &LockingHashMap<PeerNetworkId, PeerSyncState> {
+    fn get_app_data(&self) -> &LockingHashMap<PeerNetworkId, PeerSyncState> {
         &self.sync_states
     }
 }

@@ -71,7 +71,7 @@ impl HealthCheckNetworkInterface {
         let peer_id = peer_network_id.peer_id();
         let result = self.sender.disconnect_peer(peer_id).await;
         if result.is_ok() {
-            self.app_data().remove(&peer_id);
+            self.get_app_data().remove(&peer_id);
         }
         result
     }
@@ -86,7 +86,7 @@ impl HealthCheckNetworkInterface {
         peer_network_id: PeerNetworkId,
         state: PeerState,
     ) -> Result<(), PeerError> {
-        self.peer_metadata_storage()
+        self.get_peer_metadata_storage()
             .write(peer_network_id, |entry| match entry {
                 Entry::Vacant(..) => Err(PeerError::NotFound),
                 Entry::Occupied(inner) => {
@@ -104,15 +104,15 @@ impl NetworkInterface<HealthCheckerMsg, HealthCheckerNetworkSender>
     type AppDataKey = PeerId;
     type AppData = HealthCheckData;
 
-    fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
+    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata_storage
     }
 
-    fn sender(&self) -> HealthCheckerNetworkSender {
+    fn get_sender(&self) -> HealthCheckerNetworkSender {
         self.sender.clone()
     }
 
-    fn app_data(&self) -> &LockingHashMap<PeerId, HealthCheckData> {
+    fn get_app_data(&self) -> &LockingHashMap<PeerId, HealthCheckData> {
         &self.app_data
     }
 }

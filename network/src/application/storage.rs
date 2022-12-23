@@ -15,8 +15,10 @@ use std::{
     sync::Arc,
 };
 
-/// Metadata storage for peers across all of networking.  Splits storage of information across
-/// networks to prevent different networks from affecting each other
+/// Metadata storage for peers across all of networking. The metadata storage
+/// splits the storage of peer information across networks (e.g., validator and
+/// validator fullnode networks) to prevent different networks from affecting
+/// each other.
 #[derive(Debug)]
 pub struct PeerMetadataStorage {
     storage: HashMap<NetworkId, LockingHashMap<PeerId, PeerInfo>>,

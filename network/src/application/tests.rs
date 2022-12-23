@@ -26,15 +26,15 @@ impl NetworkInterface<HealthCheckerMsg, DummySender> for DummyNetworkInterface {
     type AppDataKey = PeerId;
     type AppData = ();
 
-    fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
+    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata_storage
     }
 
-    fn sender(&self) -> DummySender {
+    fn get_sender(&self) -> DummySender {
         DummySender {}
     }
 
-    fn app_data(&self) -> &LockingHashMap<PeerId, ()> {
+    fn get_app_data(&self) -> &LockingHashMap<PeerId, ()> {
         unimplemented!()
     }
 }
@@ -48,7 +48,7 @@ fn test_interface() {
     };
     let peer_1 = PeerId::random();
     let peer_2 = PeerId::random();
-    assert_eq!(0, interface.peers(network_id).len());
+    assert_eq!(0, interface.get_peer_info(network_id).len());
     assert_eq!(0, interface.connected_peers(network_id).len());
 
     // Insert 2 connections, and we should have two active peers
@@ -56,7 +56,7 @@ fn test_interface() {
     let connection_2 = ConnectionMetadata::mock(peer_2);
     peer_metadata_storage.insert_connection(network_id, connection_1);
     peer_metadata_storage.insert_connection(network_id, connection_2.clone());
-    assert_eq!(2, interface.peers(network_id).len());
+    assert_eq!(2, interface.get_peer_info(network_id).len());
     assert_eq!(2, interface.connected_peers(network_id).len());
 
     // Disconnecting / disconnected are not counted in active
@@ -65,18 +65,18 @@ fn test_interface() {
         PeerNetworkId::new(network_id, peer_1),
         PeerState::Disconnecting,
     );
-    assert_eq!(2, interface.peers(network_id).len());
+    assert_eq!(2, interface.get_peer_info(network_id).len());
     assert_eq!(1, interface.connected_peers(network_id).len());
 
     // Removing a connection with a different connection id doesn't remove it from storage
     let different_connection_2 = ConnectionMetadata::mock(peer_2);
     peer_metadata_storage.remove_connection(network_id, &different_connection_2);
-    assert_eq!(2, interface.peers(network_id).len());
+    assert_eq!(2, interface.get_peer_info(network_id).len());
     assert_eq!(1, interface.connected_peers(network_id).len());
 
     // Removing the same connection id removes it
     peer_metadata_storage.remove_connection(network_id, &connection_2);
-    assert_eq!(1, interface.peers(network_id).len());
+    assert_eq!(1, interface.get_peer_info(network_id).len());
     assert_eq!(0, interface.connected_peers(network_id).len());
 }
 
