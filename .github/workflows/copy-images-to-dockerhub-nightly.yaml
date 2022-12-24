@@ -3,6 +3,9 @@ on:
   schedule:
     # 9am PST (16:00 UTC).
     - cron: "0 16 * * *"
+  push:
+    branches:
+      - nightly
 
 permissions:
   contents: read
