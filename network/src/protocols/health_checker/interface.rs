@@ -61,7 +61,8 @@ impl HealthCheckNetworkInterface {
     }
 
     /// Disconnect a peer, and keep track of the associated state
-    /// Note: This removes the peer outright for now until we add GCing, and historical state management
+    /// Note: This removes the peer outright for now until we add GCing, and
+    /// historical state management
     pub async fn disconnect_peer(
         &mut self,
         peer_network_id: PeerNetworkId,
@@ -92,7 +93,7 @@ impl HealthCheckNetworkInterface {
                 Entry::Occupied(inner) => {
                     inner.get_mut().status = state;
                     Ok(())
-                }
+                },
             })
     }
 }
@@ -101,8 +102,8 @@ impl HealthCheckNetworkInterface {
 impl NetworkInterface<HealthCheckerMsg, HealthCheckerNetworkSender>
     for HealthCheckNetworkInterface
 {
-    type AppDataKey = PeerId;
     type AppData = HealthCheckData;
+    type AppDataKey = PeerId;
 
     fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata_storage

@@ -24,23 +24,27 @@ use aptos_types::PeerId;
 use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use std::{collections::HashMap, convert::TryFrom as _, fmt::Debug, sync::Arc};
 
-/// In a mutually authenticated network, a client message is accompanied with a timestamp.
-/// This is in order to prevent replay attacks, where the attacker does not know the client's static key,
-/// but can still replay a handshake message in order to force a peer into performing a few Diffie-Hellman key exchange operations.
+/// In a mutually authenticated network, a client message is accompanied with a
+/// timestamp. This is in order to prevent replay attacks, where the attacker
+/// does not know the client's static key, but can still replay a handshake
+/// message in order to force a peer into performing a few Diffie-Hellman key
+/// exchange operations.
 ///
-/// Thus, to prevent replay attacks a responder will always check if the timestamp is strictly increasing,
-/// effectively considering it as a stateful counter.
+/// Thus, to prevent replay attacks a responder will always check if the
+/// timestamp is strictly increasing, effectively considering it as a stateful
+/// counter.
 ///
 /// If the client timestamp has been seen before, or is not strictly increasing,
-/// we can abort the handshake early and avoid heavy Diffie-Hellman computations.
-/// If the client timestamp is valid, we store it.
+/// we can abort the handshake early and avoid heavy Diffie-Hellman
+/// computations. If the client timestamp is valid, we store it.
 #[derive(Default)]
 pub struct AntiReplayTimestamps(HashMap<x25519::PublicKey, u64>);
 
 impl AntiReplayTimestamps {
     /// The timestamp is sent as a payload, so that it is encrypted.
     /// Note that a millisecond value is a 16-byte value in rust,
-    /// but as we use it to store a duration since UNIX_EPOCH we will never use more than 8 bytes.
+    /// but as we use it to store a duration since UNIX_EPOCH we will never use
+    /// more than 8 bytes.
     pub const TIMESTAMP_SIZE: usize = 8;
 
     /// obtain the current timestamp
@@ -73,7 +77,8 @@ impl AntiReplayTimestamps {
 /// Noise handshake authentication mode.
 pub enum HandshakeAuthMode {
     /// In `Mutual` mode, both sides will authenticate each other with their
-    /// `trusted_peers` set. We also include replay attack mitigation in this mode.
+    /// `trusted_peers` set. We also include replay attack mitigation in this
+    /// mode.
     ///
     /// For example, in the Aptos validator network, validator peers will only
     /// allow connections from other validator peers. They will use this mode to
@@ -89,9 +94,10 @@ pub enum HandshakeAuthMode {
         anti_replay_timestamps: RwLock<AntiReplayTimestamps>,
         trusted_peers: Arc<RwLock<PeerSet>>,
     },
-    /// In `MaybeMutual` mode, the dialer authenticates the server and the server will allow all
-    /// inbound connections from any peer but will mark connections as `Trusted` if the incoming
-    /// connection is apart of its trusted peers set.
+    /// In `MaybeMutual` mode, the dialer authenticates the server and the
+    /// server will allow all inbound connections from any peer but will
+    /// mark connections as `Trusted` if the incoming connection is apart of
+    /// its trusted peers set.
     MaybeMutual(Arc<RwLock<PeerSet>>),
 }
 
@@ -127,23 +133,37 @@ impl HandshakeAuthMode {
 // Noise by default is not aware of the above or lower protocol layers,
 // We thus need to build this wrapper around Noise to both:
 //
-// - fragment messages that need to be encrypted by noise (due to its maximum 65535-byte messages)
-// - understand how long noise messages we send and receive are,
-//   in order to pass them to the noise implementaiton
+// - fragment messages that need to be encrypted by noise (due to its maximum
+//   65535-byte messages)
+// - understand how long noise messages we send and receive are, in order to
+//   pass them to the noise implementaiton
 //
 
-/// The Noise configuration to be used to perform a protocol upgrade on an underlying socket.
+/// The Noise configuration to be used to perform a protocol upgrade on an
+/// underlying socket.
 pub struct NoiseUpgrader {
     /// The validator's network context
     pub network_context: NetworkContext,
     /// Config for executing Noise handshakes. Includes our static private key.
     noise_config: noise::NoiseConfig,
-    /// Handshake authentication can be either mutual or server-only authentication.
+    /// Handshake authentication can be either mutual or server-only
+    /// authentication.
     auth_mode: HandshakeAuthMode,
 }
 
 impl NoiseUpgrader {
-    /// Create a new NoiseConfig with the provided keypair and authentication mode.
+    /// The client message consist of the prologue + a noise message with a
+    /// timestamp as payload.
+    const CLIENT_MESSAGE_SIZE: usize =
+        Self::PROLOGUE_SIZE + noise::handshake_init_msg_len(AntiReplayTimestamps::TIMESTAMP_SIZE);
+    /// The prologue is the client's peer_id and the remote's expected public
+    /// key.
+    const PROLOGUE_SIZE: usize = PeerId::LENGTH + x25519::PUBLIC_KEY_SIZE;
+    /// The server's message contains no payload.
+    const SERVER_MESSAGE_SIZE: usize = noise::handshake_resp_msg_len(0);
+
+    /// Create a new NoiseConfig with the provided keypair and authentication
+    /// mode.
     pub fn new(
         network_context: NetworkContext,
         key: x25519::PrivateKey,
@@ -156,9 +176,10 @@ impl NoiseUpgrader {
         }
     }
 
-    /// Perform a protocol upgrade on an underlying connection. In addition perform the noise IK
-    /// handshake to establish a noise stream and exchange static public keys. Upon success,
-    /// returns the static public key of the remote as well as a NoiseStream.
+    /// Perform a protocol upgrade on an underlying connection. In addition
+    /// perform the noise IK handshake to establish a noise stream and
+    /// exchange static public keys. Upon success, returns the static public
+    /// key of the remote as well as a NoiseStream.
     // TODO(philiphayes): rework socket-bench-server so we can remove this function
     #[allow(dead_code)]
     pub async fn upgrade_with_noise<TSocket>(
@@ -180,11 +201,11 @@ impl NoiseUpgrader {
                 };
                 self.upgrade_outbound(socket, remote_public_key, AntiReplayTimestamps::now)
                     .await?
-            }
+            },
             ConnectionOrigin::Inbound => {
                 let (socket, _peer_id, _) = self.upgrade_inbound(socket).await?;
                 socket
-            }
+            },
         };
 
         // return remote public key with a socket including the noise stream
@@ -192,23 +213,13 @@ impl NoiseUpgrader {
         Ok((remote_public_key, socket))
     }
 
-    /// The prologue is the client's peer_id and the remote's expected public key.
-    const PROLOGUE_SIZE: usize = PeerId::LENGTH + x25519::PUBLIC_KEY_SIZE;
-
-    /// The client message consist of the prologue + a noise message with a timestamp as payload.
-    const CLIENT_MESSAGE_SIZE: usize =
-        Self::PROLOGUE_SIZE + noise::handshake_init_msg_len(AntiReplayTimestamps::TIMESTAMP_SIZE);
-
-    /// The server's message contains no payload.
-    const SERVER_MESSAGE_SIZE: usize = noise::handshake_resp_msg_len(0);
-
     /// Perform an outbound protocol upgrade on this connection.
     ///
     /// This runs the "client" side of the Noise IK handshake to establish a
     /// secure Noise stream and send its static public key to the server.
-    /// In mutual auth scenarios, we will also include an anti replay attack counter in the
-    /// Noise handshake payload. Currently this counter is always a millisecond-
-    /// granularity unix epoch timestamp.
+    /// In mutual auth scenarios, we will also include an anti replay attack
+    /// counter in the Noise handshake payload. Currently this counter is
+    /// always a millisecond- granularity unix epoch timestamp.
     pub async fn upgrade_outbound<TSocket, F>(
         &self,
         mut socket: TSocket,
@@ -290,11 +301,12 @@ impl NoiseUpgrader {
     /// Perform an inbound protocol upgrade on this connection.
     ///
     /// This runs the "server" side of the Noise IK handshake to establish a
-    /// secure Noise stream and exchange static public keys. If the configuration
-    /// requires mutual authentication, we will only allow connections from peers
-    /// that successfully authenticate to a public key in our `trusted_peers` set.
-    /// In addition, we will expect the client to include an anti replay attack
-    /// counter in the Noise handshake payload in mutual auth scenarios.
+    /// secure Noise stream and exchange static public keys. If the
+    /// configuration requires mutual authentication, we will only allow
+    /// connections from peers that successfully authenticate to a public
+    /// key in our `trusted_peers` set. In addition, we will expect the
+    /// client to include an anti replay attack counter in the Noise
+    /// handshake payload in mutual auth scenarios.
     pub async fn upgrade_inbound<TSocket>(
         &self,
         mut socket: TSocket,
@@ -317,8 +329,9 @@ impl NoiseUpgrader {
             client_message[..Self::PROLOGUE_SIZE].split_at(PeerId::LENGTH);
 
         // parse the client's peer id
-        // note: in mutual authenticated network, we could verify that their peer_id is in the trust peer set now.
-        // We do this later in this function instead (to batch a number of checks) as there is no known attack here.
+        // note: in mutual authenticated network, we could verify that their peer_id is
+        // in the trust peer set now. We do this later in this function instead
+        // (to batch a number of checks) as there is no known attack here.
         let remote_peer_id = PeerId::try_from(remote_peer_id)
             .map_err(|_| NoiseHandshakeError::InvalidClientPeerId(hex::encode(remote_peer_id)))?;
         let remote_peer_short = remote_peer_id.short_str();
@@ -352,20 +365,21 @@ impl NoiseUpgrader {
                 match trusted_peers.read().get(&remote_peer_id) {
                     Some(peer) => {
                         Self::authenticate_inbound(remote_peer_short, peer, &remote_public_key)
-                    }
+                    },
                     None => Err(NoiseHandshakeError::UnauthenticatedClient(
                         remote_peer_short,
                         remote_peer_id,
                     )),
                 }
-            }
+            },
             HandshakeAuthMode::MaybeMutual(trusted_peers) => {
                 match trusted_peers.read().get(&remote_peer_id) {
                     Some(peer) => {
                         Self::authenticate_inbound(remote_peer_short, peer, &remote_public_key)
-                    }
+                    },
                     None => {
-                        // if not, verify that their peerid is constructed correctly from their public key
+                        // if not, verify that their peerid is constructed correctly from their
+                        // public key
                         let derived_remote_peer_id =
                             aptos_types::account_address::from_identity_public_key(
                                 remote_public_key,
@@ -379,9 +393,9 @@ impl NoiseUpgrader {
                         } else {
                             Ok(PeerRole::Unknown)
                         }
-                    }
+                    },
                 }
-            }
+            },
         }?;
 
         // if on a mutually authenticated network,
@@ -456,7 +470,6 @@ impl NoiseUpgrader {
     }
 }
 
-//
 // Tests
 // -----
 //
@@ -597,7 +610,8 @@ mod test {
         client_session.unwrap_err();
         server_session.unwrap_err();
 
-        // 5. perform the handshake again with a valid timestamp in the future, it should work
+        // 5. perform the handshake again with a valid timestamp in the future, it
+        // should work
         let (dialer_socket, listener_socket) = MemorySocket::new_pair();
         let (client_session, server_session) = block_on(join(
             client.upgrade_outbound(dialer_socket, server_public_key, bad_timestamp(2)),

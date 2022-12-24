@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::OutputFallbackHandler;
 use crate::{
     bootstrapper::{Bootstrapper, GENESIS_TRANSACTION_VERSION},
     driver::DriverConfiguration,
@@ -18,12 +17,12 @@ use crate::{
             create_transaction_info, create_transaction_list_with_proof,
         },
     },
+    utils::OutputFallbackHandler,
 };
 use aptos_config::config::BootstrappingMode;
 use aptos_data_client::GlobalDataSummary;
-use aptos_data_streaming_service::data_notification::NotificationId;
 use aptos_data_streaming_service::{
-    data_notification::{DataNotification, DataPayload},
+    data_notification::{DataNotification, DataPayload, NotificationId},
     streaming_client::{NotificationAndFeedback, NotificationFeedback},
 };
 use aptos_time_service::TimeService;
@@ -34,8 +33,7 @@ use aptos_types::{
 use claims::{assert_matches, assert_none, assert_ok};
 use futures::{channel::oneshot, FutureExt, SinkExt};
 use mockall::{predicate::eq, Sequence};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 #[tokio::test]
 async fn test_bootstrap_genesis_waypoint() {
@@ -142,7 +140,8 @@ async fn test_bootstrap_no_notification() {
 
 #[tokio::test]
 async fn test_critical_timeout() {
-    // Create a driver configuration with a genesis waypoint and a stream timeout of 1 second
+    // Create a driver configuration with a genesis waypoint and a stream timeout of
+    // 1 second
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.max_stream_wait_time_ms = 1000;
     driver_configuration.config.max_num_stream_timeouts = 6;
@@ -248,7 +247,8 @@ async fn test_data_stream_state_values() {
     let (mut bootstrapper, _) =
         create_bootstrapper(driver_configuration, mock_streaming_client, None, true);
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -320,7 +320,8 @@ async fn test_data_stream_transactions() {
     let (mut bootstrapper, _) =
         create_bootstrapper(driver_configuration, mock_streaming_client, None, true);
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -392,7 +393,8 @@ async fn test_data_stream_transaction_outputs() {
     let (mut bootstrapper, _) =
         create_bootstrapper(driver_configuration, mock_streaming_client, None, true);
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -432,7 +434,8 @@ async fn test_data_stream_transactions_or_outputs() {
     let highest_version = 9998765;
     let highest_ledger_info = create_random_epoch_ending_ledger_info(highest_version, 1);
 
-    // Create a driver configuration with a genesis waypoint and transaction or output syncing
+    // Create a driver configuration with a genesis waypoint and transaction or
+    // output syncing
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.bootstrapping_mode = BootstrappingMode::ExecuteOrApplyFromGenesis;
 
@@ -465,7 +468,8 @@ async fn test_data_stream_transactions_or_outputs() {
     let (mut bootstrapper, _) =
         create_bootstrapper(driver_configuration, mock_streaming_client, None, true);
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -503,7 +507,8 @@ async fn test_data_stream_transactions_or_outputs_fallback() {
     let highest_version = 9998765;
     let highest_ledger_info = create_random_epoch_ending_ledger_info(highest_version, 1);
 
-    // Create a driver configuration with a genesis waypoint and transaction or output syncing
+    // Create a driver configuration with a genesis waypoint and transaction or
+    // output syncing
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.bootstrapping_mode = BootstrappingMode::ExecuteOrApplyFromGenesis;
 
@@ -567,7 +572,8 @@ async fn test_data_stream_transactions_or_outputs_fallback() {
     );
     assert!(!output_fallback_handler.in_fallback_mode());
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -600,8 +606,8 @@ async fn test_data_stream_transactions_or_outputs_fallback() {
         ))
         .await;
 
-    // Send another storage synchronizer error to the bootstrapper and drive progress
-    // so that a regular stream is created.
+    // Send another storage synchronizer error to the bootstrapper and drive
+    // progress so that a regular stream is created.
     handle_storage_synchronizer_error(
         &mut bootstrapper,
         notification_id,
@@ -616,7 +622,8 @@ async fn test_data_stream_transactions_or_outputs_fallback() {
 
 #[tokio::test]
 async fn test_fetch_epoch_ending_ledger_infos() {
-    // Create a driver configuration with a genesis waypoint and a stream timeout of 1 second
+    // Create a driver configuration with a genesis waypoint and a stream timeout of
+    // 1 second
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.max_stream_wait_time_ms = 1000;
 
@@ -632,7 +639,8 @@ async fn test_fetch_epoch_ending_ledger_infos() {
     let (mut bootstrapper, _) =
         create_bootstrapper(driver_configuration, mock_streaming_client, None, true);
 
-    // Set the waypoint as already having been verified (but no fetched ledger infos)
+    // Set the waypoint as already having been verified (but no fetched ledger
+    // infos)
     manipulate_verified_epoch_states(&mut bootstrapper, false, true, None);
 
     // Create a global data summary where epoch 0 and 1 have ended
@@ -697,7 +705,8 @@ async fn test_snapshot_sync_epoch_change() {
         true,
     );
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Manually insert a transaction output to sync
@@ -782,7 +791,8 @@ async fn test_snapshot_sync_existing_state() {
         true,
     );
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Manually insert a transaction output to sync
@@ -853,7 +863,8 @@ async fn test_snapshot_sync_fresh_state() {
         true,
     );
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Manually insert a transaction output to sync
@@ -873,7 +884,8 @@ async fn test_snapshot_sync_fresh_state() {
 
 #[tokio::test]
 #[should_panic(
-    expected = "The snapshot sync for the target was marked as complete but the highest synced version is genesis!"
+    expected = "The snapshot sync for the target was marked as complete but the highest synced \
+                version is genesis!"
 )]
 async fn test_snapshot_sync_invalid_state() {
     // Create test data
@@ -907,7 +919,8 @@ async fn test_snapshot_sync_invalid_state() {
         true,
     );
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -953,14 +966,16 @@ async fn test_snapshot_sync_lag() {
         true,
     );
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
     let mut global_data_summary = create_global_summary(1);
     global_data_summary.advertised_data.synced_ledger_infos = vec![highest_ledger_info.clone()];
 
-    // Drive progress to mark bootstrapping complete (we're within the snapshot sync lag)
+    // Drive progress to mark bootstrapping complete (we're within the snapshot sync
+    // lag)
     drive_progress(&mut bootstrapper, &global_data_summary, false)
         .await
         .unwrap();
@@ -1003,7 +1018,8 @@ async fn test_snapshot_sync_lag_panic() {
         true,
     );
 
-    // Insert an epoch ending ledger info into the verified states of the bootstrapper
+    // Insert an epoch ending ledger info into the verified states of the
+    // bootstrapper
     manipulate_verified_epoch_states(&mut bootstrapper, true, true, Some(highest_version));
 
     // Create a global data summary
@@ -1080,7 +1096,8 @@ async fn test_waypoint_mismatch() {
 
 #[tokio::test]
 async fn test_waypoint_must_be_verified() {
-    // Create a driver configuration with a genesis waypoint and a stream timeout of 1 second
+    // Create a driver configuration with a genesis waypoint and a stream timeout of
+    // 1 second
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.max_stream_wait_time_ms = 1000;
 
@@ -1257,7 +1274,8 @@ async fn drive_progress(
         // Attempt to drive progress
         bootstrapper.drive_progress(global_data_summary).await?;
 
-        // Return early if we should only drive progress once or if we've already bootstrapped
+        // Return early if we should only drive progress once or if we've already
+        // bootstrapped
         if !until_bootstrapped || bootstrapper.is_bootstrapped() {
             return Ok(());
         }

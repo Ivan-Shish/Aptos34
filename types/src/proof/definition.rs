@@ -12,6 +12,8 @@ use crate::{
     transaction::{TransactionInfo, Version},
 };
 use anyhow::{bail, ensure, format_err, Context, Result};
+#[cfg(any(test, feature = "fuzzing"))]
+use aptos_crypto::hash::TestOnlyHasher;
 use aptos_crypto::{
     hash::{
         CryptoHash, CryptoHasher, EventAccumulatorHasher, TransactionAccumulatorHasher,
@@ -19,29 +21,26 @@ use aptos_crypto::{
     },
     HashValue,
 };
+#[cfg(any(test, feature = "fuzzing"))]
+use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::{any::type_name, marker::PhantomData};
 
-#[cfg(any(test, feature = "fuzzing"))]
-use aptos_crypto::hash::TestOnlyHasher;
-#[cfg(any(test, feature = "fuzzing"))]
-use proptest_derive::Arbitrary;
-
-/// A proof that can be used authenticate an element in an accumulator given trusted root hash. For
-/// example, both `LedgerInfoToTransactionInfoProof` and `TransactionInfoToEventProof` can be
-/// constructed on top of this structure.
+/// A proof that can be used authenticate an element in an accumulator given
+/// trusted root hash. For example, both `LedgerInfoToTransactionInfoProof` and
+/// `TransactionInfoToEventProof` can be constructed on top of this structure.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct AccumulatorProof<H> {
-    /// All siblings in this proof, including the default ones. Siblings are ordered from the bottom
-    /// level to the root level.
+    /// All siblings in this proof, including the default ones. Siblings are
+    /// ordered from the bottom level to the root level.
     siblings: Vec<HashValue>,
 
     phantom: PhantomData<H>,
 }
 
-/// Because leaves can only take half the space in the tree, any numbering of the tree leaves must
-/// not take the full width of the total space.  Thus, for a 64-bit ordering, our maximumm proof
-/// depth is limited to 63.
+/// Because leaves can only take half the space in the tree, any numbering of
+/// the tree leaves must not take the full width of the total space.  Thus, for
+/// a 64-bit ordering, our maximumm proof depth is limited to 63.
 pub type LeafCount = u64;
 pub const MAX_ACCUMULATOR_PROOF_DEPTH: usize = 63;
 pub const MAX_ACCUMULATOR_LEAVES: LeafCount = 1 << MAX_ACCUMULATOR_PROOF_DEPTH;
@@ -63,8 +62,9 @@ where
         &self.siblings
     }
 
-    /// Verifies an element whose hash is `element_hash` and version is `element_version` exists in
-    /// the accumulator whose root hash is `expected_root_hash` using the provided proof.
+    /// Verifies an element whose hash is `element_hash` and version is
+    /// `element_version` exists in the accumulator whose root hash is
+    /// `expected_root_hash` using the provided proof.
     pub fn verify(
         &self,
         expected_root_hash: HashValue,
@@ -130,23 +130,27 @@ pub type EventAccumulatorProof = AccumulatorProof<EventAccumulatorHasher>;
 #[cfg(any(test, feature = "fuzzing"))]
 pub type TestAccumulatorProof = AccumulatorProof<TestOnlyHasher>;
 
-/// A proof that can be used to authenticate an element in a Sparse Merkle Tree given trusted root
-/// hash. For example, `TransactionInfoToAccountProof` can be constructed on top of this structure.
+/// A proof that can be used to authenticate an element in a Sparse Merkle Tree
+/// given trusted root hash. For example, `TransactionInfoToAccountProof` can be
+/// constructed on top of this structure.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SparseMerkleProof {
-    /// This proof can be used to authenticate whether a given leaf exists in the tree or not.
+    /// This proof can be used to authenticate whether a given leaf exists in
+    /// the tree or not.
     ///     - If this is `Some(leaf_node)`
-    ///         - If `leaf_node.key` equals requested key, this is an inclusion proof and
-    ///           `leaf_node.value_hash` equals the hash of the corresponding account blob.
-    ///         - Otherwise this is a non-inclusion proof. `leaf_node.key` is the only key
-    ///           that exists in the subtree and `leaf_node.value_hash` equals the hash of the
+    ///         - If `leaf_node.key` equals requested key, this is an inclusion
+    ///           proof and `leaf_node.value_hash` equals the hash of the
     ///           corresponding account blob.
-    ///     - If this is `None`, this is also a non-inclusion proof which indicates the subtree is
-    ///       empty.
+    ///         - Otherwise this is a non-inclusion proof. `leaf_node.key` is
+    ///           the only key that exists in the subtree and
+    ///           `leaf_node.value_hash` equals the hash of the corresponding
+    ///           account blob.
+    ///     - If this is `None`, this is also a non-inclusion proof which
+    ///       indicates the subtree is empty.
     leaf: Option<SparseMerkleLeafNode>,
 
-    /// All siblings in this proof, including the default ones. Siblings are ordered from the bottom
-    /// level to the root level.
+    /// All siblings in this proof, including the default ones. Siblings are
+    /// ordered from the bottom level to the root level.
     siblings: Vec<HashValue>,
 }
 
@@ -177,18 +181,20 @@ impl NodeInProof {
     }
 }
 
-/// A more detailed version of `SparseMerkleProof` with the only difference that all the leaf
-/// siblings are explicitly set as `SparseMerkleLeafNode` instead of its hash value.
+/// A more detailed version of `SparseMerkleProof` with the only difference that
+/// all the leaf siblings are explicitly set as `SparseMerkleLeafNode` instead
+/// of its hash value.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SparseMerkleProofExt {
     leaf: Option<SparseMerkleLeafNode>,
-    /// All siblings in this proof, including the default ones. Siblings are ordered from the bottom
-    /// level to the root level.
+    /// All siblings in this proof, including the default ones. Siblings are
+    /// ordered from the bottom level to the root level.
     siblings: Vec<NodeInProof>,
 }
 
 impl SparseMerkleProofExt {
-    /// Constructs a new `SparseMerkleProofExt` using leaf and a list of sibling nodes.
+    /// Constructs a new `SparseMerkleProofExt` using leaf and a list of sibling
+    /// nodes.
     pub fn new(leaf: Option<SparseMerkleLeafNode>, siblings: Vec<NodeInProof>) -> Self {
         Self { leaf, siblings }
     }
@@ -268,9 +274,10 @@ impl SparseMerkleProof {
         )
     }
 
-    /// If `element_hash` is present, verifies an element whose key is `element_key` and value is
-    /// authenticated by `element_hash` exists in the Sparse Merkle Tree using the provided proof.
-    /// Otherwise verifies the proof is a valid non-inclusion proof that shows this key doesn't
+    /// If `element_hash` is present, verifies an element whose key is
+    /// `element_key` and value is authenticated by `element_hash` exists in
+    /// the Sparse Merkle Tree using the provided proof. Otherwise verifies
+    /// the proof is a valid non-inclusion proof that shows this key doesn't
     /// exist in the tree.
     pub fn verify_by_hash(
         &self,
@@ -292,8 +299,8 @@ impl SparseMerkleProof {
                 // route from the leaf node to the root.
                 ensure!(
                     element_key == leaf.key,
-                    "Keys do not match. Key in proof: {:x}. Expected key: {:x}. \
-                     Element hash: {:x}. Value hash in proof {:x}",
+                    "Keys do not match. Key in proof: {:x}. Expected key: {:x}. Element hash: \
+                     {:x}. Value hash in proof {:x}",
                     leaf.key,
                     element_key,
                     hash,
@@ -301,28 +308,29 @@ impl SparseMerkleProof {
                 );
                 ensure!(
                     hash == leaf.value_hash,
-                    "Value hashes do not match for key {:x}. Value hash in proof: {:x}. \
-                     Expected value hash: {:x}. ",
+                    "Value hashes do not match for key {:x}. Value hash in proof: {:x}. Expected \
+                     value hash: {:x}. ",
                     element_key,
                     leaf.value_hash,
                     hash
                 );
-            }
+            },
             (Some(hash), None) => {
                 bail!(
                     "Expected inclusion proof, value hash: {:x}. Found non-inclusion proof.",
                     hash
                 )
-            }
+            },
             (None, Some(leaf)) => {
                 // This is a non-inclusion proof. The proof intends to show that if a leaf node
-                // representing `element_key` is inserted, it will break a currently existing leaf
-                // node represented by `proof_key` into a branch. `siblings` should prove the
-                // route from that leaf node to the root.
+                // representing `element_key` is inserted, it will break a currently existing
+                // leaf node represented by `proof_key` into a branch.
+                // `siblings` should prove the route from that leaf node to the
+                // root.
                 ensure!(
                     element_key != leaf.key,
-                    "Expected non-inclusion proof, but key exists in proof. \
-                     Key: {:x}. Key in proof: {:x}.",
+                    "Expected non-inclusion proof, but key exists in proof. Key: {:x}. Key in \
+                     proof: {:x}.",
                     element_key,
                     leaf.key,
                 );
@@ -334,12 +342,14 @@ impl SparseMerkleProof {
                     element_key,
                     leaf.key
                 );
-            }
+            },
             (None, None) => {
-                // This is a non-inclusion proof. The proof intends to show that if a leaf node
-                // representing `element_key` is inserted, it will show up at a currently empty
-                // position. `sibling` should prove the route from this empty position to the root.
-            }
+                // This is a non-inclusion proof. The proof intends to show that
+                // if a leaf node representing `element_key` is
+                // inserted, it will show up at a currently empty
+                // position. `sibling` should prove the route from this empty
+                // position to the root.
+            },
         }
 
         let current_hash = self
@@ -377,10 +387,11 @@ impl SparseMerkleProof {
 /// accumulator. It is a summary in the sense that it only stores maximally
 /// frozen subtree nodes rather than storing all leaves and internal nodes.
 ///
-/// Light clients and light nodes use this type to store their currently verified
-/// view of the transaction accumulator. When verifying state proofs, these clients
-/// attempt to extend their accumulator summary with an [`AccumulatorConsistencyProof`]
-/// to verifiably ratchet their trusted view of the accumulator to a newer state.
+/// Light clients and light nodes use this type to store their currently
+/// verified view of the transaction accumulator. When verifying state proofs,
+/// these clients attempt to extend their accumulator summary with an
+/// [`AccumulatorConsistencyProof`] to verifiably ratchet their trusted view of
+/// the accumulator to a newer state.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TransactionAccumulatorSummary(pub InMemoryAccumulator<TransactionAccumulatorHasher>);
 
@@ -407,15 +418,15 @@ impl TransactionAccumulatorSummary {
     pub fn verify_consistency(&self, ledger_info: &LedgerInfo) -> Result<()> {
         ensure!(
             ledger_info.version() == self.version(),
-            "ledger info and accumulator must be at the same version: \
-             ledger info version={}, accumulator version={}",
+            "ledger info and accumulator must be at the same version: ledger info version={}, \
+             accumulator version={}",
             ledger_info.version(),
             self.version(),
         );
         ensure!(
             ledger_info.transaction_accumulator_hash() == self.root_hash(),
-            "ledger info root hash and accumulator root hash must match: \
-             ledger info root hash={}, accumulator root hash={}",
+            "ledger info root hash and accumulator root hash must match: ledger info root \
+             hash={}, accumulator root hash={}",
             ledger_info.transaction_accumulator_hash(),
             self.root_hash(),
         );
@@ -445,8 +456,8 @@ impl TransactionAccumulatorSummary {
     ) -> Result<Self> {
         ensure!(
             target_li.version() >= self.0.version(),
-            "target ledger info version ({}) must be newer than our current accumulator \
-             summary version ({})",
+            "target ledger info version ({}) must be newer than our current accumulator summary \
+             version ({})",
             target_li.version(),
             self.0.version(),
         );
@@ -455,22 +466,26 @@ impl TransactionAccumulatorSummary {
             self.0
                 .append_subtrees(consistency_proof.subtrees(), num_new_txns)?,
         );
-        new_accumulator
-            .verify_consistency(target_li)
-            .context("accumulator is not consistent with the target ledger info after applying consistency proof")?;
+        new_accumulator.verify_consistency(target_li).context(
+            "accumulator is not consistent with the target ledger info after applying consistency \
+             proof",
+        )?;
         Ok(new_accumulator)
     }
 }
 
-/// A proof that can be used to show that two Merkle accumulators are consistent -- the big one can
-/// be obtained by appending certain leaves to the small one. For example, at some point in time a
-/// client knows that the root hash of the ledger at version 10 is `old_root` (it could be a
-/// waypoint). If a server wants to prove that the new ledger at version `N` is derived from the
-/// old ledger the client knows, it can show the subtrees that represent all the new leaves. If
-/// the client can verify that it can indeed obtain the new root hash by appending these new
-/// leaves, it can be convinced that the two accumulators are consistent.
+/// A proof that can be used to show that two Merkle accumulators are consistent
+/// -- the big one can be obtained by appending certain leaves to the small one.
+/// For example, at some point in time a client knows that the root hash of the
+/// ledger at version 10 is `old_root` (it could be a waypoint). If a server
+/// wants to prove that the new ledger at version `N` is derived from the
+/// old ledger the client knows, it can show the subtrees that represent all the
+/// new leaves. If the client can verify that it can indeed obtain the new root
+/// hash by appending these new leaves, it can be convinced that the two
+/// accumulators are consistent.
 ///
-/// See [`crate::proof::accumulator::InMemoryAccumulator::append_subtrees`] for more details.
+/// See [`crate::proof::accumulator::InMemoryAccumulator::append_subtrees`] for
+/// more details.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct AccumulatorConsistencyProof {
     /// The subtrees representing the newly appended leaves.
@@ -497,8 +512,9 @@ impl AccumulatorConsistencyProof {
     }
 }
 
-/// A proof that is similar to `AccumulatorProof`, but can be used to authenticate a range of
-/// leaves. For example, given the following accumulator:
+/// A proof that is similar to `AccumulatorProof`, but can be used to
+/// authenticate a range of leaves. For example, given the following
+/// accumulator:
 ///
 /// ```text
 ///                 root
@@ -513,16 +529,16 @@ impl AccumulatorConsistencyProof {
 ///     o   o   a   b   c   Z   o   o
 /// ```
 ///
-/// if the proof wants to show that `[a, b, c]` exists in the accumulator, it would need `X` on the
-/// left and `Y` and `Z` on the right.
+/// if the proof wants to show that `[a, b, c]` exists in the accumulator, it
+/// would need `X` on the left and `Y` and `Z` on the right.
 #[derive(Clone, Deserialize, Serialize)]
 pub struct AccumulatorRangeProof<H> {
-    /// The siblings on the left of the path from the first leaf to the root. Siblings near the root
-    /// are at the beginning of the vector.
+    /// The siblings on the left of the path from the first leaf to the root.
+    /// Siblings near the root are at the beginning of the vector.
     left_siblings: Vec<HashValue>,
 
-    /// The sliblings on the right of the path from the last leaf to the root. Siblings near the root
-    /// are at the beginning of the vector.
+    /// The sliblings on the right of the path from the last leaf to the root.
+    /// Siblings near the root are at the beginning of the vector.
     right_siblings: Vec<HashValue>,
 
     phantom: PhantomData<H>,
@@ -532,7 +548,8 @@ impl<H> AccumulatorRangeProof<H>
 where
     H: CryptoHasher,
 {
-    /// Constructs a new `AccumulatorRangeProof` using `left_siblings` and `right_siblings`.
+    /// Constructs a new `AccumulatorRangeProof` using `left_siblings` and
+    /// `right_siblings`.
     pub fn new(left_siblings: Vec<HashValue>, right_siblings: Vec<HashValue>) -> Self {
         Self {
             left_siblings,
@@ -556,8 +573,9 @@ where
         &self.right_siblings
     }
 
-    /// Verifies the proof is correct. The verifier needs to have `expected_root_hash`, the index
-    /// of the first leaf and all of the leaves in possession.
+    /// Verifies the proof is correct. The verifier needs to have
+    /// `expected_root_hash`, the index of the first leaf and all of the
+    /// leaves in possession.
     pub fn verify(
         &self,
         expected_root_hash: HashValue,
@@ -602,16 +620,16 @@ where
         let mut current_hashes = leaf_hashes.to_vec();
         let mut parent_hashes = vec![];
 
-        // Keep reducing the list of hashes by combining all the children pairs, until there is
-        // only one hash left.
+        // Keep reducing the list of hashes by combining all the children pairs, until
+        // there is only one hash left.
         while current_hashes.len() > 1
             || left_sibling_iter.peek().is_some()
             || right_sibling_iter.peek().is_some()
         {
             let mut children_iter = current_hashes.iter();
 
-            // If the first position on the current level is a right child, it needs to be combined
-            // with a sibling on the left.
+            // If the first position on the current level is a right child, it needs to be
+            // combined with a sibling on the left.
             if first_pos.is_right_child() {
                 let left_hash = *left_sibling_iter.next().ok_or_else(|| {
                     format_err!("First child is a right child, but missing sibling on the left.")
@@ -628,8 +646,8 @@ where
                 parent_hashes.push(MerkleTreeInternalNode::<H>::new(left_hash, right_hash).hash());
             }
 
-            // Similarly, if the last position is a left child, it needs to be combined with a
-            // sibling on the right.
+            // Similarly, if the last position is a left child, it needs to be combined with
+            // a sibling on the right.
             let remainder = children_iter.remainder();
             assert!(remainder.len() <= 1);
             if !remainder.is_empty() {
@@ -679,12 +697,13 @@ pub type TransactionAccumulatorRangeProof = AccumulatorRangeProof<TransactionAcc
 #[cfg(any(test, feature = "fuzzing"))]
 pub type TestAccumulatorRangeProof = AccumulatorRangeProof<TestOnlyHasher>;
 
-/// Note: this is not a range proof in the sense that a range of nodes is verified!
-/// Instead, it verifies the entire left part of the tree up to a known rightmost node.
-/// See the description below.
+/// Note: this is not a range proof in the sense that a range of nodes is
+/// verified! Instead, it verifies the entire left part of the tree up to a
+/// known rightmost node. See the description below.
 ///
-/// A proof that can be used to authenticate a range of consecutive leaves, from the leftmost leaf to
-/// the rightmost known one, in a sparse Merkle tree. For example, given the following sparse Merkle tree:
+/// A proof that can be used to authenticate a range of consecutive leaves, from
+/// the leftmost leaf to the rightmost known one, in a sparse Merkle tree. For
+/// example, given the following sparse Merkle tree:
 ///
 /// ```text
 ///                   root
@@ -700,12 +719,13 @@ pub type TestAccumulatorRangeProof = AccumulatorRangeProof<TestOnlyHasher>;
 ///             b   c       f   g
 /// ```
 ///
-/// if the proof wants show that `[a, b, c, d, e]` exists in the tree, it would need the siblings
-/// `X` and `h` on the right.
+/// if the proof wants show that `[a, b, c, d, e]` exists in the tree, it would
+/// need the siblings `X` and `h` on the right.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SparseMerkleRangeProof {
-    /// The vector of siblings on the right of the path from root to last leaf. The ones near the
-    /// bottom are at the beginning of the vector. In the above example, it's `[X, h]`.
+    /// The vector of siblings on the right of the path from root to last leaf.
+    /// The ones near the bottom are at the beginning of the vector. In the
+    /// above example, it's `[X, h]`.
     right_siblings: Vec<HashValue>,
 }
 
@@ -720,8 +740,8 @@ impl SparseMerkleRangeProof {
         &self.right_siblings
     }
 
-    /// Verifies that the rightmost known leaf exists in the tree and that the resulting
-    /// root hash matches the expected root hash.
+    /// Verifies that the rightmost known leaf exists in the tree and that the
+    /// resulting root hash matches the expected root hash.
     pub fn verify(
         &self,
         expected_root_hash: HashValue,
@@ -769,12 +789,13 @@ impl SparseMerkleRangeProof {
     }
 }
 
-/// `TransactionInfo` and a `TransactionAccumulatorProof` connecting it to the ledger root.
+/// `TransactionInfo` and a `TransactionAccumulatorProof` connecting it to the
+/// ledger root.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct TransactionInfoWithProof {
-    /// The accumulator proof from ledger info root to leaf that authenticates the hash of the
-    /// `TransactionInfo` object.
+    /// The accumulator proof from ledger info root to leaf that authenticates
+    /// the hash of the `TransactionInfo` object.
     pub ledger_info_to_transaction_info_proof: TransactionAccumulatorProof,
 
     /// The `TransactionInfo` object at the leaf of the accumulator.
@@ -794,7 +815,8 @@ impl TransactionInfoWithProof {
         }
     }
 
-    /// Returns the `ledger_info_to_transaction_info_proof` object in this proof.
+    /// Returns the `ledger_info_to_transaction_info_proof` object in this
+    /// proof.
     pub fn ledger_info_to_transaction_info_proof(&self) -> &TransactionAccumulatorProof {
         &self.ledger_info_to_transaction_info_proof
     }
@@ -804,8 +826,8 @@ impl TransactionInfoWithProof {
         &self.transaction_info
     }
 
-    /// Verifies that the `TransactionInfo` exists in the ledger represented by the `LedgerInfo`
-    /// at specified version.
+    /// Verifies that the `TransactionInfo` exists in the ledger represented by
+    /// the `LedgerInfo` at specified version.
     pub fn verify(&self, ledger_info: &LedgerInfo, transaction_version: Version) -> Result<()> {
         verify_transaction_info(
             ledger_info,
@@ -836,13 +858,15 @@ impl TransactionInfoListWithProof {
         }
     }
 
-    /// Constructs a proof for an empty list of transaction infos. Mostly used for tests.
+    /// Constructs a proof for an empty list of transaction infos. Mostly used
+    /// for tests.
     pub fn new_empty() -> Self {
         Self::new(AccumulatorRangeProof::new_empty(), vec![])
     }
 
-    /// Verifies the list of transaction infos are correct using the proof. The verifier
-    /// needs to have the ledger info and the version of the first transaction in possession.
+    /// Verifies the list of transaction infos are correct using the proof. The
+    /// verifier needs to have the ledger info and the version of the first
+    /// transaction in possession.
     pub fn verify(
         &self,
         ledger_info: &LedgerInfo,
@@ -881,8 +905,8 @@ impl TransactionInfoListWithProof {
             }
             let overlap_txn_infos = &self.transaction_infos[..num_overlap_txns];
 
-            // Left side of the proof happens to be the frozen subtree roots of the accumulator
-            // right before the list of txns are applied.
+            // Left side of the proof happens to be the frozen subtree roots of the
+            // accumulator right before the list of txns are applied.
             let frozen_subtree_roots_from_proof = self
                 .ledger_info_to_transaction_infos_proof
                 .left_siblings()
@@ -903,7 +927,8 @@ impl TransactionInfoListWithProof {
             // The two accumulator root hashes should be identical.
             ensure!(
                 accu_from_proof.root_hash() == root_hash,
-                "Fork happens because the current synced_trees doesn't match the txn list provided."
+                "Fork happens because the current synced_trees doesn't match the txn list \
+                 provided."
             );
             Ok(num_overlap_txns)
         } else {
@@ -914,11 +939,12 @@ impl TransactionInfoListWithProof {
     }
 }
 
-/// A proof that first verifies that establishes correct computation of the root and then
-/// returns the new tree to acquire a new root and version.
+/// A proof that first verifies that establishes correct computation of the root
+/// and then returns the new tree to acquire a new root and version.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AccumulatorExtensionProof<H> {
-    /// Represents the roots of all the full subtrees from left to right in the original accumulator.
+    /// Represents the roots of all the full subtrees from left to right in the
+    /// original accumulator.
     frozen_subtree_roots: Vec<HashValue>,
     /// The total number of leaves in original accumulator.
     num_leaves: LeafCount,

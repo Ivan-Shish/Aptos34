@@ -9,13 +9,11 @@ use move_vm_types::{
     loaded_data::runtime_types::Type, natives::function::NativeResult, values::Value,
 };
 use smallvec::smallvec;
-use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::sync::Arc;
+use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
 /// The native transaction context extension. This needs to be attached to the
-/// NativeContextExtensions value which is passed into session functions, so its accessible from
-/// natives of this extension.
+/// NativeContextExtensions value which is passed into session functions, so its
+/// accessible from natives of this extension.
 #[derive(Tid)]
 pub struct NativeTransactionContext {
     script_hash: Vec<u8>,
@@ -23,8 +21,8 @@ pub struct NativeTransactionContext {
 }
 
 impl NativeTransactionContext {
-    /// Create a new instance of a native transaction context. This must be passed in via an
-    /// extension into VM session functions.
+    /// Create a new instance of a native transaction context. This must be
+    /// passed in via an extension into VM session functions.
     pub fn new(script_hash: Vec<u8>, chain_id: u8) -> Self {
         Self {
             script_hash,
@@ -37,12 +35,13 @@ impl NativeTransactionContext {
     }
 }
 
-/***************************************************************************************************
- * native fun get_script_hash
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun get_script_hash
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Clone, Debug)]
 pub struct GetScriptHashGasParameters {
     pub base: InternalGas,
@@ -56,10 +55,9 @@ fn native_get_script_hash(
 ) -> PartialVMResult<NativeResult> {
     let transaction_context = context.extensions().get::<NativeTransactionContext>();
 
-    Ok(NativeResult::ok(
-        gas_params.base,
-        smallvec![Value::vector_u8(transaction_context.script_hash.clone())],
-    ))
+    Ok(NativeResult::ok(gas_params.base, smallvec![
+        Value::vector_u8(transaction_context.script_hash.clone())
+    ]))
 }
 
 pub fn make_native_get_script_hash(gas_params: GetScriptHashGasParameters) -> NativeFunction {
@@ -68,10 +66,11 @@ pub fn make_native_get_script_hash(gas_params: GetScriptHashGasParameters) -> Na
     })
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub get_script_hash: GetScriptHashGasParameters,

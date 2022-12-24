@@ -69,14 +69,15 @@ pub enum AptosErrorCode {
     ///
     /// Usually means that the version is ahead of the latest version
     VersionNotFound = 105,
-    /// Transaction not found at the requested version or with the requested hash
+    /// Transaction not found at the requested version or with the requested
+    /// hash
     TransactionNotFound = 106,
     /// Table item not found at the requested version
     TableItemNotFound = 107,
     /// Block not found at the requested version or height
     ///
-    /// Usually means the block is fully or partially pruned or the height / version is ahead
-    /// of the latest version
+    /// Usually means the block is fully or partially pruned or the height /
+    /// version is ahead of the latest version
     BlockNotFound = 108,
 
     /// Ledger version is pruned
@@ -87,9 +88,11 @@ pub enum AptosErrorCode {
     /// The API's inputs were invalid
     InvalidInput = 300,
 
-    /// The transaction was an invalid update to an already submitted transaction.
+    /// The transaction was an invalid update to an already submitted
+    /// transaction.
     InvalidTransactionUpdate = 401,
-    /// The sequence number for the transaction is behind the latest sequence number.
+    /// The sequence number for the transaction is behind the latest sequence
+    /// number.
     SequenceNumberTooOld = 402,
     /// The submitted transaction failed VM checks.
     VmError = 403,

@@ -38,8 +38,8 @@ pub enum TrustedState {
 }
 
 /// `TrustedStateChange` is the result of attempting to ratchet to a new trusted
-/// state. In order to reduce redundant error checking, `TrustedStateChange` also
-/// contains references to relevant items used to ratchet us.
+/// state. In order to reduce redundant error checking, `TrustedStateChange`
+/// also contains references to relevant items used to ratchet us.
 #[derive(Clone, Debug)]
 pub enum TrustedStateChange<'a> {
     /// We have a newer `TrustedState` but it's still in the same epoch, so only
@@ -51,13 +51,14 @@ pub enum TrustedStateChange<'a> {
         new_state: TrustedState,
         latest_epoch_change_li: &'a LedgerInfoWithSignatures,
     },
-    /// The latest ledger info is at the same version as the trusted state and matches the hash.
+    /// The latest ledger info is at the same version as the trusted state and
+    /// matches the hash.
     NoChange,
 }
 
 impl TrustedState {
-    /// Create an initial trusted state from a trusted epoch waypoint constructed
-    /// from an epoch-change ledger info.
+    /// Create an initial trusted state from a trusted epoch waypoint
+    /// constructed from an epoch-change ledger info.
     ///
     /// Note: we can't actually guarantee this waypoint is actually an epoch
     /// waypoint, but the sync will always fail to verify it's not.
@@ -102,9 +103,10 @@ impl TrustedState {
         }
     }
 
-    /// Verify and ratchet forward our trusted state using an [`EpochChangeProof`]
-    /// (that moves us into the latest epoch), a [`LedgerInfoWithSignatures`]
-    /// inside that epoch, and an [`crate::proof::AccumulatorConsistencyProof`] from our current
+    /// Verify and ratchet forward our trusted state using an
+    /// [`EpochChangeProof`] (that moves us into the latest epoch), a
+    /// [`LedgerInfoWithSignatures`] inside that epoch, and an
+    /// [`crate::proof::AccumulatorConsistencyProof`] from our current
     /// version to that last verifiable ledger info.
     ///
     /// If our current trusted state doesn't have an accumulator summary yet
@@ -131,7 +133,8 @@ impl TrustedState {
     ///
     /// + If there is a new epoch and the server provides a correct proof, we
     /// ratchet our trusted version forward, update our verifier to contain
-    /// the new validator set, and return `Ok(TrustedStateChange::Epoch { .. })`.
+    /// the new validator set, and return `Ok(TrustedStateChange::Epoch { ..
+    /// })`.
     pub fn verify_and_ratchet<'a>(
         &self,
         state_proof: &'a StateProof,
@@ -152,8 +155,10 @@ impl TrustedState {
         let target_version = latest_li.ledger_info().version();
         ensure!(
             target_version >= curr_version,
-            "The target latest ledger info version is stale ({}) and behind our current trusted version ({})",
-            target_version, curr_version,
+            "The target latest ledger info version is stale ({}) and behind our current trusted \
+             version ({})",
+            target_version,
+            curr_version,
         );
 
         if self.epoch_change_verification_required(latest_li.ledger_info().next_block_epoch()) {
@@ -169,8 +174,9 @@ impl TrustedState {
                     )
                 })?;
 
-            // If the latest ledger info is in the same epoch as the new verifier, verify it and
-            // use it as latest state, otherwise fallback to the epoch change ledger info.
+            // If the latest ledger info is in the same epoch as the new verifier, verify it
+            // and use it as latest state, otherwise fallback to the epoch
+            // change ledger info.
             let new_epoch = new_epoch_state.epoch;
 
             let verified_ledger_info = if epoch_change_li == latest_li {
@@ -198,7 +204,7 @@ impl TrustedState {
             let (curr_waypoint, curr_epoch_state) = match self {
                 Self::EpochWaypoint(_) => {
                     bail!("EpochWaypoint can only verify an epoch change ledger info")
-                }
+                },
                 Self::EpochState {
                     waypoint,
                     epoch_state,
@@ -243,10 +249,10 @@ impl Verifier for TrustedState {
         match self {
             Self::EpochWaypoint(waypoint) => {
                 Verifier::epoch_change_verification_required(waypoint, epoch)
-            }
+            },
             Self::EpochState { epoch_state, .. } => {
                 Verifier::epoch_change_verification_required(epoch_state, epoch)
-            }
+            },
         }
     }
 
@@ -255,7 +261,7 @@ impl Verifier for TrustedState {
             Self::EpochWaypoint(waypoint) => Verifier::is_ledger_info_stale(waypoint, ledger_info),
             Self::EpochState { epoch_state, .. } => {
                 Verifier::is_ledger_info_stale(epoch_state, ledger_info)
-            }
+            },
         }
     }
 }

@@ -1,12 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines the physical storage schema for information related to outdated state
-//! values, which are ready to be pruned after being old enough.
+//! This module defines the physical storage schema for information related to
+//! outdated state values, which are ready to be pruned after being old enough.
 //!
 //! An index entry in this data set has 3 pieces of information:
-//!     1. The version since which a state value (in another data set) becomes stale, meaning,
-//! replaced by an updated value.
+//!     1. The version since which a state value (in another data set) becomes
+//! stale, meaning, replaced by an updated value.
 //!     2. The version this state value was updated identified by the state key.
 //!     3. The state_key to identify the stale state value.
 //!
@@ -15,8 +15,8 @@
 //! | stale_since_version | version | state_key |
 //! ```
 //!
-//! `stale_since_version` is serialized in big endian so that records in RocksDB will be in order of
-//! its numeric value.
+//! `stale_since_version` is serialized in big endian so that records in RocksDB
+//! will be in order of its numeric value.
 
 use crate::schema::{ensure_slice_len_eq, ensure_slice_len_gt, STALE_STATE_VALUE_INDEX_CF_NAME};
 use anyhow::Result;
@@ -24,8 +24,10 @@ use aptos_schemadb::{
     define_schema,
     schema::{KeyCodec, SeekKeyCodec, ValueCodec},
 };
-use aptos_types::state_store::{state_key::StateKey, state_value::StaleStateValueIndex};
-use aptos_types::transaction::Version;
+use aptos_types::{
+    state_store::{state_key::StateKey, state_value::StaleStateValueIndex},
+    transaction::Version,
+};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::{io::Write, mem::size_of};
 

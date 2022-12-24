@@ -10,10 +10,10 @@ use aptos_schemadb::{
 use byteorder::{LittleEndian, ReadBytesExt};
 use rocksdb::DEFAULT_COLUMN_FAMILY_NAME;
 
-// Creating two schemas that share exactly the same structure but are stored in different column
-// families. Also note that the key and value are of the same type `TestField`. By implementing
-// both the `KeyCodec<>` and `ValueCodec<>` traits for both schemas, we are able to use it
-// everywhere.
+// Creating two schemas that share exactly the same structure but are stored in
+// different column families. Also note that the key and value are of the same
+// type `TestField`. By implementing both the `KeyCodec<>` and `ValueCodec<>`
+// traits for both schemas, we are able to use it everywhere.
 define_schema!(TestSchema1, TestField, TestField, "TestCF1");
 define_schema!(TestSchema2, TestField, TestField, "TestCF2");
 

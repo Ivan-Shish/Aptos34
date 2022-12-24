@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines physical storage schema for LedgerInfoWithSignatures structure.
+//! This module defines physical storage schema for LedgerInfoWithSignatures
+//! structure.
 //!
 //! Serialized LedgerInfoWithSignatures identified by `epoch`.
 //! ```text
@@ -9,8 +10,8 @@
 //! | epoch | ledger_info_with_signatures bytes |
 //! ```
 //!
-//! `epoch` is serialized in big endian so that records in RocksDB will be in order of their
-//! numeric value.
+//! `epoch` is serialized in big endian so that records in RocksDB will be in
+//! order of their numeric value.
 
 use super::LEDGER_INFO_CF_NAME;
 use crate::schema::ensure_slice_len_eq;
@@ -25,7 +26,7 @@ use std::mem::size_of;
 
 define_schema!(
     LedgerInfoSchema,
-    u64, /* epoch num */
+    u64, // epoch num
     LedgerInfoWithSignatures,
     LEDGER_INFO_CF_NAME
 );

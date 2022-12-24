@@ -1,12 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::extra_unused_lifetimes)]
+use super::transactions::TransactionQuery;
 use crate::{models::transactions::Transaction, schema::events, util::standardize_address};
 use aptos_api_types::Event as APIEvent;
 use field_count::FieldCount;
 use serde::{Deserialize, Serialize};
-
-use super::transactions::TransactionQuery;
 
 #[derive(Associations, Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
 #[diesel(belongs_to(Transaction, foreign_key = transaction_version))]
@@ -22,7 +21,8 @@ pub struct Event {
     pub data: serde_json::Value,
 }
 
-/// Need a separate struct for queryable because we don't want to define the inserted_at column (letting DB fill)
+/// Need a separate struct for queryable because we don't want to define the
+/// inserted_at column (letting DB fill)
 #[derive(Associations, Debug, Deserialize, Identifiable, Queryable, Serialize)]
 #[diesel(belongs_to(TransactionQuery, foreign_key = transaction_version))]
 #[diesel(primary_key(account_address, creation_number, sequence_number))]

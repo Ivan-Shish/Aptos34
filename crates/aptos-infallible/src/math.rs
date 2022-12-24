@@ -7,7 +7,7 @@
 /// # Examples
 ///
 /// ```
-///# use crate::aptos_infallible::checked;
+/// # use crate::aptos_infallible::checked;
 /// let a: i64 = 1;
 /// let b: i64 = 2;
 /// let c: i64 = 3;

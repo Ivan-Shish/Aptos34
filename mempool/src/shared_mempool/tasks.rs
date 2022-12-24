@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! Tasks that are executed by coordinators (short-lived compared to coordinators)
+//! Tasks that are executed by coordinators (short-lived compared to
+//! coordinators)
 use crate::{
     core_mempool::{CoreMempool, TimelineState, TxnPointer},
     counters,
@@ -23,10 +24,9 @@ use aptos_logger::prelude::*;
 use aptos_metrics_core::HistogramTimer;
 use aptos_network::application::interface::NetworkInterface;
 use aptos_storage_interface::state_view::LatestDbStateCheckpointView;
-use aptos_types::on_chain_config::OnChainConsensusConfig;
 use aptos_types::{
     mempool_status::{MempoolStatus, MempoolStatusCode},
-    on_chain_config::OnChainConfigPayload,
+    on_chain_config::{OnChainConfigPayload, OnChainConsensusConfig},
     transaction::SignedTransaction,
     vm_status::DiscardedVMStatus,
 };
@@ -63,15 +63,17 @@ pub(crate) async fn execute_broadcast<V>(
             .await
         {
             match err {
-                BroadcastError::NetworkError(peer, error) => warn!(LogSchema::event_log(
-                    LogEntry::BroadcastTransaction,
-                    LogEvent::NetworkSendFail
-                )
-                .peer(&peer)
-                .error(&error)),
+                BroadcastError::NetworkError(peer, error) => {
+                    warn!(LogSchema::event_log(
+                        LogEntry::BroadcastTransaction,
+                        LogEvent::NetworkSendFail
+                    )
+                    .peer(&peer)
+                    .error(&error))
+                },
                 _ => {
                     trace!("{:?}", err)
-                }
+                },
             }
         }
     } else {
@@ -186,7 +188,8 @@ pub(crate) async fn process_transaction_broadcast<V>(
     notify_subscribers(SharedMempoolNotification::ACK, &smp.subscribers);
 }
 
-/// If `MempoolIsFull` on any of the transactions, provide backpressure to the downstream peer.
+/// If `MempoolIsFull` on any of the transactions, provide backpressure to the
+/// downstream peer.
 fn gen_ack_response(
     request_id: MultiBatchId,
     results: Vec<SubmissionStatusBundle>,
@@ -325,7 +328,7 @@ where
                             timeline_state,
                         );
                         statuses.push((transaction, (mempool_status, None)));
-                    }
+                    },
                     Some(validation_status) => {
                         statuses.push((
                             transaction.clone(),
@@ -334,7 +337,7 @@ where
                                 Some(validation_status),
                             ),
                         ));
-                    }
+                    },
                 }
             } else {
                 statuses.push((
@@ -387,8 +390,8 @@ fn log_txn_process_results(results: &[SubmissionStatusBundle], sender: Option<Pe
 // intra-node communication handlers //
 // ================================= //
 
-/// Only applies to Validators. Either provides transactions to consensus [`GetBlockRequest`] or
-/// handles rejecting transactions [`RejectNotification`]
+/// Only applies to Validators. Either provides transactions to consensus
+/// [`GetBlockRequest`] or handles rejecting transactions [`RejectNotification`]
 pub(crate) fn process_quorum_store_request<V: TransactionValidation>(
     smp: &SharedMempool<V>,
     req: QuorumStoreRequest,
@@ -417,8 +420,9 @@ pub(crate) fn process_quorum_store_request<V: TransactionValidation>(
                         counters::GET_BLOCK_GC_LABEL,
                         counters::REQUEST_SUCCESS_LABEL,
                     );
-                    // gc before pulling block as extra protection against txns that may expire in consensus
-                    // Note: this gc operation relies on the fact that consensus uses the system time to determine block timestamp
+                    // gc before pulling block as extra protection against txns that may expire in
+                    // consensus Note: this gc operation relies on the fact that
+                    // consensus uses the system time to determine block timestamp
                     let curr_time = aptos_infallible::duration_since_epoch();
                     mempool.gc_by_expiration_time(curr_time);
                 }
@@ -438,7 +442,7 @@ pub(crate) fn process_quorum_store_request<V: TransactionValidation>(
                 callback,
                 counters::GET_BLOCK_LABEL,
             )
-        }
+        },
         QuorumStoreRequest::RejectNotification(transactions, callback) => {
             counters::mempool_service_transactions(
                 counters::COMMIT_CONSENSUS_LABEL,
@@ -450,7 +454,7 @@ pub(crate) fn process_quorum_store_request<V: TransactionValidation>(
                 callback,
                 counters::COMMIT_CONSENSUS_LABEL,
             )
-        }
+        },
     };
     // Send back to callback
     let result = if callback.send(Ok(resp)).is_err() {
@@ -466,7 +470,8 @@ pub(crate) fn process_quorum_store_request<V: TransactionValidation>(
     counters::mempool_service_latency(counter_label, result, latency);
 }
 
-/// Remove transactions that are committed (or rejected) so that we can stop broadcasting them.
+/// Remove transactions that are committed (or rejected) so that we can stop
+/// broadcasting them.
 pub(crate) fn process_committed_transactions(
     mempool: &Mutex<CoreMempool>,
     transactions: Vec<TransactionSummary>,
@@ -498,7 +503,8 @@ pub(crate) fn process_rejected_transactions(
     }
 }
 
-/// Processes on-chain reconfiguration notifications.  Restarts validator with the new info.
+/// Processes on-chain reconfiguration notifications.  Restarts validator with
+/// the new info.
 pub(crate) async fn process_config_update<V>(
     config_update: OnChainConfigPayload,
     validator: Arc<RwLock<V>>,
@@ -520,13 +526,14 @@ pub(crate) async fn process_config_update<V>(
     match consensus_config {
         Ok(consensus_config) => {
             *broadcast_within_validator_network.write() = !consensus_config.quorum_store_enabled();
-        }
+        },
         Err(e) => {
             error!(
-                "Failed to read on-chain consensus config, keeping value broadcast_within_validator_network={}: {}",
+                "Failed to read on-chain consensus config, keeping value \
+                 broadcast_within_validator_network={}: {}",
                 *broadcast_within_validator_network.read(),
                 e
             );
-        }
+        },
     }
 }

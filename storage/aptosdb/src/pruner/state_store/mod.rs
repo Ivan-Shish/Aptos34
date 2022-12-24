@@ -1,21 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::db_metadata::DbMetadataSchema;
-use crate::pruner::state_store::generics::StaleNodeIndexSchemaTrait;
-use crate::schema::db_metadata::DbMetadataValue;
 use crate::{
-    jellyfish_merkle_node::JellyfishMerkleNodeSchema, metrics::PRUNER_LEAST_READABLE_VERSION,
-    pruner::db_pruner::DBPruner, pruner_utils, StaleNodeIndexCrossEpochSchema,
-    OTHER_TIMERS_SECONDS,
+    db_metadata::DbMetadataSchema,
+    jellyfish_merkle_node::JellyfishMerkleNodeSchema,
+    metrics::PRUNER_LEAST_READABLE_VERSION,
+    pruner::{db_pruner::DBPruner, state_store::generics::StaleNodeIndexSchemaTrait},
+    pruner_utils,
+    schema::db_metadata::DbMetadataValue,
+    StaleNodeIndexCrossEpochSchema, OTHER_TIMERS_SECONDS,
 };
 use anyhow::Result;
 use aptos_infallible::Mutex;
-use aptos_jellyfish_merkle::node_type::NodeKey;
-use aptos_jellyfish_merkle::StaleNodeIndex;
+use aptos_jellyfish_merkle::{node_type::NodeKey, StaleNodeIndex};
 use aptos_logger::error;
-use aptos_schemadb::schema::KeyCodec;
-use aptos_schemadb::{ReadOptions, SchemaBatch, DB};
+use aptos_schemadb::{schema::KeyCodec, ReadOptions, SchemaBatch, DB};
 use aptos_types::transaction::{AtomicVersion, Version};
 use std::sync::{atomic::Ordering, Arc};
 
@@ -63,8 +62,9 @@ where
                     "Error pruning stale states.",
                 );
                 Err(e)
-                // On error, stop retrying vigorously by making next recv() blocking.
-            }
+                // On error, stop retrying vigorously by making next recv()
+                // blocking.
+            },
         }
     }
 
@@ -88,7 +88,8 @@ where
         self.target_version.load(Ordering::Relaxed)
     }
 
-    // used only by blanket `initialize()`, use the underlying implementation instead elsewhere.
+    // used only by blanket `initialize()`, use the underlying implementation
+    // instead elsewhere.
     fn record_progress(&self, min_readable_version: Version) {
         self.record_progress_impl(min_readable_version, false /* is_fully_pruned */);
     }
@@ -119,9 +120,9 @@ where
         pruner
     }
 
-    // If the existing schema batch is not none, this function only adds items need to be
-    // deleted to the schema batch and the caller is responsible for committing the schema batches
-    // to the DB.
+    // If the existing schema batch is not none, this function only adds items need
+    // to be deleted to the schema batch and the caller is responsible for
+    // committing the schema batches to the DB.
     pub fn prune_state_merkle(
         &self,
         min_readable_version: Version,
@@ -164,9 +165,9 @@ where
                 self.state_merkle_db.write_schemas(batch)?;
             }
 
-            // TODO(zcc): recording progress after writing schemas might provide wrong answers to
-            // API calls when they query min_readable_version while the write_schemas are still in
-            // progress.
+            // TODO(zcc): recording progress after writing schemas might provide wrong
+            // answers to API calls when they query min_readable_version while
+            // the write_schemas are still in progress.
             self.record_progress_impl(new_min_readable_version, is_end_of_target_version);
             Ok(new_min_readable_version)
         }
@@ -214,7 +215,8 @@ where
 }
 
 impl StateMerklePruner<StaleNodeIndexCrossEpochSchema> {
-    /// Prunes the genesis state and saves the db alterations to the given change set
+    /// Prunes the genesis state and saves the db alterations to the given
+    /// change set
     pub fn prune_genesis(state_merkle_db: Arc<DB>, batch: &mut SchemaBatch) -> Result<()> {
         let target_version = 1; // The genesis version is 0. Delete [0,1) (exclusive)
         let max_version = 1; // We should only be pruning a single version

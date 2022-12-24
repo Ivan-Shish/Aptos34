@@ -1,20 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/***************************************************************************************************
- * native fun secp256k1_recover
- *
- *   gas cost: base_cost +? ecdsa_recover
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun secp256k1_recover
+///
+///   gas cost: base_cost +? ecdsa_recover
+///
+/// ****************************************************************************
+/// ******************
 use crate::natives::util::make_native_from_func;
 use move_binary_format::errors::PartialVMResult;
 use move_core_types::gas_algebra::{InternalGas, InternalGasPerArg, NumArgs};
 use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
-use move_vm_types::loaded_data::runtime_types::Type;
-use move_vm_types::natives::function::NativeResult;
-use move_vm_types::pop_arg;
-use move_vm_types::values::Value;
+use move_vm_types::{
+    loaded_data::runtime_types::Type, natives::function::NativeResult, pop_arg, values::Value,
+};
 use smallvec::smallvec;
 use std::collections::VecDeque;
 
@@ -40,13 +40,14 @@ fn native_ecdsa_recover(
     let mut cost = gas_params.base;
 
     // NOTE(Gas): O(1) cost
-    // (In reality, O(|msg|) deserialization cost, with |msg| < libsecp256k1_core::util::MESSAGE_SIZE
-    // which seems to be 32 bytes, so O(1) cost for all intents and purposes.)
+    // (In reality, O(|msg|) deserialization cost, with |msg| <
+    // libsecp256k1_core::util::MESSAGE_SIZE which seems to be 32 bytes, so O(1)
+    // cost for all intents and purposes.)
     let msg = match libsecp256k1::Message::parse_slice(&msg) {
         Ok(msg) => msg,
         Err(_) => {
             return Ok(NativeResult::err(cost, abort_codes::NFE_DESERIALIZE));
-        }
+        },
     };
 
     // NOTE(Gas): O(1) cost
@@ -54,7 +55,7 @@ fn native_ecdsa_recover(
         Ok(rid) => rid,
         Err(_) => {
             return Ok(NativeResult::err(cost, abort_codes::NFE_DESERIALIZE));
-        }
+        },
     };
 
     // NOTE(Gas): O(1) deserialization cost
@@ -63,31 +64,29 @@ fn native_ecdsa_recover(
         Ok(sig) => sig,
         Err(_) => {
             return Ok(NativeResult::err(cost, abort_codes::NFE_DESERIALIZE));
-        }
+        },
     };
 
     cost += gas_params.ecdsa_recover * NumArgs::one();
 
     // NOTE(Gas): O(1) cost: a size-2 multi-scalar multiplication
     match libsecp256k1::recover(&msg, &sig, &rid) {
-        Ok(pk) => Ok(NativeResult::ok(
-            cost,
-            smallvec![
-                Value::vector_u8(pk.serialize()[1..].to_vec()),
-                Value::bool(true)
-            ],
-        )),
-        Err(_) => Ok(NativeResult::ok(
-            cost,
-            smallvec![Value::vector_u8([0u8; 0]), Value::bool(false)],
-        )),
+        Ok(pk) => Ok(NativeResult::ok(cost, smallvec![
+            Value::vector_u8(pk.serialize()[1..].to_vec()),
+            Value::bool(true)
+        ])),
+        Err(_) => Ok(NativeResult::ok(cost, smallvec![
+            Value::vector_u8([0u8; 0]),
+            Value::bool(false)
+        ])),
     }
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub base: InternalGas,

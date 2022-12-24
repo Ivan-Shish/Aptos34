@@ -12,7 +12,8 @@ use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 
 /// A Rust representation of an Account resource.
-/// This is not how the Account is represented in the VM but it's a convenient representation.
+/// This is not how the Account is represented in the VM but it's a convenient
+/// representation.
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct AccountResource {

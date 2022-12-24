@@ -3,7 +3,8 @@
 
 //! This module defines the AptosNet v1 message types, how they are
 //! serialized/deserialized, and provides a `Sink` and `Stream` implementation
-//! for sending `NetworkMessage`s over an abstract IO object (presumably a socket).
+//! for sending `NetworkMessage`s over an abstract IO object (presumably a
+//! socket).
 //!
 //! The [AptosNet Specification](https://github.com/aptos-labs/aptos-core/blob/main/documentation/specifications/network/messaging-v1.md)
 //! describes in greater detail how these messages are sent and received
@@ -67,9 +68,11 @@ impl NetworkMessage {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub enum ErrorCode {
-    /// Failed to parse NetworkMessage when interpreting according to provided protocol version.
+    /// Failed to parse NetworkMessage when interpreting according to provided
+    /// protocol version.
     ParsingError(ParsingErrorType),
-    /// A message was received for a protocol that is not supported over this connection.
+    /// A message was received for a protocol that is not supported over this
+    /// connection.
     NotSupported(NotSupportedType),
 }
 
@@ -79,8 +82,9 @@ impl ErrorCode {
     }
 }
 
-/// Flags an invalid network message with as much header information as possible. This is a message
-/// that this peer cannot even parse its header information.
+/// Flags an invalid network message with as much header information as
+/// possible. This is a message that this peer cannot even parse its header
+/// information.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct ParsingErrorType {
@@ -88,8 +92,8 @@ pub struct ParsingErrorType {
     protocol: u8,
 }
 
-/// Flags an unsupported network message.  This is a message that a peer can parse its header
-/// information but does not have a handler.
+/// Flags an unsupported network message.  This is a message that a peer can
+/// parse its header information but does not have a handler.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub enum NotSupportedType {
@@ -120,10 +124,11 @@ pub struct RpcRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct RpcResponse {
-    /// RequestId for corresponding request. This is copied as is from the RpcRequest.
+    /// RequestId for corresponding request. This is copied as is from the
+    /// RpcRequest.
     pub request_id: RequestId,
-    /// Response priority in the range 0..=255. This will likely be same as the priority of
-    /// corresponding request.
+    /// Response priority in the range 0..=255. This will likely be same as the
+    /// priority of corresponding request.
     pub priority: Priority,
     /// Response payload.
     #[serde(with = "serde_bytes")]
@@ -145,7 +150,10 @@ pub struct DirectSendMsg {
 /// Errors from reading and deserializing network messages off the wire.
 #[derive(Debug, Error)]
 pub enum ReadError {
-    #[error("network message stream: failed to deserialize network message frame: {0}, frame length: {1}, frame prefix: {2:?}")]
+    #[error(
+        "network message stream: failed to deserialize network message frame: {0}, frame length: \
+         {1}, frame prefix: {2:?}"
+    )]
     DeserializeError(#[source] bcs::Error, usize, Bytes),
 
     #[error("network message stream: IO error while reading message: {0}")]
@@ -208,9 +216,9 @@ impl<TReadSocket: AsyncRead + Unpin> Stream for MultiplexMessageStream<TReadSock
                         frame.truncate(8);
                         let err = ReadError::DeserializeError(err, frame_len, frame);
                         Poll::Ready(Some(Err(err)))
-                    }
+                    },
                 }
-            }
+            },
             Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(ReadError::IoError(err)))),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,

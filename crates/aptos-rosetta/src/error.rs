@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{types, types::ErrorDetails};
-use aptos_rest_client::aptos_api_types::AptosErrorCode;
-use aptos_rest_client::error::RestError;
+use aptos_rest_client::{aptos_api_types::AptosErrorCode, error::RestError};
 use hex::FromHexError;
 use move_core_types::account_address::AccountAddressParseError;
 use serde::{Deserialize, Serialize};
@@ -166,7 +165,9 @@ impl ApiError {
             ApiError::AccountNotFound(_) => "Account not found",
             ApiError::InvalidSignatureType => "Invalid signature type",
             ApiError::InvalidMaxGasFees => "Invalid max gas fee",
-            ApiError::MaxGasFeeTooLow(_) => "Max fee is lower than the estimated cost of the transaction",
+            ApiError::MaxGasFeeTooLow(_) => {
+                "Max fee is lower than the estimated cost of the transaction"
+            },
             ApiError::InvalidGasMultiplier => "Invalid gas multiplier",
             ApiError::InvalidOperations(_) => "Invalid operations",
             ApiError::MissingPayloadMetadata => "Payload metadata is missing",
@@ -176,7 +177,9 @@ impl ApiError {
             ApiError::BlockNotFound(_) => "Block is missing events",
             ApiError::TransactionParseError(_) => "Transaction failed to parse",
             ApiError::InternalError(_) => "Internal error",
-            ApiError::CoinTypeFailedToBeFetched(_) => "Faileed to retrieve the coin type information, please retry",
+            ApiError::CoinTypeFailedToBeFetched(_) => {
+                "Faileed to retrieve the coin type information, please retry"
+            },
             ApiError::ResourceNotFound(_) => "Resource not found",
             ApiError::ModuleNotFound(_) => "Module not found",
             ApiError::StructFieldNotFound(_) => "Struct field not found",
@@ -186,8 +189,13 @@ impl ApiError {
             ApiError::VersionPruned(_) => "Version pruned",
             ApiError::BlockPruned(_) => "Block pruned",
             ApiError::InvalidInput(_) => "Invalid input",
-            ApiError::InvalidTransactionUpdate(_) => "Invalid transaction update.  Can only update gas unit price",
-            ApiError::SequenceNumberTooOld(_) => "Sequence number too old.  Please create a new transaction with an updated sequence number",
+            ApiError::InvalidTransactionUpdate(_) => {
+                "Invalid transaction update.  Can only update gas unit price"
+            },
+            ApiError::SequenceNumberTooOld(_) => {
+                "Sequence number too old.  Please create a new transaction with an updated \
+                 sequence number"
+            },
             ApiError::VmError(_) => "Transaction submission failed due to VM error",
             ApiError::MempoolIsFull(_) => "Mempool is full all accounts",
             ApiError::GasEstimationFailed(_) => "Gas estimation failed",
@@ -256,41 +264,41 @@ impl From<RestError> for ApiError {
             RestError::Api(err) => match err.error.error_code {
                 AptosErrorCode::AccountNotFound => {
                     ApiError::AccountNotFound(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::ResourceNotFound => {
                     ApiError::ResourceNotFound(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::ModuleNotFound => ApiError::ModuleNotFound(Some(err.error.message)),
                 AptosErrorCode::StructFieldNotFound => {
                     ApiError::StructFieldNotFound(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::VersionNotFound => {
                     ApiError::VersionNotFound(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::TransactionNotFound => {
                     ApiError::TransactionNotFound(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::TableItemNotFound => {
                     ApiError::TableItemNotFound(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::BlockNotFound => ApiError::BlockNotFound(Some(err.error.message)),
                 AptosErrorCode::VersionPruned => ApiError::VersionPruned(Some(err.error.message)),
                 AptosErrorCode::BlockPruned => ApiError::BlockPruned(Some(err.error.message)),
                 AptosErrorCode::InvalidInput => ApiError::InvalidInput(Some(err.error.message)),
                 AptosErrorCode::InvalidTransactionUpdate => {
                     ApiError::InvalidInput(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::SequenceNumberTooOld => {
                     ApiError::SequenceNumberTooOld(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::VmError => ApiError::VmError(Some(err.error.message)),
                 AptosErrorCode::HealthCheckFailed => {
                     ApiError::InternalError(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::MempoolIsFull => ApiError::MempoolIsFull(Some(err.error.message)),
                 AptosErrorCode::WebFrameworkError => {
                     ApiError::InternalError(Some(err.error.message))
-                }
+                },
                 AptosErrorCode::BcsNotSupported => ApiError::InvalidInput(Some(err.error.message)),
                 AptosErrorCode::InternalError => ApiError::InternalError(Some(err.error.message)),
                 AptosErrorCode::ApiDisabled => ApiError::InternalError(Some(err.error.message)),

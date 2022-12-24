@@ -10,9 +10,8 @@ use aptos_crypto::{
     hash::{CryptoHash, TestOnlyHash, SPARSE_MERKLE_PLACEHOLDER_HASH},
     HashValue,
 };
-use aptos_types::proof::definition::NodeInProof;
 use aptos_types::{
-    proof::{SparseMerkleLeafNode, SparseMerkleProofExt},
+    proof::{definition::NodeInProof, SparseMerkleLeafNode, SparseMerkleProofExt},
     state_store::state_value::StateValue,
 };
 use once_cell::sync::Lazy;
@@ -63,7 +62,7 @@ fn test_split_in_mem_leaf() {
     let old_root_hash = leaf1.hash();
     let smt = SparseMerkleTree::new_with_root(leaf1);
 
-    let key2 = HashValue::from_slice(&[0xff; 32]).unwrap();
+    let key2 = HashValue::from_slice(&[0xFF; 32]).unwrap();
     let value2: StateValue = vec![1, 2, 3].into();
 
     let root_hash = hash_internal(hash_leaf(key1, value1_hash), hash_leaf(key2, value2.hash()));
@@ -90,7 +89,7 @@ fn test_insert_at_in_mem_empty() {
     let internal = SubTree::new_internal(
         SubTree::new_leaf_with_value_hash(key1, value1_hash, 0 /* generation */),
         SubTree::new_leaf_with_value_hash(key2, value2_hash, 0 /* generation */),
-        0, /* generation */
+        0, // generation
     );
     let internal_hash = internal.hash();
     let root = SubTree::new_internal(internal, SubTree::new_empty(), 0 /* generation */);
@@ -141,7 +140,7 @@ fn test_split_persisted_leaf_and_then_delete() {
 
     let smt = SparseMerkleTree::new_test(leaf1.hash());
 
-    let key2 = HashValue::from_slice(&[0xff; 32]).unwrap();
+    let key2 = HashValue::from_slice(&[0xFF; 32]).unwrap();
     let value2: StateValue = vec![1, 2, 3].into();
     let proof = SparseMerkleProofExt::new(Some(leaf1), Vec::new());
     let proof_reader = ProofReader::new(vec![(key2, proof)]);
@@ -299,10 +298,10 @@ fn test_update() {
     let x_hash = hash_internal(leaf1.hash(), leaf2.hash());
     let y_hash = hash_internal(x_hash, *SPARSE_MERKLE_PLACEHOLDER_HASH);
     let old_root_hash = hash_internal(y_hash, leaf3.hash());
-    let proof = SparseMerkleProofExt::new(
-        None,
-        vec![NodeInProof::Other(x_hash), NodeInProof::Leaf(leaf3)],
-    );
+    let proof = SparseMerkleProofExt::new(None, vec![
+        NodeInProof::Other(x_hash),
+        NodeInProof::Leaf(leaf3),
+    ]);
     assert!(proof
         .verify::<StateValue>(old_root_hash, key4, None)
         .is_ok());
@@ -342,14 +341,11 @@ fn test_update() {
     assert!(Arc::ptr_eq(&smt1.get_oldest_ancestor().inner, &smt1.inner));
 
     // Next, we are going to delete key1. Create a proof for key1.
-    let proof = SparseMerkleProofExt::new(
-        Some(leaf1),
-        vec![
-            leaf2.into(),
-            (*SPARSE_MERKLE_PLACEHOLDER_HASH).into(),
-            leaf3.into(),
-        ],
-    );
+    let proof = SparseMerkleProofExt::new(Some(leaf1), vec![
+        leaf2.into(),
+        (*SPARSE_MERKLE_PLACEHOLDER_HASH).into(),
+        leaf3.into(),
+    ]);
     assert!(proof.verify(old_root_hash, key1, Some(&value1)).is_ok());
 
     let proof_reader = ProofReader::new(vec![(key1, proof)]);
@@ -408,14 +404,15 @@ fn test_update() {
     assert_eq_pointee(&smt2.get_oldest_ancestor(), &smt2);
     assert_eq_pointee(&smt22.get_oldest_ancestor(), &smt22);
 
-    // For smt2, no key should be available since smt2 was constructed by deleting key1.
+    // For smt2, no key should be available since smt2 was constructed by deleting
+    // key1.
     assert_eq!(smt2.get(key1), StateStoreStatus::DoesNotExist);
     assert_eq!(smt2.get(key2), StateStoreStatus::ExistsInDB);
     assert_eq!(smt2.get(key3), StateStoreStatus::ExistsInDB);
     assert_eq!(smt2.get(key4), StateStoreStatus::ExistsInDB);
 
-    // For smt22, only key4 should be available since smt22 was constructed by updating smt1 with
-    // key4.
+    // For smt22, only key4 should be available since smt22 was constructed by
+    // updating smt1 with key4.
     assert_eq!(smt22.get(key1), StateStoreStatus::Unknown);
     assert_eq!(smt22.get(key2), StateStoreStatus::Unknown);
     assert_eq!(smt22.get(key3), StateStoreStatus::ExistsInDB);
@@ -530,8 +527,8 @@ fn assert_eq_pointee(left: &SparseMerkleTree, right: &SparseMerkleTree) {
     assert!(Arc::ptr_eq(&left.inner, &right.inner,))
 }
 
-/// update smt from multiple threads, creating branches, trying to explore edge cases around
-/// branching and dropping
+/// update smt from multiple threads, creating branches, trying to explore edge
+/// cases around branching and dropping
 #[test]
 fn test_multithread_branching() {
     let t1 = SparseMerkleTree::new_test(LEAF.hash());
@@ -616,8 +613,8 @@ fn test_drop() {
             .unwrap()
     }
 
-    // root_smt with a long chain of descendants being dropped here. It's a stack overflow if a
-    // manual iterative `Drop` implementation is not in place.
+    // root_smt with a long chain of descendants being dropped here. It's a stack
+    // overflow if a manual iterative `Drop` implementation is not in place.
     drop(root_smt)
 }
 

@@ -1,24 +1,24 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::types::{ConfigSearchMode, DEFAULT_PROFILE};
 use crate::common::{
     types::{
         account_address_from_public_key, CliCommand, CliConfig, CliError, CliTypedResult,
-        EncodingOptions, PrivateKeyInputOptions, ProfileConfig, ProfileOptions, PromptOptions,
-        RngArgs,
+        ConfigSearchMode, EncodingOptions, PrivateKeyInputOptions, ProfileConfig, ProfileOptions,
+        PromptOptions, RngArgs, DEFAULT_PROFILE,
     },
     utils::{fund_account, prompt_yes_with_override, read_line},
 };
 use aptos_crypto::{ed25519::Ed25519PrivateKey, PrivateKey, ValidCryptoMaterialStringExt};
-use aptos_rest_client::aptos_api_types::{AptosError, AptosErrorCode};
-use aptos_rest_client::error::{AptosErrorResponse, RestError};
+use aptos_rest_client::{
+    aptos_api_types::{AptosError, AptosErrorCode},
+    error::{AptosErrorResponse, RestError},
+};
 use async_trait::async_trait;
 use clap::Parser;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 /// 1 APT (might not actually get that much, depending on the faucet)
 const NUM_DEFAULT_OCTAS: u64 = 100000000;
@@ -78,7 +78,14 @@ impl CliCommand<()> for InitTool {
 
         // Select profile we're using
         let mut profile_config = if let Some(profile_config) = config.remove_profile(profile_name) {
-            prompt_yes_with_override(&format!("Aptos already initialized for profile {}, do you want to overwrite the existing config?", profile_name), self.prompt_options)?;
+            prompt_yes_with_override(
+                &format!(
+                    "Aptos already initialized for profile {}, do you want to overwrite the \
+                     existing config?",
+                    profile_name
+                ),
+                self.prompt_options,
+            )?;
             profile_config
         } else {
             ProfileConfig::default()
@@ -92,7 +99,8 @@ impl CliCommand<()> for InitTool {
             network
         } else {
             eprintln!(
-                "Choose network from [devnet, testnet, mainnet, local, custom | defaults to devnet]"
+                "Choose network from [devnet, testnet, mainnet, local, custom | defaults to \
+                 devnet]"
             );
             let input = read_line("network")?;
             let input = input.trim();
@@ -109,20 +117,20 @@ impl CliCommand<()> for InitTool {
                 profile_config.rest_url =
                     Some("https://fullnode.mainnet.aptoslabs.com".to_string());
                 profile_config.faucet_url = None;
-            }
+            },
             Network::Testnet => {
                 profile_config.rest_url =
                     Some("https://fullnode.testnet.aptoslabs.com".to_string());
                 profile_config.faucet_url = None;
-            }
+            },
             Network::Devnet => {
                 profile_config.rest_url = Some("https://fullnode.devnet.aptoslabs.com".to_string());
                 profile_config.faucet_url = Some("https://faucet.devnet.aptoslabs.com".to_string());
-            }
+            },
             Network::Local => {
                 profile_config.rest_url = Some("http://localhost:8080".to_string());
                 profile_config.faucet_url = Some("http://localhost:8081".to_string());
-            }
+            },
             Network::Custom => self.custom_network(&mut profile_config)?,
         }
 
@@ -134,7 +142,15 @@ impl CliCommand<()> for InitTool {
             eprintln!("Using command line argument for private key");
             private_key
         } else {
-            eprintln!("Enter your private key as a hex literal (0x...) [Current: {} | No input: Generate new key (or keep one if present)]", profile_config.private_key.as_ref().map(|_| "Redacted").unwrap_or("None"));
+            eprintln!(
+                "Enter your private key as a hex literal (0x...) [Current: {} | No input: \
+                 Generate new key (or keep one if present)]",
+                profile_config
+                    .private_key
+                    .as_ref()
+                    .map(|_| "Redacted")
+                    .unwrap_or("None")
+            );
             let input = read_line("Private key")?;
             let input = input.trim();
             if input.is_empty() {
@@ -192,7 +208,7 @@ impl CliCommand<()> for InitTool {
                         err
                     )));
                 }
-            }
+            },
         };
         if let Some(ref faucet_url) = profile_config.faucet_url {
             if account_exists {
@@ -219,9 +235,17 @@ impl CliCommand<()> for InitTool {
         } else if network == Network::Testnet {
             eprintln!("Account {} does not exist, you will need to create and fund the account through a community faucet e.g. https://aptoslabs.com/testnet-faucet, or by transferring funds from another account", address);
         } else if network == Network::Mainnet {
-            eprintln!("Account {} does not exist, you will need to create and fund the account through a faucet or by transferring funds from another account", address);
+            eprintln!(
+                "Account {} does not exist, you will need to create and fund the account through \
+                 a faucet or by transferring funds from another account",
+                address
+            );
         } else {
-            eprintln!("Account {} has been initialized locally, but you must have coins transferred to it to create the account onchain", address);
+            eprintln!(
+                "Account {} has been initialized locally, but you must have coins transferred to \
+                 it to create the account onchain",
+                address
+            );
         }
 
         // Ensure the loaded config has profiles setup for a possible empty file
@@ -234,7 +258,14 @@ impl CliCommand<()> for InitTool {
             .unwrap()
             .insert(profile_name.to_string(), profile_config);
         config.save()?;
-        eprintln!("\n---\nAptos CLI is now set up for account {} as profile {}!  Run `aptos --help` for more information about commands", address, self.profile_options.profile_name().unwrap_or(DEFAULT_PROFILE));
+        eprintln!(
+            "\n---\nAptos CLI is now set up for account {} as profile {}!  Run `aptos --help` for \
+             more information about commands",
+            address,
+            self.profile_options
+                .profile_name()
+                .unwrap_or(DEFAULT_PROFILE)
+        );
         Ok(())
     }
 }
@@ -248,7 +279,8 @@ impl InitTool {
         } else {
             let current = profile_config.rest_url.as_deref();
             eprintln!(
-                "Enter your rest endpoint [Current: {} | No input: Exit (or keep the existing if present)]",
+                "Enter your rest endpoint [Current: {} | No input: Exit (or keep the existing if \
+                 present)]",
                 current.unwrap_or("None"),
             );
             let input = read_line("Rest endpoint")?;
@@ -281,9 +313,9 @@ impl InitTool {
         } else {
             let current = profile_config.faucet_url.as_deref();
             eprintln!(
-                "Enter your faucet endpoint [Current: {} | No input: Skip (or keep the existing one if present) | 'skip' to not use a faucet]",
-               current
-                    .unwrap_or("None"),
+                "Enter your faucet endpoint [Current: {} | No input: Skip (or keep the existing \
+                 one if present) | 'skip' to not use a faucet]",
+                current.unwrap_or("None"),
             );
             let input = read_line("Faucet endpoint")?;
             let input = input.trim();
@@ -338,7 +370,7 @@ impl FromStr for Network {
                     "Invalid network {}.  Must be one of [devnet, testnet, mainnet, local, custom]",
                     str
                 )))
-            }
+            },
         })
     }
 }

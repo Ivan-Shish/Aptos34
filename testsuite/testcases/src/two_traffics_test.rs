@@ -1,8 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::{Duration, Instant};
-
 use crate::{
     create_emitter_and_request, traffic_emitter_runtime, LoadDestination, NetworkLoadTest,
 };
@@ -13,6 +11,7 @@ use aptos_forge::{
 };
 use aptos_logger::info;
 use rand::{rngs::OsRng, Rng, SeedableRng};
+use std::time::{Duration, Instant};
 
 pub struct TwoTrafficsTest {
     // cannot have 'static EmitJobRequest, like below, so need to have inner fields
@@ -72,7 +71,8 @@ impl NetworkLoadTest for TwoTrafficsTest {
         let avg_tps = rate.committed;
         if avg_tps < self.avg_tps as u64 {
             bail!(
-                "TPS requirement for inner traffic failed. Average TPS {}, minimum TPS requirement {}. Full inner stats: {:?}",
+                "TPS requirement for inner traffic failed. Average TPS {}, minimum TPS \
+                 requirement {}. Full inner stats: {:?}",
                 avg_tps,
                 self.avg_tps,
                 rate,

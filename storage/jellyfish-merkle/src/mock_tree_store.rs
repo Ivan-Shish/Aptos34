@@ -84,7 +84,7 @@ where
             Entry::Occupied(o) => bail!("Key {:?} exists.", o.key()),
             Entry::Vacant(v) => {
                 v.insert(node);
-            }
+            },
         }
         Ok(())
     }
@@ -114,8 +114,8 @@ where
     pub fn purge_stale_nodes(&self, min_readable_version: Version) -> Result<()> {
         let mut wlocked = self.data.write();
 
-        // Only records retired before or at `min_readable_version` can be purged in order
-        // to keep that version still readable.
+        // Only records retired before or at `min_readable_version` can be purged in
+        // order to keep that version still readable.
         let to_prune = wlocked
             .1
             .iter()

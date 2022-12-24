@@ -3,12 +3,13 @@
 
 //! Remotely authenticated vs. unauthenticated network end-points:
 //! ---------------------------------------------------
-//! A network end-point operates with remote authentication if it only accepts connections
-//! from a known set of peers (`trusted_peers`) identified by their network identity keys.
-//! This does not mean that the other end-point of a connection also needs to operate with
-//! authentication -- a network end-point running with remote authentication enabled will
-//! connect to or accept connections from an end-point running in authenticated mode as
-//! long as the latter is in its trusted peers set.
+//! A network end-point operates with remote authentication if it only accepts
+//! connections from a known set of peers (`trusted_peers`) identified by their
+//! network identity keys. This does not mean that the other end-point of a
+//! connection also needs to operate with authentication -- a network end-point
+//! running with remote authentication enabled will connect to or accept
+//! connections from an end-point running in authenticated mode as long as the
+//! latter is in its trusted peers set.
 use aptos_config::{
     config::{
         DiscoveryMethod, NetworkConfig, Peer, PeerRole, PeerSet, RateLimitConfig, RoleType,
@@ -22,6 +23,7 @@ use aptos_crypto::x25519::PublicKey;
 use aptos_event_notifications::{EventSubscriptionService, ReconfigNotificationListener};
 use aptos_infallible::RwLock;
 use aptos_logger::prelude::*;
+use aptos_netcore::transport::tcp::TCPBufferCfg;
 use aptos_network::{
     application::storage::PeerMetadataStorage,
     connectivity_manager::{builder::ConnectivityManagerBuilder, ConnectivityRequest},
@@ -36,16 +38,14 @@ use aptos_network::{
         network::{AppConfig, NewNetworkEvents, NewNetworkSender},
     },
 };
+use aptos_network_discovery::DiscoveryChangeListener;
 use aptos_time_service::TimeService;
 use aptos_types::{chain_id::ChainId, network_address::NetworkAddress};
-
-use aptos_netcore::transport::tcp::TCPBufferCfg;
-use aptos_network_discovery::DiscoveryChangeListener;
-use std::time::Duration;
 use std::{
     clone::Clone,
     collections::{HashMap, HashSet},
     sync::Arc,
+    time::Duration,
 };
 use tokio::runtime::Handle;
 
@@ -74,7 +74,8 @@ pub struct NetworkBuilder {
 }
 
 impl NetworkBuilder {
-    /// Return a new NetworkBuilder initialized with default configuration values.
+    /// Return a new NetworkBuilder initialized with default configuration
+    /// values.
     // TODO:  Remove `pub`.  NetworkBuilder should only be created thorugh `::create()`
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -96,7 +97,8 @@ impl NetworkBuilder {
         tcp_buffer_cfg: TCPBufferCfg,
     ) -> Self {
         // A network cannot exist without a PeerManager
-        // TODO:  construct this in create and pass it to new() as a parameter. The complication is manual construction of NetworkBuilder in various tests.
+        // TODO:  construct this in create and pass it to new() as a parameter. The
+        // complication is manual construction of NetworkBuilder in various tests.
         let peer_manager_builder = PeerManagerBuilder::create(
             chain_id,
             network_context,
@@ -151,7 +153,7 @@ impl NetworkBuilder {
             authentication_mode,
             MAX_FRAME_SIZE,
             MAX_MESSAGE_SIZE,
-            false, /* Disable proxy protocol */
+            false, // Disable proxy protocol
             NETWORK_CHANNEL_SIZE,
             MAX_CONCURRENT_NETWORK_REQS,
             MAX_INBOUND_CONNECTIONS,
@@ -338,12 +340,14 @@ impl NetworkBuilder {
         self.peer_manager_builder.listen_address()
     }
 
-    /// Add a [`network::connectivity_manager::ConnectivityManager`] to the network.
+    /// Add a [`network::connectivity_manager::ConnectivityManager`] to the
+    /// network.
     ///
-    /// [`network::connectivity_manager::ConnectivityManager`] is responsible for ensuring that we are connected
-    /// to a node iff. it is an eligible node and maintaining persistent
-    /// connections with all eligible nodes. A list of eligible nodes is received
-    /// at initialization, and updates are received on changes to system membership.
+    /// [`network::connectivity_manager::ConnectivityManager`] is responsible
+    /// for ensuring that we are connected to a node iff. it is an eligible
+    /// node and maintaining persistent connections with all eligible nodes.
+    /// A list of eligible nodes is received at initialization, and updates
+    /// are received on changes to system membership.
     ///
     /// Note: a connectivity manager should only be added if the network is
     /// permissioned.
@@ -403,7 +407,7 @@ impl NetworkBuilder {
                     pubkey,
                     reconfig_events,
                 )
-            }
+            },
             DiscoveryMethod::File(file_discovery) => DiscoveryChangeListener::file(
                 self.network_context,
                 conn_mgr_reqs_tx,

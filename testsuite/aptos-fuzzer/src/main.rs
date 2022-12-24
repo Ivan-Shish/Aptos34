@@ -36,8 +36,8 @@ enum Command {
             default_value = &GENERATE_DEFAULT_ITEMS_STR
         )]
         num_items: usize,
-        /// Custom directory for corpus output to be stored in (required if not running under
-        /// `cargo run`)
+        /// Custom directory for corpus output to be stored in (required if not
+        /// running under `cargo run`)
         #[structopt(long = "corpus-dir", parse(from_os_str))]
         corpus_dir: Option<PathBuf>,
         #[structopt(name = "TARGET")]
@@ -69,7 +69,8 @@ enum Command {
     },
 }
 
-/// The default directory for corpuses. Also return whether the directory was freshly created.
+/// The default directory for corpuses. Also return whether the directory was
+/// freshly created.
 fn default_corpus_dir(target: FuzzTarget) -> (PathBuf, bool) {
     default_dir(target, "corpus")
 }
@@ -81,15 +82,15 @@ fn default_artifact_dir(target: FuzzTarget) -> PathBuf {
 
 fn default_dir(target: FuzzTarget, intermediate_dir: &str) -> (PathBuf, bool) {
     let mut dir = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect(
-        "--corpus-dir not set and this binary is not running under cargo run. \
-         Either use cargo run or pass in the --corpus-dir flag.",
+        "--corpus-dir not set and this binary is not running under cargo run. Either use cargo \
+         run or pass in the --corpus-dir flag.",
     ));
     // If a "fuzz" subdirectory doesn't exist, the user might be doing it wrong.
     dir.push("fuzz");
     if !dir.is_dir() {
         panic!(
-            "Subdirectory {:?} of cargo manifest directory does not exist \
-             (did you run `cargo fuzz init`?)",
+            "Subdirectory {:?} of cargo manifest directory does not exist (did you run `cargo \
+             fuzz init`?)",
             dir
         );
     }
@@ -117,7 +118,7 @@ fn main() {
             let item_count = commands::make_corpus(target, num_items, &corpus_dir, opt.debug)
                 .expect("Failed to create corpus");
             println!("Wrote {} items to corpus", item_count);
-        }
+        },
         Command::Fuzz {
             corpus_dir,
             artifact_dir,
@@ -129,7 +130,7 @@ fn main() {
                     // Don't generate the corpus here -- custom directory means the user knows
                     // what they're doing.
                     dir
-                }
+                },
                 None => {
                     let (dir, created) = default_corpus_dir(target);
                     if created {
@@ -138,13 +139,13 @@ fn main() {
                             .expect("Failed to create corpus");
                     }
                     dir
-                }
+                },
             };
             let artifact_dir = artifact_dir.unwrap_or_else(|| default_artifact_dir(target));
             commands::fuzz_target(target, corpus_dir, artifact_dir, args).unwrap();
-        }
+        },
         Command::List { no_desc } => {
             commands::list_targets(no_desc);
-        }
+        },
     }
 }

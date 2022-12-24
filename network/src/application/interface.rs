@@ -17,8 +17,9 @@ use std::{collections::HashMap, fmt::Debug, hash::Hash, marker::PhantomData, tim
 
 /// A generic `NetworkInterface` for applications to connect to networking
 ///
-/// Each application would implement their own `NetworkInterface`.  This would hold `AppData` specific
-/// to the application as well as a specific `Sender` for cloning across threads and sending requests.
+/// Each application would implement their own `NetworkInterface`.  This would
+/// hold `AppData` specific to the application as well as a specific `Sender`
+/// for cloning across threads and sending requests.
 #[async_trait]
 pub trait NetworkInterface<TMessage: Message + Send, NetworkSender> {
     /// The application specific key for `AppData`
@@ -26,7 +27,8 @@ pub trait NetworkInterface<TMessage: Message + Send, NetworkSender> {
     /// The application specific data to be stored
     type AppData: Clone + Debug;
 
-    /// Provides the `PeerMetadataStorage` for other functions.  Not expected to be used externally.
+    /// Provides the `PeerMetadataStorage` for other functions.  Not expected to
+    /// be used externally.
     fn peer_metadata_storage(&self) -> &PeerMetadataStorage;
 
     /// Give a copy of the sender for the network

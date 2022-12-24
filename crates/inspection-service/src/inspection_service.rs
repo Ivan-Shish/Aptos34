@@ -99,25 +99,25 @@ async fn serve_requests(
             } else {
                 *resp.body_mut() = Body::from(DISABLED_ENDPOINT_MESSAGE);
             }
-        }
+        },
         // Exposes JSON encoded metrics
         (&Method::GET, "/json_metrics") => {
             let encoder = JsonEncoder;
             let buffer = encode_metrics(encoder);
             *resp.body_mut() = Body::from(buffer);
-        }
+        },
         // Exposes text encoded metrics
         (&Method::GET, "/metrics") => {
             let encoder = TextEncoder::new();
             let buffer = encode_metrics(encoder);
             *resp.body_mut() = Body::from(buffer);
-        }
+        },
         // Exposes forge encoded metrics (this is currently only used by forge).
         (&Method::GET, "/forge_metrics") => {
             let metrics = get_all_metrics();
             let encoded_metrics = serde_json::to_string(&metrics).unwrap();
             *resp.body_mut() = Body::from(encoded_metrics);
-        }
+        },
         // Expose the system and build information
         (&Method::GET, "/system_information") => {
             if node_config.inspection_service.expose_system_information {
@@ -130,10 +130,10 @@ async fn serve_requests(
             } else {
                 *resp.body_mut() = Body::from(DISABLED_ENDPOINT_MESSAGE);
             }
-        }
+        },
         _ => {
             *resp.status_mut() = StatusCode::NOT_FOUND;
-        }
+        },
     };
 
     Ok(resp)
@@ -144,7 +144,8 @@ pub fn start_inspection_service(node_config: NodeConfig) {
     let service_port = node_config.inspection_service.port;
     let service_address = node_config.inspection_service.address.clone();
 
-    // Only called from places that guarantee that host is parsable, but this must be assumed.
+    // Only called from places that guarantee that host is parsable, but this must
+    // be assumed.
     let addr: SocketAddr = (service_address.as_str(), service_port)
         .to_socket_addrs()
         .unwrap_or_else(|_| {

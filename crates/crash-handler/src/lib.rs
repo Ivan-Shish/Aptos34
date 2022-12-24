@@ -19,9 +19,9 @@ pub struct CrashInfo {
 
 /// Invoke to ensure process exits on a thread panic.
 ///
-/// Tokio's default behavior is to catch panics and ignore them.  Invoking this function will
-/// ensure that all subsequent thread panics (even Tokio threads) will report the
-/// details/backtrace and then exit.
+/// Tokio's default behavior is to catch panics and ignore them.  Invoking this
+/// function will ensure that all subsequent thread panics (even Tokio threads)
+/// will report the details/backtrace and then exit.
 pub fn setup_panic_handler() {
     panic::set_hook(Box::new(move |pi: &PanicInfo<'_>| {
         handle_panic(pi);
@@ -30,15 +30,16 @@ pub fn setup_panic_handler() {
 
 // Formats and logs panic information
 fn handle_panic(panic_info: &PanicInfo<'_>) {
-    // The Display formatter for a PanicInfo contains the message, payload and location.
+    // The Display formatter for a PanicInfo contains the message, payload and
+    // location.
     let details = format!("{}", panic_info);
     let backtrace = format!("{:#?}", Backtrace::new());
 
     let info = CrashInfo { details, backtrace };
     let crash_info = toml::to_string_pretty(&info).unwrap();
     error!("{}", crash_info);
-    // TODO / HACK ALARM: Write crash info synchronously via eprintln! to ensure it is written before the process exits which error! doesn't guarantee.
-    // This is a workaround until https://github.com/aptos-labs/aptos-core/issues/2038 is resolved.
+    // TODO / HACK ALARM: Write crash info synchronously via eprintln! to ensure it
+    // is written before the process exits which error! doesn't guarantee. This is a workaround until https://github.com/aptos-labs/aptos-core/issues/2038 is resolved.
     eprintln!("{}", crash_info);
 
     // Wait till the logs have been flushed

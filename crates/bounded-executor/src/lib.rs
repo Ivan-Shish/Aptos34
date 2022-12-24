@@ -42,8 +42,8 @@ impl BoundedExecutor {
 
     /// Spawn a [`Future`] on the `BoundedExecutor`. This function is async and
     /// will block if the executor is at capacity until one of the other spawned
-    /// futures completes. This function returns a [`JoinHandle`] that the caller
-    /// can `.await` on for the results of the [`Future`].
+    /// futures completes. This function returns a [`JoinHandle`] that the
+    /// caller can `.await` on for the results of the [`Future`].
     pub async fn spawn<F>(&self, future: F) -> JoinHandle<F::Output>
     where
         F: Future + Send + 'static,
@@ -53,11 +53,12 @@ impl BoundedExecutor {
         self.executor.spawn(future_with_permit(future, permit))
     }
 
-    /// Try to spawn a [`Future`] on the `BoundedExecutor`. If the `BoundedExecutor`
-    /// is at capacity, this will return an `Err(F)`, passing back the future the
-    /// caller attempted to spawn. Otherwise, this will spawn the future on the
-    /// executor and send back a [`JoinHandle`] that the caller can `.await` on
-    /// for the results of the [`Future`].
+    /// Try to spawn a [`Future`] on the `BoundedExecutor`. If the
+    /// `BoundedExecutor` is at capacity, this will return an `Err(F)`,
+    /// passing back the future the caller attempted to spawn. Otherwise,
+    /// this will spawn the future on the executor and send back a
+    /// [`JoinHandle`] that the caller can `.await` on for the results of
+    /// the [`Future`].
     pub fn try_spawn<F>(&self, future: F) -> Result<JoinHandle<F::Output>, F>
     where
         F: Future + Send + 'static,

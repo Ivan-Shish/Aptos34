@@ -90,7 +90,8 @@ pub const E2E_LABEL: &str = "e2e";
 pub const INSERT_LABEL: &str = "insert";
 pub const REMOVE_LABEL: &str = "remove";
 
-// Histogram buckets that make more sense at larger timescales than DEFAULT_BUCKETS
+// Histogram buckets that make more sense at larger timescales than
+// DEFAULT_BUCKETS
 const LARGER_LATENCY_BUCKETS: &[f64; 11] = &[
     0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 320.0,
 ];
@@ -179,7 +180,8 @@ pub fn core_mempool_txn_commit_latency(
 }
 
 /// Counter tracking latency of txns reaching various stages in committing
-/// (e.g. time from txn entering core mempool to being pulled in consensus block)
+/// (e.g. time from txn entering core mempool to being pulled in consensus
+/// block)
 static CORE_MEMPOOL_TXN_COMMIT_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     let histogram_opts = histogram_opts!(
         "aptos_core_mempool_txn_commit_latency",
@@ -221,17 +223,20 @@ static CORE_MEMPOOL_TXN_RANKING_SCORE: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(histogram_opts, &["stage", "status"]).unwrap()
 });
 
-/// Counter for number of periodic garbage-collection (=GC) events that happen, regardless of
-/// how many txns were actually cleaned up in this GC event
+/// Counter for number of periodic garbage-collection (=GC) events that happen,
+/// regardless of how many txns were actually cleaned up in this GC event
 pub static CORE_MEMPOOL_GC_EVENT_COUNT: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_core_mempool_gc_event_count",
-        "Number of times the periodic garbage-collection event occurs, regardless of how many txns were actually removed",
-        &["type"])
-       .unwrap()
+        "Number of times the periodic garbage-collection event occurs, regardless of how many \
+         txns were actually removed",
+        &["type"]
+    )
+    .unwrap()
 });
 
-/// Counter tracking time for how long a transaction stayed in core-mempool before being garbage-collected
+/// Counter tracking time for how long a transaction stayed in core-mempool
+/// before being garbage-collected
 pub static CORE_MEMPOOL_GC_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_core_mempool_gc_latency",
@@ -256,10 +261,11 @@ pub static PENDING_MEMPOOL_NETWORK_EVENTS: Lazy<IntCounterVec> = Lazy::new(|| {
 static MEMPOOL_SERVICE_TXNS: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_mempool_service_transactions",
-        "Number of transactions handled in one request/response between mempool and consensus/state sync",
+        "Number of transactions handled in one request/response between mempool and \
+         consensus/state sync",
         &["type"]
     )
-        .unwrap()
+    .unwrap()
 });
 
 pub fn mempool_service_transactions(label: &'static str, num: usize) {
@@ -277,8 +283,9 @@ pub static MEMPOOL_SERVICE_BYTES_GET_BLOCK: Lazy<Histogram> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counter for tracking latency of mempool processing requests from consensus/state sync
-/// A 'fail' result means the mempool's callback response to consensus/state sync failed.
+/// Counter for tracking latency of mempool processing requests from
+/// consensus/state sync A 'fail' result means the mempool's callback response
+/// to consensus/state sync failed.
 static MEMPOOL_SERVICE_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_mempool_service_latency_ms",
@@ -314,7 +321,8 @@ pub fn shared_mempool_event_inc(event: &'static str) {
     SHARED_MEMPOOL_EVENTS.with_label_values(&[event]).inc();
 }
 
-/// Counter for tracking e2e latency for mempool to process txn submission requests from clients and peers
+/// Counter for tracking e2e latency for mempool to process txn submission
+/// requests from clients and peers
 static PROCESS_TXN_SUBMISSION_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_shared_mempool_request_latency",
@@ -336,7 +344,8 @@ pub fn process_txn_submit_latency_timer_client() -> HistogramTimer {
         .start_timer()
 }
 
-/// Counter for tracking e2e latency for mempool to process get txn by hash requests from clients and peers
+/// Counter for tracking e2e latency for mempool to process get txn by hash
+/// requests from clients and peers
 static PROCESS_GET_TXN_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_shared_mempool_get_txn_request_latency",
@@ -352,7 +361,8 @@ pub fn process_get_txn_latency_timer_client() -> HistogramTimer {
         .start_timer()
 }
 
-/// Tracks latency of different stages of txn processing (e.g. vm validation, storage read)
+/// Tracks latency of different stages of txn processing (e.g. vm validation,
+/// storage read)
 pub static PROCESS_TXN_BREAKDOWN_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_mempool_process_txn_breakdown_latency",
@@ -378,7 +388,8 @@ pub fn shared_mempool_broadcast_latency(network_id: NetworkId, latency: Duration
         .observe(latency.as_secs_f64());
 }
 
-/// Counter for tracking roundtrip-time from sending a broadcast to receiving ACK for that broadcast
+/// Counter for tracking roundtrip-time from sending a broadcast to receiving
+/// ACK for that broadcast
 pub static SHARED_MEMPOOL_BROADCAST_RTT: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "aptos_shared_mempool_broadcast_roundtrip_latency",
@@ -410,8 +421,10 @@ static SHARED_MEMPOOL_TRANSACTIONS_PROCESSED: Lazy<IntCounterVec> = Lazy::new(||
         "aptos_shared_mempool_transactions_processed",
         "Number of transactions received and handled by shared mempool",
         &[
-            "status", // state of transaction processing: "received", "success", status code from failed txn processing
-            "network", // state of transaction processing: "received", "success", status code from failed txn processing
+            "status", /* state of transaction processing: "received", "success", status code
+                       * from failed txn processing */
+            "network", /* state of transaction processing: "received", "success", status code
+                        * from failed txn processing */
         ]
     )
     .unwrap()
@@ -538,15 +551,16 @@ pub static CLIENT_CALLBACK_FAIL: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counter for how many ACKs were received with an invalid request_id that this node's mempool
-/// did not send
+/// Counter for how many ACKs were received with an invalid request_id that this
+/// node's mempool did not send
 static INVALID_ACK_RECEIVED_COUNT: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_mempool_unrecognized_ack_received_count",
-        "Number of ACK messages received with an invalid request_id that this node's mempool did not send",
+        "Number of ACK messages received with an invalid request_id that this node's mempool did \
+         not send",
         &["network", "type"]
     )
-        .unwrap()
+    .unwrap()
 });
 
 pub fn invalid_ack_inc(network_id: NetworkId, label: &'static str) {

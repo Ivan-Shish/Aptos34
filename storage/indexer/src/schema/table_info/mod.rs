@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines physical storage schema mapping table handles to its metadata including
-//! key / value type tags.
+//! This module defines physical storage schema mapping table handles to its
+//! metadata including key / value type tags.
 //!
 //! ```text
 //! |<--key-->|<---value-->|

@@ -21,8 +21,8 @@ async fn test_mint_transfer() {
         .await
         .unwrap();
 
-    // NOTE(Gas): For some reason, there needs to be a lot of funds in the account in order for the
-    //            test to pass.
+    // NOTE(Gas): For some reason, there needs to be a lot of funds in the account
+    // in order for the            test to pass.
     //            Is this caused by us increasing the default max gas amount in
     //            testsuite/forge/src/interface/aptos.rs?
     info.mint(account1.address(), 100_000_000).await.unwrap();
@@ -68,7 +68,8 @@ async fn test_mint_transfer() {
     );
     info.client().submit_and_wait(&mint_txn).await.unwrap();
 
-    // Testing the AptosDebugger by reexecuting the transaction that has been published.
+    // Testing the AptosDebugger by reexecuting the transaction that has been
+    // published.
     println!("Testing....");
     let debugger = AptosDebugger::rest_client(info.client().clone()).unwrap();
 

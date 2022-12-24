@@ -36,10 +36,11 @@ impl Drop for TaskGuard<'_> {
     }
 }
 
-/// A holder for potential task returned from the Scheduler. ExecutionTask and ValidationTask
-/// each contain a version of transaction that must be executed or validated, respectively.
-/// NoTask holds no task (similar None if we wrapped tasks in Option), and Done implies that
-/// there are no more tasks and the scheduler is done.
+/// A holder for potential task returned from the Scheduler. ExecutionTask and
+/// ValidationTask each contain a version of transaction that must be executed
+/// or validated, respectively. NoTask holds no task (similar None if we wrapped
+/// tasks in Option), and Done implies that there are no more tasks and the
+/// scheduler is done.
 pub enum SchedulerTask<'a> {
     ExecutionTask(Version, Option<DependencyCondvar>, TaskGuard<'a>),
     ValidationTask(Version, TaskGuard<'a>),
@@ -47,40 +48,45 @@ pub enum SchedulerTask<'a> {
     Done,
 }
 
-/// All possible statuses for each transaction. Each status contains the latest incarnation number.
+/// All possible statuses for each transaction. Each status contains the latest
+/// incarnation number.
 ///
-/// 'ReadyToExecute' means that the corresponding incarnation should be executed and the scheduler
-/// must eventually create a corresponding execution task. The scheduler ensures that exactly one
-/// execution task gets created, changing the status to 'Executing' in the process. If a dependency
-/// condition variable is set, then an execution of a prior incarnation is waiting on it with
-/// a read dependency resolved (when dependency was encountered, the status changed to Suspended,
-/// and suspended changed to ReadyToExecute when the dependency finished its execution). In this case
-/// the caller need not create a new execution task, but just nofity the suspended execution.
+/// 'ReadyToExecute' means that the corresponding incarnation should be executed
+/// and the scheduler must eventually create a corresponding execution task. The
+/// scheduler ensures that exactly one execution task gets created, changing the
+/// status to 'Executing' in the process. If a dependency condition variable is
+/// set, then an execution of a prior incarnation is waiting on it with
+/// a read dependency resolved (when dependency was encountered, the status
+/// changed to Suspended, and suspended changed to ReadyToExecute when the
+/// dependency finished its execution). In this case the caller need not create
+/// a new execution task, but just nofity the suspended execution.
 ///
-/// 'Executing' status of an incarnation turns into 'Executed' if the execution task finishes, or
-/// if a dependency is encountered, it becomes 'ReadyToExecute(incarnation + 1)' once the
-/// dependency is resolved. An 'Executed' status allows creation of validation tasks for the
-/// corresponding incarnation, and a validation failure leads to an abort. The scheduler ensures
-/// that there is exactly one abort, changing the status to 'Aborting' in the process. Once the
-/// thread that successfully aborted performs everything that's required, it sets the status
-/// to 'ReadyToExecute(incarnation + 1)', allowing the scheduler to create an execution
-/// task for the next incarnation of the transaction.
+/// 'Executing' status of an incarnation turns into 'Executed' if the execution
+/// task finishes, or if a dependency is encountered, it becomes
+/// 'ReadyToExecute(incarnation + 1)' once the dependency is resolved. An
+/// 'Executed' status allows creation of validation tasks for the corresponding
+/// incarnation, and a validation failure leads to an abort. The scheduler
+/// ensures that there is exactly one abort, changing the status to 'Aborting'
+/// in the process. Once the thread that successfully aborted performs
+/// everything that's required, it sets the status
+/// to 'ReadyToExecute(incarnation + 1)', allowing the scheduler to create an
+/// execution task for the next incarnation of the transaction.
 ///
 /// Status transition diagram:
 /// Ready(i)
 ///    |  try_incarnate (incarnate successfully)
 ///    |
 ///    ↓         suspend (waiting on dependency)                resume
-/// Executing(i) -----------------------------> Suspended(i) ------------> Ready(i)
-///    |
+/// Executing(i) -----------------------------> Suspended(i) ------------>
+/// Ready(i)    |
 ///    |  finish_execution
 ///    ↓
 /// Executed(i) (pending for (re)validations)
 ///    |
 ///    |  try_abort (abort successfully)
 ///    ↓                finish_abort
-/// Aborting(i) ---------------------------------------------------------> Ready(i+1)
-///
+/// Aborting(i) --------------------------------------------------------->
+/// Ready(i+1)
 #[derive(Debug)]
 enum TransactionStatus {
     ReadyToExecute(Incarnation, Option<DependencyCondvar>),
@@ -108,30 +114,37 @@ pub struct Scheduler {
     /// Number of txns to execute, immutable.
     num_txns: usize,
 
-    /// A shared index that tracks the minimum of all transaction indices that require execution.
-    /// The threads increment the index and attempt to create an execution task for the corresponding
-    /// transaction, if the status of the txn is 'ReadyToExecute'. This implements a counting-based
-    /// concurrent ordered set. It is reduced as necessary when transactions become ready to be
-    /// executed, in particular, when execution finishes and dependencies are resolved.
+    /// A shared index that tracks the minimum of all transaction indices that
+    /// require execution. The threads increment the index and attempt to
+    /// create an execution task for the corresponding transaction, if the
+    /// status of the txn is 'ReadyToExecute'. This implements a counting-based
+    /// concurrent ordered set. It is reduced as necessary when transactions
+    /// become ready to be executed, in particular, when execution finishes
+    /// and dependencies are resolved.
     execution_idx: AtomicUsize,
-    /// A shared index that tracks the minimum of all transaction indices that require validation.
-    /// The threads increment the index and attempt to create a validation task for the corresponding
-    /// transaction, if the status of the txn is 'Executed'. This implements a counting-based
-    /// concurrent ordered set. It is reduced as necessary when transactions require validation,
-    /// in particular, after aborts and executions that write outside of the write set of the
-    /// same transaction's previous incarnation.
+    /// A shared index that tracks the minimum of all transaction indices that
+    /// require validation. The threads increment the index and attempt to
+    /// create a validation task for the corresponding transaction, if the
+    /// status of the txn is 'Executed'. This implements a counting-based
+    /// concurrent ordered set. It is reduced as necessary when transactions
+    /// require validation, in particular, after aborts and executions that
+    /// write outside of the write set of the same transaction's previous
+    /// incarnation.
     validation_idx: AtomicUsize,
     /// The number of times execution_idx and validation_idx are decreased.
     decrease_cnt: AtomicUsize,
 
-    /// Number of tasks used to track when transactions can be committed, incremented / decremented
-    /// as new validation or execution tasks are created and completed.
+    /// Number of tasks used to track when transactions can be committed,
+    /// incremented / decremented as new validation or execution tasks are
+    /// created and completed.
     num_active_tasks: AtomicUsize,
-    /// Shared marker that is set when a thread detects that all txns can be committed.
+    /// Shared marker that is set when a thread detects that all txns can be
+    /// committed.
     done_marker: AtomicBool,
 
-    /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
-    /// should be re-executed once transaction i's next incarnation finishes.
+    /// An index i maps to indices of other transactions that depend on
+    /// transaction i, i.e. they should be re-executed once transaction i's
+    /// next incarnation finishes.
     txn_dependency: Vec<CachePadded<Mutex<Vec<TxnIndex>>>>,
     /// An index i maps to the most up-to-date status of transaction i.
     txn_status: Vec<CachePadded<Mutex<TransactionStatus>>>,
@@ -161,11 +174,12 @@ impl Scheduler {
         self.num_txns
     }
 
-    /// Try to abort version = (txn_idx, incarnation), called upon validation failure.
-    /// When the invocation manages to update the status of the transaction, it changes
-    /// Executed(incarnation) => Aborting(incarnation), it returns true. Otherwise,
-    /// returns false. Since incarnation numbers never decrease, this also ensures
-    /// that the same version may not successfully abort more than once.
+    /// Try to abort version = (txn_idx, incarnation), called upon validation
+    /// failure. When the invocation manages to update the status of the
+    /// transaction, it changes Executed(incarnation) =>
+    /// Aborting(incarnation), it returns true. Otherwise, returns false.
+    /// Since incarnation numbers never decrease, this also ensures that the
+    /// same version may not successfully abort more than once.
     pub fn try_abort(&self, txn_idx: TxnIndex, incarnation: Incarnation) -> bool {
         // lock the status.
         let mut status = self.txn_status[txn_idx].lock();
@@ -201,19 +215,21 @@ impl Scheduler {
         }
     }
 
-    /// When a txn depends on another txn, adds it to the dependency list of the other txn.
-    /// Returns true if successful, or false, if the dependency got resolved in the meantime.
-    /// If true is returned, Scheduler guarantees that later (dep_txn_idx will finish execution)
-    /// transaction txn_idx will be resumed, and corresponding execution task created.
-    /// If false is returned, it is caller's responsibility to repeat the read that caused the
-    /// dependency and continue the ongoing execution of txn_idx.
+    /// When a txn depends on another txn, adds it to the dependency list of the
+    /// other txn. Returns true if successful, or false, if the dependency
+    /// got resolved in the meantime. If true is returned, Scheduler
+    /// guarantees that later (dep_txn_idx will finish execution)
+    /// transaction txn_idx will be resumed, and corresponding execution task
+    /// created. If false is returned, it is caller's responsibility to
+    /// repeat the read that caused the dependency and continue the ongoing
+    /// execution of txn_idx.
     pub fn wait_for_dependency(
         &self,
         txn_idx: TxnIndex,
         dep_txn_idx: TxnIndex,
     ) -> Option<DependencyCondvar> {
-        // Note: Could pre-check that txn dep_txn_idx isn't in an executed state, but the caller
-        // usually has just observed the read dependency.
+        // Note: Could pre-check that txn dep_txn_idx isn't in an executed state, but
+        // the caller usually has just observed the read dependency.
 
         // Create a condition variable associated with the dependency.
         let dep_condvar = Arc::new((Mutex::new(false), Condvar::new()));
@@ -228,15 +244,17 @@ impl Scheduler {
 
                 // Note: acquires (a different, status) mutex, while holding (dependency) mutex.
                 // Only place in scheduler where a thread may hold >1 mutexes, hence, such
-                // acquisitions always happens in the same order (this function), may not deadlock.
+                // acquisitions always happens in the same order (this function), may not
+                // deadlock.
 
                 return None;
             }
 
             self.suspend(txn_idx, dep_condvar.clone());
 
-            // Safe to add dependency here (still holding the lock) - finish_execution of txn
-            // dep_txn_idx is guaranteed to acquire the same lock later and clear the dependency.
+            // Safe to add dependency here (still holding the lock) - finish_execution of
+            // txn dep_txn_idx is guaranteed to acquire the same lock later and
+            // clear the dependency.
             stored_deps.push(txn_idx);
         }
 
@@ -244,9 +262,10 @@ impl Scheduler {
     }
 
     /// After txn is executed, schedule its dependencies for re-execution.
-    /// If revalidate_suffix is true, decrease validation_idx to schedule all higher transactions
-    /// for (re-)validation. Otherwise, in some cases (if validation_idx not already lower),
-    /// return a validation task of the transaction to the caller (otherwise NoTask).
+    /// If revalidate_suffix is true, decrease validation_idx to schedule all
+    /// higher transactions for (re-)validation. Otherwise, in some cases
+    /// (if validation_idx not already lower), return a validation task of
+    /// the transaction to the caller (otherwise NoTask).
     pub fn finish_execution<'a>(
         &self,
         txn_idx: TxnIndex,
@@ -279,8 +298,8 @@ impl Scheduler {
             self.decrease_execution_idx(execution_target_idx);
         }
 
-        // If validation_idx is already lower than txn_idx, all required transactions will be
-        // considered for validation, and there is nothing to do.
+        // If validation_idx is already lower than txn_idx, all required transactions
+        // will be considered for validation, and there is nothing to do.
         if self.validation_idx.load(Ordering::SeqCst) > txn_idx {
             if revalidate_suffix {
                 // The transaction execution required revalidating all higher txns (not
@@ -297,8 +316,9 @@ impl Scheduler {
         SchedulerTask::NoTask
     }
 
-    /// Finalize a validation task of version (txn_idx, incarnation). In some cases,
-    /// may return a re-execution task back to the caller (otherwise, NoTask).
+    /// Finalize a validation task of version (txn_idx, incarnation). In some
+    /// cases, may return a re-execution task back to the caller (otherwise,
+    /// NoTask).
     pub fn finish_abort<'a>(
         &self,
         txn_idx: TxnIndex,
@@ -334,14 +354,16 @@ impl Scheduler {
 
 /// Public functions of the Scheduler
 impl Scheduler {
-    /// Decreases the validation index, increases the decrease counter if it actually decreased.
+    /// Decreases the validation index, increases the decrease counter if it
+    /// actually decreased.
     fn decrease_validation_idx(&self, target_idx: TxnIndex) {
         if self.validation_idx.fetch_min(target_idx, Ordering::SeqCst) > target_idx {
             self.decrease_cnt.fetch_add(1, Ordering::SeqCst);
         }
     }
 
-    /// Decreases the execution index, increases the decrease counter if it actually decreased.
+    /// Decreases the execution index, increases the decrease counter if it
+    /// actually decreased.
     fn decrease_execution_idx(&self, target_idx: TxnIndex) {
         if self.execution_idx.fetch_min(target_idx, Ordering::SeqCst) > target_idx {
             self.decrease_cnt.fetch_add(1, Ordering::SeqCst);
@@ -349,10 +371,11 @@ impl Scheduler {
     }
 
     /// Try and incarnate a transaction. Only possible when the status is
-    /// ReadyToExecute(incarnation), in which case Some(incarnation) is returned and the
-    /// status is (atomically, due to the mutex) updated to Executing(incarnation).
-    /// An unsuccessful incarnation returns None. Since incarnation numbers never decrease
-    /// for each transaction, incarnate function may not succeed more than once per version.
+    /// ReadyToExecute(incarnation), in which case Some(incarnation) is returned
+    /// and the status is (atomically, due to the mutex) updated to
+    /// Executing(incarnation). An unsuccessful incarnation returns None.
+    /// Since incarnation numbers never decrease for each transaction,
+    /// incarnate function may not succeed more than once per version.
     fn try_incarnate(&self, txn_idx: TxnIndex) -> Option<(Incarnation, Option<DependencyCondvar>)> {
         if txn_idx >= self.txn_status.len() {
             return None;
@@ -368,9 +391,10 @@ impl Scheduler {
         }
     }
 
-    /// If the status of transaction is Executed(incarnation), returns Some(incarnation),
-    /// otherwise returns None. Useful to determine when a transaction can be validated,
-    /// and to avoid a race in dependency resolution.
+    /// If the status of transaction is Executed(incarnation), returns
+    /// Some(incarnation), otherwise returns None. Useful to determine when
+    /// a transaction can be validated, and to avoid a race in dependency
+    /// resolution.
     fn is_executed(&self, txn_idx: TxnIndex) -> Option<Incarnation> {
         if txn_idx >= self.txn_status.len() {
             return None;
@@ -384,11 +408,15 @@ impl Scheduler {
         }
     }
 
-    /// Grab an index to try and validate next (by fetch-and-incrementing validation_idx).
-    /// - If the index is out of bounds, return None (and invoke a check of whethre
+    /// Grab an index to try and validate next (by fetch-and-incrementing
+    /// validation_idx).
+    /// - If the index is out of bounds, return None (and invoke a check of
+    ///   whethre
     /// all txns can be committed).
-    /// - If the transaction is ready for validation (EXECUTED state), return the version
-    /// to the caller together with a guard to be used for the corresponding ValidationTask.
+    /// - If the transaction is ready for validation (EXECUTED state), return
+    ///   the version
+    /// to the caller together with a guard to be used for the corresponding
+    /// ValidationTask.
     /// - Otherwise, return None.
     fn try_validate_next_version(&self) -> Option<(Version, TaskGuard)> {
         let idx_to_validate = self.validation_idx.load(Ordering::SeqCst);
@@ -412,13 +440,16 @@ impl Scheduler {
             .map(|incarnation| ((idx_to_validate, incarnation), guard))
     }
 
-    /// Grab an index to try and execute next (by fetch-and-incrementing execution_idx).
-    /// - If the index is out of bounds, return None (and invoke a check of whethre
+    /// Grab an index to try and execute next (by fetch-and-incrementing
+    /// execution_idx).
+    /// - If the index is out of bounds, return None (and invoke a check of
+    ///   whethre
     /// all txns can be committed).
-    /// - If the transaction is ready for execution (ReadyToExecute state), attempt
-    /// to create the next incarnation (should happen exactly once), and if successful,
-    /// return the version to the caller together with a guard to be used for the
-    /// corresponding ExecutionTask.
+    /// - If the transaction is ready for execution (ReadyToExecute state),
+    ///   attempt
+    /// to create the next incarnation (should happen exactly once), and if
+    /// successful, return the version to the caller together with a guard
+    /// to be used for the corresponding ExecutionTask.
     /// - Otherwise, return None.
     fn try_execute_next_version(&self) -> Option<(Version, Option<DependencyCondvar>, TaskGuard)> {
         let idx_to_execute = self.execution_idx.load(Ordering::SeqCst);
@@ -445,8 +476,8 @@ impl Scheduler {
             })
     }
 
-    /// Put a transaction in a suspended state, with a condition variable that can be
-    /// used to wake it up after the dependency is resolved.
+    /// Put a transaction in a suspended state, with a condition variable that
+    /// can be used to wake it up after the dependency is resolved.
     fn suspend(&self, txn_idx: TxnIndex, dep_condvar: DependencyCondvar) {
         let mut status = self.txn_status[txn_idx].lock();
 
@@ -457,8 +488,8 @@ impl Scheduler {
         }
     }
 
-    /// When a dependency is resolved, mark the transaction as ReadyToExecute with an
-    /// incremented incarnation number.
+    /// When a dependency is resolved, mark the transaction as ReadyToExecute
+    /// with an incremented incarnation number.
     /// The caller must ensure that the transaction is in the Suspended state.
     fn resume(&self, txn_idx: TxnIndex) {
         let mut status = self.txn_status[txn_idx].lock();
@@ -479,8 +510,8 @@ impl Scheduler {
         *status = TransactionStatus::Executed(incarnation);
     }
 
-    /// After a successful abort, mark the transaction as ready for re-execution with
-    /// an incremented incarnation number.
+    /// After a successful abort, mark the transaction as ready for re-execution
+    /// with an incremented incarnation number.
     fn set_aborted_status(&self, txn_idx: TxnIndex, incarnation: Incarnation) {
         let mut status = self.txn_status[txn_idx].lock();
 
@@ -491,17 +522,21 @@ impl Scheduler {
     }
 
     /// A lazy, check of whether the scheduler execution is completed.
-    /// Updates the 'done_marker' so other threads can know by calling done() function below.
+    /// Updates the 'done_marker' so other threads can know by calling done()
+    /// function below.
     ///
     /// 1. After the STM execution has completed:
-    /// validation_idx >= num_txn, execution_idx >= num_txn, num_active_tasks == 0,
-    /// and decrease_cnt does not change - so it will be successfully detected.
-    /// 2. If done_marker is set, all of these must hold at the same time, implying completion.
-    /// Proof: O.w. one of the indices must decrease from when it is read to be >= num_txns
-    /// to when num_active_tasks is read to be 0, but decreasing thread is performing an active task,
-    /// so it must first perform the next instruction in 'decrease_validation_idx' or
-    /// 'decrease_execution_idx' functions, which is to increment the decrease_cnt++.
-    /// Final check will then detect a change in decrease_cnt and not allow a false positive.
+    /// validation_idx >= num_txn, execution_idx >= num_txn, num_active_tasks ==
+    /// 0, and decrease_cnt does not change - so it will be successfully
+    /// detected. 2. If done_marker is set, all of these must hold at the
+    /// same time, implying completion. Proof: O.w. one of the indices must
+    /// decrease from when it is read to be >= num_txns
+    /// to when num_active_tasks is read to be 0, but decreasing thread is
+    /// performing an active task, so it must first perform the next
+    /// instruction in 'decrease_validation_idx' or 'decrease_execution_idx'
+    /// functions, which is to increment the decrease_cnt++. Final check
+    /// will then detect a change in decrease_cnt and not allow a false
+    /// positive.
     fn check_done(&self) -> bool {
         let observed_cnt = self.decrease_cnt.load(Ordering::SeqCst);
 
@@ -522,7 +557,8 @@ impl Scheduler {
         }
     }
 
-    /// Checks whether the done marker is set. The marker can only be set by 'check_done'.
+    /// Checks whether the done marker is set. The marker can only be set by
+    /// 'check_done'.
     fn done(&self) -> bool {
         self.done_marker.load(Ordering::Acquire)
     }

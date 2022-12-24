@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{api_index::ApiIndexProvider, Provider, ProviderCollection},
@@ -9,8 +10,6 @@ use anyhow::Result;
 use aptos_rest_client::{aptos_api_types::TransactionData, Client as AptosRestClient};
 use serde::{Deserialize, Serialize};
 use std::cmp::{max, min};
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 const TRANSACTIONS_ENDPOINT: &str = "/transactions/by_version";
 
@@ -62,10 +61,11 @@ impl TransactionCorrectnessChecker {
             wildcard => Err(CheckerError::NonRetryableEndpointError(
                 TRANSACTIONS_ENDPOINT,
                 anyhow::anyhow!(
-                    "The API unexpectedly returned a transaction that was not an on-chain transaction: {:?}",
+                    "The API unexpectedly returned a transaction that was not an on-chain \
+                     transaction: {:?}",
                     wildcard
                 ),
-            ))
+            )),
         }
     }
 }
@@ -108,7 +108,7 @@ impl Checker for TransactionCorrectnessChecker {
                         err
                     ),
                 )]);
-            }
+            },
         };
 
         tokio::time::sleep(target_api_index_provider.config.common.check_delay()).await;
@@ -129,7 +129,7 @@ impl Checker for TransactionCorrectnessChecker {
                         err
                     ),
                 )]);
-            }
+            },
         };
 
         // Get the oldest ledger version between the two nodes.
@@ -146,15 +146,12 @@ impl Checker for TransactionCorrectnessChecker {
                 "Unable to pull transaction from both nodes".to_string(),
                 0,
                 format!(
-                    "We were unable to find a ledger version window between \
-                        the baseline and target nodes. The oldest and latest \
-                        ledger versions on the baseline node are {} and {}. \
-                        The oldest and latest ledger versions on the target \
-                        node are {} and {}. This means your API cannot return \
-                        a transaction that the baseline has for us to verify. \
-                        Likely this means your node is too out of sync with \
-                        the network, but it could also indicate an \
-                        over-aggressive pruner.",
+                    "We were unable to find a ledger version window between the baseline and \
+                     target nodes. The oldest and latest ledger versions on the baseline node are \
+                     {} and {}. The oldest and latest ledger versions on the target node are {} \
+                     and {}. This means your API cannot return a transaction that the baseline \
+                     has for us to verify. Likely this means your node is too out of sync with \
+                     the network, but it could also indicate an over-aggressive pruner.",
                     oldest_baseline_version,
                     latest_baseline_version,
                     oldest_target_version,
@@ -197,9 +194,9 @@ impl Checker for TransactionCorrectnessChecker {
                                 "Target node produced valid recent transaction".to_string(),
                                 100,
                                 format!(
-                                    "We were able to pull the same transaction (version: {}) \
-                                    from both your node and the baseline node. Great! This \
-                                    implies that your node is returning valid transaction data.",
+                                    "We were able to pull the same transaction (version: {}) from \
+                                     both your node and the baseline node. Great! This implies \
+                                     that your node is returning valid transaction data.",
                                     middle_shared_version,
                                 ),
                             )
@@ -209,39 +206,39 @@ impl Checker for TransactionCorrectnessChecker {
                                     .to_string(),
                                 0,
                                 format!(
-                                    "We were able to pull the same transaction (version: {}) \
-                                    from both your node and the baseline node. However, the \
-                                    transaction was invalid compared to the baseline as the \
-                                    accumulator root hash of the transaction ({}) was different \
-                                    compared to the baseline ({}).",
+                                    "We were able to pull the same transaction (version: {}) from \
+                                     both your node and the baseline node. However, the \
+                                     transaction was invalid compared to the baseline as the \
+                                     accumulator root hash of the transaction ({}) was different \
+                                     compared to the baseline ({}).",
                                     middle_shared_version,
                                     middle_target_accumulator_root_hash,
                                     middle_baseline_accumulator_root_hash,
                                 ),
                             )
                         }
-                    }
+                    },
                     Err(error) => Self::build_result(
                         "Target node produced recent transaction, but it was missing metadata"
                             .to_string(),
                         10,
                         format!(
-                            "We were able to pull the same transaction (version: {}) \
-                            from both your node and the baseline node. However, the \
-                            the transaction was missing metadata such as the version, \
-                            accumulator root hash, etc. Error: {}",
+                            "We were able to pull the same transaction (version: {}) from both \
+                             your node and the baseline node. However, the the transaction was \
+                             missing metadata such as the version, accumulator root hash, etc. \
+                             Error: {}",
                             middle_shared_version, error,
                         ),
                     ),
                 }
-            }
+            },
             Err(error) => Self::build_result(
                 "Target node failed to produce transaction".to_string(),
                 25,
                 format!(
-                    "The target node claims it has transactions between versions {} and {}, \
-                    but it was unable to return the transaction with version {}. This implies \
-                    something is wrong with your node's API. Error: {}",
+                    "The target node claims it has transactions between versions {} and {}, but \
+                     it was unable to return the transaction with version {}. This implies \
+                     something is wrong with your node's API. Error: {}",
                     oldest_target_version, latest_target_version, middle_shared_version, error,
                 ),
             ),

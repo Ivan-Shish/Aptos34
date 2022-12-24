@@ -1,17 +1,16 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use aptos_bitvec::BitVec;
 use aptos_crypto::bls12381;
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
-use std::collections::BTreeMap;
-
-use aptos_bitvec::BitVec;
 use move_core_types::account_address::AccountAddress;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// This struct represents a BLS multi-signature or aggregated signature:
-/// it stores a bit mask representing the set of validators participating in the signing process
-/// and the multi-signature/aggregated signature itself,
+/// it stores a bit mask representing the set of validators participating in the
+/// signing process and the multi-signature/aggregated signature itself,
 /// which was aggregated from these validators' partial BLS signatures.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, CryptoHasher, BCSCryptoHash)]
 pub struct AggregateSignature {
@@ -67,8 +66,9 @@ impl AggregateSignature {
     }
 }
 
-/// Partial signature from a set of validators. This struct is only used when aggregating the votes
-/// from different validators. It is only kept in memory and never sent through the network.
+/// Partial signature from a set of validators. This struct is only used when
+/// aggregating the votes from different validators. It is only kept in memory
+/// and never sent through the network.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 pub struct PartialSignatures {
     signatures: BTreeMap<AccountAddress, bls12381::Signature>,

@@ -21,9 +21,9 @@ fn update_nibble(original_key: &HashValue, n: usize, nibble: u8) -> HashValue {
     assert!(nibble < 16);
     let mut key = original_key.to_vec();
     key[n / 2] = if n % 2 == 0 {
-        key[n / 2] & 0x0f | nibble << 4
+        key[n / 2] & 0x0F | nibble << 4
     } else {
-        key[n / 2] & 0xf0 | nibble
+        key[n / 2] & 0xF0 | nibble
     };
     HashValue::from_slice(&key).unwrap()
 }
@@ -37,8 +37,8 @@ fn test_insert_to_empty_tree() {
     let db = MockTreeStore::default();
     let tree = JellyfishMerkleTree::new(&db);
 
-    // Tree is initially empty. Root is a null node. We'll insert a key-value pair which creates a
-    // leaf node.
+    // Tree is initially empty. Root is a null node. We'll insert a key-value pair
+    // which creates a leaf node.
     let key = HashValue::random();
     let state_key = ValueBlob::from(vec![1u8, 2u8, 3u8, 4u8]);
     let value_hash = HashValue::random();
@@ -47,7 +47,7 @@ fn test_insert_to_empty_tree() {
     let (_new_root_hash, batch) = tree
         .put_value_set_test(
             vec![(key, Some(&(value_hash, state_key)))],
-            0, /* version */
+            0, // version
         )
         .unwrap();
     assert!(batch
@@ -89,8 +89,8 @@ fn test_insert_at_leaf_with_internal_created() {
     db.write_tree_update_batch(batch).unwrap();
     assert_eq!(tree.get(key1, 0).unwrap().unwrap(), value1.0);
 
-    // Insert at the previous leaf node. Should generate an internal node at the root.
-    // Change the 1st nibble to 15.
+    // Insert at the previous leaf node. Should generate an internal node at the
+    // root. Change the 1st nibble to 15.
     let key2 = update_nibble(&key1, 0, 15);
     let value2 = gen_value();
 
@@ -203,7 +203,7 @@ fn test_insert_at_leaf_with_multiple_internals_created() {
             Nibble::from(0),
             Child::new(
                 internal.hash(),
-                1, /* version */
+                1, // version
                 NodeType::Internal { leaf_count: 2 },
             ),
         );
@@ -567,7 +567,7 @@ fn test_non_existence() {
                 (key2, Some(&value2)),
                 (key3, Some(&value3)),
             ],
-            0, /* version */
+            0, // version
         )
         .unwrap();
     db.write_tree_update_batch(batch).unwrap();

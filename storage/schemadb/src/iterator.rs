@@ -13,8 +13,8 @@ pub enum ScanDirection {
     Backward,
 }
 
-/// DB Iterator parameterized on [`Schema`] that seeks with [`Schema::Key`] and yields
-/// [`Schema::Key`] and [`Schema::Value`]
+/// DB Iterator parameterized on [`Schema`] that seeks with [`Schema::Key`] and
+/// yields [`Schema::Key`] and [`Schema::Value`]
 pub struct SchemaIterator<'a, S> {
     db_iter: rocksdb::DBRawIterator<'a>,
     direction: ScanDirection,
@@ -43,8 +43,8 @@ where
         self.db_iter.seek_to_last();
     }
 
-    /// Seeks to the first key whose binary representation is equal to or greater than that of the
-    /// `seek_key`.
+    /// Seeks to the first key whose binary representation is equal to or
+    /// greater than that of the `seek_key`.
     pub fn seek<SK>(&mut self, seek_key: &SK) -> Result<()>
     where
         SK: SeekKeyCodec<S>,
@@ -54,8 +54,8 @@ where
         Ok(())
     }
 
-    /// Seeks to the last key whose binary representation is less than or equal to that of the
-    /// `seek_key`.
+    /// Seeks to the last key whose binary representation is less than or equal
+    /// to that of the `seek_key`.
     ///
     /// See example in [`RocksDB doc`](https://github.com/facebook/rocksdb/wiki/SeekForPrev).
     pub fn seek_for_prev<SK>(&mut self, seek_key: &SK) -> Result<()>

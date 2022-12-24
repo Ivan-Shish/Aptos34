@@ -7,8 +7,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{fmt, str::FromStr};
 
 /// A grouping of common information between all networking code for logging.
-/// This should greatly reduce the groupings between these given everywhere, and will allow
-/// for logging accordingly.
+/// This should greatly reduce the groupings between these given everywhere, and
+/// will allow for logging accordingly.
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 pub struct NetworkContext {
     /// The type of node
@@ -69,10 +69,11 @@ impl NetworkContext {
 }
 
 /// A representation of the network being used in communication.
-/// There should only be one of each NetworkId used for a single node (except for NetworkId::Public),
-/// and handshakes should verify that the NetworkId being used is the same during a handshake,
-/// to effectively ensure communication is restricted to a network.  Network should be checked that
-/// it is not the `DEFAULT_NETWORK`
+/// There should only be one of each NetworkId used for a single node (except
+/// for NetworkId::Public), and handshakes should verify that the NetworkId
+/// being used is the same during a handshake, to effectively ensure
+/// communication is restricted to a network.  Network should be checked that it
+/// is not the `DEFAULT_NETWORK`
 #[derive(Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum NetworkId {
@@ -81,8 +82,9 @@ pub enum NetworkId {
     Public = 4,
 }
 
-// This serializer is here for backwards compatibility with the old version, once all nodes have the
-// new format, we can do a migration path towards the current representations
+// This serializer is here for backwards compatibility with the old version,
+// once all nodes have the new format, we can do a migration path towards the
+// current representations
 impl Serialize for NetworkId {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         #[derive(Serialize)]
@@ -96,7 +98,8 @@ impl Serialize for NetworkId {
         let converted = match self {
             NetworkId::Validator => ConvertNetworkId::Validator,
             NetworkId::Public => ConvertNetworkId::Public,
-            // TODO: Once all validators & VFNs are on this version, convert to using new serialization as number
+            // TODO: Once all validators & VFNs are on this version, convert to using new
+            // serialization as number
             NetworkId::Vfn => ConvertNetworkId::Private(VFN_NETWORK.to_string()),
         };
 
@@ -240,6 +243,7 @@ impl PeerNetworkId {
             peer_id,
         }
     }
+
     pub fn network_id(&self) -> NetworkId {
         self.network_id
     }

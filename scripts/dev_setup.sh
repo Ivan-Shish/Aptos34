@@ -885,6 +885,7 @@ if [[ "$INSTALL_BUILD_TOOLS" == "true" ]]; then
   install_toolchain "$(cat ./rust-toolchain)"
   # Add all the components that we need
   rustup component add rustfmt
+  rustup component add rustfmt --toolchain nightly
   rustup component add clippy
 
   install_cargo_sort

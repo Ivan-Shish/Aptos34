@@ -91,7 +91,8 @@ impl<K: ModulePath> ReadDescriptor<K> {
         &self.access_path
     }
 
-    // Does the read descriptor describe a read from MVHashMap w. a specified version.
+    // Does the read descriptor describe a read from MVHashMap w. a specified
+    // version.
     pub fn validate_version(&self, version: Version) -> bool {
         let (txn_idx, incarnation) = version;
         self.kind == ReadKind::Version(txn_idx, incarnation)
@@ -102,7 +103,8 @@ impl<K: ModulePath> ReadDescriptor<K> {
         self.kind == ReadKind::Resolved(value)
     }
 
-    // Does the read descriptor describe a read from MVHashMap w. an unresolved delta.
+    // Does the read descriptor describe a read from MVHashMap w. an unresolved
+    // delta.
     pub fn validate_unresolved(&self, delta: DeltaOp) -> bool {
         self.kind == ReadKind::Unresolved(delta)
     }
@@ -163,18 +165,22 @@ impl<K: ModulePath, T: TransactionOutput, E: Send + Clone> TxnLastInputOutput<K,
         false
     }
 
-    /// Returns an error if a module path that was read was previously written to, and vice versa.
-    /// Since parallel executor is instantiated per block, any module that is in the Move-VM loader
-    /// cache must previously be read and would be recorded in the 'module_reads' set. Any module
-    /// that is written (published or re-published) goes through transaction output write-set and
-    /// gets recorded in the 'module_writes' set. If these sets have an intersection, it is currently
-    /// possible that Move-VM loader cache loads a module and incorrectly uses it for another
-    /// transaction (e.g. a smaller transaction, or if the speculative execution of the publishing
-    /// transaction later aborts). The intersection is guaranteed to be found because we first
-    /// record the paths then check the other set (flags principle), and in this case we return an
-    /// error that ensures a fallback to a correct sequential execution.
-    /// When the sets do not have an intersection, it is impossible for the race to occur as any
-    /// module in the loader cache may not be published by a transaction in the ongoing block.
+    /// Returns an error if a module path that was read was previously written
+    /// to, and vice versa. Since parallel executor is instantiated per
+    /// block, any module that is in the Move-VM loader cache must
+    /// previously be read and would be recorded in the 'module_reads' set. Any
+    /// module that is written (published or re-published) goes through
+    /// transaction output write-set and gets recorded in the
+    /// 'module_writes' set. If these sets have an intersection, it is currently
+    /// possible that Move-VM loader cache loads a module and incorrectly uses
+    /// it for another transaction (e.g. a smaller transaction, or if the
+    /// speculative execution of the publishing transaction later aborts).
+    /// The intersection is guaranteed to be found because we first
+    /// record the paths then check the other set (flags principle), and in this
+    /// case we return an error that ensures a fallback to a correct
+    /// sequential execution. When the sets do not have an intersection, it
+    /// is impossible for the race to occur as any module in the loader
+    /// cache may not be published by a transaction in the ongoing block.
     pub fn record(
         &self,
         txn_idx: TxnIndex,
@@ -231,8 +237,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Send + Clone> TxnLastInputOutput<K,
         }
     }
 
-    // Must be executed after parallel execution is done, grabs outputs. Will panic if
-    // other outstanding references to the recorded outputs exist.
+    // Must be executed after parallel execution is done, grabs outputs. Will panic
+    // if other outstanding references to the recorded outputs exist.
     pub fn take_output(&self, txn_idx: TxnIndex) -> ExecutionStatus<T, Error<E>> {
         let owning_ptr = self.outputs[txn_idx]
             .swap(None)

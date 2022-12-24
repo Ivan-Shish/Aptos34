@@ -48,7 +48,7 @@ impl Cluster {
                     "{}:{}",
                     url.host().unwrap(),
                     url.port_or_known_default().unwrap()
-                ), /* short_hash */
+                ), // short_hash
                 url.clone(),
                 None,
             );

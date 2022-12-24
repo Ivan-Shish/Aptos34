@@ -1,9 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use rand::{rngs::StdRng, SeedableRng};
-use std::convert::TryFrom;
-
 use crate::{
     ed25519::{
         Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature, ED25519_PRIVATE_KEY_LENGTH,
@@ -13,6 +10,8 @@ use crate::{
     test_utils::{TestAptosCrypto, TEST_SEED},
     Signature, SigningKey, Uniform,
 };
+use rand::{rngs::StdRng, SeedableRng};
+use std::convert::TryFrom;
 
 #[test]
 fn ed25519_bcs_material() {
@@ -23,7 +22,8 @@ fn ed25519_bcs_material() {
     let public_key = Ed25519PublicKey::from(&private_key);
 
     let serialized_public_key = bcs::to_bytes(&Cow::Borrowed(&public_key)).unwrap();
-    // Expected size should be 1 byte due to BCS length prefix + 32 bytes for the raw key bytes
+    // Expected size should be 1 byte due to BCS length prefix + 32 bytes for the
+    // raw key bytes
     assert_eq!(serialized_public_key.len(), 1 + ED25519_PUBLIC_KEY_LENGTH);
 
     // Ensure public key serialization - deserialization is stable and deterministic
@@ -35,7 +35,8 @@ fn ed25519_bcs_material() {
     let signature: Ed25519Signature = private_key.sign(&message).unwrap();
 
     let serialized_signature = bcs::to_bytes(&Cow::Borrowed(&signature)).unwrap();
-    // Expected size should be 1 byte due to BCS length prefix + 64 bytes for the raw signature bytes
+    // Expected size should be 1 byte due to BCS length prefix + 64 bytes for the
+    // raw signature bytes
     assert_eq!(serialized_signature.len(), 1 + ED25519_SIGNATURE_LENGTH);
 
     // Ensure signature serialization - deserialization is stable and deterministic
@@ -70,8 +71,8 @@ fn multi_ed25519_bcs_material() {
 
     // Expected size due to specialization is
     // 2 bytes for BCS length prefix (due to ULEB128)
-    // + 10 * single_pub_key_size bytes (each key is the compressed Edwards Y coordinate)
-    // + 1 byte for the threshold
+    // + 10 * single_pub_key_size bytes (each key is the compressed Edwards Y
+    // coordinate) + 1 byte for the threshold
     assert_eq!(
         serialized_multi_public_key.len(),
         2 + num_of_keys * ED25519_PUBLIC_KEY_LENGTH + 1
@@ -83,7 +84,8 @@ fn multi_ed25519_bcs_material() {
 
     let message = TestAptosCrypto("Hello, World".to_string());
 
-    // Verifying a 7-of-10 signature against a public key with the same threshold should pass.
+    // Verifying a 7-of-10 signature against a public key with the same threshold
+    // should pass.
     let multi_signature_7of10: MultiEd25519Signature =
         multi_private_key_7of10.sign(&message).unwrap();
 
@@ -99,10 +101,12 @@ fn multi_ed25519_bcs_material() {
     );
 
     // Verify bitmap
-    assert_eq!(
-        multi_signature_7of10.bitmap(),
-        &[0b1111_1110, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(multi_signature_7of10.bitmap(), &[
+        0b1111_1110,
+        0u8,
+        0u8,
+        0u8
+    ]);
 
     // Verify signature
     assert!(multi_signature_7of10

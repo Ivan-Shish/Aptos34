@@ -1,31 +1,33 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/***************************************************************************************
- *
- * Purpose of transaction vector test
- *
- *  a. Validates that the BCS and transaction signing code always genereate consistent bytes
- *  b. The golden files contain the expected outputs for various transaction payloads. These files could be used by
- *     other languages to verify their implementations of the transaction signing code.
- *  c. The transaction payload generation heavily relies on proptest. We need to make sure the proptest uses a
- *     deterministic RNG to not violate the golden file rules.
- *
- **************************************************************************************/
-
+/// ****************************************************************************
+/// *********
+///
+/// Purpose of transaction vector test
+///
+///  a. Validates that the BCS and transaction signing code always genereate
+/// consistent bytes  b. The golden files contain the expected outputs for
+/// various transaction payloads. These files could be used by
+///     other languages to verify their implementations of the transaction
+/// signing code.  c. The transaction payload generation heavily relies on
+/// proptest. We need to make sure the proptest uses a     deterministic RNG to
+/// not violate the golden file rules.
+///
+/// ****************************************************************************
+/// ******
 use super::new_test_context;
 use aptos_api_test_context::current_function_name;
-use aptos_types::{
-    account_address::AccountAddress,
-    chain_id::ChainId,
-    transaction::{EntryFunction, RawTransaction, Script, SignedTransaction, TransactionArgument},
-};
-
 use aptos_crypto::{
     ed25519::{Ed25519PrivateKey, Ed25519PublicKey},
     SigningKey, Uniform,
 };
 use aptos_proptest_helpers::ValueGenerator;
+use aptos_types::{
+    account_address::AccountAddress,
+    chain_id::ChainId,
+    transaction::{EntryFunction, RawTransaction, Script, SignedTransaction, TransactionArgument},
+};
 use move_core_types::{
     identifier::Identifier,
     language_storage::{ModuleId, StructTag, TypeTag},
@@ -38,8 +40,9 @@ use std::io::{self, Write};
 #[cfg(test)]
 struct NumberToStringFormatter;
 
-/// "u64" and "u128" might get truncated when being serialized into javascript Number.
-/// This formatter converts u64 and u128 numbers into strings in javascript.
+/// "u64" and "u128" might get truncated when being serialized into javascript
+/// Number. This formatter converts u64 and u128 numbers into strings in
+/// javascript.
 #[cfg(test)]
 impl Formatter for NumberToStringFormatter {
     // Formats u64 as a string
@@ -247,12 +250,15 @@ fn byte_array_to_hex(v: &mut serde_json::Value) -> serde_json::Value {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_entry_function_payload() {
     // The purpose of patches is to convert bytes arrays to hex-coded strings.
-    // Patches the serde_json result is easier comparing to implement a customized serializer.
+    // Patches the serde_json result is easier comparing to implement a customized
+    // serializer.
     fn patch(raw_txn_json: &mut serde_json::Value) {
-        let args = visit_json_field(
-            raw_txn_json,
-            &["raw_txn", "payload", "EntryFunction", "args"],
-        );
+        let args = visit_json_field(raw_txn_json, &[
+            "raw_txn",
+            "payload",
+            "EntryFunction",
+            "args",
+        ]);
 
         let mut hex_args: Vec<serde_json::Value> = vec![];
         for arg in args.as_array_mut().unwrap() {
@@ -298,7 +304,7 @@ async fn test_script_payload() {
 
             match arg_obj.get_mut("U8Vector") {
                 Some(val) => *val = byte_array_to_hex(val),
-                None => {}
+                None => {},
             }
         }
     }
@@ -329,10 +335,12 @@ async fn test_script_payload() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_module_payload() {
     fn patch(raw_txn_json: &mut serde_json::Value) {
-        let codes = visit_json_field(
-            raw_txn_json,
-            &["raw_txn", "payload", "ModuleBundle", "codes"],
-        );
+        let codes = visit_json_field(raw_txn_json, &[
+            "raw_txn",
+            "payload",
+            "ModuleBundle",
+            "codes",
+        ]);
 
         for code_element in codes.as_array_mut().unwrap() {
             let code_obj = code_element.as_object_mut().unwrap();

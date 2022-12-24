@@ -4,7 +4,8 @@
 use aptos_metrics_core::{register_int_counter, IntCounter};
 use once_cell::sync::Lazy;
 
-/// Count of times the module publishing fallback was triggered in parallel execution.
+/// Count of times the module publishing fallback was triggered in parallel
+/// execution.
 pub static MODULE_PUBLISHING_FALLBACK_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
         "aptos_execution_module_publishing_fallback_count",
@@ -22,12 +23,13 @@ pub static SPECULATIVE_ABORT_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Count of times a transaction got suspended due to an estimated r/w dependency.
+/// Count of times a transaction got suspended due to an estimated r/w
+/// dependency.
 pub static DEPENDENCY_SUSPEND_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
         "aptos_execution_dependency_suspend_count",
-        "Count write estimates encountered when reading in parallel execution \
-        (typically leading to a suspension / waiting)"
+        "Count write estimates encountered when reading in parallel execution (typically leading \
+         to a suspension / waiting)"
     )
     .unwrap()
 });

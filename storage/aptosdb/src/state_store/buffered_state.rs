@@ -29,11 +29,12 @@ pub(crate) const ASYNC_COMMIT_CHANNEL_BUFFER_SIZE: u64 = 1;
 pub(crate) const TARGET_SNAPSHOT_INTERVAL_IN_VERSION: u64 = 20_000;
 
 /// The in-memory buffered state that consists of two pieces:
-/// `state_until_checkpoint`: The ready-to-commit data in range (last snapshot, latest checkpoint].
-/// `state_after_checkpoint`: The pending data from the latest checkpoint(exclusive) until the
-/// latest version committed, which has not reached the next checkpoint.
-/// Since these are divided by the latest checkpoint, it is guaranteed
-/// state_until_checkpoint.current = state_after_checkpoint.base, same for their versions.
+/// `state_until_checkpoint`: The ready-to-commit data in range (last snapshot,
+/// latest checkpoint]. `state_after_checkpoint`: The pending data from the
+/// latest checkpoint(exclusive) until the latest version committed, which has
+/// not reached the next checkpoint. Since these are divided by the latest
+/// checkpoint, it is guaranteed state_until_checkpoint.current =
+/// state_after_checkpoint.base, same for their versions.
 #[derive(Debug)]
 pub struct BufferedState {
     // state until the latest checkpoint.

@@ -162,7 +162,7 @@ async fn assert_disconnected_event(
         Some(TransportNotification::Disconnected(metadata, actual_reason)) => {
             assert_eq!(metadata.remote_peer_id, peer_id);
             assert_eq!(actual_reason, reason);
-        }
+        },
         event => panic!("Expected a Disconnected, received: {:?}", event),
     }
 }
@@ -238,8 +238,8 @@ fn peer_send_message() {
     rt.block_on(future::join3(peer.start(), server, client));
 }
 
-// Reading an inbound DirectSendMsg off the wire should notify the PeerManager of
-// an inbound DirectSend.
+// Reading an inbound DirectSendMsg off the wire should notify the PeerManager
+// of an inbound DirectSend.
 #[test]
 fn peer_recv_message() {
     ::aptos_logger::Logger::init_for_testing();
@@ -388,7 +388,7 @@ fn peer_recv_rpc() {
                 PeerNotification::RecvRpc(req) => {
                     let response = Ok(Bytes::from("goodbye world"));
                     req.res_tx.send(response).unwrap()
-                }
+                },
                 _ => panic!("Unexpected PeerNotification: {:?}", received),
             }
         }

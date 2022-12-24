@@ -30,8 +30,9 @@ fn gather_metrics_test() {
 }
 }
 
-// To test if the placeholder static metrics registered in Registry, a counter type metric,
-// has been successfully published to prometheus and the result gathered reflect the value change.
+// To test if the placeholder static metrics registered in Registry, a counter
+// type metric, has been successfully published to prometheus and the result
+// gathered reflect the value change.
 #[test]
 fn publish_metrics_test() {
     let counter_opts = Opts::new("test_counter", "test counter help");

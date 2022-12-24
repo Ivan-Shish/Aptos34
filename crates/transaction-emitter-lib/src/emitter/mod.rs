@@ -5,33 +5,6 @@ pub mod account_minter;
 pub mod stats;
 pub mod submission_worker;
 
-use again::RetryPolicy;
-use anyhow::{anyhow, ensure, format_err, Result};
-use aptos_config::config::DEFAULT_MAX_SUBMIT_TRANSACTION_BATCH_SIZE;
-use aptos_infallible::RwLock;
-use aptos_logger::{debug, error, info, sample, sample::SampleRate, warn};
-use aptos_rest_client::Client as RestClient;
-use aptos_sdk::{
-    move_types::account_address::AccountAddress,
-    transaction_builder::TransactionFactory,
-    types::{transaction::SignedTransaction, LocalAccount},
-};
-use futures::future::{try_join_all, FutureExt};
-use itertools::zip;
-use once_cell::sync::Lazy;
-use rand::seq::IteratorRandom;
-use rand_core::SeedableRng;
-use std::{
-    cmp::{max, min},
-    collections::{HashMap, HashSet},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::{Duration, Instant},
-};
-use tokio::{runtime::Handle, task::JoinHandle, time};
-
 use crate::{
     args::TransactionType,
     emitter::{
@@ -46,8 +19,32 @@ use crate::{
         transaction_mix_generator::TxnMixGeneratorCreator, TransactionGeneratorCreator,
     },
 };
-use aptos_sdk::transaction_builder::aptos_stdlib;
-use rand::rngs::StdRng;
+use again::RetryPolicy;
+use anyhow::{anyhow, ensure, format_err, Result};
+use aptos_config::config::DEFAULT_MAX_SUBMIT_TRANSACTION_BATCH_SIZE;
+use aptos_infallible::RwLock;
+use aptos_logger::{debug, error, info, sample, sample::SampleRate, warn};
+use aptos_rest_client::Client as RestClient;
+use aptos_sdk::{
+    move_types::account_address::AccountAddress,
+    transaction_builder::{aptos_stdlib, TransactionFactory},
+    types::{transaction::SignedTransaction, LocalAccount},
+};
+use futures::future::{try_join_all, FutureExt};
+use itertools::zip;
+use once_cell::sync::Lazy;
+use rand::{rngs::StdRng, seq::IteratorRandom};
+use rand_core::SeedableRng;
+use std::{
+    cmp::{max, min},
+    collections::{HashMap, HashSet},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
+use tokio::{runtime::Handle, task::JoinHandle, time};
 
 // Max is 100k TPS for a full day.
 const MAX_TXNS: u64 = 100_000_000_000;
@@ -225,9 +222,10 @@ impl EmitJobRequest {
 
         match self.mode {
             EmitJobMode::MaxLoad { mempool_backlog } => {
-                // The target mempool backlog is set to be 3x of the target TPS because of the on an average,
-                // we can ~3 blocks in consensus queue. As long as we have 3x the target TPS as backlog,
-                // it should be enough to produce the target TPS.
+                // The target mempool backlog is set to be 3x of the target TPS because of the
+                // on an average, we can ~3 blocks in consensus queue. As long
+                // as we have 3x the target TPS as backlog, it should be enough
+                // to produce the target TPS.
                 let transactions_per_account = 20;
                 let num_workers_per_endpoint = max(
                     mempool_backlog / (clients_count * transactions_per_account),
@@ -257,7 +255,7 @@ impl EmitJobRequest {
                     check_account_sequence_only_once_fraction: 0.0,
                     check_account_sequence_sleep_millis: 300,
                 }
-            }
+            },
             EmitJobMode::ConstTps { tps } => {
                 // We are going to create ConstTps (open-loop) txn-emitter, by:
                 // - having a single worker handle a single account, with:
@@ -267,17 +265,19 @@ impl EmitJobRequest {
                 //     transactions succeeded
                 //   - wait until our time.
                 // If we always finish first 3 steps before our time, we have a constant TPS of:
-                // clients_count * num_workers_per_endpoint * transactions_per_account / (wait_millis / 1000)
-                // Also, with transactions_per_account = 100, only 1% of the load should be coming from fetching
-                // sequence number from the account, so that it doesn't affect the TPS meaningfully.
+                // clients_count * num_workers_per_endpoint * transactions_per_account /
+                // (wait_millis / 1000) Also, with transactions_per_account =
+                // 100, only 1% of the load should be coming from fetching
+                // sequence number from the account, so that it doesn't affect the TPS
+                // meaningfully.
                 //
-                // That's why we set wait_seconds conservativelly, to make sure all processing and
-                // client calls finish within that time.
+                // That's why we set wait_seconds conservativelly, to make sure all processing
+                // and client calls finish within that time.
 
                 let wait_seconds = self.txn_expiration_time_secs + 180;
                 // In case we set a very low TPS, we need to still be able to spread out
-                // transactions, at least to the seconds granularity, so we reduce transactions_per_account
-                // if needed.
+                // transactions, at least to the seconds granularity, so we reduce
+                // transactions_per_account if needed.
                 let transactions_per_account = min(20, tps);
                 assert!(
                     transactions_per_account > 0,
@@ -302,7 +302,8 @@ impl EmitJobRequest {
                 );
 
                 info!(
-                    " Transaction emitter transactions_per_account batch is {}, with wait_seconds {}",
+                    " Transaction emitter transactions_per_account batch is {}, with wait_seconds \
+                     {}",
                     transactions_per_account, wait_seconds
                 );
 
@@ -326,14 +327,15 @@ impl EmitJobRequest {
                     start_offset_multiplier_millis: (wait_seconds * 1000) as f64
                         / (num_workers_per_endpoint * clients_count) as f64,
                     // Using jitter here doesn't make TPS vary enough, as we have many workers.
-                    // If we wanted to support that, we could for example incrementally vary the offset.
+                    // If we wanted to support that, we could for example incrementally vary the
+                    // offset.
                     start_jitter_millis: 0,
                     accounts_per_worker: 1,
                     workers_per_endpoint: num_workers_per_endpoint,
                     check_account_sequence_only_once_fraction: 1.0 - sample_latency_fraction,
                     check_account_sequence_sleep_millis: 300,
                 }
-            }
+            },
         }
     }
 }
@@ -613,7 +615,7 @@ async fn wait_for_single_account_sequence(
                 if sequence_number >= account.sequence_number() {
                     return Ok(());
                 }
-            }
+            },
             Err(e) => {
                 sample!(
                     SampleRate::Duration(Duration::from_secs(60)),
@@ -624,7 +626,7 @@ async fn wait_for_single_account_sequence(
                         e
                     )
                 );
-            }
+            },
         }
     }
     Err(anyhow!(
@@ -635,9 +637,9 @@ async fn wait_for_single_account_sequence(
 }
 
 /// This function waits for the submitted transactions to be committed, up to
-/// a wait_timeout (counted from the start_time passed in, not from the function call).
-/// It returns number of transactions that expired without being committed,
-/// and sum of completion timestamps for those that have.
+/// a wait_timeout (counted from the start_time passed in, not from the function
+/// call). It returns number of transactions that expired without being
+/// committed, and sum of completion timestamps for those that have.
 ///
 /// This function updates sequence_number for the account to match what
 /// we were able to fetch last.
@@ -678,7 +680,8 @@ async fn wait_for_accounts_sequence(
                     sample!(
                         SampleRate::Duration(Duration::from_secs(60)),
                         warn!(
-                            "[{}] Ledger timestamp {} exceeded txn expiration timestamp {} for {:?}",
+                            "[{}] Ledger timestamp {} exceeded txn expiration timestamp {} for \
+                             {:?}",
                             client.path_prefix_string(),
                             ledger_timestamp_secs,
                             txn_expiration_ts_secs,
@@ -690,7 +693,7 @@ async fn wait_for_accounts_sequence(
                     );
                     break;
                 }
-            }
+            },
             Err(e) => {
                 sample!(
                     SampleRate::Duration(Duration::from_secs(60)),
@@ -701,14 +704,15 @@ async fn wait_for_accounts_sequence(
                         e
                     )
                 );
-            }
+            },
         }
 
         if aptos_infallible::duration_since_epoch().as_secs() >= txn_expiration_ts_secs + 240 {
             sample!(
                 SampleRate::Duration(Duration::from_secs(15)),
                 error!(
-                    "[{}] Client cannot catch up to needed timestamp ({}), after additional 240s, aborting",
+                    "[{}] Client cannot catch up to needed timestamp ({}), after additional 240s, \
+                     aborting",
                     client.path_prefix_string(),
                     txn_expiration_ts_secs,
                 )
@@ -756,7 +760,7 @@ fn update_seq_num_and_get_num_expired(
                     } else {
                         None
                     }
-                }
+                },
                 None => {
                     debug!(
                         "Couldn't fetch sequence_number for {}, expected {}, setting to {}",
@@ -766,7 +770,7 @@ fn update_seq_num_and_get_num_expired(
                     );
                     *account.sequence_number_mut() -= transactions_per_account as u64;
                     Some(transactions_per_account)
-                }
+                },
             },
         )
         .sum()

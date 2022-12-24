@@ -15,8 +15,9 @@ pub const REQUEST_SUCCESS_LABEL: &str = "success";
 pub const CALLBACK_FAIL_LABEL: &str = "callback_fail";
 pub const CALLBACK_SUCCESS_LABEL: &str = "callback_success";
 
-/// Counter for tracking latency of quorum store processing requests from consensus
-/// A 'fail' result means the quorum store's callback response to consensus failed.
+/// Counter for tracking latency of quorum store processing requests from
+/// consensus A 'fail' result means the quorum store's callback response to
+/// consensus failed.
 static QUORUM_STORE_SERVICE_LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(
         "quorum_store_service_latency_ms",

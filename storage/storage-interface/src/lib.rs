@@ -3,13 +3,10 @@
 
 use anyhow::{anyhow, format_err, Result};
 use aptos_crypto::{hash::CryptoHash, HashValue};
-use aptos_types::account_config::NewBlockEvent;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::state_store::table::{TableHandle, TableInfo};
 use aptos_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
-    account_config::CORE_CODE_ADDRESS,
+    account_config::{NewBlockEvent, CORE_CODE_ADDRESS},
     contract_event::EventWithVersion,
     epoch_change::EpochChangeProof,
     epoch_state::EpochState,
@@ -25,7 +22,9 @@ use aptos_types::{
     state_store::{
         state_key::StateKey,
         state_key_prefix::StateKeyPrefix,
+        state_storage_usage::StateStorageUsage,
         state_value::{StateValue, StateValueChunkWithProof},
+        table::{TableHandle, TableInfo},
     },
     transaction::{
         AccountTransactionsWithProof, TransactionInfo, TransactionListWithProof,
@@ -50,8 +49,8 @@ pub mod sync_proof_fetcher;
 use crate::state_delta::StateDelta;
 pub use executed_trees::ExecutedTrees;
 
-// This is last line of defense against large queries slipping through external facing interfaces,
-// like the API and State Sync, etc.
+// This is last line of defense against large queries slipping through external
+// facing interfaces, like the API and State Sync, etc.
 pub const MAX_REQUEST_LIMIT: u64 = 10000;
 
 pub trait StateSnapshotReceiver<K, V>: Send {
@@ -99,8 +98,8 @@ pub enum Order {
     Descending,
 }
 
-/// Trait that is implemented by a DB that supports certain public (to client) read APIs
-/// expected of an Aptos DB
+/// Trait that is implemented by a DB that supports certain public (to client)
+/// read APIs expected of an Aptos DB
 #[allow(unused_variables)]
 pub trait DbReader: Send + Sync {
     /// See [AptosDB::get_epoch_ending_ledger_infos].
@@ -218,8 +217,8 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Returns the start_version, end_version and NewBlockEvent of the block containing the input
-    /// transaction version.
+    /// Returns the start_version, end_version and NewBlockEvent of the block
+    /// containing the input transaction version.
     fn get_block_info_by_version(
         &self,
         version: Version,
@@ -227,15 +226,16 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Returns the start_version, end_version and NewBlockEvent of the block containing the input
-    /// transaction version.
+    /// Returns the start_version, end_version and NewBlockEvent of the block
+    /// containing the input transaction version.
     fn get_block_info_by_height(&self, height: u64) -> Result<(Version, Version, NewBlockEvent)> {
         unimplemented!()
     }
 
     /// Gets the version of the last transaction committed before timestamp,
-    /// a committed block at or after the required timestamp must exist (otherwise it's possible
-    /// the next block committed as a timestamp smaller than the one in the request).
+    /// a committed block at or after the required timestamp must exist
+    /// (otherwise it's possible the next block committed as a timestamp
+    /// smaller than the one in the request).
     fn get_last_version_before_timestamp(
         &self,
         _timestamp: u64,
@@ -249,9 +249,9 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Returns the (key, value) iterator for a particular state key prefix at at desired version. This
-    /// API can be used to get all resources of an account by passing the account address as the
-    /// key prefix.
+    /// Returns the (key, value) iterator for a particular state key prefix at
+    /// at desired version. This API can be used to get all resources of an
+    /// account by passing the account address as the key prefix.
     fn get_prefixed_state_value_iterator(
         &self,
         key_prefix: &StateKeyPrefix,
@@ -297,8 +297,9 @@ pub trait DbReader: Send + Sync {
         Ok((ledger_info.version(), ledger_info.timestamp_usecs()))
     }
 
-    /// Returns a transaction that is the `seq_num`-th one associated with the given account. If
-    /// the transaction with given `seq_num` doesn't exist, returns `None`.
+    /// Returns a transaction that is the `seq_num`-th one associated with the
+    /// given account. If the transaction with given `seq_num` doesn't
+    /// exist, returns `None`.
     fn get_account_transaction(
         &self,
         address: AccountAddress,
@@ -309,10 +310,11 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Returns the list of transactions sent by an account with `address` starting
-    /// at sequence number `seq_num`. Will return no more than `limit` transactions.
-    /// Will ignore transactions with `txn.version > ledger_version`. Optionally
-    /// fetch events for each transaction when `fetch_events` is `true`.
+    /// Returns the list of transactions sent by an account with `address`
+    /// starting at sequence number `seq_num`. Will return no more than
+    /// `limit` transactions. Will ignore transactions with `txn.version >
+    /// ledger_version`. Optionally fetch events for each transaction when
+    /// `fetch_events` is `true`.
     fn get_account_transactions(
         &self,
         address: AccountAddress,
@@ -324,8 +326,8 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Returns proof of new state for a given ledger info with signatures relative to version known
-    /// to client
+    /// Returns proof of new state for a given ledger info with signatures
+    /// relative to version known to client
     fn get_state_proof_with_ledger_info(
         &self,
         known_version: u64,
@@ -361,12 +363,14 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Gets a state value by state key along with the proof, out of the ledger state indicated by the state
-    /// Merkle tree root with a sparse merkle proof proving state tree root.
+    /// Gets a state value by state key along with the proof, out of the ledger
+    /// state indicated by the state Merkle tree root with a sparse merkle
+    /// proof proving state tree root.
     /// See [AptosDB::get_account_state_with_proof_by_version].
     ///
     /// [AptosDB::get_account_state_with_proof_by_version]:
-    /// ../aptosdb/struct.AptosDB.html#method.get_account_state_with_proof_by_version
+    /// ../aptosdb/struct.AptosDB.html#method.
+    /// get_account_state_with_proof_by_version
     ///
     /// This is used by aptos core (executor) internally.
     fn get_state_value_with_proof_by_version_ext(
@@ -398,31 +402,35 @@ pub trait DbReader: Send + Sync {
     }
 
     /// Gets the latest transaction info.
-    /// N.B. Unlike get_startup_info(), even if the db is not bootstrapped, this can return `Some`
-    /// -- those from a db-restore run.
+    /// N.B. Unlike get_startup_info(), even if the db is not bootstrapped, this
+    /// can return `Some` -- those from a db-restore run.
     fn get_latest_transaction_info_option(&self) -> Result<Option<(Version, TransactionInfo)>> {
         unimplemented!()
     }
 
     /// Gets the transaction accumulator root hash at specified version.
-    /// Caller must guarantee the version is not greater than the latest version.
+    /// Caller must guarantee the version is not greater than the latest
+    /// version.
     fn get_accumulator_root_hash(&self, _version: Version) -> Result<HashValue> {
         unimplemented!()
     }
 
-    /// Gets an [`AccumulatorConsistencyProof`] starting from `client_known_version`
-    /// (or pre-genesis if `None`) until `ledger_version`.
+    /// Gets an [`AccumulatorConsistencyProof`] starting from
+    /// `client_known_version` (or pre-genesis if `None`) until
+    /// `ledger_version`.
     ///
     /// In other words, if the client has an accumulator summary for
-    /// `client_known_version`, they can use the result from this API to efficiently
-    /// extend their accumulator to `ledger_version` and prove that the new accumulator
-    /// is consistent with their old accumulator. By consistent, we mean that by
-    /// appending the actual `ledger_version - client_known_version` transactions
-    /// to the old accumulator summary you get the new accumulator summary.
+    /// `client_known_version`, they can use the result from this API to
+    /// efficiently extend their accumulator to `ledger_version` and prove
+    /// that the new accumulator is consistent with their old accumulator.
+    /// By consistent, we mean that by appending the actual `ledger_version
+    /// - client_known_version` transactions to the old accumulator summary
+    /// you get the new accumulator summary.
     ///
     /// If the client is starting up for the first time and has no accumulator
     /// summary yet, they can call this with `client_known_version=None`, i.e.,
-    /// pre-genesis, to get the complete accumulator summary up to `ledger_version`.
+    /// pre-genesis, to get the complete accumulator summary up to
+    /// `ledger_version`.
     fn get_accumulator_consistency_proof(
         &self,
         _client_known_version: Option<Version>,
@@ -540,13 +548,14 @@ impl MoveStorage for &dyn DbReader {
     }
 }
 
-/// Trait that is implemented by a DB that supports certain public (to client) write APIs
-/// expected of an Aptos DB. This adds write APIs to DbReader.
+/// Trait that is implemented by a DB that supports certain public (to client)
+/// write APIs expected of an Aptos DB. This adds write APIs to DbReader.
 #[allow(unused_variables)]
 pub trait DbWriter: Send + Sync {
     /// Get a (stateful) state snapshot receiver.
     ///
-    /// Chunk of accounts need to be added via `add_chunk()` before finishing up with `finish_box()`
+    /// Chunk of accounts need to be added via `add_chunk()` before finishing up
+    /// with `finish_box()`
     fn get_state_snapshot_receiver(
         &self,
         version: Version,
@@ -555,12 +564,13 @@ pub trait DbWriter: Send + Sync {
         unimplemented!()
     }
 
-    /// Finalizes a state snapshot that has already been restored to the database through
-    /// a state snapshot receiver. This is required to bootstrap the transaction accumulator,
-    /// populate transaction information, save the epoch ending ledger infos and delete genesis.
+    /// Finalizes a state snapshot that has already been restored to the
+    /// database through a state snapshot receiver. This is required to
+    /// bootstrap the transaction accumulator, populate transaction
+    /// information, save the epoch ending ledger infos and delete genesis.
     ///
-    /// Note: this assumes that the output with proof has already been verified and that the
-    /// state snapshot was restored at the same version.
+    /// Note: this assumes that the output with proof has already been verified
+    /// and that the state snapshot was restored at the same version.
     fn finalize_state_snapshot(
         &self,
         version: Version,
@@ -570,8 +580,8 @@ pub trait DbWriter: Send + Sync {
         unimplemented!()
     }
 
-    /// Persist transactions. Called by the executor module when either syncing nodes or committing
-    /// blocks during normal operation.
+    /// Persist transactions. Called by the executor module when either syncing
+    /// nodes or committing blocks during normal operation.
     /// See [`AptosDB::save_transactions`].
     ///
     /// [`AptosDB::save_transactions`]: ../aptosdb/struct.AptosDB.html#method.save_transactions

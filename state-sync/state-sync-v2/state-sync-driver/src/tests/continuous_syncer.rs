@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::OutputFallbackHandler;
 use crate::{
     continuous_syncer::ContinuousSyncer,
     driver::DriverConfiguration,
@@ -17,14 +16,14 @@ use crate::{
             create_full_node_driver_configuration, create_transaction_info,
         },
     },
+    utils::OutputFallbackHandler,
 };
 use aptos_config::config::ContinuousSyncingMode;
 use aptos_consensus_notifications::ConsensusSyncNotification;
-use aptos_data_streaming_service::data_notification::DataNotification;
-use aptos_data_streaming_service::data_notification::DataPayload;
-use aptos_data_streaming_service::data_notification::NotificationId;
-use aptos_data_streaming_service::streaming_client::NotificationAndFeedback;
-use aptos_data_streaming_service::streaming_client::NotificationFeedback;
+use aptos_data_streaming_service::{
+    data_notification::{DataNotification, DataPayload, NotificationId},
+    streaming_client::{NotificationAndFeedback, NotificationFeedback},
+};
 use aptos_infallible::Mutex;
 use aptos_storage_service_types::Epoch;
 use aptos_time_service::TimeService;
@@ -32,8 +31,7 @@ use aptos_types::transaction::{TransactionOutputListWithProof, Version};
 use claims::assert_matches;
 use futures::SinkExt;
 use mockall::{predicate::eq, Sequence};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 #[tokio::test]
 async fn test_critical_timeout() {
@@ -280,7 +278,8 @@ async fn test_data_stream_transactions_or_outputs_with_target() {
     let notification_id = 435345;
     let target_ledger_info = create_epoch_ending_ledger_info();
 
-    // Create a driver configuration with a genesis waypoint and transactions or output syncing
+    // Create a driver configuration with a genesis waypoint and transactions or
+    // output syncing
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.continuous_syncing_mode =
         ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs;
@@ -361,7 +360,8 @@ async fn test_data_stream_transactions_or_outputs_with_target_fallback() {
     let notification_id = 435345;
     let target_ledger_info = create_epoch_ending_ledger_info();
 
-    // Create a driver configuration with a genesis waypoint and transactions or output syncing
+    // Create a driver configuration with a genesis waypoint and transactions or
+    // output syncing
     let mut driver_configuration = create_full_node_driver_configuration();
     driver_configuration.config.continuous_syncing_mode =
         ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs;
@@ -452,8 +452,8 @@ async fn test_data_stream_transactions_or_outputs_with_target_fallback() {
     ))));
     drive_progress(&mut continuous_syncer, &sync_request).await;
 
-    // Send a storage synchronizer error to the continuous syncer so that it falls back
-    // to output syncing and drive progress for the new stream type.
+    // Send a storage synchronizer error to the continuous syncer so that it falls
+    // back to output syncing and drive progress for the new stream type.
     handle_storage_synchronizer_error(
         &mut continuous_syncer,
         notification_id,
@@ -471,8 +471,8 @@ async fn test_data_stream_transactions_or_outputs_with_target_fallback() {
         ))
         .await;
 
-    // Send another storage synchronizer error to the bootstrapper and drive progress
-    // so that a regular stream is created.
+    // Send another storage synchronizer error to the bootstrapper and drive
+    // progress so that a regular stream is created.
     handle_storage_synchronizer_error(
         &mut continuous_syncer,
         notification_id,

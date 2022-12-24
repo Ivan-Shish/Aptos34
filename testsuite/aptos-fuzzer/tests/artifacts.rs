@@ -46,7 +46,8 @@ fn no_fork() -> bool {
 }
 
 fn test_artifact_impl(artifact_path: &Path) {
-    // Extract the target from the path -- it's the second component after "artifacts/".
+    // Extract the target from the path -- it's the second component after
+    // "artifacts/".
     let target_name = artifact_path
         .iter()
         .nth(1)

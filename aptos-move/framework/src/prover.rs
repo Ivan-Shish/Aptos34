@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::build_model;
-use codespan_reporting::diagnostic::Severity;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::{
+    diagnostic::Severity,
+    term::termcolor::{ColorChoice, StandardStream},
+};
 use log::LevelFilter;
 use move_core_types::account_address::AccountAddress;
-use std::collections::BTreeMap;
-use std::path::Path;
-use std::time::Instant;
+use std::{collections::BTreeMap, path::Path, time::Instant};
 use tempfile::TempDir;
 
 #[derive(Debug, Clone, clap::Parser, serde::Serialize, serde::Deserialize)]
@@ -17,13 +17,13 @@ pub struct ProverOptions {
     #[clap(long, short)]
     pub verbosity: Option<LevelFilter>,
 
-    /// Filters targets out from the package. Any module with a matching file name will
-    /// be a target, similar as with `cargo test`.
+    /// Filters targets out from the package. Any module with a matching file
+    /// name will be a target, similar as with `cargo test`.
     #[clap(long, short)]
     pub filter: Option<String>,
 
-    /// Whether to display additional information in error reports. This may help
-    /// debugging but also can make verification slower.
+    /// Whether to display additional information in error reports. This may
+    /// help debugging but also can make verification slower.
     #[clap(long, short)]
     pub trace: bool,
 
@@ -40,7 +40,8 @@ pub struct ProverOptions {
     #[clap(long, default_value_t = 0)]
     pub random_seed: usize,
 
-    /// The number of cores to use for parallel processing of verification conditions.
+    /// The number of cores to use for parallel processing of verification
+    /// conditions.
     #[clap(long, default_value_t = 4)]
     pub proc_cores: usize,
 
@@ -48,11 +49,13 @@ pub struct ProverOptions {
     #[clap(long, default_value_t = 40)]
     pub vc_timeout: usize,
 
-    /// Whether to check consistency of specs by injecting impossible assertions.
+    /// Whether to check consistency of specs by injecting impossible
+    /// assertions.
     #[clap(long)]
     pub check_inconsistency: bool,
 
-    /// Whether to keep loops as they are and pass them on to the underlying solver.
+    /// Whether to keep loops as they are and pass them on to the underlying
+    /// solver.
     #[clap(long)]
     pub keep_loops: bool,
 
@@ -60,8 +63,8 @@ pub struct ProverOptions {
     #[clap(long)]
     pub loop_unroll: Option<u64>,
 
-    /// Whether output for e.g. diagnosis shall be stable/redacted so it can be used in test
-    /// output.
+    /// Whether output for e.g. diagnosis shall be stable/redacted so it can be
+    /// used in test output.
     #[clap(long)]
     pub stable_test_output: bool,
 
@@ -105,8 +108,9 @@ impl ProverOptions {
         let for_test = self.for_test;
         let model = build_model(package_path, named_addresses, self.filter.clone())?;
         let mut options = self.convert_options();
-        // Need to ensure a distinct output.bpl file for concurrent execution. In non-test
-        // mode, we actually want to use the static output.bpl for debugging purposes
+        // Need to ensure a distinct output.bpl file for concurrent execution. In
+        // non-test mode, we actually want to use the static output.bpl for
+        // debugging purposes
         let _temp_holder = if for_test {
             let temp_dir = TempDir::new()?;
             std::fs::create_dir_all(temp_dir.path())?;

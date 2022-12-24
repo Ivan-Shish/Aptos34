@@ -69,19 +69,20 @@ impl<V> Entry<V> {
     }
 }
 
-/// Main multi-version data-structure used by threads to read/write during parallel
-/// execution. Maps each access path to an interal BTreeMap that contains the indices
-/// of transactions that write at the given access path alongside the corresponding
-/// entries of WriteCell type.
+/// Main multi-version data-structure used by threads to read/write during
+/// parallel execution. Maps each access path to an interal BTreeMap that
+/// contains the indices of transactions that write at the given access path
+/// alongside the corresponding entries of WriteCell type.
 ///
-/// Concurrency is managed by DashMap, i.e. when a method accesses a BTreeMap at a
-/// given key, it holds exclusive access and doesn't need to explicitly synchronize
-/// with other reader/writers.
+/// Concurrency is managed by DashMap, i.e. when a method accesses a BTreeMap at
+/// a given key, it holds exclusive access and doesn't need to explicitly
+/// synchronize with other reader/writers.
 pub struct MVHashMap<K, V> {
     data: DashMap<K, BTreeMap<TxnIndex, CachePadded<Entry<V>>>>,
 }
 
-/// Returned as Err(..) when failed to read from the multi-version data-structure.
+/// Returned as Err(..) when failed to read from the multi-version
+/// data-structure.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MVHashMapError {
     /// No prior entry is found.
@@ -94,15 +95,16 @@ pub enum MVHashMapError {
     DeltaApplicationFailure,
 }
 
-/// Returned as Ok(..) when read successfully from the multi-version data-structure.
+/// Returned as Ok(..) when read successfully from the multi-version
+/// data-structure.
 #[derive(Debug, PartialEq, Eq)]
 pub enum MVHashMapOutput<V> {
-    /// Result of resolved delta op, always u128. Unlike with `Version`, we return
-    /// actual data because u128 is cheap to copy amd validation can be done correctly
-    /// on values as well (ABA is not a problem).
+    /// Result of resolved delta op, always u128. Unlike with `Version`, we
+    /// return actual data because u128 is cheap to copy amd validation can
+    /// be done correctly on values as well (ABA is not a problem).
     Resolved(u128),
-    /// Information from the last versioned-write. Note that the version is returned
-    /// and not the data to avoid passing big values around.
+    /// Information from the last versioned-write. Note that the version is
+    /// returned and not the data to avoid passing big values around.
     Version(Version, Arc<V>),
 }
 
@@ -120,8 +122,8 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
         self.data.remove(key).map(|(_, tree)| tree)
     }
 
-    /// Add a write of versioned data at a specified key. If the entry is overwritten, asserts
-    /// that the new incarnation is strictly higher.
+    /// Add a write of versioned data at a specified key. If the entry is
+    /// overwritten, asserts that the new incarnation is strictly higher.
     pub fn add_write(&self, key: &K, version: Version, data: V) {
         let (txn_idx, incarnation) = version;
 
@@ -131,7 +133,8 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
             CachePadded::new(Entry::new_write_from(FLAG_DONE, incarnation, data)),
         );
 
-        // Assert that the previous entry for txn_idx, if present, had lower incarnation.
+        // Assert that the previous entry for txn_idx, if present, had lower
+        // incarnation.
         assert!(prev_entry.map_or(true, |entry| -> bool {
             if let EntryCell::Write(i, _) = entry.cell {
                 i < incarnation
@@ -150,8 +153,9 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
         );
     }
 
-    /// Mark an entry from transaction 'txn_idx' at access path 'key' as an estimated write
-    /// (for future incarnation). Will panic if the entry is not in the data-structure.
+    /// Mark an entry from transaction 'txn_idx' at access path 'key' as an
+    /// estimated write (for future incarnation). Will panic if the entry is
+    /// not in the data-structure.
     pub fn mark_estimate(&self, key: &K, txn_idx: TxnIndex) {
         let map = self.data.get(key).expect("Path must exist");
         map.get(&txn_idx)
@@ -159,8 +163,8 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
             .mark_estimate();
     }
 
-    /// Delete an entry from transaction 'txn_idx' at access path 'key'. Will panic
-    /// if the access path has never been written before.
+    /// Delete an entry from transaction 'txn_idx' at access path 'key'. Will
+    /// panic if the access path has never been written before.
     pub fn delete(&self, key: &K, txn_idx: TxnIndex) {
         // TODO: investigate logical deletion.
         let mut map = self.data.get_mut(key).expect("Path must exist");
@@ -196,7 +200,7 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                             // Resolve to the write if no deltas were applied in between.
                             let write_version = (*idx, *incarnation);
                             return Ok(Version(write_version, data.clone()));
-                        }
+                        },
                         (EntryCell::Write(incarnation, data), Some(accumulator)) => {
                             // Deltas were applied. We must deserialize the value
                             // of the write and apply the aggregated delta accumulator.
@@ -216,7 +220,7 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                                 .apply_to(maybe_value.unwrap().into())
                                 .map_err(|_| DeltaApplicationFailure)
                                 .map(|result| Resolved(result));
-                        }
+                        },
                         (EntryCell::Delta(delta), Some(accumulator)) => {
                             // Read hit a delta during traversing the
                             // block and aggregating other deltas. Merge
@@ -226,12 +230,12 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                             accumulator
                                 .merge_onto(*delta)
                                 .map_err(|_| DeltaApplicationFailure)?;
-                        }
+                        },
                         (EntryCell::Delta(delta), None) => {
                             // Read hit a delta and must start accumulating.
                             // Initialize the accumulator and continue traversal.
                             accumulator = Some(*delta)
-                        }
+                        },
                     }
                 }
 
@@ -242,7 +246,7 @@ impl<K: Hash + Clone + Eq, V: TransactionWrite> MVHashMap<K, V> {
                     Some(accumulator) => Err(Unresolved(accumulator)),
                     None => Err(NotFound),
                 }
-            }
+            },
             None => Err(NotFound),
         }
     }

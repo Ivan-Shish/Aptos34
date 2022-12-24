@@ -29,7 +29,13 @@ pub static TIMER: Lazy<HistogramVec> = Lazy::new(|| {
         "aptos_scratchpad_smt_timer_seconds",
         "Various timers for performance analysis.",
         &["name"],
-        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-6, // factor=
+            2.0,  // count=
+            22
+        )
+        .unwrap(),
     )
     .unwrap()
 });

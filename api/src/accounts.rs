@@ -1,36 +1,39 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::accept_type::AcceptType;
-use crate::context::Context;
-use crate::failpoint::fail_point_poem;
-use crate::page::determine_limit;
-use crate::response::{
-    account_not_found, resource_not_found, struct_field_not_found, BadRequestError,
-    BasicErrorWith404, BasicResponse, BasicResponseStatus, BasicResultWith404, InternalError,
+use crate::{
+    accept_type::AcceptType,
+    context::Context,
+    failpoint::fail_point_poem,
+    page::determine_limit,
+    response::{
+        account_not_found, resource_not_found, struct_field_not_found, BadRequestError,
+        BasicErrorWith404, BasicResponse, BasicResponseStatus, BasicResultWith404, InternalError,
+    },
+    ApiTags,
 };
-use crate::ApiTags;
 use anyhow::Context as AnyhowContext;
 use aptos_api_types::{
     AccountData, Address, AptosErrorCode, AsConverter, LedgerInfo, MoveModuleBytecode,
     MoveModuleId, MoveResource, MoveStructTag, StateKeyWrapper, U64,
 };
-use aptos_types::access_path::AccessPath;
-use aptos_types::account_config::AccountResource;
-use aptos_types::event::EventHandle;
-use aptos_types::event::EventKey;
-use aptos_types::state_store::state_key::StateKey;
-use move_core_types::value::MoveValue;
+use aptos_types::{
+    access_path::AccessPath,
+    account_config::AccountResource,
+    event::{EventHandle, EventKey},
+    state_store::state_key::StateKey,
+};
 use move_core_types::{
     identifier::Identifier,
     language_storage::{ResourceKey, StructTag},
     move_resource::MoveStructType,
+    value::MoveValue,
 };
-use poem_openapi::param::Query;
-use poem_openapi::{param::Path, OpenApi};
-use std::collections::BTreeMap;
-use std::convert::TryInto;
-use std::sync::Arc;
+use poem_openapi::{
+    param::{Path, Query},
+    OpenApi,
+};
+use std::{collections::BTreeMap, convert::TryInto, sync::Arc};
 
 /// API for accounts, their associated resources, and modules
 pub struct AccountsApi {
@@ -43,7 +46,8 @@ impl AccountsApi {
     ///
     /// Return the authentication key and the sequence number for an account
     /// address. Optionally, a ledger version can be specified. If the ledger
-    /// version is not specified in the request, the latest ledger version is used.
+    /// version is not specified in the request, the latest ledger version is
+    /// used.
     #[oai(
         path = "/accounts/:address",
         method = "get",
@@ -75,11 +79,13 @@ impl AccountsApi {
 
     /// Get account resources
     ///
-    /// Retrieves all account resources for a given account and a specific ledger version.  If the
-    /// ledger version is not specified in the request, the latest ledger version is used.
+    /// Retrieves all account resources for a given account and a specific
+    /// ledger version.  If the ledger version is not specified in the
+    /// request, the latest ledger version is used.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/accounts/:address/resources",
         method = "get",
@@ -97,10 +103,10 @@ impl AccountsApi {
         ledger_version: Query<Option<U64>>,
         /// Cursor specifying where to start for pagination
         ///
-        /// This cursor cannot be derived manually client-side. Instead, you must
-        /// call this endpoint once without this query parameter specified, and
-        /// then use the cursor returned in the X-Aptos-Cursor header in the
-        /// response.
+        /// This cursor cannot be derived manually client-side. Instead, you
+        /// must call this endpoint once without this query parameter
+        /// specified, and then use the cursor returned in the
+        /// X-Aptos-Cursor header in the response.
         start: Query<Option<StateKeyWrapper>>,
         /// Max number of account resources to retrieve
         ///
@@ -122,11 +128,13 @@ impl AccountsApi {
 
     /// Get account modules
     ///
-    /// Retrieves all account modules' bytecode for a given account at a specific ledger version.
-    /// If the ledger version is not specified in the request, the latest ledger version is used.
+    /// Retrieves all account modules' bytecode for a given account at a
+    /// specific ledger version. If the ledger version is not specified in
+    /// the request, the latest ledger version is used.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/accounts/:address/modules",
         method = "get",
@@ -144,10 +152,10 @@ impl AccountsApi {
         ledger_version: Query<Option<U64>>,
         /// Cursor specifying where to start for pagination
         ///
-        /// This cursor cannot be derived manually client-side. Instead, you must
-        /// call this endpoint once without this query parameter specified, and
-        /// then use the cursor returned in the X-Aptos-Cursor header in the
-        /// response.
+        /// This cursor cannot be derived manually client-side. Instead, you
+        /// must call this endpoint once without this query parameter
+        /// specified, and then use the cursor returned in the
+        /// X-Aptos-Cursor header in the response.
         start: Query<Option<StateKeyWrapper>>,
         /// Max number of account modules to retrieve
         ///
@@ -184,8 +192,8 @@ pub struct Account {
 }
 
 impl Account {
-    /// Creates a new account struct and determines the current ledger info, and determines the
-    /// ledger version to query
+    /// Creates a new account struct and determines the current ledger info, and
+    /// determines the ledger version to query
     pub fn new(
         context: Arc<Context>,
         address: Address,
@@ -265,10 +273,12 @@ impl Account {
     /// Retrieves the move resources associated with the account
     ///
     /// * JSON: Return a JSON encoded version of [`Vec<MoveResource>`]
-    /// * BCS: Return a sorted BCS encoded version of BCS encoded resources [`BTreeMap<StructTag, Vec<u8>>`]
+    /// * BCS: Return a sorted BCS encoded version of BCS encoded resources
+    ///   [`BTreeMap<StructTag, Vec<u8>>`]
     ///
-    /// Note: For the BCS response, if results are being returned in pages, i.e. with the
-    /// `start` and `limit` query parameters, the results will only be sorted within each page.
+    /// Note: For the BCS response, if results are being returned in pages, i.e.
+    /// with the `start` and `limit` query parameters, the results will only
+    /// be sorted within each page.
     pub fn resources(self, accept_type: &AcceptType) -> BasicResultWith404<Vec<MoveResource>> {
         // check account exists
         self.get_account_resource()?;
@@ -317,7 +327,7 @@ impl Account {
                     BasicResponseStatus::Ok,
                 ))
                 .map(|v| v.with_cursor(next_state_key))
-            }
+            },
             AcceptType::Bcs => {
                 // Put resources in a BTreeMap to ensure they're ordered the same every time
                 let resources: BTreeMap<StructTag, Vec<u8>> = resources.into_iter().collect();
@@ -327,17 +337,20 @@ impl Account {
                     BasicResponseStatus::Ok,
                 ))
                 .map(|v| v.with_cursor(next_state_key))
-            }
+            },
         }
     }
 
     /// Retrieves the move modules' bytecode associated with the account
     ///
-    /// * JSON: Return a JSON encoded version of [`Vec<MoveModuleBytecode>`] with parsed ABIs
-    /// * BCS: Return a sorted BCS encoded version of bytecode [`BTreeMap<MoveModuleId, Vec<u8>>`]
+    /// * JSON: Return a JSON encoded version of [`Vec<MoveModuleBytecode>`]
+    ///   with parsed ABIs
+    /// * BCS: Return a sorted BCS encoded version of bytecode
+    ///   [`BTreeMap<MoveModuleId, Vec<u8>>`]
     ///
-    /// Note: For the BCS response, if results are being returned in pages, i.e. with the
-    /// `start` and `limit` query parameters, the results will only be sorted within each page.
+    /// Note: For the BCS response, if results are being returned in pages, i.e.
+    /// with the `start` and `limit` query parameters, the results will only
+    /// be sorted within each page.
     pub fn modules(self, accept_type: &AcceptType) -> BasicResultWith404<Vec<MoveModuleBytecode>> {
         // check account exists
         self.get_account_resource()?;
@@ -389,7 +402,7 @@ impl Account {
                     BasicResponseStatus::Ok,
                 ))
                 .map(|v| v.with_cursor(next_state_key))
-            }
+            },
             AcceptType::Bcs => {
                 // Sort modules by name
                 let modules: BTreeMap<MoveModuleId, Vec<u8>> = modules
@@ -402,14 +415,15 @@ impl Account {
                     BasicResponseStatus::Ok,
                 ))
                 .map(|v| v.with_cursor(next_state_key))
-            }
+            },
         }
     }
 
-    /// Retrieves an event key from a [`MoveStructTag`] and a [`Identifier`] field name
+    /// Retrieves an event key from a [`MoveStructTag`] and a [`Identifier`]
+    /// field name
     ///
-    /// e.g. If there's the `CoinStore` module, it has a field named `withdraw_events` for
-    /// the withdraw events to lookup the key
+    /// e.g. If there's the `CoinStore` module, it has a field named
+    /// `withdraw_events` for the withdraw events to lookup the key
     pub fn find_event_key(
         &self,
         struct_tag: MoveStructTag,

@@ -68,7 +68,7 @@ pub(crate) fn gen_value() -> (HashValue, ValueBlob) {
 
 /// Computes the key immediately after `key`.
 pub fn plus_one(key: HashValue) -> HashValue {
-    assert_ne!(key, HashValue::new([0xff; HashValue::LENGTH]));
+    assert_ne!(key, HashValue::new([0xFF; HashValue::LENGTH]));
 
     let mut buf = key.to_vec();
     for i in (0..HashValue::LENGTH).rev() {
@@ -82,7 +82,8 @@ pub fn plus_one(key: HashValue) -> HashValue {
     HashValue::from_slice(&buf).unwrap()
 }
 
-/// Initializes a DB with a set of key-value pairs by inserting one key at each version.
+/// Initializes a DB with a set of key-value pairs by inserting one key at each
+/// version.
 pub fn init_mock_db<V>(kvs: &HashMap<HashValue, (HashValue, V)>) -> (MockTreeStore<V>, Version)
 where
     V: TestKey,
@@ -140,7 +141,7 @@ pub fn arb_kv_pair_with_distinct_last_nibble<V: TestKey>(
 ) -> impl Strategy<Value = ((HashValue, (HashValue, V)), (HashValue, (HashValue, V)))> {
     (
         any::<HashValue>().prop_filter("Can't be 0xffffff...", |key| {
-            *key != HashValue::new([0xff; HashValue::LENGTH])
+            *key != HashValue::new([0xFF; HashValue::LENGTH])
         }),
         vec((any::<HashValue>(), any::<V>()), 2),
     )
@@ -220,7 +221,8 @@ fn test_nonexistent_keys_impl<'a, V: TestKey>(
     }
 }
 
-/// Checks if we can construct the expected root hash using the entries in the btree and the proof.
+/// Checks if we can construct the expected root hash using the entries in the
+/// btree and the proof.
 fn verify_range_proof<V: TestKey>(
     expected_root_hash: HashValue,
     btree: BTreeMap<HashValue, (HashValue, V)>,
@@ -249,23 +251,24 @@ fn verify_range_proof<V: TestKey>(
     //   X => 101
     //   h => 11
     //
-    // Basically, the suffixes that doesn't affect the common prefix of adjacent leaves are
-    // discarded. In this example, we assume `btree` has the keys `a` to `e` and the proof has `X`
-    // and `h` in the siblings.
+    // Basically, the suffixes that doesn't affect the common prefix of adjacent
+    // leaves are discarded. In this example, we assume `btree` has the keys `a`
+    // to `e` and the proof has `X` and `h` in the siblings.
 
-    // Now we want to construct a set of key-value pairs that covers the entire set of leaves. For
-    // `a` to `e` this is simple -- we just insert them directly into this set. For the rest of the
-    // leaves, they are represented by the siblings, so we just make up some keys that make sense.
-    // For example, for `X` we just use 101000... (more zeros omitted), because that is one key
+    // Now we want to construct a set of key-value pairs that covers the entire set
+    // of leaves. For `a` to `e` this is simple -- we just insert them directly
+    // into this set. For the rest of the leaves, they are represented by the
+    // siblings, so we just make up some keys that make sense. For example, for
+    // `X` we just use 101000... (more zeros omitted), because that is one key
     // that would cause `X` to end up in the above position.
     let mut btree1 = BTreeMap::new();
     for (key, value) in &btree {
         let leaf = LeafNode::new(*key, value.0, (value.1.clone(), 0 /* version */));
         btree1.insert(*key, leaf.hash());
     }
-    // Using the above example, `last_proven_key` is `e`. We look at the path from root to `e`.
-    // For each 0-bit, there should be a sibling in the proof. And we use the path from root to
-    // this position, plus a `1` as the key.
+    // Using the above example, `last_proven_key` is `e`. We look at the path from
+    // root to `e`. For each 0-bit, there should be a sibling in the proof. And
+    // we use the path from root to this position, plus a `1` as the key.
     let last_proven_key = *btree
         .keys()
         .last()
@@ -276,12 +279,12 @@ fn verify_range_proof<V: TestKey>(
         .filter_map(|(i, bit)| if !bit { Some(i) } else { None })
         .zip(proof.right_siblings().iter().rev())
     {
-        // This means the `i`-th bit is zero. We take `i` bits from `last_proven_key` and append a
-        // one to make up the key for this sibling.
+        // This means the `i`-th bit is zero. We take `i` bits from `last_proven_key`
+        // and append a one to make up the key for this sibling.
         let mut buf: Vec<_> = last_proven_key.iter_bits().take(i).collect();
         buf.push(true);
-        // The rest doesn't matter, because they don't affect the position of the node. We just
-        // add zeros.
+        // The rest doesn't matter, because they don't affect the position of the node.
+        // We just add zeros.
         buf.resize(HashValue::LENGTH_IN_BITS, false);
         let key = HashValue::from_bit_iter(buf.into_iter()).unwrap();
         btree1.insert(key, *sibling);
@@ -297,8 +300,8 @@ fn verify_range_proof<V: TestKey>(
         let next_common_prefix_len =
             next_key(&btree1, key).map(|nkey| nkey.common_prefix_bits_len(*key));
 
-        // We take the longest common prefix of the current key and its neighbors. That's how much
-        // we need to keep.
+        // We take the longest common prefix of the current key and its neighbors.
+        // That's how much we need to keep.
         let len = match (prev_common_prefix_len, next_common_prefix_len) {
             (Some(plen), Some(nlen)) => std::cmp::max(plen, nlen),
             (Some(plen), None) => plen,
@@ -338,8 +341,8 @@ where
         .map(|(k, _v)| k.clone())
 }
 
-/// Computes the root hash of a sparse Merkle tree. `kvs` consists of the entire set of key-value
-/// pairs stored in the tree.
+/// Computes the root hash of a sparse Merkle tree. `kvs` consists of the entire
+/// set of key-value pairs stored in the tree.
 fn compute_root_hash(kvs: Vec<(Vec<bool>, HashValue)>) -> HashValue {
     let mut kv_ref = vec![];
     for (key, value) in &kvs {
@@ -356,9 +359,9 @@ fn compute_root_hash_impl(kvs: Vec<(&[bool], HashValue)>) -> HashValue {
         return kvs[0].1;
     }
 
-    // Otherwise the tree has more than one leaves, which means we can find which ones are in the
-    // left subtree and which ones are in the right subtree. So we find the first key that starts
-    // with a 1-bit.
+    // Otherwise the tree has more than one leaves, which means we can find which
+    // ones are in the left subtree and which ones are in the right subtree. So
+    // we find the first key that starts with a 1-bit.
     let left_hash;
     let right_hash;
     match kvs.iter().position(|(key, _value)| key[0]) {
@@ -366,17 +369,17 @@ fn compute_root_hash_impl(kvs: Vec<(&[bool], HashValue)>) -> HashValue {
             // Every key starts with a 1-bit, i.e., they are all in the right subtree.
             left_hash = *SPARSE_MERKLE_PLACEHOLDER_HASH;
             right_hash = compute_root_hash_impl(reduce(&kvs));
-        }
+        },
         Some(index) => {
             // Both left subtree and right subtree have some keys.
             left_hash = compute_root_hash_impl(reduce(&kvs[..index]));
             right_hash = compute_root_hash_impl(reduce(&kvs[index..]));
-        }
+        },
         None => {
             // Every key starts with a 0-bit, i.e., they are all in the left subtree.
             left_hash = compute_root_hash_impl(reduce(&kvs));
             right_hash = *SPARSE_MERKLE_PLACEHOLDER_HASH;
-        }
+        },
     }
 
     SparseMerkleInternalNode::new(left_hash, right_hash).hash()

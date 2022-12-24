@@ -1,7 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{debug, error};
+use crate::{
+    debug, error,
+    errors::ValidatorCacheUpdateError,
+    metrics::{VALIDATOR_SET_UPDATE_FAILED_COUNT, VALIDATOR_SET_UPDATE_SUCCESS_COUNT},
+    types::common::EpochedPeerStore,
+};
 use aptos_config::config::{Peer, PeerRole, PeerSet};
 use aptos_infallible::RwLock;
 use aptos_rest_client::Response;
@@ -11,12 +16,6 @@ use aptos_types::{
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::time;
 use url::Url;
-
-use crate::{
-    errors::ValidatorCacheUpdateError,
-    metrics::{VALIDATOR_SET_UPDATE_FAILED_COUNT, VALIDATOR_SET_UPDATE_SUCCESS_COUNT},
-    types::common::EpochedPeerStore,
-};
 
 #[derive(Clone)]
 pub struct PeerSetCacheUpdater {
@@ -60,7 +59,7 @@ impl PeerSetCacheUpdater {
                         .with_label_values(&[&chain_id.to_string()])
                         .inc();
                     debug!("validator set update successful for chain id {}", chain_id);
-                }
+                },
                 Err(err) => {
                     VALIDATOR_SET_UPDATE_FAILED_COUNT
                         .with_label_values(&[&chain_id.to_string(), &err.to_string()])
@@ -69,7 +68,7 @@ impl PeerSetCacheUpdater {
                         "validator set update error for chain id {}: {:?}",
                         chain_id, err
                     );
-                }
+                },
             }
         }
     }
@@ -117,7 +116,8 @@ impl PeerSetCacheUpdater {
                     })
                     .map_err(|err| {
                         error!(
-                            "unable to parse validator network address for validator info {} for chain id {}: {}",
+                            "unable to parse validator network address for validator info {} for \
+                             chain id {}: {}",
                             validator_info, chain_id, err
                         )
                     })
@@ -139,7 +139,8 @@ impl PeerSetCacheUpdater {
                     })
                     .map_err(|err| {
                         error!(
-                            "unable to parse fullnode network address for validator info {} in chain id {}: {}",
+                            "unable to parse fullnode network address for validator info {} in \
+                             chain id {}: {}",
                             validator_info, chain_id, err
                         );
                     })
@@ -210,8 +211,10 @@ mod tests {
 
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
-            when.method("GET")
-                .path("/v1/accounts/0000000000000000000000000000000000000000000000000000000000000001/resource/0x1::stake::ValidatorSet");
+            when.method("GET").path(
+                "/v1/accounts/0000000000000000000000000000000000000000000000000000000000000001/\
+                 resource/0x1::stake::ValidatorSet",
+            );
             then.status(200)
                 .body(bcs::to_bytes(&validator_set).unwrap())
                 .header(X_APTOS_CHAIN_ID, "25")
@@ -249,8 +252,21 @@ mod tests {
             10,
             ValidatorConfig::new(
                 keypair.public_key,
-                bcs::to_bytes(&vec![NetworkAddress::from_str("/dns/a5f3d921730874389bb2f66275f163a5-8f14ad5b5e992c1c.elb.ap-southeast-1.amazonaws.com/tcp/6180/noise-ik/0xc5edf62233096df793b554e1013b07c83d01b3cf50c14ac83a0a7e0cfe340426/handshake/0").unwrap()]).unwrap(),
-                bcs::to_bytes(&vec![NetworkAddress::from_str("/dns/fullnode0.testnet.aptoslabs.com/tcp/6182/noise-ik/0xea19ab47ed9191865f15d85d751ed0663205c0b2f0f465714b1947c023715973/handshake/0").unwrap()]).unwrap(),
+                bcs::to_bytes(&vec![NetworkAddress::from_str(
+                    "/dns/a5f3d921730874389bb2f66275f163a5-8f14ad5b5e992c1c.elb.ap-southeast-1.\
+                     amazonaws.com/tcp/6180/noise-ik/\
+                     0xc5edf62233096df793b554e1013b07c83d01b3cf50c14ac83a0a7e0cfe340426/handshake/\
+                     0",
+                )
+                .unwrap()])
+                .unwrap(),
+                bcs::to_bytes(&vec![NetworkAddress::from_str(
+                    "/dns/fullnode0.testnet.aptoslabs.com/tcp/6182/noise-ik/\
+                     0xea19ab47ed9191865f15d85d751ed0663205c0b2f0f465714b1947c023715973/handshake/\
+                     0",
+                )
+                .unwrap()])
+                .unwrap(),
                 2,
             ),
         );
@@ -258,17 +274,19 @@ mod tests {
 
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
-            when.method("GET")
-                .path("/v1/accounts/0000000000000000000000000000000000000000000000000000000000000001/resource/0x1::stake::ValidatorSet");
+            when.method("GET").path(
+                "/v1/accounts/0000000000000000000000000000000000000000000000000000000000000001/\
+                 resource/0x1::stake::ValidatorSet",
+            );
             then.status(200)
-            .body(bcs::to_bytes(&validator_set).unwrap())
-            .header(X_APTOS_CHAIN_ID, "25")
-            .header(X_APTOS_EPOCH, "10")
-            .header(X_APTOS_LEDGER_VERSION, "10")
-            .header(X_APTOS_LEDGER_OLDEST_VERSION, "2")
-            .header(X_APTOS_BLOCK_HEIGHT, "25")
-            .header(X_APTOS_OLDEST_BLOCK_HEIGHT, "10")
-            .header(X_APTOS_LEDGER_TIMESTAMP, "10");
+                .body(bcs::to_bytes(&validator_set).unwrap())
+                .header(X_APTOS_CHAIN_ID, "25")
+                .header(X_APTOS_EPOCH, "10")
+                .header(X_APTOS_LEDGER_VERSION, "10")
+                .header(X_APTOS_LEDGER_OLDEST_VERSION, "2")
+                .header(X_APTOS_BLOCK_HEIGHT, "25")
+                .header(X_APTOS_OLDEST_BLOCK_HEIGHT, "10")
+                .header(X_APTOS_LEDGER_TIMESTAMP, "10");
         });
 
         let mut fullnodes = HashMap::new();

@@ -44,13 +44,14 @@ impl KeyTool {
 
 /// Extract full peer information for an upstream peer
 ///
-/// This command builds a YAML blob that can be copied into a user's network configuration.
-/// A host is required to build the network address used for the connection, and the
-/// network key is required to identify the peer.
+/// This command builds a YAML blob that can be copied into a user's network
+/// configuration. A host is required to build the network address used for the
+/// connection, and the network key is required to identify the peer.
 ///
-/// A `private-network-key` or `public-network-key` can be given encoded on the command line, or
-/// a `private-network-key-file` or a `public-network-key-file` can be given to read from.
-/// The `output-file` will be a YAML serialized peer information for use in network config.
+/// A `private-network-key` or `public-network-key` can be given encoded on the
+/// command line, or a `private-network-key-file` or a `public-network-key-file`
+/// can be given to read from. The `output-file` will be a YAML serialized peer
+/// information for use in network config.
 #[derive(Debug, Parser)]
 pub struct ExtractPeer {
     /// Host and port of the full node
@@ -139,18 +140,39 @@ impl NetworkKeyInputOptions {
         encoding: EncodingType,
     ) -> CliTypedResult<x25519::PublicKey> {
         // The grouping above prevents there from being more than one, but just in case
-        match (self.public_network_key,  self.public_network_key_file, self.private_network_key, self.private_network_key_file){
-            (Some(public_network_key), None, None, None) => encoding.decode_key("--public-network-key", public_network_key.as_bytes().to_vec()),
-            (None, Some(public_network_key_file),None,  None) => encoding.load_key("--public-network-key-file", public_network_key_file.as_path()),
-            (None, None, Some(private_network_key),  None) => {
-                let private_network_key: x25519::PrivateKey = encoding.decode_key("--private-network-key", private_network_key.as_bytes().to_vec())?;
+        match (
+            self.public_network_key,
+            self.public_network_key_file,
+            self.private_network_key,
+            self.private_network_key_file,
+        ) {
+            (Some(public_network_key), None, None, None) => encoding.decode_key(
+                "--public-network-key",
+                public_network_key.as_bytes().to_vec(),
+            ),
+            (None, Some(public_network_key_file), None, None) => encoding.load_key(
+                "--public-network-key-file",
+                public_network_key_file.as_path(),
+            ),
+            (None, None, Some(private_network_key), None) => {
+                let private_network_key: x25519::PrivateKey = encoding.decode_key(
+                    "--private-network-key",
+                    private_network_key.as_bytes().to_vec(),
+                )?;
                 Ok(private_network_key.public_key())
             },
             (None, None, None, Some(private_network_key_file)) => {
-                let private_network_key: x25519::PrivateKey = encoding.load_key("--private-network-key-file", private_network_key_file.as_path())?;
+                let private_network_key: x25519::PrivateKey = encoding.load_key(
+                    "--private-network-key-file",
+                    private_network_key_file.as_path(),
+                )?;
                 Ok(private_network_key.public_key())
             },
-            _ => Err(CliError::CommandArgumentError("Must provide exactly one of [--public-network-key, --public-network-key-file, --private-network-key, --private-network-key-file]".to_string()))
+            _ => Err(CliError::CommandArgumentError(
+                "Must provide exactly one of [--public-network-key, --public-network-key-file, \
+                 --private-network-key, --private-network-key-file]"
+                    .to_string(),
+            )),
         }
     }
 }
@@ -159,8 +181,8 @@ impl NetworkKeyInputOptions {
 ///
 /// This can be used for generating an identity.  Two files will be created
 /// `output_file` and `output_file.pub`.  `output_file` will contain the private
-/// key encoded with the `encoding` and `output_file.pub` will contain the public
-/// key encoded with the `encoding`.
+/// key encoded with the `encoding` and `output_file.pub` will contain the
+/// public key encoded with the `encoding`.
 #[derive(Debug, Parser)]
 pub struct GenerateKey {
     /// Key type to generate. Must be one of [x25519, ed25519, bls12381]
@@ -192,15 +214,15 @@ impl CliCommand<HashMap<&'static str, PathBuf>> for GenerateKey {
                     ))
                 })?;
                 self.save_params.save_key(&private_key, "x25519")
-            }
+            },
             KeyType::Ed25519 => {
                 let private_key = keygen.generate_ed25519_private_key();
                 self.save_params.save_key(&private_key, "ed25519")
-            }
+            },
             KeyType::Bls12381 => {
                 let private_key = keygen.generate_bls12381_private_key();
                 self.save_params.save_bls_key(&private_key, "bls12381")
-            }
+            },
         }
     }
 }
@@ -212,7 +234,8 @@ impl GenerateKey {
         key_file: &Path,
     ) -> CliTypedResult<(x25519::PrivateKey, x25519::PublicKey)> {
         let args = format!(
-            "generate --key-type {key_type:?} --output-file {key_file} --encoding {encoding:?} --assume-yes",
+            "generate --key-type {key_type:?} --output-file {key_file} --encoding {encoding:?} \
+             --assume-yes",
             key_type = KeyType::X25519,
             key_file = key_file.display(),
             encoding = encoding,
@@ -234,7 +257,8 @@ impl GenerateKey {
         key_file: &Path,
     ) -> CliTypedResult<(ed25519::Ed25519PrivateKey, ed25519::Ed25519PublicKey)> {
         let args = format!(
-            "generate --key-type {key_type:?} --output-file {key_file} --encoding {encoding:?} --assume-yes",
+            "generate --key-type {key_type:?} --output-file {key_file} --encoding {encoding:?} \
+             --assume-yes",
             key_type = KeyType::Ed25519,
             key_file = key_file.display(),
             encoding = encoding,

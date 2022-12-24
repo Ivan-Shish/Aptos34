@@ -3,11 +3,14 @@
 
 //! The socket module implements the post-handshake part of the protocol.
 //! Its main type [`NoiseStream`] is returned after a successful [handshake].
-//! functions in this module enables encrypting and decrypting messages from a socket.
-//! Note that since noise is length-unaware, we have to prefix every noise message with its length
+//! functions in this module enables encrypting and decrypting messages from a
+//! socket. Note that since noise is length-unaware, we have to prefix every
+//! noise message with its length
 //!
 //! [handshake]: crate::noise::handshake
 
+use aptos_crypto::{noise, x25519};
+use aptos_logger::prelude::*;
 use futures::{
     io::{AsyncRead, AsyncWrite},
     ready,
@@ -19,18 +22,15 @@ use std::{
     task::{Context, Poll},
 };
 
-use aptos_crypto::{noise, x25519};
-use aptos_logger::prelude::*;
-
-//
 // NoiseStream
 // ------------
 //
 
 /// A Noise stream with a remote peer.
 ///
-/// Encrypts data to be written to and decrypts data that is read from the underlying socket using
-/// the noise protocol. This is done by prefixing noise payloads with a u16 (big endian) length field.
+/// Encrypts data to be written to and decrypts data that is read from the
+/// underlying socket using the noise protocol. This is done by prefixing noise
+/// payloads with a u16 (big endian) length field.
 #[derive(Debug)]
 pub struct NoiseStream<TSocket> {
     /// the socket we write to and read from
@@ -63,7 +63,6 @@ impl<TSocket> NoiseStream<TSocket> {
     }
 }
 
-//
 // Reading a stream
 // ----------------
 //
@@ -98,7 +97,7 @@ where
                         buf: [0, 0],
                         offset: 0,
                     };
-                }
+                },
                 ReadState::ReadFrameLen {
                     ref mut buf,
                     ref mut offset,
@@ -120,18 +119,18 @@ where
                                     offset: 0,
                                 };
                             }
-                        }
+                        },
                         Ok(None) => {
                             self.read_state = ReadState::Eof(Ok(()));
-                        }
+                        },
                         Err(e) => {
                             if e.kind() == io::ErrorKind::UnexpectedEof {
                                 self.read_state = ReadState::Eof(Err(()));
                             }
                             return Poll::Ready(Err(e));
-                        }
+                        },
                     }
-                }
+                },
                 ReadState::ReadFrame {
                     frame_len,
                     ref mut offset,
@@ -151,21 +150,21 @@ where
                                         decrypted_len: decrypted.len(),
                                         offset: 0,
                                     };
-                                }
+                                },
                                 Err(e) => {
                                     error!(error = %e, "Decryption Error: {}", e);
                                     self.read_state = ReadState::DecryptionError(e);
-                                }
+                                },
                             }
-                        }
+                        },
                         Err(e) => {
                             if e.kind() == io::ErrorKind::UnexpectedEof {
                                 self.read_state = ReadState::Eof(Err(()));
                             }
                             return Poll::Ready(Err(e));
-                        }
+                        },
                     }
-                }
+                },
                 ReadState::CopyDecryptedFrame {
                     decrypted_len,
                     ref mut offset,
@@ -184,23 +183,22 @@ where
                         self.read_state = ReadState::Init;
                     }
                     return Poll::Ready(Ok(bytes_to_copy));
-                }
+                },
                 ReadState::Eof(Ok(())) => return Poll::Ready(Ok(0)),
                 ReadState::Eof(Err(())) => {
                     return Poll::Ready(Err(io::ErrorKind::UnexpectedEof.into()))
-                }
+                },
                 ReadState::DecryptionError(ref e) => {
                     return Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         format!("DecryptionError: {}", e),
                     )))
-                }
+                },
             }
         }
     }
 }
 
-//
 // Writing a stream
 // ----------------
 //
@@ -254,7 +252,7 @@ where
                     } else {
                         return Poll::Ready(Ok(None));
                     }
-                }
+                },
                 WriteState::BufferData { ref mut offset } => {
                     let bytes_buffered = if let Some(buf) = buf {
                         let bytes_to_copy =
@@ -287,7 +285,7 @@ where
                                     buf: u16::to_be_bytes(frame_len),
                                     offset: 0,
                                 };
-                            }
+                            },
                             Err(e) => {
                                 error!(error = %e, "Encryption Error: {}", e);
                                 let err = io::Error::new(
@@ -296,14 +294,14 @@ where
                                 );
                                 self.write_state = WriteState::EncryptionError(e);
                                 return Poll::Ready(Err(err));
-                            }
+                            },
                         }
                     }
 
                     if let Some(bytes_buffered) = bytes_buffered {
                         return Poll::Ready(Ok(Some(bytes_buffered)));
                     }
-                }
+                },
                 WriteState::WriteFrameLen {
                     frame_len,
                     ref buf,
@@ -320,15 +318,15 @@ where
                                 frame_len,
                                 offset: 0,
                             };
-                        }
+                        },
                         Err(e) => {
                             if e.kind() == io::ErrorKind::WriteZero {
                                 self.write_state = WriteState::Eof;
                             }
                             return Poll::Ready(Err(e));
-                        }
+                        },
                     }
-                }
+                },
                 WriteState::WriteEncryptedFrame {
                     frame_len,
                     ref mut offset,
@@ -341,26 +339,26 @@ where
                     )) {
                         Ok(()) => {
                             self.write_state = WriteState::Flush;
-                        }
+                        },
                         Err(e) => {
                             if e.kind() == io::ErrorKind::WriteZero {
                                 self.write_state = WriteState::Eof;
                             }
                             return Poll::Ready(Err(e));
-                        }
+                        },
                     }
-                }
+                },
                 WriteState::Flush => {
                     ready!(Pin::new(&mut self.socket).poll_flush(context))?;
                     self.write_state = WriteState::Init;
-                }
+                },
                 WriteState::Eof => return Poll::Ready(Err(io::ErrorKind::WriteZero.into())),
                 WriteState::EncryptionError(ref e) => {
                     return Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         format!("EncryptionError: {}", e),
                     )))
-                }
+                },
             }
         }
     }
@@ -382,7 +380,6 @@ where
     }
 }
 
-//
 // Trait implementations
 // ---------------------
 //
@@ -421,7 +418,6 @@ where
     }
 }
 
-//
 // NoiseBuffers
 // ------------
 //
@@ -429,12 +425,14 @@ where
 // encrypted messages include a tag along with the payload.
 const MAX_WRITE_BUFFER_LENGTH: usize = noise::decrypted_len(noise::MAX_SIZE_NOISE_MSG);
 
-/// Collection of buffers used for buffering data during the various read/write states of a
-/// [`NoiseStream`]
+/// Collection of buffers used for buffering data during the various read/write
+/// states of a [`NoiseStream`]
 struct NoiseBuffers {
-    /// A read buffer, used for both a received ciphertext and then for its decrypted content.
+    /// A read buffer, used for both a received ciphertext and then for its
+    /// decrypted content.
     read_buffer: [u8; noise::MAX_SIZE_NOISE_MSG],
-    /// A write buffer, used for both a plaintext to send, and then its encrypted version.
+    /// A write buffer, used for both a plaintext to send, and then its
+    /// encrypted version.
     write_buffer: [u8; noise::MAX_SIZE_NOISE_MSG],
 }
 
@@ -447,14 +445,14 @@ impl NoiseBuffers {
     }
 }
 
-/// Hand written Debug implementation in order to omit the printing of huge buffers of data
+/// Hand written Debug implementation in order to omit the printing of huge
+/// buffers of data
 impl ::std::fmt::Debug for NoiseBuffers {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct("NoiseBuffers").finish()
     }
 }
 
-//
 // Helpers for writing to and reading from a socket
 // ------------------------------------------------
 //
@@ -507,7 +505,7 @@ where
                 return Poll::Ready(Ok(None));
             }
             Poll::Ready(Err(e))
-        }
+        },
     }
 }
 
@@ -539,7 +537,6 @@ where
     }
 }
 
-//
 // Tests
 // -----
 //

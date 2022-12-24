@@ -40,7 +40,8 @@ pub struct MainnetGenesisInfo {
     pub rewards_apy_percentage: u64,
     /// Voting duration for a proposal in seconds.
     pub voting_duration_secs: u64,
-    /// Percent of current epoch's total voting power that can be added in this epoch.
+    /// Percent of current epoch's total voting power that can be added in this
+    /// epoch.
     pub voting_power_increase_limit: u64,
 
     // MAINNET SPECIFIC FIELDS.
@@ -48,7 +49,8 @@ pub struct MainnetGenesisInfo {
     accounts: Vec<AccountBalance>,
     /// Employee vesting configurations.
     employee_vesting_accounts: Vec<EmployeePool>,
-    /// Set of configurations for validators who will be joining the genesis validator set.
+    /// Set of configurations for validators who will be joining the genesis
+    /// validator set.
     validators: Vec<ValidatorWithCommissionRate>,
     /// Timestamp (in seconds) when employee vesting starts.
     employee_vesting_start: u64,

@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
-
+use super::common::NAMESPACE;
+use crate::collectors::common::MeasureLatency;
 use aptos_logger::warn;
 use aptos_metrics_core::const_metric::ConstMetric;
 use procfs::{DiskStat, KernelStats};
@@ -11,10 +11,7 @@ use prometheus::{
     proto::MetricFamily,
     Opts,
 };
-
-use crate::collectors::common::MeasureLatency;
-
-use super::common::NAMESPACE;
+use std::collections::HashMap;
 
 const LINUX_SYSTEM_CPU_USAGE: &str = "linux_system_cpu_usage";
 const LINUX_CPU_METRICS_COUNT: usize = 10;
@@ -242,20 +239,21 @@ impl Collector for LinuxDiskMetricsCollector {
             Err(err) => {
                 warn!("unable to collect disk metrics for linux: {}", err);
                 return mfs;
-            }
+            },
         };
 
-        let mounts =
-            match procfs::process::Process::myself().and_then(|process| process.mountinfo()) {
-                Ok(mounts) => mounts,
-                Err(err) => {
-                    warn!(
+        let mounts = match procfs::process::Process::myself()
+            .and_then(|process| process.mountinfo())
+        {
+            Ok(mounts) => mounts,
+            Err(err) => {
+                warn!(
                     "unable to collect disk metrics for linux. failure collecting mountinfo: {}",
                     err
                 );
-                    return mfs;
-                }
-            };
+                return mfs;
+            },
+        };
 
         for mount in mounts {
             if let Some(disk_stat) = disk_stats.get(&mount.majmin) {

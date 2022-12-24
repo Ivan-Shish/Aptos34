@@ -3,20 +3,22 @@
 
 #![forbid(unsafe_code)]
 
-//! This module implements [`JellyfishMerkleTree`] backed by storage module. The tree itself doesn't
-//! persist anything, but realizes the logic of R/W only. The write path will produce all the
-//! intermediate results in a batch for storage layer to commit and the read path will return
-//! results directly. The public APIs are only [`new`], [`batch_put_value_set`], and
-//! [`get_with_proof`]. After each put with a `value_set` based on a known version, the tree will
-//! return a new root hash with a [`TreeUpdateBatch`] containing all the new nodes and indices of
-//! stale nodes.
+//! This module implements [`JellyfishMerkleTree`] backed by storage module. The
+//! tree itself doesn't persist anything, but realizes the logic of R/W only.
+//! The write path will produce all the intermediate results in a batch for
+//! storage layer to commit and the read path will return results directly. The
+//! public APIs are only [`new`], [`batch_put_value_set`], and
+//! [`get_with_proof`]. After each put with a `value_set` based on a known
+//! version, the tree will return a new root hash with a [`TreeUpdateBatch`]
+//! containing all the new nodes and indices of stale nodes.
 //!
-//! A Jellyfish Merkle Tree itself logically is a 256-bit sparse Merkle tree with an optimization
-//! that any subtree containing 0 or 1 leaf node will be replaced by that leaf node or a placeholder
-//! node with default hash value. With this optimization we can save CPU by avoiding hashing on
-//! many sparse levels in the tree. Physically, the tree is structurally similar to the modified
-//! Patricia Merkle tree of Ethereum but with some modifications. A standard Jellyfish Merkle tree
-//! will look like the following figure:
+//! A Jellyfish Merkle Tree itself logically is a 256-bit sparse Merkle tree
+//! with an optimization that any subtree containing 0 or 1 leaf node will be
+//! replaced by that leaf node or a placeholder node with default hash value.
+//! With this optimization we can save CPU by avoiding hashing on many sparse
+//! levels in the tree. Physically, the tree is structurally similar to the
+//! modified Patricia Merkle tree of Ethereum but with some modifications. A
+//! standard Jellyfish Merkle tree will look like the following figure:
 //!
 //! ```text
 //!                                    .──────────────────────.
@@ -34,12 +36,12 @@
 //!  ╱                                                                                          ╲
 //! ;                                                                                            :
 //! ;                                                                                            :
-//!;                                                                                              :
-//!│                                                                                              │
-//!+──────────────────────────────────────────────────────────────────────────────────────────────+
+//! ;                                                                                              :
+//! │                                                                                              │
+//! +──────────────────────────────────────────────────────────────────────────────────────────────+
 //! .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.  .''.
-//!/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \
-//!+----++----++----++----++----++----++----++----++----++----++----++----++----++----++----++----+
+//! /    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \/    \
+//! +----++----++----++----++----++----++----++----++----++----++----++----++----++----++----++----+
 //! (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (
 //!  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )  )
 //! (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (  (
@@ -53,11 +55,13 @@
 //! ■: the [`Value`] type this tree stores.
 //! ```
 //!
-//! A Jellyfish Merkle Tree consists of [`InternalNode`] and [`LeafNode`]. [`InternalNode`] is like
-//! branch node in ethereum patricia merkle with 16 children to represent a 4-level binary tree and
-//! [`LeafNode`] is similar to that in patricia merkle too. In the above figure, each `bell` in the
-//! jellyfish is an [`InternalNode`] while each tentacle is a [`LeafNode`]. It is noted that
-//! Jellyfish merkle doesn't have a counterpart for `extension` node of ethereum patricia merkle.
+//! A Jellyfish Merkle Tree consists of [`InternalNode`] and [`LeafNode`].
+//! [`InternalNode`] is like branch node in ethereum patricia merkle with 16
+//! children to represent a 4-level binary tree and [`LeafNode`] is similar to
+//! that in patricia merkle too. In the above figure, each `bell` in the
+//! jellyfish is an [`InternalNode`] while each tentacle is a [`LeafNode`]. It
+//! is noted that Jellyfish merkle doesn't have a counterpart for `extension`
+//! node of ethereum patricia merkle.
 //!
 //! [`JellyfishMerkleTree`]: struct.JellyfishMerkleTree.html
 //! [`new`]: struct.JellyfishMerkleTree.html#method.new
@@ -136,8 +140,9 @@ pub trait TreeReader<K> {
     /// Gets node given a node key. Returns `None` if the node does not exist.
     fn get_node_option(&self, node_key: &NodeKey) -> Result<Option<Node<K>>>;
 
-    /// Gets the rightmost leaf at a version. Note that this assumes we are in the process of
-    /// restoring the tree and all nodes are at the same version.
+    /// Gets the rightmost leaf at a version. Note that this assumes we are in
+    /// the process of restoring the tree and all nodes are at the same
+    /// version.
     fn get_rightmost_leaf(&self, version: Version) -> Result<Option<(NodeKey, LeafNode<K>)>>;
 }
 
@@ -150,21 +155,22 @@ pub trait Key: Clone + Serialize + DeserializeOwned + Send + Sync + 'static {
     fn key_size(&self) -> usize;
 }
 
-/// `Value` defines the types of data that can be stored in a Jellyfish Merkle tree.
+/// `Value` defines the types of data that can be stored in a Jellyfish Merkle
+/// tree.
 pub trait Value: Clone + CryptoHash + Serialize + DeserializeOwned + Send + Sync {
     fn value_size(&self) -> usize;
 }
 
-/// `TestKey` defines the types of data that can be stored in a Jellyfish Merkle tree and used in
-/// tests.
+/// `TestKey` defines the types of data that can be stored in a Jellyfish Merkle
+/// tree and used in tests.
 #[cfg(any(test, feature = "fuzzing"))]
 pub trait TestKey:
     Key + Arbitrary + std::fmt::Debug + Eq + Hash + Ord + PartialOrd + PartialEq + 'static
 {
 }
 
-/// `TestValue` defines the types of data that can be stored in a Jellyfish Merkle tree and used in
-/// tests.
+/// `TestValue` defines the types of data that can be stored in a Jellyfish
+/// Merkle tree and used in tests.
 #[cfg(any(test, feature = "fuzzing"))]
 pub trait TestValue: Value + Arbitrary + std::fmt::Debug + Eq + PartialEq + 'static {}
 
@@ -200,15 +206,16 @@ pub struct NodeStats {
 pub struct StaleNodeIndex {
     /// The version since when the node is overwritten and becomes stale.
     pub stale_since_version: Version,
-    /// The [`NodeKey`](node_type/struct.NodeKey.html) identifying the node associated with this
-    /// record.
+    /// The [`NodeKey`](node_type/struct.NodeKey.html) identifying the node
+    /// associated with this record.
     pub node_key: NodeKey,
 }
 
 /// This is a wrapper of [`NodeBatch`](type.NodeBatch.html),
-/// [`StaleNodeIndexBatch`](type.StaleNodeIndexBatch.html) and some stats of nodes that represents
-/// the incremental updates of a tree and pruning indices after applying a write set,
-/// which is a vector of `hashed_account_address` and `new_value` pairs.
+/// [`StaleNodeIndexBatch`](type.StaleNodeIndexBatch.html) and some stats of
+/// nodes that represents the incremental updates of a tree and pruning indices
+/// after applying a write set, which is a vector of `hashed_account_address`
+/// and `new_value` pairs.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TreeUpdateBatch<K> {
     pub node_batch: Vec<Vec<(NodeKey, Node<K>)>>,
@@ -280,9 +287,9 @@ where
     }
 }
 
-/// An iterator that iterates the index range (inclusive) of each different nibble at given
-/// `nibble_idx` of all the keys in a sorted key-value pairs which have the identical HashValue
-/// prefix (up to nibble_idx).
+/// An iterator that iterates the index range (inclusive) of each different
+/// nibble at given `nibble_idx` of all the keys in a sorted key-value pairs
+/// which have the identical HashValue prefix (up to nibble_idx).
 struct NibbleRangeIterator<'a, K> {
     sorted_kvs: &'a [(HashValue, K)],
     nibble_idx: usize,
@@ -336,7 +343,8 @@ where
     R: 'a + TreeReader<K> + Sync,
     K: Key,
 {
-    /// Creates a `JellyfishMerkleTree` backed by the given [`TreeReader`](trait.TreeReader.html).
+    /// Creates a `JellyfishMerkleTree` backed by the given
+    /// [`TreeReader`](trait.TreeReader.html).
     pub fn new(reader: &'a R) -> Self {
         Self {
             reader,
@@ -344,7 +352,8 @@ where
         }
     }
 
-    /// Get the node hash from the cache if cache is provided, otherwise (for test only) compute it.
+    /// Get the node hash from the cache if cache is provided, otherwise (for
+    /// test only) compute it.
     fn get_hash(
         node_key: &NodeKey,
         node: &Node<K>,
@@ -361,9 +370,9 @@ where
     }
 
     /// For each value set:
-    /// Returns the new nodes and values in a batch after applying `value_set`. For
-    /// example, if after transaction `T_i` the committed state of tree in the persistent storage
-    /// looks like the following structure:
+    /// Returns the new nodes and values in a batch after applying `value_set`.
+    /// For example, if after transaction `T_i` the committed state of tree
+    /// in the persistent storage looks like the following structure:
     ///
     /// ```text
     ///              S_i
@@ -377,10 +386,12 @@ where
     ///        storage (disk)
     /// ```
     ///
-    /// where `A` and `B` denote the states of two adjacent accounts, and `x` is a sibling subtree
-    /// of the path from root to A and B in the tree. Then a `value_set` produced by the next
-    /// transaction `T_{i+1}` modifies other accounts `C` and `D` exist in the subtree under `x`, a
-    /// new partial tree will be constructed in memory and the structure will be:
+    /// where `A` and `B` denote the states of two adjacent accounts, and `x` is
+    /// a sibling subtree of the path from root to A and B in the tree. Then
+    /// a `value_set` produced by the next transaction `T_{i+1}` modifies
+    /// other accounts `C` and `D` exist in the subtree under `x`, a
+    /// new partial tree will be constructed in memory and the structure will
+    /// be:
     ///
     /// ```text
     ///                 S_i      |      S_{i+1}
@@ -395,13 +406,15 @@ where
     ///           storage (disk) |    cache (memory)
     /// ```
     ///
-    /// With this design, we are able to query the global state in persistent storage and
-    /// generate the proposed tree delta based on a specific root hash and `value_set`. For
-    /// example, if we want to execute another transaction `T_{i+1}'`, we can use the tree `S_i` in
-    /// storage and apply the `value_set` of transaction `T_{i+1}`. Then if the storage commits
-    /// the returned batch, the state `S_{i+1}` is ready to be read from the tree by calling
-    /// [`get_with_proof`](struct.JellyfishMerkleTree.html#method.get_with_proof). Anything inside
-    /// the batch is not reachable from public interfaces before being committed.
+    /// With this design, we are able to query the global state in persistent
+    /// storage and generate the proposed tree delta based on a specific
+    /// root hash and `value_set`. For example, if we want to execute
+    /// another transaction `T_{i+1}'`, we can use the tree `S_i` in storage
+    /// and apply the `value_set` of transaction `T_{i+1}`. Then if the storage
+    /// commits the returned batch, the state `S_{i+1}` is ready to be read
+    /// from the tree by calling [`get_with_proof`](struct.
+    /// JellyfishMerkleTree.html#method.get_with_proof). Anything inside the
+    /// batch is not reachable from public interfaces before being committed.
     pub fn batch_put_value_set(
         &self,
         value_set: Vec<(HashValue, Option<&(HashValue, K)>)>,
@@ -566,14 +579,14 @@ where
                 }
                 let new_internal_node = InternalNode::new(new_children);
                 Ok(Some(new_internal_node.into()))
-            }
+            },
             Node::Leaf(leaf_node) => self.batch_update_subtree_with_existing_leaf(
                 node_key, version, leaf_node, kvs, depth, hash_cache, batch,
             ),
             Node::Null => {
                 ensure!(depth == 0, "Null node can only exist at depth 0");
                 self.batch_update_subtree(node_key, version, kvs, 0, hash_cache, batch)
-            }
+            },
         }
     }
 
@@ -771,8 +784,9 @@ where
 
     /// This is a convenient function that calls
     ///
-    /// [`put_value_sets`](struct.JellyfishMerkleTree.html#method.put_value_set) without the node hash
-    /// cache and assuming the base version is the immediate previous version.
+    /// [`put_value_sets`](struct.JellyfishMerkleTree.html#method.put_value_set)
+    /// without the node hash cache and assuming the base version is the
+    /// immediate previous version.
     #[cfg(any(test, feature = "fuzzing"))]
     pub fn put_value_set_test(
         &self,
@@ -808,8 +822,8 @@ where
         let nibble_path = NibblePath::new_even(key.to_vec());
         let mut nibble_iter = nibble_path.nibbles();
 
-        // We limit the number of loops here deliberately to avoid potential cyclic graph bugs
-        // in the tree structure.
+        // We limit the number of loops here deliberately to avoid potential cyclic
+        // graph bugs in the tree structure.
         for nibble_depth in 0..=ROOT_NIBBLE_HEIGHT {
             let next_node = self.reader.get_node(&next_node_key).map_err(|err| {
                 if nibble_depth == 0 {
@@ -840,9 +854,9 @@ where
                                     siblings
                                 }),
                             ))
-                        }
+                        },
                     };
-                }
+                },
                 Node::Leaf(leaf_node) => {
                     return Ok((
                         if leaf_node.account_key() == key {
@@ -855,16 +869,17 @@ where
                             siblings
                         }),
                     ));
-                }
+                },
                 Node::Null => {
                     return Ok((None, SparseMerkleProofExt::new(None, vec![])));
-                }
+                },
             }
         }
         bail!("Jellyfish Merkle tree has cyclic graph inside.");
     }
 
-    /// Gets the proof that shows a list of keys up to `rightmost_key_to_prove` exist at `version`.
+    /// Gets the proof that shows a list of keys up to `rightmost_key_to_prove`
+    /// exist at `version`.
     pub fn get_range_proof(
         &self,
         rightmost_key_to_prove: HashValue,
@@ -937,8 +952,8 @@ where
                         out_keys,
                     )?;
                 }
-            }
-            Node::Leaf(_) | Node::Null => {}
+            },
+            Node::Leaf(_) | Node::Null => {},
         };
 
         out_keys.push(key);
@@ -954,11 +969,13 @@ trait NibbleExt {
 impl NibbleExt for HashValue {
     /// Returns the `index`-th nibble.
     fn get_nibble(&self, index: usize) -> Nibble {
-        Nibble::from(if index % 2 == 0 {
-            self[index / 2] >> 4
-        } else {
-            self[index / 2] & 0x0F
-        })
+        Nibble::from(
+            if index % 2 == 0 {
+                self[index / 2] >> 4
+            } else {
+                self[index / 2] & 0x0F
+            },
+        )
     }
 
     /// Returns the length of common prefix of `self` and `other` in nibbles.

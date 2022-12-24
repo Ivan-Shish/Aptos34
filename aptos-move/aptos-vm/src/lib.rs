@@ -123,7 +123,6 @@ pub mod transaction_metadata;
 mod verifier;
 
 pub use crate::aptos_vm::AptosVM;
-
 use aptos_state_view::StateView;
 use aptos_types::{
     access_path::AccessPath,
@@ -137,7 +136,8 @@ use move_core_types::{
 
 /// This trait describes the VM's validation interfaces.
 pub trait VMValidator {
-    /// Executes the prologue of the Aptos Account and verifies that the transaction is valid.
+    /// Executes the prologue of the Aptos Account and verifies that the
+    /// transaction is valid.
     fn validate_transaction(
         &self,
         transaction: SignedTransaction,
@@ -147,12 +147,13 @@ pub trait VMValidator {
 
 /// This trait describes the VM's execution interface.
 pub trait VMExecutor: Send + Sync {
-    // NOTE: At the moment there are no persistent caches that live past the end of a block (that's
-    // why execute_block doesn't take &self.)
-    // There are some cache invalidation issues around transactions publishing code that need to be
-    // sorted out before that's possible.
+    // NOTE: At the moment there are no persistent caches that live past the end of
+    // a block (that's why execute_block doesn't take &self.)
+    // There are some cache invalidation issues around transactions publishing code
+    // that need to be sorted out before that's possible.
 
-    /// Executes a block of transactions and returns output for each one of them.
+    /// Executes a block of transactions and returns output for each one of
+    /// them.
     fn execute_block(
         transactions: Vec<Transaction>,
         state_view: &impl StateView,

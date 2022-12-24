@@ -12,7 +12,6 @@ use crate::{
         transaction::{authenticator::AuthenticationKey, RawTransaction, SignedTransaction},
     },
 };
-
 use anyhow::Result;
 use aptos_types::event::EventKey;
 pub use aptos_types::*;
@@ -30,7 +29,8 @@ pub struct LocalAccount {
     address: AccountAddress,
     /// Authentication key of the account.
     key: AccountKey,
-    /// Latest known sequence number of the account, it can be different from validator.
+    /// Latest known sequence number of the account, it can be different from
+    /// validator.
     sequence_number: u64,
 }
 
@@ -46,7 +46,8 @@ impl LocalAccount {
         }
     }
 
-    /// Recover an account from derive path (e.g. m/44'/637'/0'/0'/0') and mnemonic phrase,
+    /// Recover an account from derive path (e.g. m/44'/637'/0'/0'/0') and
+    /// mnemonic phrase,
     pub fn from_derive_path(
         derive_path: &str,
         mnemonic_phrase: &str,

@@ -1,12 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! `conn_notifs_channel` is a channel which delivers to the receiver only the last of N
-//! messages that might have been sent by sender(s) since the last poll. The items are separated
-//! using a key that is provided by the sender with each message.
+//! `conn_notifs_channel` is a channel which delivers to the receiver only the
+//! last of N messages that might have been sent by sender(s) since the last
+//! poll. The items are separated using a key that is provided by the sender
+//! with each message.
 //!
-//! It provides an mpsc channel which has two ends `conn_notifs_channel::Receiver`
-//! and `conn_notifs_channel::Sender` which behave similarly to existing mpsc data structures.
+//! It provides an mpsc channel which has two ends
+//! `conn_notifs_channel::Receiver` and `conn_notifs_channel::Sender` which
+//! behave similarly to existing mpsc data structures.
 
 use crate::peer_manager::ConnectionNotification;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};

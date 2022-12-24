@@ -66,24 +66,26 @@ struct P2pTestCase {
 }
 
 pub struct TransactionGenerator {
-    /// The current state of the accounts. The main purpose is to keep track of the sequence number
-    /// so generated transactions are guaranteed to be successfully executed.
+    /// The current state of the accounts. The main purpose is to keep track of
+    /// the sequence number so generated transactions are guaranteed to be
+    /// successfully executed.
     accounts_cache: Option<AccountCache>,
 
-    /// The current state of seed accounts. The purpose of the seed accounts to parallelize the
-    /// account creation and minting process so that they are not blocked on sequence number of
-    /// a single root account.
+    /// The current state of seed accounts. The purpose of the seed accounts to
+    /// parallelize the account creation and minting process so that they
+    /// are not blocked on sequence number of a single root account.
     seed_accounts_cache: Option<AccountCache>,
 
-    /// Total # of existing (non-seed) accounts in the DB at the time of TransactionGenerator
-    /// creation.
+    /// Total # of existing (non-seed) accounts in the DB at the time of
+    /// TransactionGenerator creation.
     num_existing_accounts: usize,
 
     /// Record the number of txns generated.
     version: Version,
 
-    /// Each generated block of transactions are sent to this channel. Using `SyncSender` to make
-    /// sure if execution is slow to consume the transactions, we do not run out of memory.
+    /// Each generated block of transactions are sent to this channel. Using
+    /// `SyncSender` to make sure if execution is slow to consume the
+    /// transactions, we do not run out of memory.
     block_sender: Option<mpsc::SyncSender<Vec<Transaction>>>,
 
     /// Transaction Factory
@@ -218,8 +220,8 @@ impl TransactionGenerator {
         block_size: usize,
     ) {
         assert!(self.block_sender.is_some());
-        // Ensure that seed accounts have enough balance to transfer money to at least 1000 account with
-        // balance init_account_balance.
+        // Ensure that seed accounts have enough balance to transfer money to at least
+        // 1000 account with balance init_account_balance.
         self.create_seed_accounts(
             reader,
             num_new_accounts,
@@ -248,8 +250,8 @@ impl TransactionGenerator {
     ) -> Vec<Vec<Transaction>> {
         let mut txn_block = Vec::new();
 
-        // We don't store the # of existing seed accounts now. Thus here we just blindly re-create
-        // and re-mint seed accounts here.
+        // We don't store the # of existing seed accounts now. Thus here we just blindly
+        // re-create and re-mint seed accounts here.
         let num_seed_accounts = (num_new_accounts / 1000).max(1).min(100000);
         let seed_accounts_cache = Self::gen_seed_account_cache(reader, num_seed_accounts);
 
@@ -297,7 +299,8 @@ impl TransactionGenerator {
         txn_block
     }
 
-    /// Generates transactions that creates a set of accounts and fund them from the seed accounts.
+    /// Generates transactions that creates a set of accounts and fund them from
+    /// the seed accounts.
     pub fn create_and_fund_accounts(
         &mut self,
         num_existing_accounts: usize,

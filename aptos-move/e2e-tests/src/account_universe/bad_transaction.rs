@@ -21,7 +21,6 @@ use proptest_derive::Arbitrary;
 use std::sync::Arc;
 
 /// Represents a sequence number mismatch transaction
-///
 #[derive(Arbitrary, Clone, Debug)]
 #[proptest(params = "(u64, u64)")]
 pub struct SequenceNumberMismatchGen {
@@ -60,7 +59,6 @@ impl AUTransactionGen for SequenceNumberMismatchGen {
 }
 
 /// Represents a insufficient balance transaction
-///
 #[derive(Arbitrary, Clone, Debug)]
 #[proptest(params = "(u64, u64)")]
 pub struct InsufficientBalanceGen {
@@ -121,7 +119,6 @@ impl AUTransactionGen for InsufficientBalanceGen {
 }
 
 /// Represents a authkey mismatch transaction
-///
 #[derive(Arbitrary, Clone, Debug)]
 #[proptest(no_params)]
 pub struct InvalidAuthkeyGen {

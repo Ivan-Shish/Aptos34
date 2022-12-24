@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::aggregate_signature::{AggregateSignature, PartialSignatures};
 use crate::{
+    aggregate_signature::{AggregateSignature, PartialSignatures},
     block_info::BlockInfo,
     epoch_change::EpochChangeProof,
     epoch_state::EpochState,
@@ -28,8 +28,8 @@ fn arb_length(size_range: impl Into<SizeRange>) -> impl Strategy<Value = usize> 
 }
 
 /// For `n` epoch changes, we sample `n+1` validator sets of variable size
-/// `validators_per_epoch`. The `+1` is for the initial validator set in the first
-/// epoch.
+/// `validators_per_epoch`. The `+1` is for the initial validator set in the
+/// first epoch.
 fn arb_validator_sets(
     epoch_changes: impl Into<SizeRange>,
     validators_per_epoch: impl Into<SizeRange>,
@@ -62,7 +62,7 @@ fn into_epoch_state(epoch: u64, signers: &[ValidatorSigner]) -> EpochState {
                     ValidatorConsensusInfo::new(
                         signer.author(),
                         signer.public_key(),
-                        1, /* voting power */
+                        1, // voting power
                     )
                 })
                 .collect(),
@@ -70,8 +70,8 @@ fn into_epoch_state(epoch: u64, signers: &[ValidatorSigner]) -> EpochState {
     }
 }
 
-/// Create all signatures for a `LedgerInfoWithSignatures` given a set of signers
-/// and a `LedgerInfo`.
+/// Create all signatures for a `LedgerInfoWithSignatures` given a set of
+/// signers and a `LedgerInfo`.
 fn sign_ledger_info(
     signers: &[ValidatorSigner],
     verifier: &ValidatorVerifier,
@@ -95,11 +95,11 @@ fn mock_ledger_info(
     LedgerInfo::new(
         BlockInfo::new(
             epoch,
-            0,                 /* round */
-            HashValue::zero(), /* id */
-            root_hash,         /* executed_state_id */
+            0,                 // round
+            HashValue::zero(), // id
+            root_hash,         // executed_state_id
             version,
-            0, /* timestamp_usecs */
+            0, // timestamp_usecs
             next_epoch_state,
         ),
         HashValue::zero(),

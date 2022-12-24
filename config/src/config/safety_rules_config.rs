@@ -96,10 +96,11 @@ pub enum SafetyRulesService {
     Local,
     /// This is the production, separate service approach
     Process(RemoteService),
-    /// This runs safety rules in the same thread as event processor but data is passed through the
-    /// light weight RPC (serializer)
+    /// This runs safety rules in the same thread as event processor but data is
+    /// passed through the light weight RPC (serializer)
     Serializer,
-    /// This creates a separate thread to run safety rules, it is similar to a fork / exec style
+    /// This creates a separate thread to run safety rules, it is similar to a
+    /// fork / exec style
     Thread,
 }
 

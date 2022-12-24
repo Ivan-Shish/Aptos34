@@ -1,23 +1,23 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::context::Context;
-use crate::errors::{AuthError, ServiceError, ServiceErrorCode};
-use crate::jwt_auth::{authorize_jwt, create_jwt_token, jwt_from_header};
-use crate::types::auth::{AuthRequest, AuthResponse, Claims};
-use crate::types::common::NodeType;
-use crate::{debug, error, warn};
-
+use crate::{
+    context::Context,
+    debug, error,
+    errors::{AuthError, ServiceError, ServiceErrorCode},
+    jwt_auth::{authorize_jwt, create_jwt_token, jwt_from_header},
+    types::{
+        auth::{AuthRequest, AuthResponse, Claims},
+        common::NodeType,
+    },
+    warn,
+};
 use anyhow::Result;
-use reqwest::header::AUTHORIZATION;
-use warp::filters::BoxedFilter;
-use warp::{reject, Filter, Rejection};
-use warp::{reply, Reply};
-
 use aptos_config::config::{PeerRole, RoleType};
 use aptos_crypto::{noise, x25519};
-use aptos_types::chain_id::ChainId;
-use aptos_types::PeerId;
+use aptos_types::{chain_id::ChainId, PeerId};
+use reqwest::header::AUTHORIZATION;
+use warp::{filters::BoxedFilter, reject, reply, Filter, Rejection, Reply};
 
 pub fn auth(context: Context) -> BoxedFilter<(impl Reply,)> {
     warp::path!("auth")
@@ -33,10 +33,10 @@ pub async fn handle_auth(context: Context, body: AuthRequest) -> Result<impl Rep
 
     let client_init_message = &body.handshake_msg;
 
-    // Check whether the client (validator) is using the correct server's public key, which the
-    // client includes in its request body.
-    // This is useful for returning a refined error response to the client if it is using an
-    // invalid server public key.
+    // Check whether the client (validator) is using the correct server's public
+    // key, which the client includes in its request body.
+    // This is useful for returning a refined error response to the client if it is
+    // using an invalid server public key.
     if body.server_public_key != context.noise_config().public_key() {
         return Err(reject::custom(ServiceError::bad_request(
             ServiceErrorCode::AuthError(AuthError::InvalidServerPublicKey, body.chain_id),
@@ -75,7 +75,11 @@ pub async fn handle_auth(context: Context, body: AuthRequest) -> Result<impl Rep
                 Some(peer) => {
                     let remote_public_key = &remote_public_key;
                     if !peer.keys.contains(remote_public_key) {
-                        warn!("peer found in peer set but public_key is not found. request body: {}, role_type: {}, peer_id: {}, received public_key: {}", body.chain_id, body.role_type, body.peer_id, remote_public_key);
+                        warn!(
+                            "peer found in peer set but public_key is not found. request body: \
+                             {}, role_type: {}, peer_id: {}, received public_key: {}",
+                            body.chain_id, body.role_type, body.peer_id, remote_public_key
+                        );
                         return Err(reject::custom(ServiceError::forbidden(
                             ServiceErrorCode::AuthError(
                                 AuthError::PeerPublicKeyNotFound,
@@ -84,9 +88,10 @@ pub async fn handle_auth(context: Context, body: AuthRequest) -> Result<impl Rep
                         )));
                     }
                     Ok((*epoch, peer.role))
-                }
+                },
                 None => {
-                    // if not, verify that their peerid is constructed correctly from their public key
+                    // if not, verify that their peerid is constructed correctly from their public
+                    // key
                     let derived_remote_peer_id =
                         aptos_types::account_address::from_identity_public_key(remote_public_key);
                     if derived_remote_peer_id != body.peer_id {
@@ -99,9 +104,9 @@ pub async fn handle_auth(context: Context, body: AuthRequest) -> Result<impl Rep
                     } else {
                         Ok((*epoch, PeerRole::Unknown))
                     }
-                }
+                },
             }
-        }
+        },
         None => {
             warn!(
                 "Validator set unavailable for Chain ID {}. Rejecting request.",
@@ -110,7 +115,7 @@ pub async fn handle_auth(context: Context, body: AuthRequest) -> Result<impl Rep
             Err(reject::custom(ServiceError::unauthorized(
                 ServiceErrorCode::AuthError(AuthError::ValidatorSetUnavailable, body.chain_id),
             )))
-        }
+        },
     }?;
 
     let node_type = match peer_role {

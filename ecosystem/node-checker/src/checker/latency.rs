@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{api_index::ApiIndexProvider, Provider, ProviderCollection},
@@ -8,8 +9,6 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use tokio::time::{Duration, Instant};
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 const LINK: &str =
     "https://aptos.dev/nodes/node-health-checker/node-health-checker-faq#how-does-the-latency-evaluator-work";
@@ -88,16 +87,23 @@ impl Checker for LatencyChecker {
                 Err(e) => errors.push(e),
             }
             if errors.len() as u16 > self.config.num_allowed_errors {
-                return Ok(vec![
-                    Self::build_result(
-                        "Node returned too many errors while checking API latency".to_string(),
-                        0,
-                        format!(
-                            "The node returned too many errors while checking API RTT (Round trip time), the tolerance was {} errors out of {} calls: {}. Note, this latency is not the same as standard ping latency, see the attached link.",
-                            self.config.num_allowed_errors, self.config.num_samples, errors.into_iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
-                        )
-                    ).links(vec![LINK.to_string()])
-                ]);
+                return Ok(vec![Self::build_result(
+                    "Node returned too many errors while checking API latency".to_string(),
+                    0,
+                    format!(
+                        "The node returned too many errors while checking API RTT (Round trip \
+                         time), the tolerance was {} errors out of {} calls: {}. Note, this \
+                         latency is not the same as standard ping latency, see the attached link.",
+                        self.config.num_allowed_errors,
+                        self.config.num_samples,
+                        errors
+                            .into_iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                    ),
+                )
+                .links(vec![LINK.to_string()])]);
             }
             tokio::time::sleep(std::time::Duration::from_millis(
                 self.config.delay_between_samples_ms,
@@ -113,19 +119,25 @@ impl Checker for LatencyChecker {
                 "Average API latency too high".to_string(),
                 50,
                 format!(
-                    "The average API latency was {}ms, which is higher than the maximum allowed latency of {}ms. Note, this latency is not the same as standard ping latency, see the attached link.",
+                    "The average API latency was {}ms, which is higher than the maximum allowed \
+                     latency of {}ms. Note, this latency is not the same as standard ping \
+                     latency, see the attached link.",
                     average_latency, self.config.max_api_latency_ms
-                )
-            ).links(vec![LINK.to_string()])
+                ),
+            )
+            .links(vec![LINK.to_string()])
         } else {
             Self::build_result(
                 "Average API latency is good".to_string(),
                 100,
                 format!(
-                    "The average API latency was {}ms, which is below the maximum allowed latency of {}ms. Note, this latency is not the same as standard ping latency, see the attached link.",
+                    "The average API latency was {}ms, which is below the maximum allowed latency \
+                     of {}ms. Note, this latency is not the same as standard ping latency, see \
+                     the attached link.",
                     average_latency, self.config.max_api_latency_ms
-                )
-            ).links(vec![LINK.to_string()])
+                ),
+            )
+            .links(vec![LINK.to_string()])
         };
 
         Ok(vec![evaluation_result])

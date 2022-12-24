@@ -7,7 +7,6 @@ use crate::{
     },
     util::mock_time_service::SimulatedTimeService,
 };
-
 use aptos_consensus_types::{
     common::Round,
     quorum_cert::QuorumCert,
@@ -16,8 +15,8 @@ use aptos_consensus_types::{
     vote_data::VoteData,
 };
 use aptos_crypto::HashValue;
-use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::{
+    aggregate_signature::AggregateSignature,
     block_info::BlockInfo,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
 };
@@ -30,7 +29,7 @@ fn test_round_time_interval() {
     assert_eq!(3000, interval.get_round_duration(0).as_millis());
     assert_eq!(4500, interval.get_round_duration(1).as_millis());
     assert_eq!(
-        6750, /* 4500*1.5 */
+        6750, // 4500*1.5
         interval.get_round_duration(2).as_millis()
     );
     // Test that there is no integer overflow
@@ -47,7 +46,8 @@ async fn test_basic_timeout() {
     for _ in 0..2 {
         let round = timeout_rx.next().await.unwrap();
         // Here we just test timeout send retry,
-        // round for timeout is not changed as no timeout certificate was gathered at this point
+        // round for timeout is not changed as no timeout certificate was gathered at
+        // this point
         assert_eq!(1, round);
         pm.process_local_timeout(round);
     }

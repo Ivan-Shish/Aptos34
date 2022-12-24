@@ -1,11 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::vm_status::StatusCode;
+use aptos_types::{state_store::state_storage_usage::StateStorageUsage, vm_status::StatusCode};
 use better_any::{Tid, TidAble};
-use move_binary_format::errors::PartialVMError;
-use move_binary_format::errors::PartialVMResult;
+use move_binary_format::errors::{PartialVMError, PartialVMResult};
 use move_core_types::gas_algebra::InternalGas;
 use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
 use move_vm_types::{
@@ -14,15 +12,15 @@ use move_vm_types::{
     values::{Struct, Value},
 };
 use smallvec::smallvec;
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
 /// Ability to reveal the state storage utilization info.
 pub trait StateStorageUsageResolver {
     fn get_state_storage_usage(&self) -> anyhow::Result<StateStorageUsage>;
 }
 
-/// Exposes the ability to query state storage utilization info to native functions.
+/// Exposes the ability to query state storage utilization info to native
+/// functions.
 #[derive(Tid)]
 pub struct NativeStateStorageContext<'a> {
     resolver: &'a dyn StateStorageUsageResolver,
@@ -34,12 +32,13 @@ impl<'a> NativeStateStorageContext<'a> {
     }
 }
 
-/***************************************************************************************************
- * native get_state_storage_usage_only_at_eopch_beginning
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native get_state_storage_usage_only_at_eopch_beginning
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Clone, Debug)]
 pub struct GetUsageGasParameters {
     pub base_cost: InternalGas,
@@ -47,8 +46,8 @@ pub struct GetUsageGasParameters {
 
 /// Warning: the result returned is based on the base state view held by the
 /// VM for the entire block or chunk of transactions, it's only deterministic
-/// if called from the first transaction of the block because the execution layer
-/// guarantees a fresh state view then.
+/// if called from the first transaction of the block because the execution
+/// layer guarantees a fresh state view then.
 fn native_get_usage(
     gas_params: &GetUsageGasParameters,
     context: &mut NativeContext,
@@ -64,23 +63,23 @@ fn native_get_usage(
             .with_message(format!("Failed to get state storage usage: {}", err))
     })?;
 
-    Ok(NativeResult::ok(
-        gas_params.base_cost,
-        smallvec![Value::struct_(Struct::pack(vec![
+    Ok(NativeResult::ok(gas_params.base_cost, smallvec![
+        Value::struct_(Struct::pack(vec![
             Value::u64(usage.items() as u64),
             Value::u64(usage.bytes() as u64),
-        ]))],
-    ))
+        ]))
+    ]))
 }
 
 pub fn make_native_get_usage(gas_params: GetUsageGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_get_usage(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub get_usage: GetUsageGasParameters,

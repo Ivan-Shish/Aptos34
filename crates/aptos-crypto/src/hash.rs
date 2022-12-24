@@ -4,15 +4,17 @@
 //! This module defines traits and implementations of
 //! [cryptographic hash functions](https://en.wikipedia.org/wiki/Cryptographic_hash_function)
 //!
-//! It is designed to help authors protect against two types of real world attacks:
+//! It is designed to help authors protect against two types of real world
+//! attacks:
 //!
 //! 1. **Semantic Ambiguity**: imagine that Alice has a private key and is using
-//!    two different applications, X and Y. X asks Alice to sign a message saying
-//!    "I am Alice". Alice accepts to sign this message in the context of X. However,
-//!    unbeknownst to Alice, in application Y, messages beginning with the letter "I"
-//!    represent transfers. " am " represents a transfer of 500 coins and "Alice"
-//!    can be interpreted as a destination address. When Alice signed the message she
-//!    needed to be aware of how other applications might interpret that message.
+//!    two different applications, X and Y. X asks Alice to sign a message
+//! saying    "I am Alice". Alice accepts to sign this message in the context of
+//! X. However,    unbeknownst to Alice, in application Y, messages beginning
+//! with the letter "I"    represent transfers. " am " represents a transfer of
+//! 500 coins and "Alice"    can be interpreted as a destination address. When
+//! Alice signed the message she    needed to be aware of how other applications
+//! might interpret that message.
 //!
 //! 2. **Format Ambiguity**: imagine a program that hashes a pair of strings.
 //!    To hash the strings `a` and `b` it hashes `a + "||" + b`. The pair of
@@ -21,75 +23,82 @@
 //!    creates a collision.
 //!
 //! Regarding (1), this library makes it easy for developers to create as
-//! many new "hashable" Rust types as needed so that each Rust type hashed and signed
-//! has a unique meaning, that is, unambiguously captures the intent of a signer.
+//! many new "hashable" Rust types as needed so that each Rust type hashed and
+//! signed has a unique meaning, that is, unambiguously captures the intent of a
+//! signer.
 //!
-//! Regarding (2), this library provides the `CryptoHasher` abstraction to easily manage
-//! cryptographic seeds for hashing. Hashing seeds aim to ensure that
-//! the hashes of values of a given type `MyNewStruct` never collide with hashes of values
-//! from another type.
+//! Regarding (2), this library provides the `CryptoHasher` abstraction to
+//! easily manage cryptographic seeds for hashing. Hashing seeds aim to ensure
+//! that the hashes of values of a given type `MyNewStruct` never collide with
+//! hashes of values from another type.
 //!
-//! Finally, to prevent format ambiguity within a same type `MyNewStruct` and facilitate protocol
-//! specifications, we use [Binary Canonical Serialization (BCS)](https://docs.rs/bcs/)
+//! Finally, to prevent format ambiguity within a same type `MyNewStruct` and
+//! facilitate protocol specifications, we use [Binary Canonical Serialization (BCS)](https://docs.rs/bcs/)
 //! as the recommended solution to write Rust values into a hasher.
 //!
 //! # Quick Start
 //!
-//! To obtain a `hash()` method for any new type `MyNewStruct`, it is (strongly) recommended to
-//! use the derive macros of `serde` and `aptos_crypto_derive` as follows:
-//! ```
+//! To obtain a `hash()` method for any new type `MyNewStruct`, it is (strongly)
+//! recommended to use the derive macros of `serde` and `aptos_crypto_derive` as
+//! follows: ```
 //! use aptos_crypto::hash::CryptoHash;
-//! use aptos_crypto_derive::{CryptoHasher, BCSCryptoHash};
+//! use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
 //! use serde::{Deserialize, Serialize};
 //! #[derive(Serialize, Deserialize, CryptoHasher, BCSCryptoHash)]
-//! struct MyNewStruct { /*...*/ }
+//! struct MyNewStruct {
+//!     // ...
+//! }
 //!
 //! let value = MyNewStruct { /*...*/ };
 //! value.hash();
 //! ```
-//!
-//! Under the hood, this will generate a new implementation `MyNewStructHasher` for the trait
-//! `CryptoHasher` and implement the trait `CryptoHash` for `MyNewStruct` using BCS.
+//! 
+//! Under the hood, this will generate a new implementation `MyNewStructHasher`
+//! for the trait `CryptoHasher` and implement the trait `CryptoHash` for
+//! `MyNewStruct` using BCS.
 //!
 //! # Implementing New Hashers
 //!
-//! The trait `CryptoHasher` captures the notion of a pre-seeded hash function, aka a "hasher".
-//! New implementations can be defined in two ways.
+//! The trait `CryptoHasher` captures the notion of a pre-seeded hash function,
+//! aka a "hasher". New implementations can be defined in two ways.
 //!
 //! ## Derive macro (recommended)
 //!
-//! For any new structure `MyNewStruct` that needs to be hashed, it is recommended to simply
-//! use the derive macro [`CryptoHasher`](https://doc.rust-lang.org/reference/procedural-macros.html).
-//!
+//! For any new structure `MyNewStruct` that needs to be hashed, it is
+//! recommended to simply use the derive macro [`CryptoHasher`](https://doc.rust-lang.org/reference/procedural-macros.html).
 //! ```
 //! use aptos_crypto_derive::CryptoHasher;
 //! use serde::Deserialize;
 //! #[derive(Deserialize, CryptoHasher)]
 //! #[serde(rename = "OptionalCustomSerdeName")]
-//! struct MyNewStruct { /*...*/ }
+//! struct MyNewStruct {
+//!     // ...
+//! }
 //! ```
-//!
-//! The macro `CryptoHasher` will define a hasher automatically called `MyNewStructHasher`, and derive a salt
-//! using the name of the type as seen by the Serde library. In the example above, this name
-//! was changed using the Serde parameter `rename`: the salt will be based on the value `OptionalCustomSerdeName`
-//! instead of the default name `MyNewStruct`.
+//! 
+//! The macro `CryptoHasher` will define a hasher automatically called
+//! `MyNewStructHasher`, and derive a salt using the name of the type as seen by
+//! the Serde library. In the example above, this name was changed using the
+//! Serde parameter `rename`: the salt will be based on the value
+//! `OptionalCustomSerdeName` instead of the default name `MyNewStruct`.
 //!
 //! ## Customized hashers
 //!
-//! **IMPORTANT:** Do NOT use this for new code unless you know what you are doing.
+//! **IMPORTANT:** Do NOT use this for new code unless you know what you are
+//! doing.
 //!
-//! This library also provides a few customized hashers defined in the code as follows:
-//!
+//! This library also provides a few customized hashers defined in the code as
+//! follows:
 //! ```
 //! # // To get around that there's no way to doc-test a non-exported macro:
 //! # macro_rules! define_hasher { ($e:expr) => () }
-//! define_hasher! { (MyNewDataHasher, MY_NEW_DATA_HASHER, MY_NEW_DATA_SEED, b"MyUniqueSaltString") }
-//! ```
+//! define_hasher! { (MyNewDataHasher, MY_NEW_DATA_HASHER, MY_NEW_DATA_SEED,
+//! b"MyUniqueSaltString") } ```
 //!
 //! # Using a hasher directly
 //!
-//! **IMPORTANT:** Do NOT use this for new code unless you know what you are doing.
-//!
+//! **IMPORTANT:** Do NOT use this for new code unless you know what you are
+//! doing.
 //! ```
 //! use aptos_crypto::hash::{CryptoHasher, TestOnlyHasher};
 //!
@@ -119,7 +128,8 @@ use tiny_keccak::{Hasher, Sha3};
 /// serialization name of the struct.
 pub(crate) const HASH_PREFIX: &[u8] = b"APTOS::";
 
-/// Output value of our hash function. Intentionally opaque for safety and modularity.
+/// Output value of our hash function. Intentionally opaque for safety and
+/// modularity.
 #[derive(Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct HashValue {
@@ -216,10 +226,11 @@ impl HashValue {
         debug_assert!(index < Self::LENGTH * 2); // assumed precondition
         let pos = index / 2;
         let shift = if index % 2 == 0 { 4 } else { 0 };
-        (self.hash[pos] >> shift) & 0x0f
+        (self.hash[pos] >> shift) & 0x0F
     }
 
-    /// Returns a `HashValueBitIterator` over all the bits that represent this `HashValue`.
+    /// Returns a `HashValueBitIterator` over all the bits that represent this
+    /// `HashValue`.
     pub fn iter_bits(&self) -> HashValueBitIterator<'_> {
         HashValueBitIterator::new(self)
     }
@@ -266,8 +277,8 @@ impl HashValue {
             .map(Self::new)
     }
 
-    /// Create a hash value whose contents are just the given integer. Useful for
-    /// generating basic mock hash values.
+    /// Create a hash value whose contents are just the given integer. Useful
+    /// for generating basic mock hash values.
     ///
     /// Ex: HashValue::from_u64(0x1234) => HashValue([0, .., 0, 0x12, 0x34])
     #[cfg(any(test, feature = "fuzzing"))]
@@ -422,9 +433,8 @@ impl std::error::Error for HashValueParseError {}
 pub struct HashValueBitIterator<'a> {
     /// The reference to the bytes that represent the `HashValue`.
     hash_bytes: &'a [u8],
-    pos: std::ops::Range<usize>,
-    // invariant hash_bytes.len() == HashValue::LENGTH;
-    // invariant pos.end == hash_bytes.len() * 8;
+    pos: std::ops::Range<usize>, /* invariant hash_bytes.len() == HashValue::LENGTH;
+                                  * invariant pos.end == hash_bytes.len() * 8; */
 }
 
 impl<'a> HashValueBitIterator<'a> {
@@ -469,10 +479,12 @@ impl<'a> std::iter::ExactSizeIterator for HashValueBitIterator<'a> {}
 
 /// A type that can be cryptographically hashed to produce a `HashValue`.
 ///
-/// In most cases, this trait should not be implemented manually but rather derived using
-/// the macros `serde::Serialize`, `CryptoHasher`, and `BCSCryptoHash`.
+/// In most cases, this trait should not be implemented manually but rather
+/// derived using the macros `serde::Serialize`, `CryptoHasher`, and
+/// `BCSCryptoHash`.
 pub trait CryptoHash {
-    /// The associated `Hasher` type which comes with a unique salt for this type.
+    /// The associated `Hasher` type which comes with a unique salt for this
+    /// type.
     type Hasher: CryptoHasher;
 
     /// Hashes the object and produces a `HashValue`.
@@ -481,7 +493,8 @@ pub trait CryptoHash {
 
 /// A trait for representing the state of a cryptographic hasher.
 pub trait CryptoHasher: Default + std::io::Write {
-    /// the seed used to initialize hashing `Self` before the serialization bytes of the actual value
+    /// the seed used to initialize hashing `Self` before the serialization
+    /// bytes of the actual value
     fn seed() -> &'static [u8; 32];
 
     /// Write bytes into the hasher.
@@ -654,19 +667,20 @@ pub static SPARSE_MERKLE_PLACEHOLDER_HASH: Lazy<HashValue> =
 pub static PRE_GENESIS_BLOCK_ID: Lazy<HashValue> =
     Lazy::new(|| create_literal_hash("PRE_GENESIS_BLOCK_ID"));
 
-/// Genesis block id is used as a parent of the very first block executed by the executor.
+/// Genesis block id is used as a parent of the very first block executed by the
+/// executor.
 pub static GENESIS_BLOCK_ID: Lazy<HashValue> = Lazy::new(|| {
     // This maintains the invariant that block.id() == block.hash(), for
     // the genesis block and allows us to (de/)serialize it consistently
     HashValue::new([
-        0x5e, 0x10, 0xba, 0xd4, 0x5b, 0x35, 0xed, 0x92, 0x9c, 0xd6, 0xd2, 0xc7, 0x09, 0x8b, 0x13,
-        0x5d, 0x02, 0xdd, 0x25, 0x9a, 0xe8, 0x8a, 0x8d, 0x09, 0xf4, 0xeb, 0x5f, 0xba, 0xe9, 0xa6,
-        0xf6, 0xe4,
+        0x5E, 0x10, 0xBA, 0xD4, 0x5B, 0x35, 0xED, 0x92, 0x9C, 0xD6, 0xD2, 0xC7, 0x09, 0x8B, 0x13,
+        0x5D, 0x02, 0xDD, 0x25, 0x9A, 0xE8, 0x8A, 0x8D, 0x09, 0xF4, 0xEB, 0x5F, 0xBA, 0xE9, 0xA6,
+        0xF6, 0xE4,
     ])
 });
 
-/// Provides a test_only_hash() method that can be used in tests on types that implement
-/// `serde::Serialize`.
+/// Provides a test_only_hash() method that can be used in tests on types that
+/// implement `serde::Serialize`.
 ///
 /// # Example
 /// ```

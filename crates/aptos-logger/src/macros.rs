@@ -41,7 +41,8 @@ macro_rules! spawn_named {
 
 }
 
-/// Log at the given level, it's recommended to use a specific level macro instead
+/// Log at the given level, it's recommended to use a specific level macro
+/// instead
 #[macro_export]
 macro_rules! log {
     // Entry, Log Level + stuff

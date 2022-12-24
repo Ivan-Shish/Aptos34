@@ -23,8 +23,8 @@ struct DummyNetworkInterface {
 }
 
 impl NetworkInterface<HealthCheckerMsg, DummySender> for DummyNetworkInterface {
-    type AppDataKey = PeerId;
     type AppData = ();
+    type AppDataKey = PeerId;
 
     fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata_storage
@@ -68,7 +68,8 @@ fn test_interface() {
     assert_eq!(2, interface.peers(network_id).len());
     assert_eq!(1, interface.connected_peers(network_id).len());
 
-    // Removing a connection with a different connection id doesn't remove it from storage
+    // Removing a connection with a different connection id doesn't remove it from
+    // storage
     let different_connection_2 = ConnectionMetadata::mock(peer_2);
     peer_metadata_storage.remove_connection(network_id, &different_connection_2);
     assert_eq!(2, interface.peers(network_id).len());
@@ -91,7 +92,7 @@ fn update_state(
             Entry::Occupied(inner) => {
                 inner.get_mut().status = state;
                 Ok(())
-            }
+            },
         })
         .unwrap()
 }

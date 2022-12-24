@@ -39,7 +39,8 @@ pub enum StorageSynchronizerOperations {
     ExecutedTransactions,      // Executed a chunk of transactions.
     Synced,                    // Wrote a chunk of transactions and outputs to storage.
     SyncedStates,              // Wrote a chunk of state values to storage.
-    SyncedEpoch, // Wrote a chunk of transactions and outputs to storage that resulted in a new epoch.
+    SyncedEpoch,               /* Wrote a chunk of transactions and outputs to storage that
+                                * resulted in a new epoch. */
 }
 
 impl StorageSynchronizerOperations {
@@ -47,7 +48,7 @@ impl StorageSynchronizerOperations {
         match self {
             StorageSynchronizerOperations::AppliedTransactionOutputs => {
                 "applied_transaction_outputs"
-            }
+            },
             StorageSynchronizerOperations::ExecutedTransactions => "executed_transactions",
             StorageSynchronizerOperations::Synced => "synced",
             StorageSynchronizerOperations::SyncedEpoch => "synced_epoch",

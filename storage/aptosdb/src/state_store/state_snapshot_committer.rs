@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This file defines the state snapshot committer running in background thread within StateStore.
+//! This file defines the state snapshot committer running in background thread
+//! within StateStore.
 
 use crate::state_store::{
     buffered_state::CommitMessage,
@@ -100,18 +101,18 @@ impl StateSnapshotCommitter {
                             snapshot_ready_sender,
                         })
                         .unwrap();
-                }
+                },
                 CommitMessage::Sync(finish_sender) => {
                     self.state_merkle_batch_commit_sender
                         .send(CommitMessage::Sync(finish_sender))
                         .unwrap();
-                }
+                },
                 CommitMessage::Exit => {
                     self.state_merkle_batch_commit_sender
                         .send(CommitMessage::Exit)
                         .unwrap();
                     break;
-                }
+                },
             }
             trace!("State snapshot committing thread exit.")
         }

@@ -3,8 +3,7 @@
 
 use aptos_consensus_types::proof_of_store::LogicalTime;
 use aptos_crypto::HashValue;
-use aptos_types::transaction::SignedTransaction;
-use aptos_types::PeerId;
+use aptos_types::{transaction::SignedTransaction, PeerId};
 use bcs::to_bytes;
 use serde::{Deserialize, Serialize};
 use std::mem;
@@ -212,7 +211,8 @@ impl Batch {
         self.batch_info.epoch
     }
 
-    // Check the source == the sender. To protect from DDoS we check is Payload matches digest later.
+    // Check the source == the sender. To protect from DDoS we check is Payload
+    // matches digest later.
     pub fn verify(&self, peer_id: PeerId) -> anyhow::Result<()> {
         if self.source == peer_id {
             Ok(())

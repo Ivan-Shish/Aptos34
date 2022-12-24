@@ -47,7 +47,7 @@ pub fn workspace_root() -> PathBuf {
 }
 
 // Path to the directory where build artifacts live.
-//TODO maybe add an Environment Variable which points to built binaries
+// TODO maybe add an Environment Variable which points to built binaries
 fn build_dir() -> PathBuf {
     env::current_exe()
         .ok()
@@ -69,8 +69,8 @@ pub fn get_bin<S: AsRef<str>>(bin_name: S) -> PathBuf {
         "aptos-node must be built and used via local swarm cargo_build_aptos_node"
     );
 
-    // We have to check to see if the workspace is built first to ensure that the binaries we're
-    // testing are up to date.
+    // We have to check to see if the workspace is built first to ensure that the
+    // binaries we're testing are up to date.
     if !*WORKSPACE_BUILT {
         panic!("{}", WORKSPACE_BUILD_ERROR_MSG);
     }
@@ -78,8 +78,9 @@ pub fn get_bin<S: AsRef<str>>(bin_name: S) -> PathBuf {
     let bin_name = bin_name.as_ref();
     let bin_path = build_dir().join(format!("{}{}", bin_name, env::consts::EXE_SUFFIX));
 
-    // If the binary doesn't exist then either building them failed somehow or the supplied binary
-    // name doesn't match any binaries this workspace can produce.
+    // If the binary doesn't exist then either building them failed somehow or the
+    // supplied binary name doesn't match any binaries this workspace can
+    // produce.
     if !bin_path.exists() {
         panic!(
             "Can't find binary '{}' in expected path {:?}",

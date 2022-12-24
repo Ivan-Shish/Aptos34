@@ -36,7 +36,8 @@ pub static STRUCT_LOG_PARSE_ERROR_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counter for failed log ingest writes (see also: aptos-telemetry for sender metrics)
+/// Counter for failed log ingest writes (see also: aptos-telemetry for sender
+/// metrics)
 pub static APTOS_LOG_INGEST_WRITER_FULL: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
         "aptos_log_ingest_writer_full",
@@ -45,7 +46,8 @@ pub static APTOS_LOG_INGEST_WRITER_FULL: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counter for failed log ingest writes (see also: aptos-telemetry for sender metrics)
+/// Counter for failed log ingest writes (see also: aptos-telemetry for sender
+/// metrics)
 pub static APTOS_LOG_INGEST_WRITER_DISCONNECTED: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
         "aptos_log_ingest_writer_disconnected",

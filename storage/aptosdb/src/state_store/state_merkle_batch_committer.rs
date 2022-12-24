@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This file defines the state merkle snapshot committer running in background thread.
+//! This file defines the state merkle snapshot committer running in background
+//! thread.
 
 use crate::{
     jellyfish_merkle_node::JellyfishMerkleNodeSchema,
@@ -89,11 +90,11 @@ impl StateMerkleBatchCommitter {
                         .maybe_set_pruner_target_db_version(current_version);
 
                     self.check_usage_consistency(&state_delta).unwrap();
-                }
+                },
                 CommitMessage::Sync(finish_sender) => finish_sender.send(()).unwrap(),
                 CommitMessage::Exit => {
                     break;
-                }
+                },
             }
         }
         trace!("State merkle batch committing thread exit.")

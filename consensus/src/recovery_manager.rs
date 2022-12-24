@@ -22,8 +22,9 @@ use futures::{FutureExt, StreamExt};
 use futures_channel::oneshot;
 use std::{mem::Discriminant, process, sync::Arc};
 
-/// If the node can't recover corresponding blocks from local storage, RecoveryManager is responsible
-/// for processing the events carrying sync info and use the info to retrieve blocks from peers
+/// If the node can't recover corresponding blocks from local storage,
+/// RecoveryManager is responsible for processing the events carrying sync info
+/// and use the info to retrieve blocks from peers
 pub struct RecoveryManager {
     epoch_state: EpochState,
     network: NetworkSender,

@@ -15,8 +15,8 @@ use std::str::FromStr;
 
 /// Create a resource account on-chain
 ///
-/// This will create a resource account which can be used as an autonomous account
-/// not controlled directly by one account.
+/// This will create a resource account which can be used as an autonomous
+/// account not controlled directly by one account.
 #[derive(Debug, Parser)]
 pub struct CreateResourceAccount {
     /// Resource account seed
@@ -61,7 +61,7 @@ impl From<Transaction> for CreateResourceAccountSummary {
                     } else {
                         None
                     }
-                }
+                },
                 _ => None,
             });
         }

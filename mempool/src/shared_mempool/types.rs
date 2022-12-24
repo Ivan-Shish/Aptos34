@@ -26,8 +26,8 @@ use futures::{
     task::{Context, Poll},
 };
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::{
+    cmp::Ordering,
     collections::{BTreeMap, BTreeSet, HashMap},
     fmt,
     pin::Pin,
@@ -81,12 +81,13 @@ impl<V: TransactionValidation + 'static> SharedMempool<V> {
     }
 
     pub fn broadcast_within_validator_network(&self) -> bool {
-        // This value will be changed true -> false via onchain config when quorum store is enabled.
-        // On the transition from true -> false, all transactions in mempool will be eligible for
-        // at least one of mempool broadcast or quorum store batch.
-        // A transition from false -> true is unexpected -- it would only be triggered if quorum
-        // store needs an emergency rollback. In this case, some transactions may not be propagated,
-        // they will neither go through a mempool broadcast or quorum store batch.
+        // This value will be changed true -> false via onchain config when quorum store
+        // is enabled. On the transition from true -> false, all transactions in
+        // mempool will be eligible for at least one of mempool broadcast or
+        // quorum store batch. A transition from false -> true is unexpected --
+        // it would only be triggered if quorum store needs an emergency
+        // rollback. In this case, some transactions may not be propagated, they
+        // will neither go through a mempool broadcast or quorum store batch.
         *self.broadcast_within_validator_network.read()
     }
 }
@@ -143,7 +144,9 @@ impl ScheduledBroadcast {
 }
 
 impl Future for ScheduledBroadcast {
-    type Output = (PeerNetworkId, bool); // (peer, whether this broadcast was scheduled as a backoff broadcast)
+    type Output = (PeerNetworkId, bool);
+
+    // (peer, whether this broadcast was scheduled as a backoff broadcast)
 
     fn poll(self: Pin<&mut Self>, context: &mut Context) -> Poll<Self::Output> {
         if Instant::now() < self.deadline {
@@ -189,13 +192,13 @@ impl fmt::Display for QuorumStoreRequest {
                     max_bytes,
                     excluded_txns.len()
                 )
-            }
+            },
             QuorumStoreRequest::RejectNotification(rejected_txns, _) => {
                 format!(
                     "RejectNotification [rejected_txns_length: {}]",
                     rejected_txns.len()
                 )
-            }
+            },
         };
         write!(f, "{}", payload)
     }
@@ -242,8 +245,9 @@ impl PeerSyncState {
 }
 
 /// Identifier for a broadcasted batch of txns.
-/// For BatchId(`start_id`, `end_id`), (`start_id`, `end_id`) is the range of timeline IDs read from
-/// the core mempool timeline index that produced the txns in this batch.
+/// For BatchId(`start_id`, `end_id`), (`start_id`, `end_id`) is the range of
+/// timeline IDs read from the core mempool timeline index that produced the
+/// txns in this batch.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 struct BatchId(pub u64, pub u64);
 

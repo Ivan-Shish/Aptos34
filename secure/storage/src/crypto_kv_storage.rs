@@ -10,9 +10,10 @@ use aptos_crypto::{
 use rand::{rngs::OsRng, Rng, SeedableRng};
 use serde::ser::Serialize;
 
-/// CryptoKVStorage offers a CryptoStorage implementation by extending a key value store (KVStorage)
-/// to create and manage cryptographic keys. This is useful for providing a simple CryptoStorage
-/// implementation based upon an existing KVStorage engine (e.g. for test purposes).
+/// CryptoKVStorage offers a CryptoStorage implementation by extending a key
+/// value store (KVStorage) to create and manage cryptographic keys. This is
+/// useful for providing a simple CryptoStorage implementation based upon an
+/// existing KVStorage engine (e.g. for test purposes).
 pub trait CryptoKVStorage: KVStorage {}
 
 impl<T: CryptoKVStorage> CryptoStorage for T {
@@ -44,10 +45,10 @@ impl<T: CryptoKVStorage> CryptoStorage for T {
                 } else {
                     Err(Error::KeyVersionNotFound(name.into(), version.to_string()))
                 }
-            }
+            },
             Err(Error::KeyNotSet(_)) => {
                 Err(Error::KeyVersionNotFound(name.into(), version.to_string()))
-            }
+            },
             Err(e) => Err(e),
         }
     }
@@ -109,7 +110,8 @@ impl<T: CryptoKVStorage> CryptoStorage for T {
     }
 }
 
-/// Private helper method to generate a new ed25519 key pair using entropy from the OS.
+/// Private helper method to generate a new ed25519 key pair using entropy from
+/// the OS.
 fn new_ed25519_key_pair() -> (Ed25519PrivateKey, Ed25519PublicKey) {
     let mut seed_rng = OsRng;
     let mut rng = rand::rngs::StdRng::from_seed(seed_rng.gen());
@@ -118,8 +120,8 @@ fn new_ed25519_key_pair() -> (Ed25519PrivateKey, Ed25519PublicKey) {
     (private_key, public_key)
 }
 
-/// Private helper method to get the name of the previous version of the given key pair, as held in
-/// secure cryptographic storage.
+/// Private helper method to get the name of the previous version of the given
+/// key pair, as held in secure cryptographic storage.
 fn get_previous_version_name(name: &str) -> String {
     format!("{}_previous", name)
 }

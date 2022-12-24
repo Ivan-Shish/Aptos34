@@ -9,7 +9,6 @@ use crate::{
 use anyhow::{Error, Result};
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
 use move_core_types::{language_storage::TypeTag, move_resource::MoveStructType};
-
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
@@ -37,8 +36,8 @@ impl ContractEvent {
     }
 }
 
-// Temporary hack to avoid massive changes, it won't work when new variant comes and needs proper
-// dispatch at that time.
+// Temporary hack to avoid massive changes, it won't work when new variant comes
+// and needs proper dispatch at that time.
 impl Deref for ContractEvent {
     type Target = ContractEventV0;
 

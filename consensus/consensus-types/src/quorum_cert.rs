@@ -18,7 +18,8 @@ use std::fmt::{Display, Formatter};
 pub struct QuorumCert {
     /// The vote information certified by the quorum.
     vote_data: VoteData,
-    /// The signed LedgerInfo of a committed block that carries the data about the certified block.
+    /// The signed LedgerInfo of a committed block that carries the data about
+    /// the certified block.
     signed_ledger_info: LedgerInfoWithSignatures,
 }
 
@@ -65,11 +66,13 @@ impl QuorumCert {
         self.signed_ledger_info.ledger_info().ends_epoch()
     }
 
-    /// QuorumCert for the genesis block deterministically generated from end-epoch LedgerInfo:
+    /// QuorumCert for the genesis block deterministically generated from
+    /// end-epoch LedgerInfo:
     /// - the ID of the block is determined by the generated genesis block.
-    /// - the accumulator root hash of the LedgerInfo is set to the last executed state of previous
-    ///   epoch.
-    /// - the map of signatures is empty because genesis block is implicitly agreed.
+    /// - the accumulator root hash of the LedgerInfo is set to the last
+    ///   executed state of previous epoch.
+    /// - the map of signatures is empty because genesis block is implicitly
+    ///   agreed.
     pub fn certificate_for_genesis_from_ledger_info(
         ledger_info: &LedgerInfo,
         genesis_id: HashValue,
@@ -112,8 +115,8 @@ impl QuorumCert {
             "Quorum Cert's hash mismatch LedgerInfo"
         );
         // Genesis's QC is implicitly agreed upon, it doesn't have real signatures.
-        // If someone sends us a QC on a fake genesis, it'll fail to insert into BlockStore
-        // because of the round constraint.
+        // If someone sends us a QC on a fake genesis, it'll fail to insert into
+        // BlockStore because of the round constraint.
         if self.certified_block().round() == 0 {
             ensure!(
                 self.parent_block() == self.certified_block(),

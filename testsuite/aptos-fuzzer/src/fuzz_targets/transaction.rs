@@ -61,9 +61,10 @@ impl FuzzTargetImpl for SignedTransactionTarget {
     }
 }
 
-/// This fuzzer ensures that we cannot mutate the serialization of a test transaction/
-/// To do this, it generates a single transaction via a seeded proptest and serializes it,
-/// The fuzzer then mutates this serialized transaction in hope of deserializing it to the same transaction.
+/// This fuzzer ensures that we cannot mutate the serialization of a test
+/// transaction/ To do this, it generates a single transaction via a seeded
+/// proptest and serializes it, The fuzzer then mutates this serialized
+/// transaction in hope of deserializing it to the same transaction.
 #[derive(Clone, Debug, Default)]
 pub struct MutatedSignedTransaction;
 
@@ -85,9 +86,10 @@ impl FuzzTargetImpl for MutatedSignedTransaction {
         "SignedTransaction (BCS serialized -> mutation -> deserializer)"
     }
 
-    /// We always return the same serialized signed transaction for corpus generation,
-    /// as we only fuzz the serialization of a unique transaction.
-    /// This is quite a limited fuzzer, refer to TwoSignedTransactions for a different approach.
+    /// We always return the same serialized signed transaction for corpus
+    /// generation, as we only fuzz the serialization of a unique
+    /// transaction. This is quite a limited fuzzer, refer to
+    /// TwoSignedTransactions for a different approach.
     fn generate(&self, _idx: usize, _gen: &mut ValueGenerator) -> Option<Vec<u8>> {
         Some(SERIALIZED_SIGNED_TXN.clone())
     }

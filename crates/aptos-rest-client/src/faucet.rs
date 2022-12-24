@@ -80,8 +80,8 @@ impl FaucetClient {
         let query = format!("auth_key={}&amount={}&return_txns=true", address, amount);
         url.set_query(Some(&query));
 
-        // Faucet returns the transaction that creates the account and needs to be waited on before
-        // returning.
+        // Faucet returns the transaction that creates the account and needs to be
+        // waited on before returning.
         let response = self
             .inner
             .post(url)

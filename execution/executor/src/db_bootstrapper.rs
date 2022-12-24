@@ -39,17 +39,17 @@ pub fn generate_waypoint<V: VMExecutor>(
     Ok(committer.waypoint)
 }
 
-/// If current version + 1 != waypoint.version(), return Ok(false) indicating skipping the txn.
-/// otherwise apply the txn and commit it if the result matches the waypoint.
-/// Returns Ok(true) if committed otherwise Err.
+/// If current version + 1 != waypoint.version(), return Ok(false) indicating
+/// skipping the txn. otherwise apply the txn and commit it if the result
+/// matches the waypoint. Returns Ok(true) if committed otherwise Err.
 pub fn maybe_bootstrap<V: VMExecutor>(
     db: &DbReaderWriter,
     genesis_txn: &Transaction,
     waypoint: Waypoint,
 ) -> Result<bool> {
     let executed_trees = db.reader.get_latest_executed_trees()?;
-    // if the waypoint is not targeted with the genesis txn, it may be either already bootstrapped, or
-    // aiming for state sync to catch up.
+    // if the waypoint is not targeted with the genesis txn, it may be either
+    // already bootstrapped, or aiming for state sync to catch up.
     if executed_trees.version().map_or(0, |v| v + 1) != waypoint.version() {
         info!(waypoint = %waypoint, "Skip genesis txn.");
         return Ok(false);
@@ -104,7 +104,7 @@ impl GenesisCommitter {
             self.output.result_view.txn_accumulator().version(),
             self.base_state_version,
             self.output.ledger_info.as_ref(),
-            true, /* sync_commit */
+            true, // sync_commit
             self.output.result_view.state().clone(),
         )?;
         info!("Genesis commited.");
@@ -119,9 +119,9 @@ pub fn calculate_genesis<V: VMExecutor>(
     executed_trees: ExecutedTrees,
     genesis_txn: &Transaction,
 ) -> Result<GenesisCommitter> {
-    // DB bootstrapper works on either an empty transaction accumulator or an existing block chain.
-    // In the very extreme and sad situation of losing quorum among validators, we refer to the
-    // second use case said above.
+    // DB bootstrapper works on either an empty transaction accumulator or an
+    // existing block chain. In the very extreme and sad situation of losing
+    // quorum among validators, we refer to the second use case said above.
     let genesis_version = executed_trees.version().map_or(0, |v| v + 1);
     let base_state_view = executed_trees.verified_state_view(
         StateViewId::Miscellaneous,
@@ -144,7 +144,8 @@ pub fn calculate_genesis<V: VMExecutor>(
     );
 
     let timestamp_usecs = if genesis_version == 0 {
-        // TODO(aldenhu): fix existing tests before using real timestamp and check on-chain epoch.
+        // TODO(aldenhu): fix existing tests before using real timestamp and check
+        // on-chain epoch.
         GENESIS_TIMESTAMP_USECS
     } else {
         let state_view = output.result_view.verified_state_view(
@@ -177,9 +178,9 @@ pub fn calculate_genesis<V: VMExecutor>(
                 timestamp_usecs,
                 output.next_epoch_state.clone(),
             ),
-            genesis_block_id(), /* consensus_data_hash */
+            genesis_block_id(), // consensus_data_hash
         ),
-        AggregateSignature::empty(), /* signatures */
+        AggregateSignature::empty(), // signatures
     );
     output.ledger_info = Some(ledger_info_with_sigs);
 

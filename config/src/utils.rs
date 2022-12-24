@@ -10,17 +10,20 @@ use aptos_types::{
 };
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use get_if_addrs::get_if_addrs;
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
-use std::fs::{File, OpenOptions};
-use std::io::Seek;
-use std::net::{TcpListener, TcpStream};
-use std::ops::Range;
-use std::time::Duration;
-use std::{env, fs, thread};
+use rand::{seq::SliceRandom, SeedableRng};
+use std::{
+    env, fs,
+    fs::{File, OpenOptions},
+    io::Seek,
+    net::{TcpListener, TcpStream},
+    ops::Range,
+    thread,
+    time::Duration,
+};
 
 const MAX_PORT_RETRIES: u16 = 1000;
-// Using non-ephemeral ports, to avoid conflicts with OS-selected ports (i.e., bind on port 0)
+// Using non-ephemeral ports, to avoid conflicts with OS-selected ports (i.e.,
+// bind on port 0)
 const UNIQUE_PORT_RANGE: Range<u16> = 10000..30000;
 // Consistent seed across processes
 const PORT_SEED: [u8; 32] = [
@@ -69,9 +72,10 @@ pub fn get_available_port() -> u16 {
     }
 }
 
-/// Return an ephemeral, available port. On unix systems, the port returned will be in the
-/// TIME_WAIT state ensuring that the OS won't hand out this port for some grace period.
-/// Callers should be able to bind to this port given they use SO_REUSEADDR.
+/// Return an ephemeral, available port. On unix systems, the port returned will
+/// be in the TIME_WAIT state ensuring that the OS won't hand out this port for
+/// some grace period. Callers should be able to bind to this port given they
+/// use SO_REUSEADDR.
 fn get_random_port() -> u16 {
     for _ in 0..MAX_PORT_RETRIES {
         if let Ok(port) = try_bind(None) {
@@ -92,9 +96,10 @@ fn try_bind(port: Option<u16>) -> ::std::io::Result<u16> {
     let listener = TcpListener::bind(("localhost", port))?;
     let addr = listener.local_addr()?;
 
-    // Create and accept a connection (which we'll promptly drop) in order to force the port
-    // into the TIME_WAIT state, ensuring that the port will be reserved from some limited
-    // amount of time (roughly 60s on some Linux systems)
+    // Create and accept a connection (which we'll promptly drop) in order to force
+    // the port into the TIME_WAIT state, ensuring that the port will be
+    // reserved from some limited amount of time (roughly 60s on some Linux
+    // systems)
     let _sender = TcpStream::connect(addr)?;
     let _incoming = listener.accept()?;
 
@@ -116,9 +121,10 @@ fn counter_path() -> String {
 }
 
 /// We use the filesystem to bind to unique ports for cargo nextest.
-/// cargo nextest runs tests concurrently in different processes. We have observed that using
-/// a simple bind(0) results in flaky tests when nodes are restarted within tests; likely the OS
-/// is prioritizing recently released ports.
+/// cargo nextest runs tests concurrently in different processes. We have
+/// observed that using a simple bind(0) results in flaky tests when nodes are
+/// restarted within tests; likely the OS is prioritizing recently released
+/// ports.
 fn get_unique_port() -> u16 {
     let mut port_counter_files = open_counter_file();
     let global_counter = match port_counter_files.counter_file.read_u16::<BigEndian>() {
@@ -128,14 +134,14 @@ fn get_unique_port() -> u16 {
             } else {
                 counter
             }
-        }
+        },
         Err(_) => {
             warn!(
                 "Unable to read port counter from file {}, starting from 0",
                 counter_path()
             );
             0
-        }
+        },
     };
     let (port, updated_counter) = bind_port_from_counter(global_counter);
 
@@ -157,21 +163,23 @@ fn open_counter_file() -> PortCounterFiles {
             .create_new(true)
             .open(&lock_path())
         {
-            Ok(lock_file) => match OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .open(&counter_path())
-            {
-                Ok(counter_file) => return PortCounterFiles::new(counter_file, lock_file),
-                Err(_) => {
-                    panic!("Could not read {}", counter_path());
+            Ok(lock_file) => {
+                match OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .open(&counter_path())
+                {
+                    Ok(counter_file) => return PortCounterFiles::new(counter_file, lock_file),
+                    Err(_) => {
+                        panic!("Could not read {}", counter_path());
+                    },
                 }
             },
             Err(_) => {
                 info!("Lock could not be acquired, attempt {}", i);
                 thread::sleep(Duration::from_millis(100));
-            }
+            },
         }
     }
     panic!("Could not acquire lock to: {}", lock_path());
@@ -188,14 +196,14 @@ fn bind_port_from_counter(mut counter: u16) -> (u16, u16) {
         match try_bind(Some(port)) {
             Ok(port) => {
                 return (port, counter);
-            }
+            },
             Err(_) => {
                 info!(
                     "Conflicting port: {}, on count {} and attempt {}",
                     port, counter, attempt
                 );
                 continue;
-            }
+            },
         }
     }
 
@@ -205,7 +213,8 @@ fn bind_port_from_counter(mut counter: u16) -> (u16, u16) {
     );
 }
 
-/// Extracts one local non-loopback IP address, if one exists. Otherwise returns None.
+/// Extracts one local non-loopback IP address, if one exists. Otherwise returns
+/// None.
 pub fn get_local_ip() -> Option<NetworkAddress> {
     get_if_addrs().ok().and_then(|if_addrs| {
         if_addrs

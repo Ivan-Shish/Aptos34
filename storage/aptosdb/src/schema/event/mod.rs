@@ -3,8 +3,8 @@
 
 //! This module defines physical storage schema for the contract events.
 //!
-//! An event is keyed by the version of the transaction it belongs to and the index of it among all
-//! events yielded by the same transaction.
+//! An event is keyed by the version of the transaction it belongs to and the
+//! index of it among all events yielded by the same transaction.
 //! ```text
 //! |<-------key----->|<---value--->|
 //! | version | index | event bytes |

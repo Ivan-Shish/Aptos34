@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines the physical storage schema for state value, which is used
-//! to access the state value directly.
+//! This module defines the physical storage schema for state value, which is
+//! used to access the state value directly.
 //!
 //! An Index Key in this data set has 2 pieces of information:
 //!     1. The state key

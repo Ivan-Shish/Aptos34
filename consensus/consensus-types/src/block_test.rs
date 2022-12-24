@@ -112,8 +112,8 @@ fn test_block_relation() {
     assert_eq!(cloned_block.round(), next_block.round());
 }
 
-// Ensure that blocks that extend from the same QuorumCertificate but with different signatures
-// have different block ids.
+// Ensure that blocks that extend from the same QuorumCertificate but with
+// different signatures have different block ids.
 #[test]
 fn test_same_qc_different_authors() {
     let (signers, validators) = random_validator_verifier(1, None, false);

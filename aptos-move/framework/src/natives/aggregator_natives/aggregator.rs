@@ -1,8 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::natives::aggregator_natives::{
+    helpers::{aggregator_info, unpack_aggregator_struct},
+    NativeAggregatorContext,
+};
 use aptos_aggregator::aggregator_extension::AggregatorID;
-
 use move_binary_format::errors::PartialVMResult;
 use move_core_types::gas_algebra::InternalGas;
 use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
@@ -15,17 +18,14 @@ use move_vm_types::{
 use smallvec::smallvec;
 use std::{collections::VecDeque, sync::Arc};
 
-use crate::natives::aggregator_natives::{
-    helpers::{aggregator_info, unpack_aggregator_struct},
-    NativeAggregatorContext,
-};
-
-/***************************************************************************************************
- * native fun add(aggregator: &mut Aggregator, value: u128);
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun add(aggregator: &mut Aggregator, value:
+/// u128);
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct AddGasParameters {
     pub base: InternalGas,
@@ -57,12 +57,13 @@ pub fn make_native_add(gas_params: AddGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_add(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * native fun read(aggregator: &Aggregator): u128;
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun read(aggregator: &Aggregator): u128;
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct ReadGasParameters {
     pub base: InternalGas,
@@ -86,22 +87,23 @@ fn native_read(
 
     let value = aggregator.read_and_materialize(aggregator_context.resolver, &id)?;
 
-    Ok(NativeResult::ok(
-        gas_params.base,
-        smallvec![Value::u128(value)],
-    ))
+    Ok(NativeResult::ok(gas_params.base, smallvec![Value::u128(
+        value
+    )]))
 }
 
 pub fn make_native_read(gas_params: ReadGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_read(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * native fun sub(aggregator: &mut Aggregator, value: u128);
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun sub(aggregator: &mut Aggregator, value:
+/// u128);
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct SubGasParameters {
     pub base: InternalGas,
@@ -133,12 +135,13 @@ pub fn make_native_sub(gas_params: SubGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_sub(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * native fun destroy(aggregator: Aggregator);
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun destroy(aggregator: Aggregator);
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct DestroyGasParameters {
     pub base: InternalGas,
@@ -171,10 +174,11 @@ pub fn make_native_destroy(gas_params: DestroyGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_destroy(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub add: AddGasParameters,

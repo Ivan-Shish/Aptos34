@@ -1,129 +1,151 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module provides APIs for Boneh-Lynn-Shacham (BLS) aggregate signatures, including
-//! normal (non-aggregated) signatures and multisignatures, on top of Barreto-Lynn-Scott BLS12-381
-//! elliptic curves. This module wraps the [blst](https://github.com/supranational/blst) library.
+//! This module provides APIs for Boneh-Lynn-Shacham (BLS) aggregate signatures,
+//! including normal (non-aggregated) signatures and multisignatures, on top of
+//! Barreto-Lynn-Scott BLS12-381 elliptic curves. This module wraps the [blst](https://github.com/supranational/blst) library.
 //!
-//! Our multisignature and aggregate signature implementations are described in [^BLS04], [^Bold03],
-//! except we use the proof-of-possession (PoP) scheme from [^RY07] to prevent rogue-key attacks
-//! [^MOR01] where malicious signers adversarially pick their public keys in order to forge a
-//! multisignature or forge an aggregate signature.
+//! Our multisignature and aggregate signature implementations are described in
+//! [^BLS04], [^Bold03], except we use the proof-of-possession (PoP) scheme from
+//! [^RY07] to prevent rogue-key attacks [^MOR01] where malicious signers
+//! adversarially pick their public keys in order to forge a multisignature or
+//! forge an aggregate signature.
 //!
-//! Our normal (non-aggregated) signatures implementation requires CAREFUL use by developers to
-//! prevent small-subgroup attacks. Specifically, developers must always wrap `bls12381::PublicKey`
-//! objects as `Validatable::<bls12381::PublicKey>` and access the public key via
+//! Our normal (non-aggregated) signatures implementation requires CAREFUL use
+//! by developers to prevent small-subgroup attacks. Specifically, developers
+//! must always wrap `bls12381::PublicKey` objects as
+//! `Validatable::<bls12381::PublicKey>` and access the public key via
 //! `Validatable::<bls12381::PublicKey>::valid()`. We give an example below.
 //!
-//! We implement the `Minimal-pubkey-size` variant from the BLS IETF draft standard [^bls-ietf-draft],
-//! which puts the signatures in the group $\mathbb{G}_2$ and the public keys in $\mathbb{G}_1$. The
-//! reasoning behind this choice is to minimize public key size, since public keys are posted on the
-//! blockchain.
+//! We implement the `Minimal-pubkey-size` variant from the BLS IETF draft
+//! standard [^bls-ietf-draft], which puts the signatures in the group
+//! $\mathbb{G}_2$ and the public keys in $\mathbb{G}_1$. The reasoning behind
+//! this choice is to minimize public key size, since public keys are posted on
+//! the blockchain.
 //!
 //! # Overview of normal Boneh-Lynn-Shacham (BLS) signatures
 //!
-//! In a _normal signature scheme_, we have a single _signer_ who generates its own key-pair:
-//! a _private-key_ and a corresponding _public key_. The signer can produce a _signature_ on a
-//! _message_ `m` using its private-key. Any _verifier_ who has the public key can check that
-//! the signature on `m` was produced by the signer.
+//! In a _normal signature scheme_, we have a single _signer_ who generates its
+//! own key-pair: a _private-key_ and a corresponding _public key_. The signer
+//! can produce a _signature_ on a _message_ `m` using its private-key. Any
+//! _verifier_ who has the public key can check that the signature on `m` was
+//! produced by the signer.
 //!
 //! # Overview of Boneh-Lynn-Shacham (BLS) multisignatures
 //!
-//! In a _multisignature scheme_, we have `n` signers. Each signer `i` has their own key-pair `(sk_i, pk_i)`.
-//! Any subset of `k` signers can collaborate to produce a succinct _multisignature_ on the *same*
-//! message `m`.
+//! In a _multisignature scheme_, we have `n` signers. Each signer `i` has their
+//! own key-pair `(sk_i, pk_i)`. Any subset of `k` signers can collaborate to
+//! produce a succinct _multisignature_ on the *same* message `m`.
 //!
-//! Typically, the `k` signers first agree on the message `m` via some protocol (e.g., `m` is the
-//! latest block header in a blockchain protocol). Then, each signer produces a _signature share_ `s_i`
-//! on `m` using their own private key `sk_i`. After this, each signer `i` sends their signature
-//! share `s_i` to an _aggregator_: a dedicated, untrusted party who is responsible for aggregating
-//! the signature shares into the final multisignature. For example, one of the signers themselves
-//! could be the aggregator.
+//! Typically, the `k` signers first agree on the message `m` via some protocol
+//! (e.g., `m` is the latest block header in a blockchain protocol). Then, each
+//! signer produces a _signature share_ `s_i` on `m` using their own private key
+//! `sk_i`. After this, each signer `i` sends their signature share `s_i` to an
+//! _aggregator_: a dedicated, untrusted party who is responsible for
+//! aggregating the signature shares into the final multisignature. For example,
+//! one of the signers themselves could be the aggregator.
 //!
 //! Lastly, the aggregator can proceed in two ways:
 //!
-//! 1. Pessimistically verify each signature share, discarding the invalid ones, and then aggregate
-//!    the final multisignature.
+//! 1. Pessimistically verify each signature share, discarding the invalid ones,
+//! and then aggregate    the final multisignature.
 //!
-//! 2. Optimistically aggregate all signature shares, but verify the final multisignature at the end
-//!    to ensure no bad signature shares were included. If the multisignature does not verify,
-//!    revert to the pessimistic mode (or consider other approaches [^LM07]).
+//! 2. Optimistically aggregate all signature shares, but verify the final
+//! multisignature at the end    to ensure no bad signature shares were
+//! included. If the multisignature does not verify,    revert to the
+//! pessimistic mode (or consider other approaches [^LM07]).
 //!
-//! Either way, the end result (assuming some of the signature shares were valid) will be a valid
-//! multisignature on `m` which can be verified against an _aggregate public key_ of the involved
-//! signers.
+//! Either way, the end result (assuming some of the signature shares were
+//! valid) will be a valid multisignature on `m` which can be verified against
+//! an _aggregate public key_ of the involved signers.
 //!
-//! Specifically, any verifier who knows the public keys of the signers whose shares were aggregated
-//! into the multisignature, can first compute an _aggregate public key_ as a function of these
-//! public keys and then verify the multisignature under this aggregate public key.
+//! Specifically, any verifier who knows the public keys of the signers whose
+//! shares were aggregated into the multisignature, can first compute an
+//! _aggregate public key_ as a function of these public keys and then verify
+//! the multisignature under this aggregate public key.
 //!
-//! Extremely important for security is that the verifier first ensure these public keys came with
-//! valid proofs-of-possession (PoPs). Otherwise, multisignatures can be forged via _rogue-key attacks_
-//! [^MOR01].
+//! Extremely important for security is that the verifier first ensure these
+//! public keys came with valid proofs-of-possession (PoPs). Otherwise,
+//! multisignatures can be forged via _rogue-key attacks_ [^MOR01].
 //!
 //! # Overview of Boneh-Lynn-Shacham (BLS) aggregate signatures
 //!
-//! In an _aggregate signature scheme_ any subset of `k` out of `n` signers can collaborate to produce
-//! a succinct _aggregate signature_ over (potentially) different message. Specifically, such an
-//! aggregate signature is a succinct representation of `k` normal signatures, where the `i`th signature
-//! from the `i`th signer is on some message `m_i`. Importantly, `m_i` might differ from the other `k-1` messages
-//! signed by the other signers.
+//! In an _aggregate signature scheme_ any subset of `k` out of `n` signers can
+//! collaborate to produce a succinct _aggregate signature_ over (potentially)
+//! different message. Specifically, such an aggregate signature is a succinct
+//! representation of `k` normal signatures, where the `i`th signature
+//! from the `i`th signer is on some message `m_i`. Importantly, `m_i` might
+//! differ from the other `k-1` messages signed by the other signers.
 //!
-//! Note that an aggregate signature where all the signed messages `m_i` are the same is just a
-//! multisignature.
+//! Note that an aggregate signature where all the signed messages `m_i` are the
+//! same is just a multisignature.
 //!
-//! Just like in a multisignature scheme, in an aggregate signature scheme there is an _aggregator_
-//! who receives _signature shares_ `s_i` from each signer `i` on their *own* message `m_i` and
-//! aggregates the valid signature shares into an aggregate signature. (In contrast, recall that,
-//! in a multisignature scheme, every signer `i` signed the same message `m`.)
+//! Just like in a multisignature scheme, in an aggregate signature scheme there
+//! is an _aggregator_ who receives _signature shares_ `s_i` from each signer
+//! `i` on their *own* message `m_i` and aggregates the valid signature shares
+//! into an aggregate signature. (In contrast, recall that, in a multisignature
+//! scheme, every signer `i` signed the same message `m`.)
 //!
-//! Aggregation proceeds the same as in a multisignature scheme (see notes in previous section).
+//! Aggregation proceeds the same as in a multisignature scheme (see notes in
+//! previous section).
 //!
 //! # A note on subgroup checks
 //!
-//! This library was written so that users who know nothing about _small subgroup attacks_  [^LL97], [^BCM+15e]
-//! need not worry about them, **as long as library users either**:
+//! This library was written so that users who know nothing about _small
+//! subgroup attacks_  [^LL97], [^BCM+15e] need not worry about them, **as long
+//! as library users either**:
 //!
-//!  1. For normal (non-aggregated) signature verification, wrap `PublicKey` objects using
-//!     `Validatable<PublicKey>`
+//!  1. For normal (non-aggregated) signature verification, wrap `PublicKey`
+//! objects using     `Validatable<PublicKey>`
 //!
-//!  2. For multisignature, aggregate signature and signature share verification, library users
-//!     always verify a public key's proof-of-possession (PoP)** before aggregating it with other PKs
+//!  2. For multisignature, aggregate signature and signature share
+//! verification, library users     always verify a public key's
+//! proof-of-possession (PoP)** before aggregating it with other PKs
 //!     and before verifying signature shares with it.
 //!
-//! Nonetheless, we still provide `subgroup_check` methods for the `PublicKey` and `Signature` structs,
-//! in case manual verification of subgroup membership is ever needed.
+//! Nonetheless, we still provide `subgroup_check` methods for the `PublicKey`
+//! and `Signature` structs, in case manual verification of subgroup membership
+//! is ever needed.
 //!
 //! # A note on domain separation tags (DSTs)
 //!
-//! Internal to this wrapper's implementation (and to the underlying blst library) is the careful
-//! use of domain separation tags (DSTs) as per the BLS IETF draft standard [^bls-ietf-draft].
+//! Internal to this wrapper's implementation (and to the underlying blst
+//! library) is the careful use of domain separation tags (DSTs) as per the BLS
+//! IETF draft standard [^bls-ietf-draft].
 //!
-//! Specifically, **when signing a message** `m`, instead of signing as `H(m)^sk`, where `sk` is the
-//! secret key, the library actually signs as `H(sig_dst | m)^sk`, where `sig_dst` is a DST for
-//! message signing.
+//! Specifically, **when signing a message** `m`, instead of signing as
+//! `H(m)^sk`, where `sk` is the secret key, the library actually signs as
+//! `H(sig_dst | m)^sk`, where `sig_dst` is a DST for message signing.
 //!
-//! In contrast, **when computing a proof-of-possesion (PoP)**, instead of signing the public key as
-//! `H(pk)^sk`, the  library actually signs as `H(sig_pop | pk)^sk`, where `sig_pop` is a DST for
-//! signatures used during PoP creation.
+//! In contrast, **when computing a proof-of-possesion (PoP)**, instead of
+//! signing the public key as `H(pk)^sk`, the  library actually signs as
+//! `H(sig_pop | pk)^sk`, where `sig_pop` is a DST for signatures used during
+//! PoP creation.
 //!
-//! This way, we can clearly separate the message spaces of these two use cases of the secret key `sk`.
+//! This way, we can clearly separate the message spaces of these two use cases
+//! of the secret key `sk`.
 //!
 //! # How to use this module to create and verify normal (non-aggregated) signatures on a single message
 //!
-//! A typical use of the normal (non-aggregated) signature library would look as follows.
+//! A typical use of the normal (non-aggregated) signature library would look as
+//! follows.
 //!
 //! For signers:
 //!
 //! ```
-//! use std::iter::zip;
-//! use aptos_crypto::test_utils::{KeyPair, TestAptosCrypto};
-//! use aptos_crypto::{bls12381, Signature, SigningKey, Uniform};
-//! use aptos_crypto::bls12381::bls12381_keys::{PrivateKey, PublicKey};
-//! use aptos_crypto::bls12381::ProofOfPossession;
-//! use aptos_crypto_derive::{CryptoHasher, BCSCryptoHash};
+//! use aptos_crypto::{
+//!     bls12381,
+//!     bls12381::{
+//!         bls12381_keys::{PrivateKey, PublicKey},
+//!         ProofOfPossession,
+//!     },
+//!     test_utils::{KeyPair, TestAptosCrypto},
+//!     Signature, SigningKey, Uniform,
+//! };
+//! use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
 //! use rand_core::OsRng;
-//! use serde::{Serialize, Deserialize};
+//! use serde::{Deserialize, Serialize};
+//! use std::iter::zip;
 //!
 //! let mut rng = OsRng;
 //!
@@ -139,7 +161,6 @@
 //! //
 //! //   #[derive(Debug, Serialize, Deserialize)]
 //! //   pub struct TestAptosCrypto(pub String);
-//!
 //!
 //! // The signer computes a normal signature on a message.
 //! let message = TestAptosCrypto("test".to_owned());
@@ -411,9 +432,11 @@
 //! [^Bold03]: Threshold Signatures, Multisignatures and Blind Signatures Based on the Gap-Diffie-Hellman-Group Signature Scheme; by Boldyreva, Alexandra; in PKC 2003; 2002
 //! [^BLS04]: Short Signatures from the Weil Pairing; by Boneh, Dan and Lynn, Ben and Shacham, Hovav; in Journal of Cryptology; 2004; https://doi.org/10.1007/s00145-004-0314-9
 //! [^BCM+15e] Subgroup security in pairing-based cryptography; by Paulo S.  L.  M.  Barreto and Craig Costello and Rafael Misoczki and Michael Naehrig and Geovandro C.  C.  F.  Pereira and Gustavo Zanon; in Cryptology ePrint Archive, Paper 2015/247; 2015; https://eprint.iacr.org/2015/247
-//! [^LL97] A key recovery attack on discrete log-based schemes using a prime order subgroup; by Lim, Chae Hoon and Lee, Pil Joong; in Advances in Cryptology --- CRYPTO '97; 1997
-//! [^LM07]: Finding Invalid Signatures in Pairing-Based Batches; by Law, Laurie and Matt, Brian J.; in Cryptography and Coding; 2007
-//! [^MOR01]: Accountable-Subgroup Multisignatures: Extended Abstract; by Micali, Silvio and Ohta, Kazuo and Reyzin, Leonid; in Proceedings of the 8th ACM Conference on Computer and Communications Security; 2001; https://doi-org.libproxy.mit.edu/10.1145/501983.502017
+//! [^LL97] A key recovery attack on discrete log-based schemes using a prime
+//! order subgroup; by Lim, Chae Hoon and Lee, Pil Joong; in Advances in
+//! Cryptology --- CRYPTO '97; 1997 [^LM07]: Finding Invalid Signatures in
+//! Pairing-Based Batches; by Law, Laurie and Matt, Brian J.; in Cryptography
+//! and Coding; 2007 [^MOR01]: Accountable-Subgroup Multisignatures: Extended Abstract; by Micali, Silvio and Ohta, Kazuo and Reyzin, Leonid; in Proceedings of the 8th ACM Conference on Computer and Communications Security; 2001; https://doi-org.libproxy.mit.edu/10.1145/501983.502017
 //! [^RY07]: The Power of Proofs-of-Possession: Securing Multiparty Signatures against Rogue-Key Attacks; by Ristenpart, Thomas and Yilek, Scott; in Advances in Cryptology - EUROCRYPT 2007; 2007
 
 /// Domain separation tag (DST) for hashing a message before signing it.

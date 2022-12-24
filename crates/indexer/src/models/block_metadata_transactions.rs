@@ -32,7 +32,8 @@ pub struct BlockMetadataTransaction {
     pub timestamp: chrono::NaiveDateTime,
 }
 
-/// Need a separate struct for queryable because we don't want to define the inserted_at column (letting DB fill)
+/// Need a separate struct for queryable because we don't want to define the
+/// inserted_at column (letting DB fill)
 #[derive(
     Associations, Clone, Debug, Deserialize, FieldCount, Identifiable, Queryable, Serialize,
 )]

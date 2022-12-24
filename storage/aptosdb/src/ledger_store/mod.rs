@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This file defines ledger store APIs that are related to the main ledger accumulator, from the
-//! root(LedgerInfo) to leaf(TransactionInfo).
+//! This file defines ledger store APIs that are related to the main ledger
+//! accumulator, from the root(LedgerInfo) to leaf(TransactionInfo).
 
 use crate::{
     errors::AptosDbError,
@@ -37,15 +37,17 @@ use std::{ops::Deref, sync::Arc};
 pub struct LedgerStore {
     db: Arc<DB>,
 
-    /// We almost always need the latest ledger info and signatures to serve read requests, so we
-    /// cache it in memory in order to avoid reading DB and deserializing the object frequently. It
-    /// should be updated every time new ledger info and signatures are persisted.
+    /// We almost always need the latest ledger info and signatures to serve
+    /// read requests, so we cache it in memory in order to avoid reading DB
+    /// and deserializing the object frequently. It should be updated every
+    /// time new ledger info and signatures are persisted.
     latest_ledger_info: ArcSwap<Option<LedgerInfoWithSignatures>>,
 }
 
 impl LedgerStore {
     pub fn new(db: Arc<DB>) -> Self {
-        // Upon restart, read the latest ledger info and signatures and cache them in memory.
+        // Upon restart, read the latest ledger info and signatures and cache them in
+        // memory.
         let ledger_info = {
             let mut iter = db
                 .iter::<LedgerInfoSchema>(ReadOptions::default())
@@ -72,11 +74,12 @@ impl LedgerStore {
         let (epoch_end_version, epoch) = match iter.next().transpose()? {
             Some(x) => x,
             None => {
-                // There should be a genesis LedgerInfo at version 0 (genesis only consists of one
-                // transaction), so this normally doesn't happen. However this part of
-                // implementation doesn't need to rely on this assumption.
+                // There should be a genesis LedgerInfo at version 0 (genesis only consists of
+                // one transaction), so this normally doesn't happen. However
+                // this part of implementation doesn't need to rely on this
+                // assumption.
                 return Ok(0);
-            }
+            },
         };
         ensure!(
             epoch_end_version <= version,
@@ -85,8 +88,9 @@ impl LedgerStore {
             epoch,
             epoch_end_version
         );
-        // If the obtained epoch ended before the given version, return epoch+1, otherwise
-        // the given version is exactly the last version of the found epoch.
+        // If the obtained epoch ended before the given version, return epoch+1,
+        // otherwise the given version is exactly the last version of the found
+        // epoch.
         Ok(if epoch_end_version < version {
             epoch + 1
         } else {
@@ -175,15 +179,16 @@ impl LedgerStore {
         iter.next().transpose()
     }
 
-    /// Get latest transaction info together with its version. Note that during node syncing, this
-    /// version can be greater than what's in the latest LedgerInfo.
+    /// Get latest transaction info together with its version. Note that during
+    /// node syncing, this version can be greater than what's in the latest
+    /// LedgerInfo.
     pub fn get_latest_transaction_info(&self) -> Result<(Version, TransactionInfo)> {
         self.get_latest_transaction_info_option()?
             .ok_or_else(|| AptosDbError::NotFound(String::from("Genesis TransactionInfo.")).into())
     }
 
-    /// Gets an iterator that yields `num_transaction_infos` transaction infos starting from
-    /// `start_version`.
+    /// Gets an iterator that yields `num_transaction_infos` transaction infos
+    /// starting from `start_version`.
     pub(crate) fn get_transaction_info_iter(
         &self,
         start_version: Version,
@@ -215,7 +220,8 @@ impl LedgerStore {
         Ok(())
     }
 
-    /// Get transaction info at `version` with proof towards root of ledger at `ledger_version`.
+    /// Get transaction info at `version` with proof towards root of ledger at
+    /// `ledger_version`.
     pub fn get_transaction_info_with_proof(
         &self,
         version: Version,
@@ -227,7 +233,8 @@ impl LedgerStore {
         ))
     }
 
-    /// Get proof for transaction at `version` towards root of ledger at `ledger_version`.
+    /// Get proof for transaction at `version` towards root of ledger at
+    /// `ledger_version`.
     pub fn get_transaction_proof(
         &self,
         version: Version,
@@ -236,8 +243,8 @@ impl LedgerStore {
         Accumulator::get_proof(self, ledger_version + 1 /* num_leaves */, version)
     }
 
-    /// Get proof for `num_txns` consecutive transactions starting from `start_version` towards
-    /// root of ledger at `ledger_version`.
+    /// Get proof for `num_txns` consecutive transactions starting from
+    /// `start_version` towards root of ledger at `ledger_version`.
     pub fn get_transaction_range_proof(
         &self,
         start_version: Option<Version>,
@@ -246,14 +253,14 @@ impl LedgerStore {
     ) -> Result<TransactionAccumulatorRangeProof> {
         Accumulator::get_range_proof(
             self,
-            ledger_version + 1, /* num_leaves */
+            ledger_version + 1, // num_leaves
             start_version,
             num_txns,
         )
     }
 
-    /// Gets proof that shows the ledger at `ledger_version` is consistent with the ledger at
-    /// `client_known_version`.
+    /// Gets proof that shows the ledger at `ledger_version` is consistent with
+    /// the ledger at `client_known_version`.
     pub fn get_consistency_proof(
         &self,
         client_known_version: Option<Version>,
@@ -266,8 +273,8 @@ impl LedgerStore {
         Accumulator::get_consistency_proof(self, ledger_num_leaves, client_known_num_leaves)
     }
 
-    /// Write `txn_infos` to `batch`. Assigned `first_version` to the version number of the
-    /// first transaction, and so on.
+    /// Write `txn_infos` to `batch`. Assigned `first_version` to the version
+    /// number of the first transaction, and so on.
     pub fn put_transaction_infos(
         &self,
         first_version: u64,
@@ -285,7 +292,7 @@ impl LedgerStore {
         let txn_hashes: Vec<HashValue> = txn_infos.iter().map(TransactionInfo::hash).collect();
         let (root_hash, writes) = Accumulator::append(
             self,
-            first_version, /* num_existing_leaves */
+            first_version, // num_existing_leaves
             &txn_hashes,
         )?;
         writes
@@ -303,7 +310,8 @@ impl LedgerStore {
         let ledger_info = ledger_info_with_sigs.ledger_info();
 
         if ledger_info.ends_epoch() {
-            // This is the last version of the current epoch, update the epoch by version index.
+            // This is the last version of the current epoch, update the epoch by version
+            // index.
             batch.put::<EpochByVersionSchema>(&ledger_info.version(), &ledger_info.epoch())?;
         }
         batch.put::<LedgerInfoSchema>(&ledger_info.epoch(), ledger_info_with_sigs)

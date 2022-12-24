@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// From a `StateProof` response, a client should be able to ratchet their
 /// [`TrustedState`] to the last epoch change LI in the [`EpochChangeProof`]
-/// or the latest [`LedgerInfoWithSignatures`] if the epoch changes get them into
-/// the most recent epoch.
+/// or the latest [`LedgerInfoWithSignatures`] if the epoch changes get them
+/// into the most recent epoch.
 ///
 /// [`TrustedState`]: crate::trusted_state::TrustedState
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

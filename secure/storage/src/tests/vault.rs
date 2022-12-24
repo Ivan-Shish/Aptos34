@@ -34,10 +34,11 @@ const ROTATER: &str = "rotater";
 const SIGNER: &str = "signer";
 const WRITER: &str = "writer";
 
-/// This holds the canonical list of vault storage tests. This is required because vault tests
-/// cannot currently be run in parallel, as each test uses the same vault instance and
-/// storage resets can interfere between tests. To avoid this, we run each test sequentially, and
-/// reset the storage engine only after each test.
+/// This holds the canonical list of vault storage tests. This is required
+/// because vault tests cannot currently be run in parallel, as each test uses
+/// the same vault instance and storage resets can interfere between tests. To
+/// avoid this, we run each test sequentially, and reset the storage engine only
+/// after each test.
 const VAULT_TESTS: &[fn()] = &[
     test_suite_multiple_namespaces,
     test_suite_no_namespaces,
@@ -48,9 +49,10 @@ const VAULT_TESTS: &[fn()] = &[
     test_vault_tokens,
 ];
 
-/// A test for verifying VaultStorage properly implements the SecureStorage API and enforces
-/// strict separation between unique namespaces. This test depends on running Vault, which can be
-/// done by using the provided docker run script in `docker/testutils/start_vault_container.sh`
+/// A test for verifying VaultStorage properly implements the SecureStorage API
+/// and enforces strict separation between unique namespaces. This test depends
+/// on running Vault, which can be done by using the provided docker run script
+/// in `docker/testutils/start_vault_container.sh`
 #[test]
 fn execute_storage_tests_vault() {
     if dev::test_host_safe().is_none() {
@@ -65,14 +67,16 @@ fn execute_storage_tests_vault() {
     }
 }
 
-/// Runs the test suite on a VaultStorage instance that does not use distinct namespaces
+/// Runs the test suite on a VaultStorage instance that does not use distinct
+/// namespaces
 fn test_suite_no_namespaces() {
     let mut storage = Storage::from(create_vault());
     suite::execute_all_storage_tests(&mut storage);
 }
 
-/// Runs the test suite on a VaultStorage instance that supports multiple distinct namespaces.
-/// Tests should be able to run across namespaces without interfering.
+/// Runs the test suite on a VaultStorage instance that supports multiple
+/// distinct namespaces. Tests should be able to run across namespaces without
+/// interfering.
 fn test_suite_multiple_namespaces() {
     let mut storage_1 = Storage::from(create_vault_with_namespace(VAULT_NAMESPACE_1));
     let mut storage_2 = Storage::from(create_vault_with_namespace(VAULT_NAMESPACE_2));
@@ -83,8 +87,9 @@ fn test_suite_multiple_namespaces() {
     suite::execute_all_storage_tests(&mut storage_3);
 }
 
-/// Creates and initializes a VaultStorage instance for testing. If a namespace is specified, the
-/// instance will perform all storage operations under that namespace.
+/// Creates and initializes a VaultStorage instance for testing. If a namespace
+/// is specified, the instance will perform all storage operations under that
+/// namespace.
 fn create_vault_with_namespace(namespace: &str) -> Namespaced<Box<Storage>> {
     Namespaced::new(namespace, Box::new(Storage::from(create_vault())))
 }
@@ -109,8 +114,9 @@ fn create_vault_policy_with_namespace(namespace: Option<String>) -> VaultPolicy 
     VaultPolicy::new(create_vault(), namespace)
 }
 
-/// Initializes test policies for a VaultStorage instance and checks the instance is
-/// accessible (e.g., by ensuring subsequent read and write operations complete successfully).
+/// Initializes test policies for a VaultStorage instance and checks the
+/// instance is accessible (e.g., by ensuring subsequent read and write
+/// operations complete successfully).
 fn test_vault_key_value_policies() {
     let mut storage = create_vault_policy_with_namespace(None);
 
@@ -118,20 +124,20 @@ fn test_vault_key_value_policies() {
     let root = Policy::new(vec![]);
     let partial = Policy::new(vec![
         Permission::new(Identity::User(READER.into()), vec![Capability::Read]),
-        Permission::new(
-            Identity::User(WRITER.into()),
-            vec![Capability::Read, Capability::Write],
-        ),
+        Permission::new(Identity::User(WRITER.into()), vec![
+            Capability::Read,
+            Capability::Write,
+        ]),
     ]);
     let full = Policy::new(vec![
-        Permission::new(
-            Identity::User(READER.into()),
-            vec![Capability::Read, Capability::Write],
-        ),
-        Permission::new(
-            Identity::User(WRITER.into()),
-            vec![Capability::Read, Capability::Write],
-        ),
+        Permission::new(Identity::User(READER.into()), vec![
+            Capability::Read,
+            Capability::Write,
+        ]),
+        Permission::new(Identity::User(WRITER.into()), vec![
+            Capability::Read,
+            Capability::Write,
+        ]),
     ]);
 
     // Provide a TTL to verify that lease renews work
@@ -234,10 +240,10 @@ fn test_vault_crypto_policies() {
     let policy = Policy::new(vec![
         Permission::new(Identity::User(EXPORTER.into()), vec![Capability::Export]),
         Permission::new(Identity::User(READER.into()), vec![Capability::Read]),
-        Permission::new(
-            Identity::User(ROTATER.into()),
-            vec![Capability::Read, Capability::Rotate],
-        ),
+        Permission::new(Identity::User(ROTATER.into()), vec![
+            Capability::Read,
+            Capability::Rotate,
+        ]),
         Permission::new(Identity::User(SIGNER.into()), vec![Capability::Sign]),
     ]);
 
@@ -339,10 +345,10 @@ fn test_vault_crypto_policies() {
 fn test_vault_tokens() {
     let mut storage = create_vault_policy_with_namespace(Some(VAULT_NAMESPACE_1.into()));
 
-    let partial = Policy::new(vec![Permission::new(
-        Identity::User(WRITER.into()),
-        vec![Capability::Read, Capability::Write],
-    )]);
+    let partial = Policy::new(vec![Permission::new(Identity::User(WRITER.into()), vec![
+        Capability::Read,
+        Capability::Write,
+    ])]);
 
     // Initialize data and policies
     storage.set(PARTIAL, 3).unwrap();

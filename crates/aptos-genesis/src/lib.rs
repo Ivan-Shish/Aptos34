@@ -64,7 +64,8 @@ pub struct GenesisInfo {
     pub rewards_apy_percentage: u64,
     /// Voting duration for a proposal in seconds.
     pub voting_duration_secs: u64,
-    /// Percent of current epoch's total voting power that can be added in this epoch.
+    /// Percent of current epoch's total voting power that can be added in this
+    /// epoch.
     pub voting_power_increase_limit: u64,
 
     pub consensus_config: OnChainConsensusConfig,

@@ -30,32 +30,40 @@ struct Options {
     #[structopt(long, possible_values = &Language::variants(), case_insensitive = true, default_value = "Rust")]
     language: Language,
 
-    /// Directory where to write generated modules (otherwise print code on stdout).
+    /// Directory where to write generated modules (otherwise print code on
+    /// stdout).
     #[structopt(long)]
     target_source_dir: Option<PathBuf>,
 
-    /// Also install the aptos types described by the given YAML file, along with the BCS runtime.
+    /// Also install the aptos types described by the given YAML file, along
+    /// with the BCS runtime.
     #[structopt(long)]
     with_aptos_types: Option<PathBuf>,
 
-    /// Module name for the transaction builders installed in the `target_source_dir`.
+    /// Module name for the transaction builders installed in the
+    /// `target_source_dir`.
     /// * Rust crates may contain a version number, e.g. "test:1.2.0".
-    /// * In Java, this is expected to be a package name, e.g. "com.test" to create Java files in `com/test`.
-    /// * In Go, this is expected to be of the format "go_module/path/go_package_name",
+    /// * In Java, this is expected to be a package name, e.g. "com.test" to
+    ///   create Java files in `com/test`.
+    /// * In Go, this is expected to be of the format
+    ///   "go_module/path/go_package_name",
     /// and `aptos_types` is assumed to be in "go_module/path/aptos_types".
     #[structopt(long)]
     module_name: Option<String>,
 
-    /// Optional package name (Python) or module path (Go) of the Serde and BCS runtime dependencies.
+    /// Optional package name (Python) or module path (Go) of the Serde and BCS
+    /// runtime dependencies.
     #[structopt(long)]
     serde_package_name: Option<String>,
 
     /// Optional version number for the `aptos_types` module (useful in Rust).
-    /// If `--with-aptos-types` is passed, this will be the version of the generated `aptos_types` module.
+    /// If `--with-aptos-types` is passed, this will be the version of the
+    /// generated `aptos_types` module.
     #[structopt(long, default_value = "0.1.0")]
     aptos_version_number: String,
 
-    /// Optional package name (Python) or module path (Go) of the `aptos_types` dependency.
+    /// Optional package name (Python) or module path (Go) of the `aptos_types`
+    /// dependency.
     #[structopt(long)]
     package_name: Option<String>,
 }
@@ -74,7 +82,7 @@ fn main() {
                 Language::Rust => {
                     aptos_sdk_builder::rust::output(&mut out, &abis, /* local types */ true)
                         .unwrap()
-                }
+                },
                 Language::Go => {
                     aptos_sdk_builder::golang::output(
                         &mut out,
@@ -84,10 +92,10 @@ fn main() {
                         &abis,
                     )
                     .unwrap();
-                }
+                },
             }
             return;
-        }
+        },
         Some(dir) => dir,
     };
 

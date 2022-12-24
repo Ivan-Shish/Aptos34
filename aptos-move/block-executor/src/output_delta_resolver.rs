@@ -18,9 +18,10 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
         Self { versioned_outputs }
     }
 
-    /// Takes Self, vector of all involved aggregator keys (each with at least one
-    /// delta to resolve in the output), resolved values from storage for each key,
-    /// and blocksize, and returns a Vec of materialized deltas per transaction index.
+    /// Takes Self, vector of all involved aggregator keys (each with at least
+    /// one delta to resolve in the output), resolved values from storage
+    /// for each key, and blocksize, and returns a Vec of materialized
+    /// deltas per transaction index.
     pub fn resolve(
         self,
         aggregator_keys: Vec<(K, anyhow::Result<ResolvedData>)>,
@@ -46,7 +47,7 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
                 match &entry.cell {
                     EntryCell::Write(_, data) => {
                         latest_value = data.extract_raw_bytes().map(|bytes| deserialize(&bytes))
-                    }
+                    },
                     EntryCell::Delta(delta) => {
                         // Apply to the latest value and store in outputs.
                         let aggregator_value = delta
@@ -61,7 +62,7 @@ impl<K: Hash + Clone + Eq + Send + 'static, V: TransactionWrite + Send + Sync + 
                             WriteOp::Modification(serialize(&aggregator_value)),
                         ));
                         latest_value = Some(aggregator_value);
-                    }
+                    },
                 }
             }
         }

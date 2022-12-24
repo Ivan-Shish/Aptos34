@@ -20,8 +20,8 @@ impl FuzzTargetImpl for ValueTarget {
     fn generate(&self, _idx: usize, gen: &mut ValueGenerator) -> Option<Vec<u8>> {
         let (layout, value) = gen.generate(layout_and_value_strategy());
 
-        // Values as currently serialized are not self-describing, so store a serialized form of the
-        // layout + kind info along with the value as well.
+        // Values as currently serialized are not self-describing, so store a serialized
+        // form of the layout + kind info along with the value as well.
         let layout_blob = bcs::to_bytes(&layout).unwrap();
         let value_blob = value.simple_serialize(&layout).expect("must serialize");
 
@@ -45,7 +45,7 @@ fn is_valid_layout(layout: &MoveTypeLayout) -> bool {
     match layout {
         L::Bool | L::U8 | L::U16 | L::U32 | L::U64 | L::U128 | L::U256 | L::Address | L::Signer => {
             true
-        }
+        },
 
         L::Vector(layout) => is_valid_layout(layout),
 
@@ -56,7 +56,7 @@ fn is_valid_layout(layout: &MoveTypeLayout) -> bool {
                 return false;
             }
             struct_layout.fields().iter().all(is_valid_layout)
-        }
+        },
     }
 }
 
@@ -75,9 +75,9 @@ fn deserialize(data: &[u8]) -> Result<()> {
 
     let layout: MoveTypeLayout = bcs::from_bytes(layout_data)?;
 
-    // The fuzzer may alter the raw bytes, resulting in invalid layouts that will not
-    // pass the bytecode verifier. We need to filter these out as they can show up as
-    // false positives.
+    // The fuzzer may alter the raw bytes, resulting in invalid layouts that will
+    // not pass the bytecode verifier. We need to filter these out as they can
+    // show up as false positives.
     if !is_valid_layout(&layout) {
         bail!("bad layout")
     }

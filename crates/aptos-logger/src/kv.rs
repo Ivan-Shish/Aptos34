@@ -6,9 +6,7 @@
 //! Example:
 //! ```
 //! use aptos_logger::info;
-//! info!(
-//!   key = "value"
-//! );
+//! info!(key = "value");
 //! ```
 
 use serde::Serialize;
@@ -50,7 +48,7 @@ impl<'v> fmt::Debug for Value<'v> {
             Value::Display(d) => fmt::Display::fmt(d, f),
             Value::Serde(s) => {
                 fmt::Debug::fmt(&serde_json::to_value(s).map_err(|_| fmt::Error)?, f)
-            }
+            },
         }
     }
 }
@@ -96,9 +94,9 @@ impl<'v> Schema for KeyValue<'v> {
 
 /// A schema of key-value pairs.
 ///
-/// The schema may be a single pair, a set of pairs, or a filter over a set of pairs.
-/// Use the [`Visitor`](trait.Visitor.html) trait to inspect the structured data
-/// in a schema.
+/// The schema may be a single pair, a set of pairs, or a filter over a set of
+/// pairs. Use the [`Visitor`](trait.Visitor.html) trait to inspect the
+/// structured data in a schema.
 pub trait Schema {
     /// Visit key-value pairs.
     fn visit(&self, visitor: &mut dyn Visitor);

@@ -9,8 +9,7 @@ use crate::{
         verify_mempool_and_event_notification,
     },
 };
-use aptos_config::config::StateSyncDriverConfig;
-use aptos_config::config::{NodeConfig, RoleType};
+use aptos_config::config::{NodeConfig, RoleType, StateSyncDriverConfig};
 use aptos_consensus_notifications::{ConsensusNotificationSender, ConsensusNotifier};
 use aptos_data_client::aptosnet::AptosNetDataClient;
 use aptos_data_streaming_service::streaming_client::new_streaming_service_client_listener_pair;
@@ -35,8 +34,7 @@ use aptos_types::{
 use aptos_vm::AptosVM;
 use claims::{assert_err, assert_none};
 use futures::{FutureExt, StreamExt};
-use std::time::Duration;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 // TODO(joshlind): extend these tests to cover more functionality!
 
@@ -292,7 +290,8 @@ async fn create_driver_for_tests(
     let genesis_txn = Transaction::GenesisTransaction(WriteSetPayload::Direct(genesis));
     bootstrap_genesis::<AptosVM>(&db_rw, &genesis_txn).unwrap();
 
-    // Create the event subscription service and subscribe to events and reconfigurations
+    // Create the event subscription service and subscribe to events and
+    // reconfigurations
     let mut event_subscription_service = EventSubscriptionService::new(
         ON_CHAIN_CONFIG_REGISTRY,
         Arc::new(RwLock::new(db_rw.clone())),

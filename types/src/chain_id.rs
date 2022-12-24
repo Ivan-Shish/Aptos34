@@ -5,18 +5,19 @@ use serde::{de::Visitor, Deserialize, Deserializer, Serialize};
 use std::{convert::TryFrom, fmt, str::FromStr};
 
 /// A registry of named chain IDs
-/// Its main purpose is to improve human readability of reserved chain IDs in config files and CLI
-/// When signing transactions for such chains, the numerical chain ID should still be used
-/// (e.g. MAINNET has numeric chain ID 1, TESTNET has chain ID 2, etc)
+/// Its main purpose is to improve human readability of reserved chain IDs in
+/// config files and CLI When signing transactions for such chains, the
+/// numerical chain ID should still be used (e.g. MAINNET has numeric chain ID
+/// 1, TESTNET has chain ID 2, etc)
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub enum NamedChain {
-    /// Users might accidentally initialize the ChainId field to 0, hence reserving ChainId 0 for accidental
-    /// initialization.
+    /// Users might accidentally initialize the ChainId field to 0, hence
+    /// reserving ChainId 0 for accidental initialization.
     /// MAINNET is the Aptos mainnet production chain and is reserved for 1
     MAINNET = 1,
-    // Even though these CHAIN IDs do not correspond to MAINNET, changing them should be avoided since they
-    // can break test environments for various organisations.
+    // Even though these CHAIN IDs do not correspond to MAINNET, changing them should be avoided
+    // since they can break test environments for various organisations.
     TESTNET = 2,
     DEVNET = 3,
     TESTING = 4,
@@ -31,7 +32,8 @@ const PREMAINNET: &str = "premainnet";
 
 impl NamedChain {
     fn str_to_chain_id(s: &str) -> Result<ChainId> {
-        // TODO implement custom macro that derives FromStr impl for enum (similar to aptos-core/common/num-variants)
+        // TODO implement custom macro that derives FromStr impl for enum (similar to
+        // aptos-core/common/num-variants)
         let reserved_chain = match s.to_lowercase().as_str() {
             MAINNET => NamedChain::MAINNET,
             TESTNET => NamedChain::TESTNET,
@@ -40,7 +42,7 @@ impl NamedChain {
             PREMAINNET => NamedChain::PREMAINNET,
             _ => {
                 return Err(format_err!("Not a reserved chain: {:?}", s));
-            }
+            },
         };
         Ok(ChainId::new(reserved_chain.id()))
     }
@@ -120,17 +122,13 @@ impl fmt::Display for ChainId {
 
 impl fmt::Display for NamedChain {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                NamedChain::DEVNET => DEVNET,
-                NamedChain::TESTNET => TESTNET,
-                NamedChain::MAINNET => MAINNET,
-                NamedChain::TESTING => TESTING,
-                NamedChain::PREMAINNET => PREMAINNET,
-            }
-        )
+        write!(f, "{}", match self {
+            NamedChain::DEVNET => DEVNET,
+            NamedChain::TESTNET => TESTNET,
+            NamedChain::MAINNET => MAINNET,
+            NamedChain::TESTING => TESTING,
+            NamedChain::PREMAINNET => PREMAINNET,
+        })
     }
 }
 

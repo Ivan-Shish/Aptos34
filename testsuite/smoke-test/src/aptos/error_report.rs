@@ -1,14 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::smoke_test_environment::new_local_swarm_with_aptos;
 use aptos_cached_packages::aptos_stdlib;
 use aptos_forge::{AptosPublicInfo, Swarm};
 use aptos_sdk::{transaction_builder::TransactionBuilder, types::LocalAccount};
 use aptos_types::{
     account_address::AccountAddress, account_config::aptos_test_root_address, chain_id::ChainId,
 };
-
-use crate::smoke_test_environment::new_local_swarm_with_aptos;
 
 async fn submit_and_check_err<F: Fn(TransactionBuilder) -> TransactionBuilder>(
     local_account: &LocalAccount,
@@ -51,13 +50,13 @@ async fn test_error_report() {
     )
     .await;
     // TODO(Gas): re-enable this
-    /*submit_and_check_err(
-        &local_account,
-        ctx,
-        |t| t.sender(address).gas_unit_price(0),
-        "GAS_UNIT_PRICE_BELOW_MIN_BOUND",
-    )
-    .await;*/
+    // submit_and_check_err(
+    // &local_account,
+    // ctx,
+    // |t| t.sender(address).gas_unit_price(0),
+    // "GAS_UNIT_PRICE_BELOW_MIN_BOUND",
+    // )
+    // .await;
     submit_and_check_err(
         &local_account,
         &mut info,

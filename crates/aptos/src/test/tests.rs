@@ -8,8 +8,8 @@ use crate::{
 use clap::Parser;
 use std::str::FromStr;
 
-/// In order to ensure that there aren't duplicate input arguments for untested CLI commands,
-/// we call help on every command to ensure it at least runs
+/// In order to ensure that there aren't duplicate input arguments for untested
+/// CLI commands, we call help on every command to ensure it at least runs
 #[tokio::test]
 async fn ensure_every_command_args_work() {
     assert_cmd_not_panic(&["aptos"]).await;
@@ -107,23 +107,28 @@ async fn ensure_can_parse_args_with_urls() {
 }
 
 async fn assert_cmd_not_panic(args: &[&str]) {
-    // When a command fails, it will have a panic in it due to an improperly setup command
-    // thread 'main' panicked at 'Command propose: Argument names must be unique, but 'assume-yes' is
-    // in use by more than one argument or group', ...
+    // When a command fails, it will have a panic in it due to an improperly setup
+    // command thread 'main' panicked at 'Command propose: Argument names must
+    // be unique, but 'assume-yes' is in use by more than one argument or
+    // group', ...
 
     match run_cmd(args).await {
-        Ok(inner) => assert!(
-            !inner.contains("panic"),
-            "Failed to not panic cmd {}: {}",
-            args.join(" "),
-            inner
-        ),
-        Err(inner) => assert!(
-            !inner.contains("panic"),
-            "Failed to not panic cmd {}: {}",
-            args.join(" "),
-            inner
-        ),
+        Ok(inner) => {
+            assert!(
+                !inner.contains("panic"),
+                "Failed to not panic cmd {}: {}",
+                args.join(" "),
+                inner
+            )
+        },
+        Err(inner) => {
+            assert!(
+                !inner.contains("panic"),
+                "Failed to not panic cmd {}: {}",
+                args.join(" "),
+                inner
+            )
+        },
     }
 }
 

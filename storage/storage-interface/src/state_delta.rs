@@ -3,20 +3,21 @@
 
 use aptos_crypto::HashValue;
 use aptos_scratchpad::SparseMerkleTree;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
 use aptos_types::{
-    state_store::{state_key::StateKey, state_value::StateValue},
+    state_store::{
+        state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
+    },
     transaction::Version,
 };
 use std::collections::HashMap;
 
-/// This represents two state sparse merkle trees at their versions in memory with the updates
-/// reflecting the difference of `current` on top of `base`.
+/// This represents two state sparse merkle trees at their versions in memory
+/// with the updates reflecting the difference of `current` on top of `base`.
 ///
 /// The `base` is the state SMT that current is based on.
-/// The `current` is the state SMT that results from applying updates_since_base on top of `base`.
-/// `updates_since_base` tracks all those key-value pairs that's changed since `base`, useful
-///  when the next checkpoint is calculated.
+/// The `current` is the state SMT that results from applying updates_since_base
+/// on top of `base`. `updates_since_base` tracks all those key-value pairs
+/// that's changed since `base`, useful  when the next checkpoint is calculated.
 #[derive(Clone, Debug)]
 pub struct StateDelta {
     pub base: SparseMerkleTree<StateValue>,

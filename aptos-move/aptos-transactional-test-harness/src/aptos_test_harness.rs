@@ -30,6 +30,27 @@ use aptos_vm::{
 };
 use aptos_vm_genesis::GENESIS_KEYPAIR;
 use clap::StructOpt;
+use move_binary_format::file_format::{CompiledModule, CompiledScript};
+use move_command_line_common::{
+    address::ParsedAddress, files::verify_and_create_named_address_mapping,
+};
+use move_compiler::{self, shared::PackagePaths, FullyCompiledProgram};
+use move_core_types::{
+    account_address::AccountAddress,
+    identifier::{IdentStr, Identifier},
+    language_storage::{ModuleId, ResourceKey, TypeTag},
+    move_resource::MoveStructType,
+    parser::parse_type_tag,
+    transaction_argument::{convert_txn_args, TransactionArgument},
+    value::{MoveTypeLayout, MoveValue},
+};
+use move_resource_viewer::{AnnotatedMoveValue, MoveValueAnnotator};
+use move_transactional_test_runner::{
+    framework::{run_test_impl, CompiledState, MoveTestAdapter},
+    tasks::{InitCommand, SyntaxChoice, TaskInput},
+    vm_test_harness::view_resource_in_move_storage,
+};
+use move_vm_runtime::session::SerializedReturnValues;
 use once_cell::sync::Lazy;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -39,38 +60,13 @@ use std::{
     string::String,
     sync::Arc,
 };
-use {
-    move_binary_format::file_format::{CompiledModule, CompiledScript},
-    move_command_line_common::{
-        address::ParsedAddress, files::verify_and_create_named_address_mapping,
-    },
-    move_compiler::{self, shared::PackagePaths, FullyCompiledProgram},
-    move_core_types::{
-        account_address::AccountAddress,
-        identifier::{IdentStr, Identifier},
-        language_storage::{ModuleId, ResourceKey, TypeTag},
-        move_resource::MoveStructType,
-        parser::parse_type_tag,
-        transaction_argument::{convert_txn_args, TransactionArgument},
-        value::{MoveTypeLayout, MoveValue},
-    },
-    move_resource_viewer::{AnnotatedMoveValue, MoveValueAnnotator},
-    move_transactional_test_runner::{
-        framework::{run_test_impl, CompiledState, MoveTestAdapter},
-        tasks::{InitCommand, SyntaxChoice, TaskInput},
-        vm_test_harness::view_resource_in_move_storage,
-    },
-    move_vm_runtime::session::SerializedReturnValues,
-};
 
-/**
- * Definitions
- */
+/// Definitions
 
 /// The Aptos transaction test adapter.
 ///
-/// This differs from the SimpleVMTestAdapter in a few ways to ensure that our tests mimics
-/// production settings:
+/// This differs from the SimpleVMTestAdapter in a few ways to ensure that our
+/// tests mimics production settings:
 ///   - It uses a StateView as its storage backend
 ///   - It executes transactions through AptosVM, instead of MoveVM directly
 struct AptosTestAdapter<'a> {
@@ -190,9 +186,7 @@ enum AptosSubCommand {
     ViewTableCommand(ViewTableCommand),
 }
 
-/**
- * Parsing
- */
+/// Parsing
 
 fn parse_ed25519_private_key(s: &str) -> Result<Ed25519PrivateKey> {
     Ok(Ed25519PrivateKey::from_encoded_string(s)?)
@@ -213,7 +207,11 @@ fn parse_named_private_key(s: &str) -> Result<(Identifier, Ed25519PrivateKey)> {
     let before_after = s.split('=').collect::<Vec<_>>();
 
     if before_after.len() != 2 {
-        bail!("Invalid named private key assignment. Must be of the form <private_key_name>=<private_key>, but found '{}'", s);
+        bail!(
+            "Invalid named private key assignment. Must be of the form \
+             <private_key_name>=<private_key>, but found '{}'",
+            s
+        );
     }
 
     let name = Identifier::new(before_after[0])
@@ -235,7 +233,11 @@ impl SignerAndKeyPair {
         let before_after = s.split('=').collect::<Vec<_>>();
 
         if before_after.len() != 2 {
-            bail!("Invalid signer and key pair. Must be of the form <signer addr>=<private_key> or <named signer addr>, but found '{}'", s);
+            bail!(
+                "Invalid signer and key pair. Must be of the form <signer addr>=<private_key> or \
+                 <named signer addr>, but found '{}'",
+                s
+            );
         }
 
         let address = ParsedAddress::parse(before_after[0])?;
@@ -256,9 +258,7 @@ impl aptos_storage_interface::DbReader for FakeDbReader {
     }
 }
 
-/**
- * Helpers
- */
+/// Helpers
 
 /// Default private key mappings for special Aptos accounts.
 fn aptos_framework_private_key_mapping() -> Vec<(String, Ed25519PrivateKey)> {
@@ -267,17 +267,15 @@ fn aptos_framework_private_key_mapping() -> Vec<(String, Ed25519PrivateKey)> {
 
 fn panic_missing_private_key_named(cmd_name: &str, name: &str) -> ! {
     panic!(
-        "Missing private key. Either add a `--private-key <priv_key>` argument \
-            to the {} command, or associate an address to the \
-            name '{}' in the init command.",
+        "Missing private key. Either add a `--private-key <priv_key>` argument to the {} command, \
+         or associate an address to the name '{}' in the init command.",
         cmd_name, name,
     )
 }
 
 fn panic_missing_private_key(cmd_name: &str) -> ! {
     panic!(
-        "Missing private key. Try adding a `--private-key <priv_key>` \
-            argument to the {} command.",
+        "Missing private key. Try adding a `--private-key <priv_key>` argument to the {} command.",
         cmd_name
     )
 }
@@ -301,13 +299,11 @@ static PRECOMPILED_APTOS_FRAMEWORK: Lazy<FullyCompiledProgram> = Lazy::new(|| {
         Err((files, errors)) => {
             eprintln!("!!!Aptos Framework failed to compile!!!");
             move_compiler::diagnostics::report_diagnostics(&files, errors)
-        }
+        },
     }
 });
 
-/**
- * Test Adapter Implementation
- */
+/// Test Adapter Implementation
 
 impl<'a> AptosTestAdapter<'a> {
     /// Look up the named private key in the mapping.
@@ -346,15 +342,17 @@ impl<'a> AptosTestAdapter<'a> {
                 (None, ParsedAddress::Named(named_addr)) => {
                     match self.private_key_mapping.get(named_addr) {
                         Some(private_key) => private_key.clone(),
-                        None => panic!(
-                            "Failed to resolve private key for secondary signer {}.",
-                            named_addr
-                        ),
+                        None => {
+                            panic!(
+                                "Failed to resolve private key for secondary signer {}.",
+                                named_addr
+                            )
+                        },
                     }
-                }
+                },
                 (None, ParsedAddress::Numerical(addr)) => {
                     panic!("No private key provided for secondary signer {}.", addr)
-                }
+                },
             };
 
             private_keys.push(resolved_private_key);
@@ -363,8 +361,8 @@ impl<'a> AptosTestAdapter<'a> {
         (addresses, private_keys)
     }
 
-    /// Obtain a Rust representation of the account resource from storage, which is used to derive
-    /// a few default transaction parameters.
+    /// Obtain a Rust representation of the account resource from storage, which
+    /// is used to derive a few default transaction parameters.
     fn fetch_account_resource(&self, signer_addr: &AccountAddress) -> Result<AccountResource> {
         let account_access_path = AccessPath::resource_access_path(ResourceKey::new(
             *signer_addr,
@@ -376,9 +374,10 @@ impl<'a> AptosTestAdapter<'a> {
             .unwrap()
             .ok_or_else(|| {
                 format_err!(
-                "Failed to fetch account resource under address {}. Has the account been created?",
-                signer_addr
-            )
+                    "Failed to fetch account resource under address {}. Has the account been \
+                     created?",
+                    signer_addr
+                )
             })?;
         Ok(bcs::from_bytes(&account_blob).unwrap())
     }
@@ -428,9 +427,9 @@ impl<'a> AptosTestAdapter<'a> {
         bail!("Failed to fetch balance under address {}.", signer_addr)
     }
 
-    /// Derive the default transaction parameters from the account and balance resources fetched
-    /// from storage. In the future, we are planning to allow the user to override these using
-    /// command arguments.
+    /// Derive the default transaction parameters from the account and balance
+    /// resources fetched from storage. In the future, we are planning to
+    /// allow the user to override these using command arguments.
     fn fetch_transaction_parameters(
         &self,
         signer_addr: &AccountAddress,
@@ -457,7 +456,7 @@ impl<'a> AptosTestAdapter<'a> {
                         account_balance / gas_unit_price,
                     )
                 }
-            }
+            },
         };
         let expiration_timestamp_secs = expiration_time.unwrap_or(40000);
 
@@ -471,8 +470,8 @@ impl<'a> AptosTestAdapter<'a> {
 
     /// Perform a single transaction.
     ///
-    /// Should error if the transaction ends up being discarded, or having a status other than
-    /// EXECUTED.
+    /// Should error if the transaction ends up being discarded, or having a
+    /// status other than EXECUTED.
     fn run_transaction(&mut self, txn: Transaction) -> Result<TransactionOutput> {
         let mut outputs = AptosVM::execute_block(vec![txn], &self.storage)?;
 
@@ -489,12 +488,12 @@ impl<'a> AptosTestAdapter<'a> {
                             "Failed to execute transaction. ExecutionStatus: {:?}",
                             kept_vm_status
                         )
-                    }
+                    },
                 }
-            }
+            },
             TransactionStatus::Discard(status_code) => {
                 bail!("Transaction discarded. VM status code: {:?}", status_code)
-            }
+            },
             TransactionStatus::Retry => panic!(),
         }
     }
@@ -542,8 +541,8 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
     type ExtraInitArgs = AptosInitArgs;
     type ExtraPublishArgs = AptosPublishArgs;
     type ExtraRunArgs = AptosRunArgs;
-    type Subcommand = AptosSubCommand;
     type ExtraValueArgs = ();
+    type Subcommand = AptosSubCommand;
 
     fn compiled_state(&mut self) -> &mut CompiledState<'a> {
         &mut self.compiled_state
@@ -562,7 +561,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
         let additional_named_address_mapping = match task_opt.as_ref().map(|t| &t.command) {
             Some((InitCommand { named_addresses }, _)) => {
                 verify_and_create_named_address_mapping(named_addresses.clone()).unwrap()
-            }
+            },
             None => BTreeMap::new(),
         };
 
@@ -642,7 +641,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
                     named_addr_opt = Some(Identifier::new(named_addr.clone()).unwrap())
                 }
                 self.compiled_state().resolve_address(&addr)
-            }
+            },
             None => *module_id.address(),
         };
 
@@ -659,12 +658,14 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
 
         let private_key = match (extra_args.private_key, named_addr_opt) {
             (Some(private_key), _) => self.resolve_private_key(&private_key),
-            (None, Some(named_addr)) => match self
-                .private_key_mapping
-                .get(&named_addr.as_str().to_string())
-            {
-                Some(private_key) => private_key.clone(),
-                None => panic_missing_private_key_named("publish", named_addr.as_str()),
+            (None, Some(named_addr)) => {
+                match self
+                    .private_key_mapping
+                    .get(&named_addr.as_str().to_string())
+                {
+                    Some(private_key) => private_key.clone(),
+                    None => panic_missing_private_key_named("publish", named_addr.as_str()),
+                }
             },
             (None, None) => panic_missing_private_key("publish"),
         };
@@ -717,7 +718,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
                     Some(private_key) => private_key.clone(),
                     None => panic_missing_private_key_named("run", named_addr.as_str()),
                 }
-            }
+            },
             (None, ParsedAddress::Numerical(_)) => panic_missing_private_key("run"),
         };
 
@@ -760,7 +761,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
             None
         };
 
-        //TODO: replace this dummy value with actual txn return value
+        // TODO: replace this dummy value with actual txn return value
         let a = SerializedReturnValues {
             mutable_reference_outputs: vec![(0, vec![0], MoveTypeLayout::U8)],
             return_values: vec![(vec![0], MoveTypeLayout::U8)],
@@ -795,7 +796,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
                     Some(private_key) => private_key.clone(),
                     None => panic_missing_private_key_named("run", named_addr.as_str()),
                 }
-            }
+            },
             (None, ParsedAddress::Numerical(_)) => panic_missing_private_key("run"),
         };
 
@@ -837,7 +838,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
                     secondary_private_keys.iter().collect(),
                 )?
                 .into_inner()
-            }
+            },
             None => txn
                 .sign(&private_key, Ed25519PublicKey::from(&private_key))?
                 .into_inner(),
@@ -851,7 +852,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
             None
         };
 
-        //TODO: replace this dummy value with actual txn return value
+        // TODO: replace this dummy value with actual txn return value
         let a = SerializedReturnValues {
             mutable_reference_outputs: vec![(0, vec![0], MoveTypeLayout::U8)],
             return_values: vec![(vec![0], MoveTypeLayout::U8)],
@@ -886,7 +887,7 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
                 let output = self.run_transaction(Transaction::BlockMetadata(metadata))?;
 
                 Ok(render_events(output.events()))
-            }
+            },
             AptosSubCommand::ViewTableCommand(view_table_cmd) => {
                 let resolver = self.storage.as_move_resolver();
                 let converter = resolver.as_converter(Arc::new(FakeDbReader {}));
@@ -909,14 +910,12 @@ impl<'a> MoveTestAdapter<'a> for AptosTestAdapter<'a> {
                     converter.try_into_move_value(&view_table_cmd.value_type, &bytes)?;
 
                 Ok(Some(serde_json::to_string(&move_value).unwrap()))
-            }
+            },
         }
     }
 }
 
-/**
- * Misc
- */
+/// Misc
 
 struct PrettyEvent<'a>(&'a ContractEvent);
 

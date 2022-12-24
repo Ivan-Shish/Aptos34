@@ -8,19 +8,22 @@ use crate::{
 use anyhow::Result;
 use aptos_crypto::{hash::TransactionAccumulatorHasher, HashValue};
 use aptos_state_view::StateViewId;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::{proof::accumulator::InMemoryAccumulator, transaction::Version};
+use aptos_types::{
+    proof::accumulator::InMemoryAccumulator, state_store::state_storage_usage::StateStorageUsage,
+    transaction::Version,
+};
 use std::sync::Arc;
 
-/// A wrapper of the in-memory state sparse merkle tree and the transaction accumulator that
-/// represent a specific state collectively. Usually it is a state after executing a block.
+/// A wrapper of the in-memory state sparse merkle tree and the transaction
+/// accumulator that represent a specific state collectively. Usually it is a
+/// state after executing a block.
 #[derive(Clone, Debug)]
 pub struct ExecutedTrees {
     /// The in-memory representation of state after execution.
     state: StateDelta,
 
-    /// The in-memory Merkle Accumulator representing a blockchain state consistent with the
-    /// `state_tree`.
+    /// The in-memory Merkle Accumulator representing a blockchain state
+    /// consistent with the `state_tree`.
     transaction_accumulator: Arc<InMemoryAccumulator<TransactionAccumulatorHasher>>,
 }
 

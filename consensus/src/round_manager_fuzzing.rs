@@ -160,7 +160,8 @@ fn create_node_for_fuzzing() -> RoundManager {
     //
     let round_state = create_round_state();
 
-    // TODO: have two different nodes, one for proposing, one for accepting a proposal
+    // TODO: have two different nodes, one for proposing, one for accepting a
+    // proposal
     let proposer_election = Box::new(RotatingProposer::new(vec![signer.author()], 1));
 
     let (round_manager_tx, _) = aptos_channel::new(QueueStyle::LIFO, 1, None);
@@ -196,7 +197,7 @@ pub fn fuzz_proposal(data: &[u8]) {
                 panic!();
             }
             return;
-        }
+        },
     };
 
     let proposal = match proposal.verify_well_formed() {
@@ -207,7 +208,7 @@ pub fn fuzz_proposal(data: &[u8]) {
                 panic!();
             }
             return;
-        }
+        },
     };
 
     block_on(async move {

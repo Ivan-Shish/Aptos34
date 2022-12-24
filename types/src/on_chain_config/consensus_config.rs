@@ -1,14 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
-
 use crate::{block_info::Round, on_chain_config::OnChainConfig};
 use anyhow::{format_err, Result};
 use move_core_types::account_address::AccountAddress;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-/// The on-chain consensus config, in order to be able to add fields, we use enum to wrap the actual struct.
+/// The on-chain consensus config, in order to be able to add fields, we use
+/// enum to wrap the actual struct.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum OnChainConsensusConfig {
     V1(ConsensusConfigV1),
@@ -22,7 +22,7 @@ impl OnChainConsensusConfig {
         match &self {
             OnChainConsensusConfig::V1(config) | OnChainConsensusConfig::V2(config) => {
                 config.exclude_round
-            }
+            },
         }
     }
 
@@ -31,13 +31,14 @@ impl OnChainConsensusConfig {
         match &self {
             OnChainConsensusConfig::V1(config) | OnChainConsensusConfig::V2(config) => {
                 config.decoupled_execution
-            }
+            },
         }
     }
 
     /// Backpressure controls
-    /// 1. how much gaps can be between ordered and committed blocks in decoupled execution setup.
-    /// 2. how much gaps can be between the root and the remote sync info ledger.
+    /// 1. how much gaps can be between ordered and committed blocks in
+    /// decoupled execution setup. 2. how much gaps can be between the root
+    /// and the remote sync info ledger.
     pub fn back_pressure_limit(&self) -> u64 {
         if !self.decoupled_execution() {
             return 10;
@@ -45,7 +46,7 @@ impl OnChainConsensusConfig {
         match &self {
             OnChainConsensusConfig::V1(config) | OnChainConsensusConfig::V2(config) => {
                 config.back_pressure_limit
-            }
+            },
         }
     }
 
@@ -55,7 +56,7 @@ impl OnChainConsensusConfig {
         match &self {
             OnChainConsensusConfig::V1(config) | OnChainConsensusConfig::V2(config) => {
                 config.max_failed_authors_to_store
-            }
+            },
         }
     }
 
@@ -64,7 +65,7 @@ impl OnChainConsensusConfig {
         match &self {
             OnChainConsensusConfig::V1(config) | OnChainConsensusConfig::V2(config) => {
                 &config.proposer_election_type
-            }
+            },
         }
     }
 
@@ -93,7 +94,8 @@ impl OnChainConfig for OnChainConsensusConfig {
     ///    config: vector<u8>,
     /// }
     /// ```
-    /// so we need two rounds of bcs deserilization to turn it back to OnChainConsensusConfig
+    /// so we need two rounds of bcs deserilization to turn it back to
+    /// OnChainConsensusConfig
     fn deserialize_into_config(bytes: &[u8]) -> Result<Self> {
         let raw_bytes: Vec<u8> = bcs::from_bytes(bytes)?;
         bcs::from_bytes(&raw_bytes)
@@ -138,7 +140,8 @@ impl Default for ConsensusConfigV1 {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")] // cannot use tag = "type" as nested enums cannot work, and bcs doesn't support it
+#[serde(rename_all = "snake_case")] // cannot use tag = "type" as nested enums cannot work, and bcs doesn't support
+                                    // it
 pub enum ProposerElectionType {
     // Choose the smallest PeerId as the proposer
     // with specified param contiguous_rounds
@@ -208,11 +211,9 @@ pub struct ProposerAndVoterConfig {
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
-
-    use crate::on_chain_config::OnChainConfigPayload;
-
     use super::*;
+    use crate::on_chain_config::OnChainConfigPayload;
+    use std::sync::Arc;
 
     #[test]
     fn test_config_yaml_serialization() {

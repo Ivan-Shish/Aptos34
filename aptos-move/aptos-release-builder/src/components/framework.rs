@@ -23,8 +23,8 @@ pub fn generate_upgrade_proposals(
     root_path.pop();
     root_path.pop();
 
-    // For generating multi-step proposal files, we need to generate them in the reverse order since
-    // we need the hash of the next script.
+    // For generating multi-step proposal files, we need to generate them in the
+    // reverse order since we need the hash of the next script.
     // We will reverse the order back when writing the files into a directory.
     if !next_execution_hash.is_empty() {
         package_path_list.reverse();
@@ -65,15 +65,19 @@ pub fn generate_upgrade_proposals(
             args.push("--testnet");
         }
 
-        // If this file is the first framework file being generated (if `result.is_empty()` is true),
-        // its `next_execution_hash` should be the `next_execution_hash` value being passed in.
-        // If the `result` vector is not empty, the current file's `next_execution_hash` should be the
-        // hash of the latest framework file being generated (the hash of result.last()).
-        // For example, let's say we are going to generate these files:
-        // 0-move-stdlib.move	2-aptos-framework.move	4-gas-schedule.move	6-features.move
-        // 1-aptos-stdlib.move	3-aptos-token.move	5-version.move		7-consensus-config.move
-        // The first framework file being generated is 3-aptos-token.move. It's using the next_execution_hash being passed in (so in this case, the hash of 4-gas-schedule.move being passed in mod.rs).
-        // The second framework file being generated would be 2-aptos-framework.move, and it's using the hash of 3-aptos-token.move (which would be result.last()).
+        // If this file is the first framework file being generated (if
+        // `result.is_empty()` is true), its `next_execution_hash` should be the
+        // `next_execution_hash` value being passed in. If the `result` vector
+        // is not empty, the current file's `next_execution_hash` should be the
+        // hash of the latest framework file being generated (the hash of
+        // result.last()). For example, let's say we are going to generate these
+        // files: 0-move-stdlib.move	2-aptos-framework.move	4-gas-schedule.move
+        // 6-features.move 1-aptos-stdlib.move	3-aptos-token.move	5-version.move
+        // 7-consensus-config.move The first framework file being generated is
+        // 3-aptos-token.move. It's using the next_execution_hash being passed in (so in
+        // this case, the hash of 4-gas-schedule.move being passed in mod.rs).
+        // The second framework file being generated would be 2-aptos-framework.move,
+        // and it's using the hash of 3-aptos-token.move (which would be result.last()).
         let mut _execution_hash: String = "".to_owned();
         if !next_execution_hash.is_empty() {
             args.push("--next-execution-hash");

@@ -59,7 +59,8 @@ impl NetworkTest for StateSyncFullnodeFastSyncPerformance {
         // Emit a lot of traffic and ensure the fullnodes can all sync
         emit_traffic_and_ensure_bounded_sync(ctx, &all_fullnodes)?;
 
-        // Wait for an epoch change to ensure fast sync can download all the latest states
+        // Wait for an epoch change to ensure fast sync can download all the latest
+        // states
         info!("Waiting for an epoch change.");
         let runtime = Runtime::new().unwrap();
         runtime.block_on(async {
@@ -94,7 +95,7 @@ impl NetworkTest for StateSyncFullnodeFastSyncPerformance {
                     "No instant vectors found for prom query {}",
                     prom_query
                 ));
-            }
+            },
         };
         info!(
             "Number of reported state values found on-chain is: {}",
@@ -140,8 +141,9 @@ impl NetworkTest for StateSyncValidatorPerformance {
         let num_validators = all_validators.len();
         if num_validators < 7 {
             return Err(anyhow::format_err!(
-                "State sync validator performance tests require at least 7 validators! Given: {:?} \
-                 This is to ensure the chain can still make progress when 2 validators are killed.",
+                "State sync validator performance tests require at least 7 validators! Given: \
+                 {:?} This is to ensure the chain can still make progress when 2 validators are \
+                 killed.",
                 num_validators
             ));
         }
@@ -278,8 +280,8 @@ fn display_state_sync_state_throughput(
     let timer = Instant::now();
     let runtime = Runtime::new().unwrap();
 
-    // Wait for all nodes to catch up to the same epoch (that is when fast sync completes).
-    // We allow up to half the test time to do this.
+    // Wait for all nodes to catch up to the same epoch (that is when fast sync
+    // completes). We allow up to half the test time to do this.
     let node_sync_duration = ctx.global_duration.checked_div(2).unwrap();
     runtime.block_on(async {
         ctx.swarm()

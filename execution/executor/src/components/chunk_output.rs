@@ -23,9 +23,9 @@ pub struct ChunkOutput {
     pub transactions: Vec<Transaction>,
     /// Raw VM output.
     pub transaction_outputs: Vec<TransactionOutput>,
-    /// Carries the frozen base state view, so all in-mem nodes involved won't drop before the
-    /// execution result is processed; as well as al the accounts touched during execution, together
-    /// with their proofs.
+    /// Carries the frozen base state view, so all in-mem nodes involved won't
+    /// drop before the execution result is processed; as well as al the
+    /// accounts touched during execution, together with their proofs.
     pub state_cache: StateCache,
 }
 
@@ -37,7 +37,8 @@ impl ChunkOutput {
         let transaction_outputs = V::execute_block(transactions.clone(), &state_view)?;
 
         // to print txn output for debugging, uncomment:
-        // println!("{:?}", transaction_outputs.iter().map(|t| t.status() ).collect::<Vec<_>>());
+        // println!("{:?}", transaction_outputs.iter().map(|t| t.status()
+        // ).collect::<Vec<_>>());
 
         update_counters_for_processed_chunk(&transactions, &transaction_outputs, "executed");
 
@@ -130,7 +131,7 @@ pub fn update_counters_for_processed_chunk(
                 ),
                 ExecutionStatus::ExecutionFailure { .. } => {
                     ("keep_rejected", "ExecutionFailure", "error".to_string())
-                }
+                },
                 ExecutionStatus::MiscellaneousError(e) => (
                     "keep_rejected",
                     "MiscellaneousError",
@@ -183,12 +184,12 @@ pub fn update_counters_for_processed_chunk(
                     metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
                         .with_label_values(&[process_type, "script", state])
                         .inc();
-                }
+                },
                 aptos_types::transaction::TransactionPayload::ModuleBundle(_module) => {
                     metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
                         .with_label_values(&[process_type, "module", state])
                         .inc();
-                }
+                },
                 aptos_types::transaction::TransactionPayload::EntryFunction(function) => {
                     metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
                         .with_label_values(&[process_type, "function", state])
@@ -220,7 +221,7 @@ pub fn update_counters_for_processed_chunk(
                             ])
                             .inc();
                     }
-                }
+                },
             }
         }
 

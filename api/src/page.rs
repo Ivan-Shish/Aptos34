@@ -45,9 +45,10 @@ impl Page {
         if start > max {
             return Err(E::bad_request_with_code(
                 &format!(
-                "Given start value ({}) is higher than the current ledger version, it must be < {}",
-                start, max
-            ),
+                    "Given start value ({}) is higher than the current ledger version, it must be \
+                     < {}",
+                    start, max
+                ),
                 AptosErrorCode::InvalidInput,
                 ledger_info,
             ));
@@ -76,7 +77,8 @@ pub fn determine_limit<E: BadRequestError>(
     requested_limit: Option<u16>,
     // The default limit to use, if requested_limit is None.
     default_limit: u16,
-    // The ceiling on the limit. If the requested value is higher than this, we just use this value.
+    // The ceiling on the limit. If the requested value is higher than this, we just use this
+    // value.
     max_limit: u16,
     ledger_info: &LedgerInfo,
 ) -> Result<u16, E> {

@@ -3,9 +3,8 @@
 
 use crate::{error::QuorumStoreError, monitor, state_replication::PayloadClient};
 use anyhow::Result;
-use aptos_consensus_types::common::Round;
 use aptos_consensus_types::{
-    common::{Payload, PayloadFilter},
+    common::{Payload, PayloadFilter, Round},
     request_response::{ConsensusResponse, PayloadRequest},
 };
 use aptos_logger::prelude::*;
@@ -24,7 +23,8 @@ const NO_TXN_DELAY: u64 = 30; // TODO: consider moving to a config
 pub struct QuorumStoreClient {
     consensus_to_quorum_store_sender: mpsc::Sender<PayloadRequest>,
     poll_count: u64,
-    /// Timeout for consensus to pull transactions from quorum store and get a response (in milliseconds)
+    /// Timeout for consensus to pull transactions from quorum store and get a
+    /// response (in milliseconds)
     pull_timeout_ms: u64,
 }
 
@@ -72,7 +72,7 @@ impl QuorumStoreClient {
         ) {
             Err(_) => {
                 Err(anyhow::anyhow!("[consensus] did not receive GetBlockResponse on time").into())
-            }
+            },
             Ok(resp) => match resp.map_err(anyhow::Error::from)?? {
                 ConsensusResponse::GetBlockResponse(payload) => Ok(payload),
             },
@@ -95,7 +95,8 @@ impl PayloadClient for QuorumStoreClient {
             Err(anyhow::anyhow!("Injected error in pull_payload").into())
         });
         let mut callback_wrapper = Some(wait_callback);
-        // keep polling QuorumStore until there's payloads available or there's still pending payloads
+        // keep polling QuorumStore until there's payloads available or there's still
+        // pending payloads
         let mut count = self.poll_count;
         let payload = loop {
             count -= 1;

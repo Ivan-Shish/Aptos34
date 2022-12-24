@@ -53,8 +53,8 @@ pub fn network_endpoint_config() -> AppConfig {
     )
 }
 
-/// TODO(davidiw): In DummyNetwork, replace DummyMsg with a Serde compatible type once migration
-/// is complete
+/// TODO(davidiw): In DummyNetwork, replace DummyMsg with a Serde compatible
+/// type once migration is complete
 pub type DummyNetworkEvents = NetworkEvents<DummyMsg>;
 
 #[derive(Clone)]

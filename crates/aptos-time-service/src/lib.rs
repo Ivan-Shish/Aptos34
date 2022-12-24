@@ -39,14 +39,14 @@ const ZERO_DURATION: Duration = Duration::from_nanos(0);
 
 /// `TimeService` abstracts all time-related operations in one place that can be
 /// easily mocked-out and controlled in tests or delegated to the actual
-/// underlying runtime (usually tokio). It's provided as an enum so we don't have
-/// to infect everything with a generic tag.
+/// underlying runtime (usually tokio). It's provided as an enum so we don't
+/// have to infect everything with a generic tag.
 ///
-/// `TimeService` is async-focused: the `sleep`, `interval`, and `timeout` methods
-/// all return `Future`s and `Stream`s. That said, `TimeService` supports non-async
-/// clients as well; simply use the `sleep_blocking` method instead of `sleep`.
-/// Note that the blocking call will actually block the current thread until the
-/// sleep time has elapsed.
+/// `TimeService` is async-focused: the `sleep`, `interval`, and `timeout`
+/// methods all return `Future`s and `Stream`s. That said, `TimeService`
+/// supports non-async clients as well; simply use the `sleep_blocking` method
+/// instead of `sleep`. Note that the blocking call will actually block the
+/// current thread until the sleep time has elapsed.
 ///
 /// `TimeService` tries to mirror the API provided by [`tokio::time`] to an
 /// extent. The primary difference is that all time is expressed in relative
@@ -61,9 +61,9 @@ const ZERO_DURATION: Duration = Duration::from_nanos(0);
 /// use the [`Sleep`] future, since tokio's implementations are coupled to its
 /// internal Sleep future.
 ///
-/// Note: `TimeService`'s should be free (or very cheap) to clone and send around
-/// between threads. In production (without test features), this enum is a
-/// zero-sized type.
+/// Note: `TimeService`'s should be free (or very cheap) to clone and send
+/// around between threads. In production (without test features), this enum is
+/// a zero-sized type.
 #[enum_dispatch(TimeServiceTrait)]
 #[derive(Clone, Debug)]
 pub enum TimeService {
@@ -74,16 +74,17 @@ pub enum TimeService {
 }
 
 impl TimeService {
-    /// Create a new real, production time service that actually uses the systemtime.
+    /// Create a new real, production time service that actually uses the
+    /// systemtime.
     ///
     /// See [`RealTimeService`].
     pub fn real() -> Self {
         RealTimeService::new().into()
     }
 
-    /// Create a mock, simulated time service that does not query the system time
-    /// and allows fine-grained control over advancing time and waking sleeping
-    /// tasks.
+    /// Create a mock, simulated time service that does not query the system
+    /// time and allows fine-grained control over advancing time and waking
+    /// sleeping tasks.
     ///
     /// See [`MockTimeService`].
     #[cfg(any(test, feature = "testing"))]
@@ -124,8 +125,8 @@ pub trait TimeServiceTrait: Send + Sync + Clone + Debug {
     /// When used on a `TimeService::real()`, this is equivalent to
     /// `SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)`.
     ///
-    /// Note: the [`Duration`] returned from this function is _NOT_ guaranteed to
-    /// be monotonic. Use [`now`](#method.now) if you need monotonicity.
+    /// Note: the [`Duration`] returned from this function is _NOT_ guaranteed
+    /// to be monotonic. Use [`now`](#method.now) if you need monotonicity.
     ///
     /// From the [`SystemTime`] docs:
     ///
@@ -158,9 +159,9 @@ pub trait TimeServiceTrait: Send + Sync + Clone + Debug {
 
     /// Return a [`Future`] that waits until `duration` has passed.
     ///
-    /// No work is performed while awaiting on the sleep future to complete. `Sleep`
-    /// operates at millisecond granularity and should not be used for tasks that
-    /// require high-resolution timers.
+    /// No work is performed while awaiting on the sleep future to complete.
+    /// `Sleep` operates at millisecond granularity and should not be used
+    /// for tasks that require high-resolution timers.
     ///
     /// # Cancelation
     ///
@@ -189,7 +190,8 @@ pub trait TimeServiceTrait: Send + Sync + Clone + Debug {
     ///
     /// # Cancelation
     ///
-    /// At any time, the [`Interval`] value can be dropped. This cancels the interval.
+    /// At any time, the [`Interval`] value can be dropped. This cancels the
+    /// interval.
     ///
     /// # Panics
     ///
@@ -211,19 +213,20 @@ pub trait TimeServiceTrait: Send + Sync + Clone + Debug {
         Interval::new(delay, period)
     }
 
-    /// Require a [`Future`] to complete before the specified duration has elapsed.
+    /// Require a [`Future`] to complete before the specified duration has
+    /// elapsed.
     ///
-    /// If the future completes before the duration has elapsed, then the completed
-    /// value is returned. Otherwise, `Err(Elapsed)` is returned and the future is
-    /// canceled.
+    /// If the future completes before the duration has elapsed, then the
+    /// completed value is returned. Otherwise, `Err(Elapsed)` is returned
+    /// and the future is canceled.
     ///
     /// # Cancelation
     ///
-    /// Cancelling a timeout is done by dropping the future. No additional cleanup
-    /// or other work is required.
+    /// Cancelling a timeout is done by dropping the future. No additional
+    /// cleanup or other work is required.
     ///
-    /// The original future may be obtained by calling [`Timeout::into_inner`]. This
-    /// consumes the [`Timeout`].
+    /// The original future may be obtained by calling [`Timeout::into_inner`].
+    /// This consumes the [`Timeout`].
     #[cfg(any(test, feature = "async"))]
     fn timeout<F: Future>(&self, duration: Duration, future: F) -> Timeout<F> {
         let delay = self.sleep(duration);
@@ -232,9 +235,9 @@ pub trait TimeServiceTrait: Send + Sync + Clone + Debug {
 
     /// Require a [`Future`] to complete before the `deadline`.
     ///
-    /// If the future completes before the duration has elapsed, then the completed
-    /// value is returned. Otherwise, `Err(Elapsed)` is returned and the future is
-    /// canceled.
+    /// If the future completes before the duration has elapsed, then the
+    /// completed value is returned. Otherwise, `Err(Elapsed)` is returned
+    /// and the future is canceled.
     ///
     /// See [`timeout`](#method.timeout) for more details.
     #[cfg(any(test, feature = "async"))]

@@ -19,11 +19,10 @@ use std::{
 mod cargo;
 mod node;
 mod swarm;
+pub use self::swarm::ActiveNodesGuard;
 pub use cargo::cargo_build_common_args;
 pub use node::LocalNode;
 pub use swarm::{LocalSwarm, SwarmDirectory};
-
-pub use self::swarm::ActiveNodesGuard;
 
 #[derive(Clone, Debug)]
 pub struct LocalVersion {
@@ -96,15 +95,17 @@ impl LocalFactory {
         Ok(Self::new(versions))
     }
 
-    /// Create a LocalFactory with a aptos-node version built at the tip of upstream/main and the
-    /// current workspace, suitable for compatibility testing.
+    /// Create a LocalFactory with a aptos-node version built at the tip of
+    /// upstream/main and the current workspace, suitable for compatibility
+    /// testing.
     pub fn with_upstream_and_workspace() -> Result<Self> {
         let upstream_main = cargo::git_get_upstream_remote().map(|r| format!("{}/main", r))?;
         Self::with_revision_and_workspace(&upstream_main)
     }
 
-    /// Create a LocalFactory with a aptos-node version built at merge-base of upstream/main and the
-    /// current workspace, suitable for compatibility testing.
+    /// Create a LocalFactory with a aptos-node version built at merge-base of
+    /// upstream/main and the current workspace, suitable for compatibility
+    /// testing.
     pub fn with_upstream_merge_base_and_workspace() -> Result<Self> {
         let upstream_main = cargo::git_get_upstream_remote().map(|r| format!("{}/main", r))?;
         let merge_base = cargo::git_merge_base(upstream_main)?;
@@ -188,7 +189,7 @@ impl Factory for LocalFactory {
                 GenesisConfig::Bundle(bundle) => Some(bundle.clone()),
                 GenesisConfig::Path(_) => {
                     bail!("local forge backend does not support flattened dir for genesis")
-                }
+                },
             },
             None => None,
         };

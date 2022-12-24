@@ -122,7 +122,7 @@ impl ReplayVerifyCoordinator {
                 },
                 global_opt.clone(),
                 Arc::clone(&self.storage),
-                None, /* epoch_history */
+                None, // epoch_history
             )
             .run()
             .await?;
@@ -133,8 +133,8 @@ impl ReplayVerifyCoordinator {
             global_opt,
             self.storage,
             txn_manifests,
-            Some(replay_transactions_from_version), /* replay_from_version */
-            None,                                   /* epoch_history */
+            Some(replay_transactions_from_version), // replay_from_version
+            None,                                   // epoch_history
             self.txns_to_skip,
         )
         .run()

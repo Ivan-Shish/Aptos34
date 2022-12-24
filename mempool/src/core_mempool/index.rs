@@ -3,10 +3,10 @@
 
 /// This module provides various indexes used by Mempool.
 use crate::core_mempool::transaction::{MempoolTransaction, SequenceInfo, TimelineState};
-use crate::shared_mempool::types::MultiBucketTimelineIndexIds;
 use crate::{
     counters,
     logging::{LogEntry, LogSchema},
+    shared_mempool::types::MultiBucketTimelineIndexIds,
 };
 use aptos_logger::prelude::*;
 use aptos_types::account_address::AccountAddress;
@@ -23,10 +23,12 @@ pub type AccountTransactions = BTreeMap<u64, MempoolTransaction>;
 
 /// PriorityIndex represents the main Priority Queue in Mempool.
 /// It's used to form the transaction block for Consensus.
-/// Transactions are ordered by gas price. Second level ordering is done by expiration time.
+/// Transactions are ordered by gas price. Second level ordering is done by
+/// expiration time.
 ///
 /// We don't store the full content of transactions in the index.
-/// Instead we use `OrderedQueueKey` - logical reference to the transaction in the main store.
+/// Instead we use `OrderedQueueKey` - logical reference to the transaction in
+/// the main store.
 pub struct PriorityIndex {
     data: BTreeSet<OrderedQueueKey>,
 }
@@ -87,15 +89,15 @@ impl PartialOrd for OrderedQueueKey {
 impl Ord for OrderedQueueKey {
     fn cmp(&self, other: &OrderedQueueKey) -> Ordering {
         match self.gas_ranking_score.cmp(&other.gas_ranking_score) {
-            Ordering::Equal => {}
+            Ordering::Equal => {},
             ordering => return ordering,
         }
         match self.expiration_time.cmp(&other.expiration_time).reverse() {
-            Ordering::Equal => {}
+            Ordering::Equal => {},
             ordering => return ordering,
         }
         match self.address.cmp(&other.address) {
-            Ordering::Equal => {}
+            Ordering::Equal => {},
             ordering => return ordering,
         }
         self.sequence_number
@@ -105,11 +107,11 @@ impl Ord for OrderedQueueKey {
     }
 }
 
-/// TTLIndex is used to perform garbage collection of old transactions in Mempool.
-/// Periodically separate GC-like job queries this index to find out transactions that have to be
-/// removed. Index is represented as `BTreeSet<TTLOrderingKey>`, where `TTLOrderingKey`
-/// is a logical reference to TxnInfo.
-/// Index is ordered by `TTLOrderingKey::expiration_time`.
+/// TTLIndex is used to perform garbage collection of old transactions in
+/// Mempool. Periodically separate GC-like job queries this index to find out
+/// transactions that have to be removed. Index is represented as
+/// `BTreeSet<TTLOrderingKey>`, where `TTLOrderingKey` is a logical reference to
+/// TxnInfo. Index is ordered by `TTLOrderingKey::expiration_time`.
 pub struct TTLIndex {
     data: BTreeSet<TTLOrderingKey>,
     get_expiration_time: Box<dyn Fn(&MempoolTransaction) -> Duration + Send + Sync>,
@@ -178,19 +180,21 @@ impl Ord for TTLOrderingKey {
         match self.expiration_time.cmp(&other.expiration_time) {
             Ordering::Equal => {
                 (&self.address, self.sequence_number).cmp(&(&other.address, other.sequence_number))
-            }
+            },
             ordering => ordering,
         }
     }
 }
 
-/// TimelineIndex is an ordered log of all transactions that are "ready" for broadcast.
-/// We only add a transaction to the index if it has a chance to be included in the next consensus
-/// block (which means its status is != NotReady or its sequential to another "ready" transaction).
+/// TimelineIndex is an ordered log of all transactions that are "ready" for
+/// broadcast. We only add a transaction to the index if it has a chance to be
+/// included in the next consensus block (which means its status is != NotReady
+/// or its sequential to another "ready" transaction).
 ///
-/// It's represented as Map <timeline_id, (Address, sequence_number)>, where timeline_id is auto
-/// increment unique id of "ready" transaction in local Mempool. (Address, sequence_number) is a
-/// logical reference to transaction content in main storage.
+/// It's represented as Map <timeline_id, (Address, sequence_number)>, where
+/// timeline_id is auto increment unique id of "ready" transaction in local
+/// Mempool. (Address, sequence_number) is a logical reference to transaction
+/// content in main storage.
 pub struct TimelineIndex {
     timeline_id: u64,
     timeline: BTreeMap<u64, (AccountAddress, u64)>,
@@ -224,7 +228,8 @@ impl TimelineIndex {
         batch
     }
 
-    /// Read transactions from the timeline from `start_id` (exclusive) to `end_id` (inclusive).
+    /// Read transactions from the timeline from `start_id` (exclusive) to
+    /// `end_id` (inclusive).
     pub(crate) fn timeline_range(&self, start_id: u64, end_id: u64) -> Vec<(AccountAddress, u64)> {
         self.timeline
             .range((Bound::Excluded(start_id), Bound::Included(end_id)))
@@ -320,7 +325,8 @@ impl MultiBucketTimelineIndex {
         returned.iter().rev().cloned().collect()
     }
 
-    /// Read transactions from the timeline from `start_id` (exclusive) to `end_id` (inclusive).
+    /// Read transactions from the timeline from `start_id` (exclusive) to
+    /// `end_id` (inclusive).
     pub(crate) fn timeline_range(
         &self,
         start_end_pairs: &Vec<(u64, u64)>,
@@ -378,13 +384,15 @@ impl MultiBucketTimelineIndex {
     }
 }
 
-/// ParkingLotIndex keeps track of "not_ready" transactions, e.g., transactions that
-/// can't be included in the next block because their sequence number is too high.
-/// We keep a separate index to be able to efficiently evict them when Mempool is full.
+/// ParkingLotIndex keeps track of "not_ready" transactions, e.g., transactions
+/// that can't be included in the next block because their sequence number is
+/// too high. We keep a separate index to be able to efficiently evict them when
+/// Mempool is full.
 pub struct ParkingLotIndex {
     // DS invariants:
     // 1. for each entry (account, txns) in `data`, `txns` is never empty
-    // 2. for all accounts, data.get(account_indices.get(`account`)) == (account, sequence numbers of account's txns)
+    // 2. for all accounts, data.get(account_indices.get(`account`)) == (account, sequence numbers
+    // of account's txns)
     data: Vec<(AccountAddress, BTreeSet<u64>)>,
     account_indices: HashMap<AccountAddress, usize>,
     size: usize,
@@ -410,18 +418,19 @@ impl ParkingLotIndex {
                     counters::CORE_MEMPOOL_INVARIANT_VIOLATION_COUNT.inc();
                     error!(
                         LogSchema::new(LogEntry::InvariantViolated),
-                        "Parking lot invariant violated: for account {}, account index exists but missing entry in data",
+                        "Parking lot invariant violated: for account {}, account index exists but \
+                         missing entry in data",
                         sender
                     );
                     return;
                 }
-            }
+            },
             None => {
                 let seq_nums = [sequence_number].iter().cloned().collect::<BTreeSet<_>>();
                 self.data.push((*sender, seq_nums));
                 self.account_indices.insert(*sender, self.data.len() - 1);
                 true
-            }
+            },
         };
         if is_new_entry {
             self.size += 1;
@@ -458,7 +467,8 @@ impl ParkingLotIndex {
             .map_or(false, |(_account, txns)| txns.contains(seq_num))
     }
 
-    /// Returns a random "non-ready" transaction (with highest sequence number for that account).
+    /// Returns a random "non-ready" transaction (with highest sequence number
+    /// for that account).
     pub(crate) fn get_poppable(&self) -> Option<TxnPointer> {
         let mut rng = rand::thread_rng();
         self.data

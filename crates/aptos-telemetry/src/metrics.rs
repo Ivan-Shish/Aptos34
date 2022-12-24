@@ -6,7 +6,8 @@ use aptos_metrics_core::{
 };
 use once_cell::sync::Lazy;
 
-/// Counter for successful telemetry events sent from Telemetry Sender to Telemetry Service
+/// Counter for successful telemetry events sent from Telemetry Sender to
+/// Telemetry Service
 pub(crate) static APTOS_TELEMETRY_SERVICE_SUCCESS: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_telemetry_service_success",
@@ -16,7 +17,8 @@ pub(crate) static APTOS_TELEMETRY_SERVICE_SUCCESS: Lazy<IntCounterVec> = Lazy::n
     .unwrap()
 });
 
-/// Counter for failed telemetry events sent from Telemetry Sender to Telemetry Service
+/// Counter for failed telemetry events sent from Telemetry Sender to Telemetry
+/// Service
 pub(crate) static APTOS_TELEMETRY_SERVICE_FAILURE: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_telemetry_service_failure",
@@ -62,7 +64,8 @@ pub(crate) fn increment_telemetry_failures(event_name: &str) {
         .inc();
 }
 
-/// Increments the number of successful telemetry events sent to Telemetry service
+/// Increments the number of successful telemetry events sent to Telemetry
+/// service
 pub(crate) fn increment_telemetry_service_successes(event_name: &str) {
     APTOS_TELEMETRY_SERVICE_SUCCESS
         .with_label_values(&[event_name])
@@ -103,7 +106,8 @@ pub(crate) static APTOS_LOG_INGEST_FAILURE: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Increments the number of successful log ingest events sent to Telemetry Service
+/// Increments the number of successful log ingest events sent to Telemetry
+/// Service
 pub(crate) fn increment_log_ingest_successes_by(v: u64) {
     APTOS_LOG_INGEST_SUCCESS.inc_by(v);
 }

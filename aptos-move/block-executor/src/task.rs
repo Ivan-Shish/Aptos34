@@ -13,11 +13,11 @@ use std::{fmt::Debug, hash::Hash};
 pub enum ExecutionStatus<T, E> {
     /// Transaction was executed successfully.
     Success(T),
-    /// Transaction hit a none recoverable error during execution, halt the execution and propagate
-    /// the error back to the caller.
+    /// Transaction hit a none recoverable error during execution, halt the
+    /// execution and propagate the error back to the caller.
     Abort(E),
-    /// Transaction was executed successfully, but will skip the execution of the trailing
-    /// transactions in the list
+    /// Transaction was executed successfully, but will skip the execution of
+    /// the trailing transactions in the list
     SkipRest(T),
 }
 
@@ -36,8 +36,9 @@ impl ModulePath for StateKey {
     }
 }
 
-/// Trait that defines a transaction that could be parallel executed by the scheduler. Each
-/// transaction will write to a key value storage as their side effect.
+/// Trait that defines a transaction that could be parallel executed by the
+/// scheduler. Each transaction will write to a key value storage as their side
+/// effect.
 pub trait Transaction: Sync + Send + 'static {
     type Key: PartialOrd + Ord + Send + Sync + Clone + Hash + Eq + ModulePath;
     type Value: Send + Sync + TransactionWrite;
@@ -50,19 +51,23 @@ pub struct Accesses<K> {
 }
 
 /// Trait for single threaded transaction executor.
-// TODO: Sync should not be required. Sync is only introduced because this trait occurs as a phantom type of executor struct.
+// TODO: Sync should not be required. Sync is only introduced because this trait
+// occurs as a phantom type of executor struct.
 pub trait ExecutorTask: Sync {
     /// Type of transaction and its associated key and value.
     type Txn: Transaction;
 
-    /// The output of a transaction. This should contain the side effect of this transaction.
+    /// The output of a transaction. This should contain the side effect of this
+    /// transaction.
     type Output: TransactionOutput<Txn = Self::Txn> + 'static;
 
-    /// Type of error when the executor failed to process a transaction and needs to abort.
+    /// Type of error when the executor failed to process a transaction and
+    /// needs to abort.
     type Error: Clone + Send + Sync + 'static;
 
-    /// Type to intialize the single thread transaction executor. Copy and Sync are required because
-    /// we will create an instance of executor on each individual thread.
+    /// Type to intialize the single thread transaction executor. Copy and Sync
+    /// are required because we will create an instance of executor on each
+    /// individual thread.
     type Argument: Sync + Copy;
 
     /// Create an instance of the transaction executor.

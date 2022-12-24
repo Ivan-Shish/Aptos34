@@ -5,12 +5,13 @@ use crate::{
     persistent_safety_storage::PersistentSafetyStorage, serializer::SerializerService, SafetyRules,
     TSafetyRules,
 };
-use aptos_consensus_types::timeout_2chain::TwoChainTimeoutWithPartialSignatures;
 use aptos_consensus_types::{
     block::Block,
     common::{Payload, Round},
     quorum_cert::QuorumCert,
-    timeout_2chain::{TwoChainTimeout, TwoChainTimeoutCertificate},
+    timeout_2chain::{
+        TwoChainTimeout, TwoChainTimeoutCertificate, TwoChainTimeoutWithPartialSignatures,
+    },
     vote::Vote,
     vote_data::VoteData,
     vote_proposal::VoteProposal,
@@ -154,7 +155,7 @@ pub fn make_proposal_with_parent_and_overrides(
                 next_epoch_state,
             );
             LedgerInfo::new(commit_block_info, vote_data.hash())
-        }
+        },
         None => LedgerInfo::new(BlockInfo::empty(), vote_data.hash()),
     };
 
@@ -251,7 +252,8 @@ pub fn test_safety_rules() -> SafetyRules {
     safety_rules
 }
 
-/// Returns a safety rules instance that has not been initialized for testing purposes.
+/// Returns a safety rules instance that has not been initialized for testing
+/// purposes.
 pub fn test_safety_rules_uninitialized() -> SafetyRules {
     let signer = ValidatorSigner::from_int(0);
     let storage = test_storage(&signer);

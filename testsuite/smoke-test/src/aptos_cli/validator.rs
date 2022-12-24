@@ -2,30 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::smoke_test_environment::SwarmBuilder;
-use aptos::common::types::TransactionSummary;
-use aptos::node::analyze::analyze_validators::{AnalyzeValidators, EpochStats};
-use aptos::node::analyze::fetch_metadata::FetchMetadata;
-use aptos::test::ValidatorPerformance;
-use aptos::{account::create::DEFAULT_FUNDED_COINS, test::CliTestFramework};
+use aptos::{
+    account::create::DEFAULT_FUNDED_COINS,
+    common::types::TransactionSummary,
+    node::analyze::{
+        analyze_validators::{AnalyzeValidators, EpochStats},
+        fetch_metadata::FetchMetadata,
+    },
+    test::{CliTestFramework, ValidatorPerformance},
+};
 use aptos_bitvec::BitVec;
-use aptos_crypto::ed25519::Ed25519PrivateKey;
-use aptos_crypto::{bls12381, x25519, ValidCryptoMaterialStringExt};
+use aptos_crypto::{bls12381, ed25519::Ed25519PrivateKey, x25519, ValidCryptoMaterialStringExt};
 use aptos_forge::{reconfig, LocalSwarm, NodeExt, Swarm, SwarmExt};
 use aptos_genesis::config::HostAndPort;
 use aptos_keygen::KeyGen;
 use aptos_rest_client::{Client, State};
-use aptos_types::account_config::CORE_CODE_ADDRESS;
-use aptos_types::network_address::DnsName;
-use aptos_types::on_chain_config::{
-    ConsensusConfigV1, LeaderReputationType, OnChainConsensusConfig, ProposerAndVoterConfig,
-    ProposerElectionType, ValidatorSet,
+use aptos_types::{
+    account_config::CORE_CODE_ADDRESS,
+    network_address::DnsName,
+    on_chain_config::{
+        ConsensusConfigV1, LeaderReputationType, OnChainConsensusConfig, ProposerAndVoterConfig,
+        ProposerElectionType, ValidatorSet,
+    },
+    PeerId,
 };
-use aptos_types::PeerId;
-use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::fmt::Write;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{collections::HashMap, convert::TryFrom, fmt::Write, sync::Arc, time::Duration};
 
 #[tokio::test]
 async fn test_analyze_validators() {
@@ -81,10 +82,11 @@ async fn test_show_validator_set() {
     );
 }
 
-/// One effect of updated leader election config, is that new node/node that was down before
-/// will be elected much sooner than before.
-/// This function checks for a node that is down and not being elected, how long it takes for it
-/// to start voting (after being up), and then how long it takes for it to be elected.
+/// One effect of updated leader election config, is that new node/node that was
+/// down before will be elected much sooner than before.
+/// This function checks for a node that is down and not being elected, how long
+/// it takes for it to start voting (after being up), and then how long it takes
+/// for it to be elected.
 async fn check_vote_to_elected(swarm: &mut LocalSwarm) -> (Option<u64>, Option<u64>) {
     let transaction_factory = swarm.chain_info().transaction_factory();
     let rest_client = swarm.validators().next().unwrap().rest_client();
@@ -130,7 +132,8 @@ async fn check_vote_to_elected(swarm: &mut LocalSwarm) -> (Option<u64>, Option<u
     .await
     .epoch;
 
-    // Turn off a different node, to force votes from recently down node being required for forming consnensus
+    // Turn off a different node, to force votes from recently down node being
+    // required for forming consnensus
     rest_client_after_off
         .set_failpoint("consensus::send::any".to_string(), "100%return".to_string())
         .await
@@ -199,7 +202,7 @@ async fn test_onchain_config_change() {
                 LeaderReputationType::ProposerAndVoter(_) => panic!(),
                 LeaderReputationType::ProposerAndVoterV2(proposer_and_voter_config) => {
                     proposer_and_voter_config
-                }
+                },
             };
             let new_consensus_config = OnChainConsensusConfig::V1(ConsensusConfigV1 {
                 proposer_election_type: ProposerElectionType::LeaderReputation(
@@ -255,7 +258,7 @@ async fn test_onchain_config_change() {
         LeaderReputationType::ProposerAndVoterV2(_) => panic!(),
         LeaderReputationType::ProposerAndVoter(proposer_and_voter_config) => {
             proposer_and_voter_config
-        }
+        },
     };
     let new_consensus_config = OnChainConsensusConfig::V1(ConsensusConfigV1 {
         proposer_election_type: ProposerElectionType::LeaderReputation(
@@ -279,7 +282,8 @@ async fn test_onchain_config_change() {
         generate_blob(&bcs::to_bytes(&new_consensus_config).unwrap())
     );
 
-    // confirm with old configs, validator will need to wait quite a bit from voting to being elected
+    // confirm with old configs, validator will need to wait quite a bit from voting
+    // to being elected
     let (first_vote_old, first_elected_old) = check_vote_to_elected(&mut swarm).await;
     println!(
         "With old config: {:?} to {:?}",
@@ -318,7 +322,8 @@ async fn test_onchain_config_change() {
             .epoch
     );
 
-    // confirm with new configs, validator doesn't wait much from voting to being elected
+    // confirm with new configs, validator doesn't wait much from voting to being
+    // elected
     let (first_vote_new, first_elected_new) = check_vote_to_elected(&mut swarm).await;
     println!(
         "With new config: {:?} to {:?}",
@@ -332,10 +337,12 @@ async fn test_onchain_config_change() {
     // Node that is down, should start voting very fast
     assert!(first_vote_old.unwrap() < 20);
     assert!(first_vote_new.unwrap() < 20);
-    // In old config, we expect there to be a lot of rounds before node gets elected as leader
+    // In old config, we expect there to be a lot of rounds before node gets elected
+    // as leader
     assert!(first_elected_old.unwrap() > 80);
     // In updated config, we expect it to be elected pretty fast.
-    // There is necessary 20 rounds delay due to exclude_round, and then only a few more rounds.
+    // There is necessary 20 rounds delay due to exclude_round, and then only a few
+    // more rounds.
     assert!(first_elected_new.unwrap() < 40);
 }
 
@@ -616,7 +623,15 @@ async fn test_nodes_rewards() {
                 if prev_stats.proposal_successes == 0 {
                     assert_eq!(cur_validator.voting_power, prev_stats.voting_power);
                 } else {
-                    assert!(cur_validator.voting_power > prev_stats.voting_power, "in epoch {} voting power for {} didn't increase with successful proposals (from {} to {})", epoch_info.epoch - 1, cur_validator.address, prev_stats.voting_power, cur_validator.voting_power);
+                    assert!(
+                        cur_validator.voting_power > prev_stats.voting_power,
+                        "in epoch {} voting power for {} didn't increase with successful \
+                         proposals (from {} to {})",
+                        epoch_info.epoch - 1,
+                        cur_validator.address,
+                        prev_stats.voting_power,
+                        cur_validator.voting_power
+                    );
                     let earning = (cur_validator.voting_power - prev_stats.voting_power) as f64
                         / prev_stats.voting_power as f64;
                     let failure_rate = prev_stats.failure_rate() as f64;
@@ -692,8 +707,8 @@ async fn test_nodes_rewards() {
             epoch_info.epoch, last_version, epoch_perf
         );
 
-        // If epoch change happens with the BlockMetadata block, we don't have the last ValidatorPerformance
-        // for that epoch, so we take one before it.
+        // If epoch change happens with the BlockMetadata block, we don't have the last
+        // ValidatorPerformance for that epoch, so we take one before it.
         let target_stats = if epoch_perf
             .validators
             .iter()
@@ -1078,7 +1093,8 @@ async fn test_owner_create_and_delegate_flow() {
         owner_initial_coins - cli.account_balance_now(owner_cli_index).await.unwrap();
 
     // Voter and operator start with no coins
-    // Owner needs to send small amount of coins to operator and voter, to create their accounts and so they have enough for gas fees.
+    // Owner needs to send small amount of coins to operator and voter, to create
+    // their accounts and so they have enough for gas fees.
     owner_gas += cli
         .transfer_coins(owner_cli_index, voter_cli_index, voter_initial_coins, None)
         .await

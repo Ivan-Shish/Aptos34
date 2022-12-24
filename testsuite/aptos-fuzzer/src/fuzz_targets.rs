@@ -69,7 +69,7 @@ static ALL_TARGETS: Lazy<BTreeMap<&'static str, Box<dyn FuzzTargetImpl>>> = Lazy
         // Storage
         // Box::new(storage::StorageSaveBlocks::default()),
         Box::new(storage::StorageSchemaDecode::default()),
-        //Box::new(storage::JellyfishGetWithProof::default()),
+        // Box::new(storage::JellyfishGetWithProof::default()),
         Box::new(storage::JellyfishGetWithProofWithDistinctLastNibble::default()),
         Box::new(storage::JellyfishGetRangeProof::default()),
         Box::new(storage::JellyfishGetLeafCount::default()),
@@ -95,7 +95,8 @@ static ALL_TARGETS: Lazy<BTreeMap<&'static str, Box<dyn FuzzTargetImpl>>> = Lazy
 });
 
 impl FuzzTarget {
-    /// The environment variable used for passing fuzz targets to child processes.
+    /// The environment variable used for passing fuzz targets to child
+    /// processes.
     pub(crate) const ENV_VAR: &'static str = "FUZZ_TARGET";
 
     /// Get the current fuzz target from the environment.

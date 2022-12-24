@@ -1,27 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
-
-use futures::{
-    channel::{
-        mpsc::{UnboundedReceiver, UnboundedSender},
-        oneshot,
-    },
-    FutureExt, SinkExt, StreamExt,
-};
-use tokio::time::{Duration, Instant};
-
-use aptos_consensus_types::{common::Author, executed_block::ExecutedBlock};
-use aptos_logger::prelude::*;
-use aptos_types::{
-    account_address::AccountAddress, ledger_info::LedgerInfoWithSignatures,
-    validator_verifier::ValidatorVerifier,
-};
-
 use crate::{
     block_storage::tracing::{observe_block, BlockStage},
     counters,
@@ -37,10 +16,26 @@ use crate::{
     round_manager::VerifiedEvent,
     state_replication::StateComputerCommitCallBackType,
 };
+use aptos_consensus_types::{common::Author, executed_block::ExecutedBlock};
 use aptos_crypto::HashValue;
-use aptos_types::epoch_change::EpochChangeProof;
-use futures::channel::mpsc::unbounded;
+use aptos_logger::prelude::*;
+use aptos_types::{
+    account_address::AccountAddress, epoch_change::EpochChangeProof,
+    ledger_info::LedgerInfoWithSignatures, validator_verifier::ValidatorVerifier,
+};
+use futures::{
+    channel::{
+        mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
+    FutureExt, SinkExt, StreamExt,
+};
 use once_cell::sync::OnceCell;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
+use tokio::time::{Duration, Instant};
 
 pub const COMMIT_VOTE_REBROADCAST_INTERVAL_MS: u64 = 1500;
 pub const LOOP_INTERVAL_MS: u64 = 1500;
@@ -77,7 +72,8 @@ pub struct BufferManager {
     buffer: Buffer<BufferItem>,
 
     // the roots point to the first *unprocessed* item.
-    // None means no items ready to be processed (either all processed or no item finishes previous stage)
+    // None means no items ready to be processed (either all processed or no item finishes previous
+    // stage)
     execution_root: BufferItemRootType,
     execution_phase_tx: Sender<CountedRequest<ExecutionRequest>>,
     execution_phase_rx: Receiver<ExecutionResponse>,
@@ -193,8 +189,8 @@ impl BufferManager {
         self.buffer.push_back(item);
     }
 
-    /// Set the execution root to the first not executed item (Ordered) and send execution request
-    /// Set to None if not exist
+    /// Set the execution root to the first not executed item (Ordered) and send
+    /// execution request Set to None if not exist
     async fn advance_execution_root(&mut self) {
         let cursor = self.execution_root;
         self.execution_root = self
@@ -221,8 +217,8 @@ impl BufferManager {
         }
     }
 
-    /// Set the signing root to the first not signed item (Executed) and send execution request
-    /// Set to None if not exist
+    /// Set the signing root to the first not signed item (Executed) and send
+    /// execution request Set to None if not exist
     async fn advance_signing_root(&mut self) {
         let cursor = self.signing_root;
         self.signing_root = self
@@ -275,7 +271,8 @@ impl BufferManager {
                 let aggregated_item = item.unwrap_aggregated();
                 let block = aggregated_item.executed_blocks.last().unwrap().block();
                 observe_block(block.timestamp_usecs(), BlockStage::COMMIT_CERTIFIED);
-                // if we're the proposer for the block, we're responsible to broadcast the commit decision.
+                // if we're the proposer for the block, we're responsible to broadcast the
+                // commit decision.
                 if block.author() == Some(self.author) {
                     self.commit_msg_tx
                         .broadcast_commit_proof(aggregated_item.commit_proof.clone())
@@ -299,8 +296,9 @@ impl BufferManager {
                         // we use the last callback
                         // this is okay because the callback function (from BlockStore::commit)
                         // takes in the actual blocks and ledger info from the state computer
-                        // the encoded values are references to the block_tree, storage, and a commit root
-                        // the block_tree and storage are the same for all the callbacks in the current epoch
+                        // the encoded values are references to the block_tree, storage, and a
+                        // commit root the block_tree and storage are the
+                        // same for all the callbacks in the current epoch
                         // the commit root is used in logging only.
                         callback: aggregated_item.callback,
                     }))
@@ -314,9 +312,10 @@ impl BufferManager {
         unreachable!("Aggregated item not found in the list");
     }
 
-    /// Reset any request in buffer manager, this is important to avoid race condition with state sync.
-    /// Internal requests are managed with ongoing_tasks.
-    /// Incoming ordered blocks are pulled, it should only have existing blocks but no new blocks until reset finishes.
+    /// Reset any request in buffer manager, this is important to avoid race
+    /// condition with state sync. Internal requests are managed with
+    /// ongoing_tasks. Incoming ordered blocks are pulled, it should only
+    /// have existing blocks but no new blocks until reset finishes.
     async fn reset(&mut self) {
         self.buffer = Buffer::new();
         self.execution_root = None;
@@ -330,7 +329,8 @@ impl BufferManager {
         }
     }
 
-    /// It pops everything in the buffer and if reconfig flag is set, it stops the main loop
+    /// It pops everything in the buffer and if reconfig flag is set, it stops
+    /// the main loop
     async fn process_reset_request(&mut self, request: ResetRequest) {
         let ResetRequest { tx, stop } = request;
         info!("Receive reset");
@@ -341,7 +341,8 @@ impl BufferManager {
         info!("Reset finishes");
     }
 
-    /// If the response is successful, advance the item to Executed, otherwise panic (TODO fix).
+    /// If the response is successful, advance the item to Executed, otherwise
+    /// panic (TODO fix).
     async fn process_execution_response(&mut self, response: ExecutionResponse) {
         let ExecutionResponse { block_id, inner } = response;
         // find the corresponding item, may not exist if a reset or aggregated happened
@@ -355,7 +356,7 @@ impl BufferManager {
             Err(e) => {
                 error!("Execution error {:?}", e);
                 return;
-            }
+            },
         };
         info!(
             "Receive executed response {}",
@@ -363,8 +364,9 @@ impl BufferManager {
         );
 
         // Handle reconfiguration timestamp reconciliation.
-        // end epoch timestamp is set to the first block that causes the reconfiguration.
-        // once it's set, any subsequent block commit info will be set to this timestamp.
+        // end epoch timestamp is set to the first block that causes the
+        // reconfiguration. once it's set, any subsequent block commit info will
+        // be set to this timestamp.
         if self.end_epoch_timestamp.get().is_none() {
             let maybe_reconfig_timestamp = executed_blocks
                 .iter()
@@ -391,7 +393,8 @@ impl BufferManager {
         }
     }
 
-    /// If the signing response is successful, advance the item to Signed and broadcast commit votes.
+    /// If the signing response is successful, advance the item to Signed and
+    /// broadcast commit votes.
     async fn process_signing_response(&mut self, response: SigningResponse) {
         let SigningResponse {
             signature_result,
@@ -402,7 +405,7 @@ impl BufferManager {
             Err(e) => {
                 error!("Signing failed {:?}", e);
                 return;
-            }
+            },
         };
         info!(
             "Receive signing response {}",
@@ -414,7 +417,8 @@ impl BufferManager {
             .find_elem_by_key(self.signing_root, commit_ledger_info.commit_info().id());
         if current_cursor.is_some() {
             let item = self.buffer.take(&current_cursor);
-            // it is possible that we already signed this buffer item (double check after the final integration)
+            // it is possible that we already signed this buffer item (double check after
+            // the final integration)
             if item.is_executed() {
                 // we have found the buffer item
                 let signed_item = item.advance_to_signed(self.author, signature);
@@ -464,14 +468,14 @@ impl BufferManager {
                         Err(e) => {
                             error!("Failed to add commit vote {:?}", e);
                             item
-                        }
+                        },
                     };
                     self.buffer.set(&current_cursor, new_item);
                     if self.buffer.get(&current_cursor).is_aggregated() {
                         return Some(target_block_id);
                     }
                 }
-            }
+            },
             VerifiedEvent::CommitDecision(commit_proof) => {
                 let target_block_id = commit_proof.ledger_info().commit_info().id();
                 info!(
@@ -492,10 +496,10 @@ impl BufferManager {
                         return Some(target_block_id);
                     }
                 }
-            }
+            },
             _ => {
                 unreachable!();
-            }
+            },
         }
         None
     }
@@ -540,16 +544,16 @@ impl BufferManager {
             match self.buffer.get(&cursor) {
                 BufferItem::Ordered(_) => {
                     pending_ordered += 1;
-                }
+                },
                 BufferItem::Executed(_) => {
                     pending_executed += 1;
-                }
+                },
                 BufferItem::Signed(_) => {
                     pending_signed += 1;
-                }
+                },
                 BufferItem::Aggregated(_) => {
                     pending_aggregated += 1;
-                }
+                },
             }
             cursor = self.buffer.get_next(&cursor);
         }

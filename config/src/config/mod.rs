@@ -159,7 +159,7 @@ impl WaypointConfig {
                         error
                     )
                 }))
-            }
+            },
             WaypointConfig::FromStorage(backend) => {
                 let storage: Storage = backend.into();
                 let waypoint = storage
@@ -167,7 +167,7 @@ impl WaypointConfig {
                     .expect("Unable to read waypoint")
                     .value;
                 Some(waypoint)
-            }
+            },
             WaypointConfig::None => None,
         };
         waypoint.expect("waypoint should be present")
@@ -181,7 +181,7 @@ impl WaypointConfig {
                     .get::<Waypoint>(aptos_global_constants::GENESIS_WAYPOINT)
                     .expect("Unable to read waypoint")
                     .value
-            }
+            },
             _ => self.waypoint(),
         }
     }
@@ -199,7 +199,8 @@ pub struct IdentityBlob {
     /// Optional consensus key.  Only used for validators
     #[serde(skip_serializing_if = "Option::is_none")]
     pub consensus_private_key: Option<bls12381::PrivateKey>,
-    /// Network private key.  Peer id is derived from this if account address is not present
+    /// Network private key.  Peer id is derived from this if account address is
+    /// not present
     pub network_private_key: x25519::PrivateKey,
 }
 
@@ -281,9 +282,10 @@ impl NodeConfig {
         self.storage.set_data_dir(data_dir);
     }
 
-    /// Reads the config file and returns the configuration object in addition to doing some
-    /// post-processing of the config.
-    /// Paths used in the config are either absolute or relative to the config location.
+    /// Reads the config file and returns the configuration object in addition
+    /// to doing some post-processing of the config.
+    /// Paths used in the config are either absolute or relative to the config
+    /// location.
     pub fn load<P: AsRef<Path>>(input_path: P) -> Result<Self, Error> {
         let mut config = Self::load_config(&input_path)?;
 
@@ -345,16 +347,19 @@ impl NodeConfig {
 
         self.indexer.starting_version = match std::env::var("STARTING_VERSION").ok() {
             None => self.indexer.starting_version,
-            Some(s) => match s.parse::<u64>() {
-                Ok(version) => Some(version),
-                Err(_) => {
-                    // Doing this instead of failing. This will allow a processor to have STARTING_VERSION: undefined when deploying
-                    aptos_logger::warn!(
-                        "Invalid STARTING_VERSION: {}, using {:?} instead",
-                        s,
+            Some(s) => {
+                match s.parse::<u64>() {
+                    Ok(version) => Some(version),
+                    Err(_) => {
+                        // Doing this instead of failing. This will allow a processor to have
+                        // STARTING_VERSION: undefined when deploying
+                        aptos_logger::warn!(
+                            "Invalid STARTING_VERSION: {}, using {:?} instead",
+                            s,
+                            self.indexer.starting_version
+                        );
                         self.indexer.starting_version
-                    );
-                    self.indexer.starting_version
+                    },
                 }
             },
         };
@@ -602,7 +607,7 @@ mod test {
     fn verify_parse_role_error_on_invalid_role() {
         let invalid_role_type = "this is not a valid role type";
         match RoleType::from_str(invalid_role_type) {
-            Err(ParseRoleError(_)) => { /* the expected error was thrown! */ }
+            Err(ParseRoleError(_)) => { /* the expected error was thrown! */ },
             _ => panic!("A ParseRoleError should have been thrown on the invalid role type!"),
         }
     }

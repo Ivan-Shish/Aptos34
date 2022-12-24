@@ -15,8 +15,8 @@ use tokio::time::timeout;
 /// Notification of failed transactions.
 #[async_trait::async_trait]
 pub trait TxnNotifier: Send + Sync {
-    /// Notification of txns which failed execution. (Committed txns is notified by
-    /// state sync.)
+    /// Notification of txns which failed execution. (Committed txns is notified
+    /// by state sync.)
     async fn notify_failed_txn(
         &self,
         txns: Vec<SignedTransaction>,
@@ -27,7 +27,8 @@ pub trait TxnNotifier: Send + Sync {
 /// Execution -> Mempool notification of failed transactions.
 pub struct MempoolNotifier {
     consensus_to_mempool_sender: mpsc::Sender<QuorumStoreRequest>,
-    /// Timeout for consensus to get an ack from mempool for executed transactions (in milliseconds)
+    /// Timeout for consensus to get an ack from mempool for executed
+    /// transactions (in milliseconds)
     mempool_executed_txn_timeout_ms: u64,
 }
 
@@ -63,10 +64,12 @@ impl TxnNotifier for MempoolNotifier {
                 return Ok(());
             }
             return Err(format_err!(
-                "Block meta and state checkpoint txns are expected. txns len: {}, compute status len: {}",
+                "Block meta and state checkpoint txns are expected. txns len: {}, compute status \
+                 len: {}",
                 txns.len(),
                 compute_status.len(),
-            ).into());
+            )
+            .into());
         }
         let user_txn_status = &compute_status[1..txns.len() + 1];
         for (txn, status) in txns.iter().zip_eq(user_txn_status) {
@@ -100,7 +103,12 @@ impl TxnNotifier for MempoolNotifier {
             )
             .await
         ) {
-            Err(format_err!("[consensus] txn notifier did not receive ACK for commit notification sent to mempool on time: {:?}", e).into())
+            Err(format_err!(
+                "[consensus] txn notifier did not receive ACK for commit notification sent to \
+                 mempool on time: {:?}",
+                e
+            )
+            .into())
         } else {
             Ok(())
         }

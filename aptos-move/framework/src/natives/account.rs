@@ -8,15 +8,15 @@ use move_vm_types::{
     loaded_data::runtime_types::Type, natives::function::NativeResult, pop_arg, values::Value,
 };
 use smallvec::smallvec;
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
-/***************************************************************************************************
- * native fun create_address
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun create_address
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct CreateAddressGasParameters {
     pub base: InternalGas,
@@ -51,12 +51,13 @@ pub fn make_native_create_address(gas_params: CreateAddressGasParameters) -> Nat
     })
 }
 
-/***************************************************************************************************
- * native fun create_signer
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun create_signer
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct CreateSignerGasParameters {
     pub base: InternalGas,
@@ -72,10 +73,9 @@ fn native_create_signer(
     debug_assert!(arguments.len() == 1);
 
     let address = pop_arg!(arguments, AccountAddress);
-    Ok(NativeResult::ok(
-        gas_params.base,
-        smallvec![Value::signer(address)],
-    ))
+    Ok(NativeResult::ok(gas_params.base, smallvec![Value::signer(
+        address
+    )]))
 }
 
 pub fn make_native_create_signer(gas_params: CreateSignerGasParameters) -> NativeFunction {
@@ -84,10 +84,11 @@ pub fn make_native_create_signer(gas_params: CreateSignerGasParameters) -> Nativ
     })
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub create_address: CreateAddressGasParameters,

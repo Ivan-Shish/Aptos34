@@ -54,8 +54,8 @@ impl AUTransactionGen for P2PTransferGen {
         let to_deduct = self.amount + gas_amount;
         let enough_max_gas = sender.balance >= gas_amount;
         let mut gas_used = 0;
-        // This means that we'll get through the entire transaction, including the epilogue
-        // (where gas costs are deducted).
+        // This means that we'll get through the entire transaction, including the
+        // epilogue (where gas costs are deducted).
         let enough_to_succeed = sender.balance >= to_deduct;
 
         // Expect a failure if the amount is greater than the current balance.
@@ -73,11 +73,12 @@ impl AUTransactionGen for P2PTransferGen {
 
                 status = TransactionStatus::Keep(ExecutionStatus::Success);
                 gas_used = sender.peer_to_peer_gas_cost();
-            }
+            },
             (true, true, false) => {
-                // Enough gas to pass validation and to do the transfer, but not enough to succeed
-                // in the epilogue. The transaction will be run and gas will be deducted from the
-                // sender, but no other changes will happen.
+                // Enough gas to pass validation and to do the transfer, but not enough to
+                // succeed in the epilogue. The transaction will be run and gas
+                // will be deducted from the sender, but no other changes will
+                // happen.
                 sender.sequence_number += 1;
                 gas_used = sender.peer_to_peer_gas_cost();
                 sender.balance -= gas_used * txn.gas_unit_price();
@@ -92,10 +93,11 @@ impl AUTransactionGen for P2PTransferGen {
                     code: 65542,
                     info: None,
                 });
-            }
+            },
             (true, false, _) => {
-                // Enough to pass validation but not to do the transfer. The transaction will be run
-                // and gas will be deducted from the sender, but no other changes will happen.
+                // Enough to pass validation but not to do the transfer. The transaction will be
+                // run and gas will be deducted from the sender, but no other
+                // changes will happen.
                 sender.sequence_number += 1;
                 gas_used = sender.peer_to_peer_too_low_gas_cost();
                 sender.balance -= gas_used * txn.gas_unit_price();
@@ -108,13 +110,13 @@ impl AUTransactionGen for P2PTransferGen {
                     code: 65542,
                     info: None,
                 });
-            }
+            },
             (false, _, _) => {
                 // Not enough gas to pass validation. Nothing will happen.
                 status = TransactionStatus::Discard(
                     StatusCode::INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE,
                 );
-            }
+            },
         }
 
         (txn, (status, gas_used))

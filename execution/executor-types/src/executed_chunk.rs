@@ -21,7 +21,8 @@ pub struct ExecutedChunk {
     pub status: Vec<TransactionStatus>,
     pub to_commit: Vec<(Transaction, TransactionData)>,
     pub result_view: ExecutedTrees,
-    /// If set, this is the new epoch info that should be changed to if this is committed.
+    /// If set, this is the new epoch info that should be changed to if this is
+    /// committed.
     pub next_epoch_state: Option<EpochState>,
     pub ledger_info: Option<LedgerInfoWithSignatures>,
 }
@@ -101,7 +102,8 @@ impl ExecutedChunk {
             {
                 if &txn_data.txn_info != expected_txn_info {
                     bail!(
-                        "Transaction infos don't match. version: {}, txn_info:{}, expected_txn_info:{}",
+                        "Transaction infos don't match. version: {}, txn_info:{}, \
+                         expected_txn_info:{}",
                         self.result_view.txn_accumulator().version() + 1 + idx as u64
                             - self.to_commit.len() as u64,
                         &txn_data.txn_info,
@@ -115,9 +117,10 @@ impl ExecutedChunk {
         }
     }
 
-    /// Ensure that every block committed by consensus ends with a state checkpoint. That can be
-    /// one of the two cases: 1. a reconfiguration (txns in the proposed block after the txn caused
-    /// the reconfiguration will be retried) 2. a Transaction::StateCheckpoint at the end of the
+    /// Ensure that every block committed by consensus ends with a state
+    /// checkpoint. That can be one of the two cases: 1. a reconfiguration
+    /// (txns in the proposed block after the txn caused the reconfiguration
+    /// will be retried) 2. a Transaction::StateCheckpoint at the end of the
     /// block.
     ///
     /// Called from `BlockExecutor`
@@ -141,7 +144,8 @@ impl ExecutedChunk {
         let result_accumulator = self.result_view.txn_accumulator();
 
         if verified_target_li.ledger_info().version() + 1 == result_accumulator.num_leaves() {
-            // If the chunk corresponds to the target LI, the target LI can be added to storage.
+            // If the chunk corresponds to the target LI, the target LI can be added to
+            // storage.
             ensure!(
                 verified_target_li
                     .ledger_info()

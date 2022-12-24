@@ -34,8 +34,8 @@ use thiserror::Error;
 mod tests;
 
 // Maximum channel sizes for each notification subscriber. If messages are not
-// consumed, they will be dropped (oldest messages first). The remaining messages
-// will be retrieved using FIFO ordering.
+// consumed, they will be dropped (oldest messages first). The remaining
+// messages will be retrieved using FIFO ordering.
 const EVENT_NOTIFICATION_CHANNEL_SIZE: usize = 100;
 const RECONFIG_NOTIFICATION_CHANNEL_SIZE: usize = 1;
 
@@ -133,7 +133,8 @@ impl EventSubscriptionService {
             .insert(subscription_id, event_subscription)
         {
             return Err(Error::UnexpectedErrorEncountered(format!(
-                "Duplicate event subscription found! This should not occur! ID: {}, subscription: {:?}",
+                "Duplicate event subscription found! This should not occur! ID: {}, subscription: \
+                 {:?}",
                 subscription_id, old_subscription
             )));
         }
@@ -175,7 +176,8 @@ impl EventSubscriptionService {
             .insert(subscription_id, reconfig_subscription)
         {
             return Err(Error::UnexpectedErrorEncountered(format!(
-                "Duplicate reconfiguration subscription found! This should not occur! ID: {}, subscription: {:?}",
+                "Duplicate reconfiguration subscription found! This should not occur! ID: {}, \
+                 subscription: {:?}",
                 subscription_id, old_subscription
             )));
         }
@@ -190,8 +192,8 @@ impl EventSubscriptionService {
     }
 
     /// This notifies all the event subscribers of the new events found at the
-    /// specified version. If a reconfiguration event (i.e., new epoch) is found,
-    /// this method will return true.
+    /// specified version. If a reconfiguration event (i.e., new epoch) is
+    /// found, this method will return true.
     fn notify_event_subscribers(
         &mut self,
         version: Version,
@@ -259,8 +261,9 @@ impl EventSubscriptionService {
 
     /// Fetches the configs on-chain at the specified version.
     /// Note: We cannot assume that all configs will exist on-chain. As such, we
-    /// must fetch each resource one at a time. Reconfig subscribers must be able
-    /// to handle on-chain configs not existing in a reconfiguration notification.
+    /// must fetch each resource one at a time. Reconfig subscribers must be
+    /// able to handle on-chain configs not existing in a reconfiguration
+    /// notification.
     fn read_on_chain_configs(&self, version: Version) -> Result<OnChainConfigPayload, Error> {
         // Build a map from config ID to the config value found on-chain
         let mut config_id_to_config = HashMap::new();
@@ -274,8 +277,10 @@ impl EventSubscriptionService {
             {
                 if let Some(old_entry) = config_id_to_config.insert(*config_id, config.clone()) {
                     return Err(Error::UnexpectedErrorEncountered(format!(
-                        "Unexpected config values for duplicate config id found! Key: {}, Value: {:?}!",
-                        config_id, old_entry)));
+                        "Unexpected config values for duplicate config id found! Key: {}, Value: \
+                         {:?}!",
+                        config_id, old_entry
+                    )));
                 }
             }
         }
@@ -307,7 +312,8 @@ impl EventSubscriptionService {
             })?
             .epoch();
 
-        // Return the new on-chain config payload (containing all found configs at this version).
+        // Return the new on-chain config payload (containing all found configs at this
+        // version).
         Ok(OnChainConfigPayload::new(
             epoch,
             Arc::new(config_id_to_config),

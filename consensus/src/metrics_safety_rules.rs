@@ -44,8 +44,9 @@ impl MetricsSafetyRules {
                         e
                     ))
                 })?;
-            // We keep initializing safety rules as long as the waypoint continues to increase.
-            // This is due to limits in the number of epoch change proofs that storage can provide.
+            // We keep initializing safety rules as long as the waypoint continues to
+            // increase. This is due to limits in the number of epoch change
+            // proofs that storage can provide.
             match self.initialize(&proofs) {
                 Err(Error::WaypointOutOfDate(
                     prev_version,
@@ -54,9 +55,13 @@ impl MetricsSafetyRules {
                     provided_epoch,
                 )) if prev_version < curr_version => {
                     waypoint_version = curr_version;
-                    info!("Previous waypoint version {}, updated version {}, current epoch {}, provided epoch {}", prev_version, curr_version, current_epoch, provided_epoch);
+                    info!(
+                        "Previous waypoint version {}, updated version {}, current epoch {}, \
+                         provided epoch {}",
+                        prev_version, curr_version, current_epoch, provided_epoch
+                    );
                     continue;
-                }
+                },
                 result => return result,
             }
         }
@@ -73,7 +78,7 @@ impl MetricsSafetyRules {
             | Err(Error::WaypointOutOfDate(_, _, _, _)) => {
                 self.perform_initialize()?;
                 f(&mut self.inner)
-            }
+            },
             _ => result,
         }
     }

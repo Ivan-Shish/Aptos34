@@ -165,7 +165,7 @@ impl TestHarness {
 async fn expect_pong(res_rx: oneshot::Receiver<Result<Bytes, RpcError>>) {
     let res_data = res_rx.await.unwrap().unwrap();
     match bcs::from_bytes(&res_data).unwrap() {
-        HealthCheckerMsg::Pong(_) => {}
+        HealthCheckerMsg::Pong(_) => {},
         msg => panic!("Unexpected HealthCheckerMsg: {:?}", msg),
     };
 }
@@ -222,8 +222,8 @@ fn outbound_failure_permissive() {
         let peer_id = PeerId::new([0x42; PeerId::LENGTH]);
         harness.send_new_peer_notification(peer_id).await;
 
-        // Trigger pings to a peer. These should ping the newly added peer, but not disconnect from
-        // it.
+        // Trigger pings to a peer. These should ping the newly added peer, but not
+        // disconnect from it.
         for _ in 0..=ping_failures_tolerated {
             // Health checker should send a ping request which fails.
             harness.trigger_ping().await;
@@ -250,8 +250,8 @@ fn ping_success_resets_fail_counter() {
         let peer_id = PeerId::new([0x42; PeerId::LENGTH]);
         harness.send_new_peer_notification(peer_id).await;
 
-        // Trigger pings to a peer. These should ping the newly added peer, but not disconnect from
-        // it.
+        // Trigger pings to a peer. These should ping the newly added peer, but not
+        // disconnect from it.
         {
             for _ in 0..failures_triggered {
                 // Health checker should send a ping request which fails.
@@ -267,8 +267,8 @@ fn ping_success_resets_fail_counter() {
             harness.expect_ping_send_ok().await;
         }
 
-        // We would then need to fail for more than `ping_failures_tolerated` times before
-        // triggering disconnect.
+        // We would then need to fail for more than `ping_failures_tolerated` times
+        // before triggering disconnect.
         {
             for _ in 0..=ping_failures_tolerated {
                 // Health checker should send a ping request which fails.

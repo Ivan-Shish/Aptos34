@@ -42,13 +42,10 @@ use async_trait::async_trait;
 use fail::fail_point;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::RandomState;
-use std::collections::BTreeSet;
-use std::hash::BuildHasher;
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap},
-    hash::Hasher,
+    collections::{hash_map::RandomState, BTreeMap, BTreeSet, HashMap},
+    hash::{BuildHasher, Hasher},
     ops::Add,
     sync::Arc,
     time::{Duration, Instant, SystemTime},
@@ -60,17 +57,20 @@ use thiserror::Error;
 pub enum MempoolSyncMsg {
     /// Broadcast request issued by the sender.
     BroadcastTransactionsRequest {
-        /// Unique id of sync request. Can be used by sender for rebroadcast analysis
+        /// Unique id of sync request. Can be used by sender for rebroadcast
+        /// analysis
         request_id: MultiBatchId,
         transactions: Vec<SignedTransaction>,
     },
     /// Broadcast ack issued by the receiver.
     BroadcastTransactionsResponse {
         request_id: MultiBatchId,
-        /// Retry signal from recipient if there are txns in corresponding broadcast
-        /// that were rejected from mempool but may succeed on resend.
+        /// Retry signal from recipient if there are txns in corresponding
+        /// broadcast that were rejected from mempool but may succeed on
+        /// resend.
         retry: bool,
-        /// A backpressure signal from the recipient when it is overwhelmed (e.g., mempool is full).
+        /// A backpressure signal from the recipient when it is overwhelmed
+        /// (e.g., mempool is full).
         backoff: bool,
     },
 }
@@ -183,12 +183,14 @@ impl MempoolNetworkInterface {
         }
     }
 
-    /// Add a peer to sync states, and returns `false` if the peer already is in storage
+    /// Add a peer to sync states, and returns `false` if the peer already is in
+    /// storage
     pub fn add_peer(&self, peer: PeerNetworkId, metadata: ConnectionMetadata) -> bool {
         let mut sync_states = self.sync_states.write_lock();
         let is_new_peer = !sync_states.contains_key(&peer);
         if self.is_upstream_peer(&peer, Some(&metadata)) {
-            // If we have a new peer, let's insert new data, otherwise, let's just update the current state
+            // If we have a new peer, let's insert new data, otherwise, let's just update
+            // the current state
             if is_new_peer {
                 counters::active_upstream_peers(&peer.network_id()).inc();
                 sync_states.insert(
@@ -201,14 +203,16 @@ impl MempoolNetworkInterface {
         }
         drop(sync_states);
 
-        // Always need to update the prioritized peers, because of `is_alive` state changes
+        // Always need to update the prioritized peers, because of `is_alive` state
+        // changes
         self.update_prioritized_peers();
         is_new_peer
     }
 
     /// Disables a peer if it can be restarted, otherwise removes it
     pub fn disable_peer(&self, peer: PeerNetworkId) {
-        // All other nodes have their state immediately restarted anyways, so let's free them
+        // All other nodes have their state immediately restarted anyways, so let's free
+        // them
         if self.sync_states.write_lock().remove(&peer).is_some() {
             counters::active_upstream_peers(&peer.network_id()).dec();
         }
@@ -233,8 +237,8 @@ impl MempoolNetworkInterface {
         };
 
         // Order peers by network and by type
-        // Origin doesn't matter at this point, only inserted ones into peer_states are upstream
-        // Validators will always have the full set
+        // Origin doesn't matter at this point, only inserted ones into peer_states are
+        // upstream Validators will always have the full set
         let mut prioritized_peers = self.prioritized_peers.lock();
         let peers: Vec<_> = peers
             .iter()
@@ -317,8 +321,8 @@ impl MempoolNetworkInterface {
             sync_state.broadcast_info.retry_batches.insert(batch_id);
         }
 
-        // Backoff mode can only be turned off by executing a broadcast that was scheduled
-        // as a backoff broadcast.
+        // Backoff mode can only be turned off by executing a broadcast that was
+        // scheduled as a backoff broadcast.
         // This ensures backpressure request from remote peer is honored at least once.
         if backoff {
             sync_state.broadcast_info.backoff_mode = true;
@@ -334,8 +338,8 @@ impl MempoolNetworkInterface {
         }
     }
 
-    /// Peers are prioritized when the local is a validator, or it's within the default failovers.
-    /// One is added for the primary peer
+    /// Peers are prioritized when the local is a validator, or it's within the
+    /// default failovers. One is added for the primary peer
     fn check_peer_prioritized(&self, peer: PeerNetworkId) -> Result<(), BroadcastError> {
         if !self.role.is_validator() {
             let priority = self
@@ -352,7 +356,8 @@ impl MempoolNetworkInterface {
     }
 
     /// Determines the broadcast batch.  There are three types of batches:
-    /// * Expired -> This timed out waiting for a response and needs to be resent
+    /// * Expired -> This timed out waiting for a response and needs to be
+    ///   resent
     /// * Retry -> This received a response telling it to retry later
     /// * New -> There are no Expired or Retry broadcasts currently waiting
     fn determine_broadcast_batch<V>(
@@ -373,16 +378,19 @@ impl MempoolNetworkInterface {
         // If the peer isn't prioritized, lets not broadcast
         self.check_peer_prioritized(peer)?;
 
-        // If backoff mode is on for this peer, only execute broadcasts that were scheduled as a backoff broadcast.
-        // This is to ensure the backoff mode is actually honored (there is a chance a broadcast was scheduled
-        // in non-backoff mode before backoff mode was turned on - ignore such scheduled broadcasts).
+        // If backoff mode is on for this peer, only execute broadcasts that were
+        // scheduled as a backoff broadcast. This is to ensure the backoff mode
+        // is actually honored (there is a chance a broadcast was scheduled
+        // in non-backoff mode before backoff mode was turned on - ignore such scheduled
+        // broadcasts).
         if state.broadcast_info.backoff_mode && !scheduled_backoff {
             return Err(BroadcastError::PeerNotScheduled(peer));
         }
 
         // Sync peer's pending broadcasts with latest mempool state.
-        // A pending or retry broadcast might become empty if the corresponding txns were committed through
-        // another peer, so don't track broadcasts for committed txns.
+        // A pending or retry broadcast might become empty if the corresponding txns
+        // were committed through another peer, so don't track broadcasts for
+        // committed txns.
         let mempool = smp.mempool.lock();
         state.broadcast_info.sent_batches = state
             .broadcast_info
@@ -406,7 +414,8 @@ impl MempoolNetworkInterface {
         let mut expired_batch_id = None;
 
         // Find earliest batch in timeline index that expired.
-        // Note that state.broadcast_info.sent_batches is ordered in decreasing order in the timeline index
+        // Note that state.broadcast_info.sent_batches is ordered in decreasing order in
+        // the timeline index
         for (batch, sent_time) in state.broadcast_info.sent_batches.iter() {
             let deadline = sent_time.add(Duration::from_millis(
                 self.mempool_config.shared_mempool_ack_timeout_ms,
@@ -417,11 +426,12 @@ impl MempoolNetworkInterface {
                 pending_broadcasts += 1;
             }
 
-            // The maximum number of broadcasts sent to a single peer that are pending a response ACK at any point.
-            // If the number of un-ACK'ed un-expired broadcasts reaches this threshold, we do not broadcast anymore
+            // The maximum number of broadcasts sent to a single peer that are pending a
+            // response ACK at any point. If the number of un-ACK'ed un-expired
+            // broadcasts reaches this threshold, we do not broadcast anymore
             // and wait until an ACK is received or a sent broadcast expires.
-            // This helps rate-limit egress network bandwidth and not overload a remote peer or this
-            // node's network sender.
+            // This helps rate-limit egress network bandwidth and not overload a remote peer
+            // or this node's network sender.
             if pending_broadcasts >= self.mempool_config.max_broadcasts_per_peer {
                 return Err(BroadcastError::TooManyPendingBroadcasts(peer));
             }
@@ -439,7 +449,7 @@ impl MempoolNetworkInterface {
 
                     let txns = mempool.timeline_range(&id.0);
                     (id.clone(), txns, metric_label)
-                }
+                },
                 None => {
                     // Fresh broadcast
                     let (txns, new_timeline_id) = mempool.read_timeline(
@@ -451,7 +461,7 @@ impl MempoolNetworkInterface {
                         txns,
                         None,
                     )
-                }
+                },
             };
 
         if transactions.is_empty() {
@@ -480,8 +490,8 @@ impl MempoolNetworkInterface {
         Ok(())
     }
 
-    /// Updates the local tracker for a broadcast.  This is used to handle `DirectSend` tracking of
-    /// responses
+    /// Updates the local tracker for a broadcast.  This is used to handle
+    /// `DirectSend` tracking of responses
     fn update_broadcast_state(
         &self,
         peer: PeerNetworkId,
@@ -554,8 +564,8 @@ impl MempoolNetworkInterface {
 }
 
 impl NetworkInterface<MempoolSyncMsg, MempoolMultiNetworkSender> for MempoolNetworkInterface {
-    type AppDataKey = PeerNetworkId;
     type AppData = PeerSyncState;
+    type AppDataKey = PeerNetworkId;
 
     fn peer_metadata_storage(&self) -> &PeerMetadataStorage {
         &self.peer_metadata_storage
@@ -607,10 +617,10 @@ impl PrioritizedPeersComparator {
                         let hash_b = self.hash_peer_id(&peer_network_id_b.peer_id());
 
                         hash_a.cmp(&hash_b)
-                    }
+                    },
                     ordering => ordering,
                 }
-            }
+            },
             ordering => ordering,
         }
     }

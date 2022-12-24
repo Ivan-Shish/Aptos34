@@ -1,14 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::{Duration, Instant},
-};
-
 use crate::{
     smoke_test_environment::SwarmBuilder,
     test_utils::{create_and_fund_account, transfer_coins_non_blocking},
@@ -21,6 +13,13 @@ use aptos_forge::{
 };
 use aptos_logger::info;
 use rand::{self, rngs::SmallRng, Rng, SeedableRng};
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
 
 pub async fn create_swarm(num_nodes: usize, max_block_txns: u64) -> LocalSwarm {
     let swarm = SwarmBuilder::new_local(num_nodes)
@@ -119,7 +118,8 @@ async fn run_fail_point_test(
     get_fail_points_to_set: Box<
         dyn FnMut(usize, usize) -> (Vec<(usize, String, String)>, bool) + Send,
     >,
-    // (cycle, executed_epochs, executed_rounds, executed_transactions, current_state, previous_state)
+    // (cycle, executed_epochs, executed_rounds, executed_transactions, current_state,
+    // previous_state)
     check_cycle: Box<
         dyn FnMut(usize, u64, u64, u64, Vec<NodeState>, Vec<NodeState>) -> anyhow::Result<()>,
     >,
@@ -180,7 +180,8 @@ async fn test_no_failures() {
 
 #[tokio::test]
 async fn test_fault_tolerance_of_network_send() {
-    // Randomly increase network failure rate, until network halts, and check that it comes back afterwards.
+    // Randomly increase network failure rate, until network halts, and check that
+    // it comes back afterwards.
     let mut small_rng = SmallRng::from_entropy();
     let num_validators = 3;
     let num_cycles = 4;
@@ -213,7 +214,8 @@ async fn test_fault_tolerance_of_network_send() {
 
 #[tokio::test]
 async fn test_fault_tolerance_of_network_receive() {
-    // Randomly increase network failure rate, until network halts, and check that it comes back afterwards.
+    // Randomly increase network failure rate, until network halts, and check that
+    // it comes back afterwards.
     let mut small_rng = SmallRng::from_entropy();
     let num_validators = 3;
     let num_cycles = 4;

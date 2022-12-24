@@ -1,66 +1,77 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::account::key_rotation::LookupAddress;
-use crate::account::{
-    create::{CreateAccount, DEFAULT_FUNDED_COINS},
-    fund::FundWithFaucet,
-    key_rotation::{RotateKey, RotateSummary},
-    list::{ListAccount, ListQuery},
-    transfer::{TransferCoins, TransferSummary},
+use crate::{
+    account::{
+        create::{CreateAccount, DEFAULT_FUNDED_COINS},
+        fund::FundWithFaucet,
+        key_rotation::{LookupAddress, RotateKey, RotateSummary},
+        list::{ListAccount, ListQuery},
+        transfer::{TransferCoins, TransferSummary},
+    },
+    common::{
+        init::{InitTool, Network},
+        types::{
+            account_address_from_public_key, AccountAddressWrapper, CliError, CliTypedResult,
+            EncodingOptions, FaucetOptions, GasOptions, KeyType, MoveManifestAccountWrapper,
+            MovePackageDir, OptionalPoolAddressArgs, PrivateKeyInputOptions, PromptOptions,
+            PublicKeyInputOptions, RestOptions, RngArgs, SaveFile, TransactionOptions,
+            TransactionSummary,
+        },
+        utils::write_to_file,
+    },
+    governance::CompileScriptFunction,
+    move_tool::{
+        ArgWithType, CompilePackage, DownloadPackage, FrameworkPackageArgs, IncludedArtifacts,
+        IncludedArtifactsArgs, InitPackage, MemberId, PublishPackage, RunFunction, RunScript,
+        TestPackage,
+    },
+    node::{
+        AnalyzeMode, AnalyzeValidatorPerformance, GetStakePool, InitializeValidator,
+        JoinValidatorSet, LeaveValidatorSet, OperatorArgs, OperatorConfigFileArgs,
+        ShowValidatorConfig, ShowValidatorSet, ShowValidatorStake, StakePoolResult,
+        UpdateConsensusKey, UpdateValidatorNetworkAddresses, ValidatorConfig,
+        ValidatorConsensusKeyArgs, ValidatorNetworkAddressesArgs,
+    },
+    op::key::{ExtractPeer, GenerateKey, NetworkKeyInputOptions, SaveKey},
+    stake::{
+        AddStake, IncreaseLockup, InitializeStakeOwner, SetDelegatedVoter, SetOperator,
+        UnlockStake, WithdrawStake,
+    },
+    CliCommand,
 };
-use crate::common::init::{InitTool, Network};
-use crate::common::types::{
-    account_address_from_public_key, AccountAddressWrapper, CliError, CliTypedResult,
-    EncodingOptions, FaucetOptions, GasOptions, KeyType, MoveManifestAccountWrapper,
-    MovePackageDir, OptionalPoolAddressArgs, PrivateKeyInputOptions, PromptOptions,
-    PublicKeyInputOptions, RestOptions, RngArgs, SaveFile, TransactionOptions, TransactionSummary,
-};
-
-use crate::common::utils::write_to_file;
-
-use crate::governance::CompileScriptFunction;
-use crate::move_tool::{
-    ArgWithType, CompilePackage, DownloadPackage, FrameworkPackageArgs, IncludedArtifacts,
-    IncludedArtifactsArgs, InitPackage, MemberId, PublishPackage, RunFunction, RunScript,
-    TestPackage,
-};
-use crate::node::{
-    AnalyzeMode, AnalyzeValidatorPerformance, GetStakePool, InitializeValidator, JoinValidatorSet,
-    LeaveValidatorSet, OperatorArgs, OperatorConfigFileArgs, ShowValidatorConfig, ShowValidatorSet,
-    ShowValidatorStake, StakePoolResult, UpdateConsensusKey, UpdateValidatorNetworkAddresses,
-    ValidatorConfig, ValidatorConsensusKeyArgs, ValidatorNetworkAddressesArgs,
-};
-use crate::op::key::{ExtractPeer, GenerateKey, NetworkKeyInputOptions, SaveKey};
-use crate::stake::{
-    AddStake, IncreaseLockup, InitializeStakeOwner, SetDelegatedVoter, SetOperator, UnlockStake,
-    WithdrawStake,
-};
-use crate::CliCommand;
 use aptos_config::config::Peer;
-use aptos_crypto::ed25519::Ed25519PublicKey;
-use aptos_crypto::{bls12381, ed25519::Ed25519PrivateKey, x25519, PrivateKey};
+use aptos_crypto::{
+    bls12381,
+    ed25519::{Ed25519PrivateKey, Ed25519PublicKey},
+    x25519, PrivateKey,
+};
 use aptos_genesis::config::HostAndPort;
 use aptos_keygen::KeyGen;
 use aptos_logger::warn;
-use aptos_rest_client::aptos_api_types::{IdentifierWrapper, MoveStructTag};
-use aptos_rest_client::{aptos_api_types::MoveType, Transaction};
-use aptos_sdk::move_types::account_address::AccountAddress;
-use aptos_sdk::move_types::identifier::Identifier;
-use aptos_sdk::move_types::language_storage::ModuleId;
+use aptos_rest_client::{
+    aptos_api_types::{IdentifierWrapper, MoveStructTag, MoveType},
+    Transaction,
+};
+use aptos_sdk::move_types::{
+    account_address::AccountAddress, identifier::Identifier, language_storage::ModuleId,
+};
 use aptos_temppath::TempPath;
 use aptos_types::on_chain_config::ValidatorSet;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
-use std::{collections::BTreeMap, mem, path::PathBuf, str::FromStr, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    mem,
+    path::PathBuf,
+    str::FromStr,
+    time::Duration,
+};
 use tempfile::TempDir;
 use thiserror::__private::PathAsDisplay;
-
 #[cfg(feature = "cli-framework-test-move")]
 use thiserror::__private::PathAsDisplay;
-
 use tokio::time::{sleep, Instant};
 
 #[cfg(test)]
@@ -80,7 +91,8 @@ module NamedAddress0::store {
         decimals: u64,
         monitor_supply: bool
     ) {
-        let (_, _) = coin::initialize<CoolCoin>(account, string::utf8(b\"CoolCoin\"), string::utf8(b\"COOL\"), decimals, monitor_supply);
+        let (_, _) = coin::initialize<CoolCoin>(account, string::utf8(b\"CoolCoin\"), \
+                                   string::utf8(b\"COOL\"), decimals, monitor_supply);
         coin::register<CoolCoin>(account);
     }
 }";
@@ -629,7 +641,7 @@ impl CliTestFramework {
                 _ => {
                     sleep(Duration::from_millis(500)).await;
                     result = self.list_account(index, ListQuery::Balance).await;
-                }
+                },
             };
         }
 
@@ -761,7 +773,10 @@ impl CliTestFramework {
         )
         .unwrap();
 
-        let hello_blockchain_test_contents = include_str!("../../../../aptos-move/move-examples/hello_blockchain/sources/hello_blockchain_test.move");
+        let hello_blockchain_test_contents = include_str!(
+            "../../../../aptos-move/move-examples/hello_blockchain/sources/hello_blockchain_test.\
+             move"
+        );
         let test_path = sources_dir.join("hello_blockchain_test.move");
         write_to_file(
             test_path.as_path(),
@@ -772,7 +787,11 @@ impl CliTestFramework {
     }
 
     pub fn move_dir(&self) -> PathBuf {
-        assert!(self.move_dir.is_some(), "Must have initialized the temp move directory with `CliTestFramework::init_move_dir()` first");
+        assert!(
+            self.move_dir.is_some(),
+            "Must have initialized the temp move directory with \
+             `CliTestFramework::init_move_dir()` first"
+        );
         self.move_dir.as_ref().cloned().unwrap()
     }
 
@@ -1035,7 +1054,8 @@ impl CliTestFramework {
 }
 
 // ValidatorConfig/ValidatorSet doesn't match Move ValidatorSet struct,
-// and json is serialized with different types from both, so hardcoding deserialization.
+// and json is serialized with different types from both, so hardcoding
+// deserialization.
 
 fn json_account_to_balance(value: &Value) -> u64 {
     u64::from_str(

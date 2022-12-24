@@ -1,12 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::monitor;
-use crate::payload_manager::PayloadManager;
 use crate::{
     block_storage::tracing::{observe_block, BlockStage},
     counters,
     error::StateSyncError,
+    monitor,
+    payload_manager::PayloadManager,
     state_replication::{StateComputer, StateComputerCommitCallBackType},
     txn_notifier::TxnNotifier,
 };
@@ -28,8 +28,7 @@ use aptos_types::{
 };
 use fail::fail_point;
 use futures::{SinkExt, StreamExt};
-use std::cmp::max;
-use std::{boxed::Box, sync::Arc};
+use std::{boxed::Box, cmp::max, sync::Arc};
 use tokio::sync::Mutex as AsyncMutex;
 
 type NotificationType = (
@@ -139,7 +138,8 @@ impl StateComputer for ExecutionProxy {
         Ok(compute_result)
     }
 
-    /// Send a successful commit. A future is fulfilled when the state is finalized.
+    /// Send a successful commit. A future is fulfilled when the state is
+    /// finalized.
     async fn commit(
         &self,
         blocks: &[Arc<ExecutedBlock>],
@@ -211,13 +211,13 @@ impl StateComputer for ExecutionProxy {
     async fn sync_to(&self, target: LedgerInfoWithSignatures) -> Result<(), StateSyncError> {
         let _guard = self.write_mutex.lock().await;
 
-        // Before the state synchronization, we have to call finish() to free the in-memory SMT
-        // held by BlockExecutor to prevent memory leak.
+        // Before the state synchronization, we have to call finish() to free the
+        // in-memory SMT held by BlockExecutor to prevent memory leak.
         self.executor.finish();
 
         // This is to update QuorumStore with the latest known commit in the system,
         // so it can set batches expiration accordingly.
-        //Might be none if called in the recovery path.
+        // Might be none if called in the recovery path.
         let maybe_payload_manager = self.payload_manager.lock().as_ref().cloned();
         if let Some(payload_manager) = maybe_payload_manager {
             payload_manager

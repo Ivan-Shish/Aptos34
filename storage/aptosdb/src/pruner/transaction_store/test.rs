@@ -2,26 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{AptosDB, LedgerPrunerManager, LedgerStore, PrunerManager, TransactionStore};
-use aptos_temppath::TempPath;
-use proptest::proptest;
-use std::sync::Arc;
-
-use aptos_types::{
-    account_address::AccountAddress,
-    block_metadata::BlockMetadata,
-    transaction::{SignedTransaction, Transaction},
-};
-
 use aptos_accumulator::HashReader;
 use aptos_config::config::LedgerPrunerConfig;
 use aptos_schemadb::SchemaBatch;
 use aptos_storage_interface::DbReader;
+use aptos_temppath::TempPath;
 use aptos_types::{
+    account_address::AccountAddress,
+    block_metadata::BlockMetadata,
     proof::position::Position,
-    transaction::{TransactionInfo, Version},
+    transaction::{SignedTransaction, Transaction, TransactionInfo, Version},
     write_set::WriteSet,
 };
-use proptest::{collection::vec, prelude::*};
+use proptest::{collection::vec, prelude::*, proptest};
+use std::sync::Arc;
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(10))]
@@ -71,7 +65,8 @@ fn verify_write_set_pruner(write_sets: Vec<WriteSet>) {
             .unwrap();
     }
     aptos_db.ledger_db.write_schemas(batch).unwrap();
-    // start pruning write sets in batches of size 2 and verify transactions have been pruned from DB
+    // start pruning write sets in batches of size 2 and verify transactions have
+    // been pruned from DB
     for i in (0..=num_write_sets).step_by(2) {
         pruner
             .wake_and_wait_pruner(i as u64 /* latest_version */)
@@ -108,11 +103,11 @@ fn verify_txn_store_pruner(
         &txns,
     );
 
-    // start pruning transactions batches of size step_size and verify transactions have been pruned
-    // from DB
+    // start pruning transactions batches of size step_size and verify transactions
+    // have been pruned from DB
     for i in (0..=num_transaction).step_by(step_size) {
-        // Initialize a pruner in every iteration to test the min_readable_version initialization
-        // logic.
+        // Initialize a pruner in every iteration to test the min_readable_version
+        // initialization logic.
         let pruner = LedgerPrunerManager::new(
             Arc::clone(&aptos_db.ledger_db),
             Arc::clone(&aptos_db.state_store),
@@ -133,11 +128,11 @@ fn verify_txn_store_pruner(
         );
         for j in 0..i {
             verify_txn_not_in_store(transaction_store, &txns, j as u64, ledger_version);
-            // Ensure that transaction accumulator is pruned in DB. This can be done by trying to
-            // read transaction proof.
-            // Note: we only prune versions which are odd numbers because the even versions will be
-            // pruned in the iteration of even_version + 1. So if the end version, i - 1, is an even
-            // version, it will not be pruned.
+            // Ensure that transaction accumulator is pruned in DB. This can be done by
+            // trying to read transaction proof.
+            // Note: we only prune versions which are odd numbers because the even versions
+            // will be pruned in the iteration of even_version + 1. So if the
+            // end version, i - 1, is an even version, it will not be pruned.
             if j != i - 1 || j % 2 == 1 {
                 assert!(ledger_store
                     .get_transaction_proof(j as u64, ledger_version)
@@ -204,10 +199,11 @@ fn verify_txn_in_store(
         .is_ok());
 }
 
-// Ensure that transaction accumulator has been pruned as well. The idea to verify is get the
-// inorder position of the left child of the accumulator root and ensure that all lower index
-// position from the DB should be deleted. We need to make several conversion between inorder and
-// postorder transaction because the DB stores the indices in postorder, while the APIs for the
+// Ensure that transaction accumulator has been pruned as well. The idea to
+// verify is get the inorder position of the left child of the accumulator root
+// and ensure that all lower index position from the DB should be deleted. We
+// need to make several conversion between inorder and postorder transaction
+// because the DB stores the indices in postorder, while the APIs for the
 // accumulator deals with inorder.
 fn verify_transaction_accumulator_pruned(ledger_store: &LedgerStore, least_readable_version: u64) {
     let least_readable_position = if least_readable_version > 0 {

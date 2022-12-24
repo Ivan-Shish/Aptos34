@@ -36,7 +36,8 @@ fn test_create_then_open() {
     // Drop the handle to the storage (mimic a reboot)
     drop(metadata_storage);
 
-    // Create another storage (it should reopen the existing file) and verify the state
+    // Create another storage (it should reopen the existing file) and verify the
+    // state
     let metadata_storage = PersistentMetadataStorage::new(tmp_dir.path());
     assert_eq!(
         Some(target_ledger_info.clone()),
@@ -69,7 +70,8 @@ fn test_create_then_open() {
     // Drop the handle to the storage (mimic a reboot)
     drop(metadata_storage);
 
-    // Create another storage (it should reopen the existing file) and verify the state
+    // Create another storage (it should reopen the existing file) and verify the
+    // state
     let metadata_storage = PersistentMetadataStorage::new(tmp_dir.path());
     assert_eq!(
         Some(target_ledger_info.clone()),

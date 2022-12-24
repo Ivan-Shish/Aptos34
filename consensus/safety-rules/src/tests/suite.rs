@@ -10,8 +10,8 @@ use aptos_consensus_types::{
     vote_proposal::VoteProposal,
 };
 use aptos_crypto::hash::{HashValue, ACCUMULATOR_PLACEHOLDER_HASH};
-use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::{
+    aggregate_signature::AggregateSignature,
     block_info::BlockInfo,
     epoch_state::EpochState,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
@@ -152,8 +152,9 @@ fn test_end_to_end(safety_rules: &Callback) {
     assert_eq!(state.preferred_round(), round + 2);
 }
 
-/// Initialize from scratch, ensure that SafetyRules can properly initialize from a Waypoint and
-/// that it rejects invalid LedgerInfos or those that do not match.
+/// Initialize from scratch, ensure that SafetyRules can properly initialize
+/// from a Waypoint and that it rejects invalid LedgerInfos or those that do not
+/// match.
 fn test_initialize(safety_rules: &Callback) {
     let (mut safety_rules, signer) = safety_rules();
 
@@ -175,8 +176,8 @@ fn test_initialize(safety_rules: &Callback) {
 }
 
 fn test_voting_bad_epoch(safety_rules: &Callback) {
-    // Test to verify epoch is the same between parent and proposed in a vote proposal
-    // genesis--a1 -> a2 fails due to jumping to a different epoch
+    // Test to verify epoch is the same between parent and proposed in a vote
+    // proposal genesis--a1 -> a2 fails due to jumping to a different epoch
     let (mut safety_rules, signer) = safety_rules();
 
     let (proof, genesis_qc) = test_utils::make_genesis(&signer);
@@ -204,7 +205,8 @@ fn test_voting_bad_epoch(safety_rules: &Callback) {
 }
 
 fn test_sign_old_proposal(safety_rules: &Callback) {
-    // Test to sign a proposal which makes no progress, compared with last voted round
+    // Test to sign a proposal which makes no progress, compared with last voted
+    // round
 
     let (mut safety_rules, signer) = safety_rules();
 
@@ -231,7 +233,7 @@ fn test_sign_proposal_with_bad_signer(safety_rules: &Callback) {
     let a1 = test_utils::make_proposal_with_qc(round + 1, genesis_qc, &signer);
     safety_rules.sign_proposal(a1.block().block_data()).unwrap();
 
-    let bad_signer = ValidatorSigner::random([0xfu8; 32]);
+    let bad_signer = ValidatorSigner::random([0xFu8; 32]);
     let a2 = make_proposal_with_parent(round + 2, &a1, None, &bad_signer);
     let err = safety_rules
         .sign_proposal(a2.block().block_data())
@@ -255,7 +257,7 @@ fn test_sign_proposal_with_invalid_qc(safety_rules: &Callback) {
     let a1 = test_utils::make_proposal_with_qc(round + 1, genesis_qc, &signer);
     safety_rules.sign_proposal(a1.block().block_data()).unwrap();
 
-    let bad_signer = ValidatorSigner::random([0xfu8; 32]);
+    let bad_signer = ValidatorSigner::random([0xFu8; 32]);
     let a2 = make_proposal_with_parent(round + 2, &a1, Some(&a1), &bad_signer);
     let a3 =
         test_utils::make_proposal_with_qc(round + 3, a2.block().quorum_cert().clone(), &signer);
@@ -329,8 +331,8 @@ fn test_uninitialized_signer(safety_rules: &Callback) {
 
 fn test_validator_not_in_set(safety_rules: &Callback) {
     // Testing for a validator missing from the validator set
-    // It does so by updating the safey rule to an epoch state, which does not contain the
-    // current validator and check the consensus state
+    // It does so by updating the safey rule to an epoch state, which does not
+    // contain the current validator and check the consensus state
 
     let (mut safety_rules, signer) = safety_rules();
 
@@ -348,7 +350,7 @@ fn test_validator_not_in_set(safety_rules: &Callback) {
     // remove the validator_signer in next epoch
     let mut next_epoch_state = EpochState::empty();
     next_epoch_state.epoch = 1;
-    let rand_signer = ValidatorSigner::random([0xfu8; 32]);
+    let rand_signer = ValidatorSigner::random([0xFu8; 32]);
     next_epoch_state.verifier =
         ValidatorVerifier::new_single(rand_signer.author(), rand_signer.public_key());
     let a2 = test_utils::make_proposal_with_parent_and_overrides(
@@ -386,7 +388,7 @@ fn test_key_not_in_store(safety_rules: &Callback) {
     // from persistent storage
     let mut next_epoch_state = EpochState::empty();
     next_epoch_state.epoch = 1;
-    let rand_signer = ValidatorSigner::random([0xfu8; 32]);
+    let rand_signer = ValidatorSigner::random([0xFu8; 32]);
     next_epoch_state.verifier =
         ValidatorVerifier::new_single(signer.author(), rand_signer.public_key());
     let a2 = test_utils::make_proposal_with_parent_and_overrides(

@@ -3,28 +3,31 @@
 
 use crate::natives::any::Any;
 use anyhow::bail;
-use aptos_types::transaction::ModuleBundle;
-use aptos_types::vm_status::StatusCode;
+use aptos_types::{transaction::ModuleBundle, vm_status::StatusCode};
 use better_any::{Tid, TidAble};
-use move_binary_format::errors::PartialVMError;
-use move_binary_format::errors::PartialVMResult;
-use move_core_types::account_address::AccountAddress;
-use move_core_types::gas_algebra::{InternalGas, InternalGasPerByte, NumBytes};
+use move_binary_format::errors::{PartialVMError, PartialVMResult};
+use move_core_types::{
+    account_address::AccountAddress,
+    gas_algebra::{InternalGas, InternalGasPerByte, NumBytes},
+};
 use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
-use move_vm_types::pop_arg;
-use move_vm_types::values::Struct;
 use move_vm_types::{
-    loaded_data::runtime_types::Type, natives::function::NativeResult, values::Value,
+    loaded_data::runtime_types::Type,
+    natives::function::NativeResult,
+    pop_arg,
+    values::{Struct, Value},
 };
 use serde::{Deserialize, Serialize};
 use smallvec::smallvec;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::fmt;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    fmt,
+    str::FromStr,
+    sync::Arc,
+};
 
-/// A wrapper around the representation of a Move Option, which is a vector with 0 or 1 element.
-/// TODO: move this elsewhere for reuse?
+/// A wrapper around the representation of a Move Option, which is a vector with
+/// 0 or 1 element. TODO: move this elsewhere for reuse?
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct MoveOption<T> {
     pub value: Vec<T>,
@@ -61,8 +64,8 @@ pub struct PackageRegistry {
     pub packages: Vec<PackageMetadata>,
 }
 
-/// The PackageMetadata type. This must be kept in sync with `code.move`. Documentation is
-/// also found there.
+/// The PackageMetadata type. This must be kept in sync with `code.move`.
+/// Documentation is also found there.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct PackageMetadata {
     pub name: String,
@@ -101,9 +104,11 @@ impl UpgradePolicy {
     pub fn arbitrary() -> Self {
         UpgradePolicy { policy: 0 }
     }
+
     pub fn compat() -> Self {
         UpgradePolicy { policy: 1 }
     }
+
     pub fn immutable() -> Self {
         UpgradePolicy { policy: 2 }
     }
@@ -111,6 +116,7 @@ impl UpgradePolicy {
 
 impl FromStr for UpgradePolicy {
     type Err = anyhow::Error;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "arbitrary" => Ok(UpgradePolicy::arbitrary()),
@@ -142,19 +148,19 @@ const ARBITRARY_POLICY: u8 = 0;
 /// The native code context.
 #[derive(Tid, Default)]
 pub struct NativeCodeContext {
-    /// Remembers whether the publishing of a module bundle was requested during transaction
-    /// execution.
+    /// Remembers whether the publishing of a module bundle was requested during
+    /// transaction execution.
     pub requested_module_bundle: Option<PublishRequest>,
 }
 
-/// Represents a request for code publishing made from a native call and to be processed
-/// by the Aptos VM.
+/// Represents a request for code publishing made from a native call and to be
+/// processed by the Aptos VM.
 pub struct PublishRequest {
     pub destination: AccountAddress,
     pub bundle: ModuleBundle,
     pub expected_modules: BTreeSet<String>,
-    /// Allowed module dependencies. Empty for no restrictions. An empty string in the set
-    /// allows all modules from that address.
+    /// Allowed module dependencies. Empty for no restrictions. An empty string
+    /// in the set allows all modules from that address.
     pub allowed_deps: Option<BTreeMap<AccountAddress, BTreeSet<String>>>,
     pub check_compat: bool,
 }
@@ -181,26 +187,27 @@ fn unpack_allowed_dep(v: Value) -> PartialVMResult<(AccountAddress, String)> {
     Ok((account, module_name))
 }
 
-/***************************************************************************************************
- * native fun request_publish(
- *     destination: address,
- *     expected_modules: vector<String>,
- *     code: vector<vector<u8>>,
- *     policy: u8
- * )
- *
- * _and_
- *
- *  native fun request_publish_with_allowed_deps(
- *      owner: address,
- *      expected_modules: vector<String>,
- *      allowed_deps: vector<AllowedDep>,
- *      bundle: vector<vector<u8>>,
- *      policy: u8
- *  );
- *   gas cost: base_cost + unit_cost * bytes_len
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun request_publish(
+///     destination: address,
+///     expected_modules: vector<String>,
+///     code: vector<vector<u8>>,
+///     policy: u8
+/// )
+///
+/// _and_
+///
+///  native fun request_publish_with_allowed_deps(
+///      owner: address,
+///      expected_modules: vector<String>,
+///      allowed_deps: vector<AllowedDep>,
+///      bundle: vector<vector<u8>>,
+///      policy: u8
+///  );
+///   gas cost: base_cost + unit_cost * bytes_len
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Clone, Debug)]
 pub struct RequestPublishGasParameters {
     pub base: InternalGas,
@@ -282,7 +289,8 @@ fn native_request_publish(
         allowed_deps,
         check_compat: policy != ARBITRARY_POLICY,
     });
-    // TODO(Gas): charge gas for requesting code load (charge for actual code loading done elsewhere)
+    // TODO(Gas): charge gas for requesting code load (charge for actual code
+    // loading done elsewhere)
     Ok(NativeResult::ok(cost, smallvec![]))
 }
 
@@ -292,10 +300,11 @@ pub fn make_native_request_publish(gas_params: RequestPublishGasParameters) -> N
     })
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub request_publish: RequestPublishGasParameters,

@@ -13,23 +13,22 @@ use aptos_sdk::{
     types::account_address::AccountAddress,
 };
 use clap::Parser;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+use futures::{stream::FuturesUnordered, StreamExt};
 use reqwest::{Client as ReqwestClient, Url};
 use serde::Serialize;
-use std::collections::HashMap;
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::Semaphore;
 
 // Unfortunately we don't have any way, on chain or not, to know what the API
-// port is, so we just assume it is one of these. If their node is inaccessible at
-// any of these ports, e.g. because it runs on 7777 and they have an LB not registered
-// on chain in front of it that listens at 80 just for the API, we're just out of luck.
-// If we get this kind of information from elsewhere at some point, we could look at
-// joining it here.
+// port is, so we just assume it is one of these. If their node is inaccessible
+// at any of these ports, e.g. because it runs on 7777 and they have an LB not
+// registered on chain in front of it that listens at 80 just for the API, we're
+// just out of luck. If we get this kind of information from elsewhere at some
+// point, we could look at joining it here.
 pub const API_PORTS: &[u16] = &[80, 8080, 443];
 
 #[derive(Debug, Parser)]
@@ -92,16 +91,16 @@ impl NodeHealthCheckerArgs {
             match single_check_result {
                 SingleCheckResult::Success(_) => {
                     info!("NHC returned a 200 for {}", node_url);
-                }
+                },
                 SingleCheckResult::NodeCheckFailure(_) => {
                     info!("NHC did not return a 200 for {}", node_url);
-                }
+                },
                 wildcard => {
                     panic!(
                         "Shouldn't be possible for checK_single_fn_wrapper to return {:?}",
                         wildcard
                     )
-                }
+                },
             }
             nhc_responses
                 .entry(account_address)
@@ -150,7 +149,7 @@ impl NodeHealthCheckerArgs {
                     node_info.public_key,
                 )
                 .await
-            }
+            },
             None => {
                 let mut index = 0;
                 loop {
@@ -182,7 +181,7 @@ impl NodeHealthCheckerArgs {
                     }
                     index += 1;
                 }
-            }
+            },
         }
     }
 
@@ -230,7 +229,7 @@ impl NodeHealthCheckerArgs {
                     format!("Error with request flow to NHC: {:#}", e),
                     NodeCheckFailureCode::RequestResponseError,
                 ));
-            }
+            },
         };
 
         // Handle the case where NHC itself throws an error (as opposed to a success
@@ -250,7 +249,7 @@ impl NodeHealthCheckerArgs {
                     format!("{:#}", e),
                     NodeCheckFailureCode::CouldNotDeserializeResponse,
                 ))
-            }
+            },
         };
 
         // Check specifically if the API port is closed.
@@ -309,7 +308,8 @@ impl SingleCheck {
     }
 }
 
-/// We use this struct to capture the result of checking a node, or the lack thereof.
+/// We use this struct to capture the result of checking a node, or the lack
+/// thereof.
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SingleCheckResult {
@@ -335,17 +335,17 @@ pub enum SingleCheckResult {
 #[derive(Debug, Serialize)]
 pub struct SingleCheckSuccess {
     /// The evaluation summary returned by NHC. This doesn't necessarily imply
-    /// that the node passed the evaluation, just that an evaluation was returned
-    /// successfully and it passed the API available check.
+    /// that the node passed the evaluation, just that an evaluation was
+    /// returned successfully and it passed the API available check.
     pub check_summary: CheckSummary,
 
     /// This is the address that we used to get this successful evaluation.
     /// This is presented in a normal URL format, not the NetworkAddress
     /// representation. Example value for this field: http://65.109.17.29:8080.
-    /// Note, sometimes the address we started with was a DNS name, and we resolved
-    /// it to an IP address. As such, this IP address may become incorrect down
-    /// the line. In that case, refer to fn_address in SingleCheck, or just
-    /// run this tool again.
+    /// Note, sometimes the address we started with was a DNS name, and we
+    /// resolved it to an IP address. As such, this IP address may become
+    /// incorrect down the line. In that case, refer to fn_address in
+    /// SingleCheck, or just run this tool again.
     pub fn_address_url: String,
 }
 
@@ -385,9 +385,9 @@ pub enum NodeCheckFailureCode {
     ApiPortClosed,
 }
 
-// These are necessary because we can't just use a unit type for this enum variant
-// because we serialize SingleCheckResult using internal tagging, in which case
-// serde requires that all variants have values.
+// These are necessary because we can't just use a unit type for this enum
+// variant because we serialize SingleCheckResult using internal tagging, in
+// which case serde requires that all variants have values.
 
 #[derive(Debug, Serialize)]
 pub struct NoVfnRegistered;

@@ -1,21 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::smoke_test_environment::new_local_swarm_with_aptos;
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::ed25519::Ed25519Signature;
 use aptos_forge::Swarm;
 use aptos_gas::{AptosGasParameters, FromOnChainGasSchedule};
 use aptos_rest_client::aptos_api_types::{MoveModuleId, TransactionData};
 use aptos_sdk::move_types::language_storage::StructTag;
-use aptos_types::account_address::AccountAddress;
-use aptos_types::account_config::{AccountResource, CORE_CODE_ADDRESS};
-use aptos_types::on_chain_config::GasScheduleV2;
-use aptos_types::transaction::authenticator::AuthenticationKey;
-use aptos_types::transaction::{SignedTransaction, Transaction};
-use std::convert::TryFrom;
-use std::str::FromStr;
-
-use crate::smoke_test_environment::new_local_swarm_with_aptos;
+use aptos_types::{
+    account_address::AccountAddress,
+    account_config::{AccountResource, CORE_CODE_ADDRESS},
+    on_chain_config::GasScheduleV2,
+    transaction::{authenticator::AuthenticationKey, SignedTransaction, Transaction},
+};
+use std::{convert::TryFrom, str::FromStr};
 
 #[tokio::test]
 async fn test_get_index() {
@@ -33,8 +32,8 @@ async fn test_basic_client() {
 
     info.client().get_ledger_information().await.unwrap();
 
-    // NOTE(Gas): For some reason, there needs to be a lot of funds in the account in order for the
-    //            test to pass.
+    // NOTE(Gas): For some reason, there needs to be a lot of funds in the account
+    // in order for the            test to pass.
     //            Is this caused by us increasing the default max gas amount in
     //            testsuite/forge/src/interface/aptos.rs?
     let mut account1 = info.create_and_fund_user_account(10_000_000).await.unwrap();
@@ -64,8 +63,8 @@ async fn test_basic_client() {
     info.client().get_transactions(None, None).await.unwrap();
 }
 
-// Test needs to be fixed to estimate over a longer period of time / probably needs an adjustable window
-// to test
+// Test needs to be fixed to estimate over a longer period of time / probably
+// needs an adjustable window to test
 #[ignore]
 #[tokio::test]
 async fn test_gas_estimation() {
@@ -106,7 +105,8 @@ async fn test_gas_estimation() {
         .await
         .expect("Should create account");
 
-    // When we have higher cost transactions, it should shift to a non-1 value (if it's higher than 1)
+    // When we have higher cost transactions, it should shift to a non-1 value (if
+    // it's higher than 1)
     let transfer1 = public_info
         .transaction_factory()
         .transfer(account2.address(), 10)

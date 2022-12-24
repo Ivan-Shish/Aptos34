@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{
@@ -11,8 +12,6 @@ use crate::{
 use anyhow::Result;
 use prometheus_parse::Scrape;
 use serde::{Deserialize, Serialize};
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 // TODO: When we have it, switch to using a crate that unifies metric names.
 // As it is now, this metric name could change and we'd never catch it here
@@ -42,9 +41,10 @@ impl ConsensusProposalsChecker {
                 "Consensus proposals metric missing".to_string(),
                 0,
                 format!(
-                    "The {} set of metrics from the target node is missing the proposals metric: {}",
+                    "The {} set of metrics from the target node is missing the proposals metric: \
+                     {}",
                     metrics_round, PROPOSALS_METRIC
-                )
+                ),
             )
         };
         get_metric(metrics, PROPOSALS_METRIC, None, evaluation_on_missing_fn)
@@ -60,19 +60,29 @@ impl ConsensusProposalsChecker {
             Self::build_result(
                 "Proposals count went backwards!".to_string(),
                 0,
-                format!("Successfully pulled metrics from target node twice, but the second time the consensus proposals count went backwards (from {} to {})", previous_proposals_count, latest_proposals_count),
+                format!(
+                    "Successfully pulled metrics from target node twice, but the second time the \
+                     consensus proposals count went backwards (from {} to {})",
+                    previous_proposals_count, latest_proposals_count
+                ),
             )
         } else if latest_proposals_count == previous_proposals_count {
             Self::build_result(
                 "Proposals count is not progressing".to_string(),
                 50,
-                "Successfully pulled metrics from target node twice, but the proposal count isn't progressing.".to_string(),
+                "Successfully pulled metrics from target node twice, but the proposal count isn't \
+                 progressing."
+                    .to_string(),
             )
         } else {
             Self::build_result(
                 "Proposals count is increasing".to_string(),
                 100,
-                format!("Successfully pulled metrics from target node twice and saw that proposals count is increasing (from {} to {})", previous_proposals_count, latest_proposals_count),
+                format!(
+                    "Successfully pulled metrics from target node twice and saw that proposals \
+                     count is increasing (from {} to {})",
+                    previous_proposals_count, latest_proposals_count
+                ),
             )
         }
     }
@@ -104,7 +114,7 @@ impl Checker for ConsensusProposalsChecker {
                         e
                     ),
                 )])
-            }
+            },
         };
 
         tokio::time::sleep(target_metrics_provider.config.common.check_delay()).await;
@@ -120,7 +130,7 @@ impl Checker for ConsensusProposalsChecker {
                         e
                     ),
                 )])
-            }
+            },
         };
 
         let mut check_results = vec![];

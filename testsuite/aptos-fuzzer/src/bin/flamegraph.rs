@@ -4,7 +4,6 @@
 use aptos_fuzzer::FuzzTarget;
 use std::{env, fs, path::PathBuf};
 
-//
 // Flamegraph
 // ================
 //

@@ -5,11 +5,11 @@
 //!
 //! [Rosetta API Spec](https://www.rosetta-api.org/docs/Reference.html)
 
-use crate::types::Store;
 use crate::{
     block::BlockRetriever,
     common::{handle_request, with_context},
     error::{ApiError, ApiResult},
+    types::Store,
 };
 use aptos_config::config::ApiConfig;
 use aptos_logger::{debug, warn};
@@ -224,13 +224,15 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     Ok(rep)
 }
 
-/// These parameters are directly passed onto the underlying rest server for a healthcheck
+/// These parameters are directly passed onto the underlying rest server for a
+/// healthcheck
 #[derive(serde::Deserialize)]
 struct HealthCheckParams {
     pub duration_secs: Option<u64>,
 }
 
-/// Default amount of time the fullnode is accepted to be behind (arbitrarily it's 5 minutes)
+/// Default amount of time the fullnode is accepted to be behind (arbitrarily
+/// it's 5 minutes)
 const HEALTH_CHECK_DEFAULT_SECS: u64 = 300;
 
 pub fn health_check_route(

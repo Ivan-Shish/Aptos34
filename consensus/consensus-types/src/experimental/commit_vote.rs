@@ -52,7 +52,8 @@ impl CommitVote {
         ))
     }
 
-    /// Generates a new CommitProposal using a signature over the specified ledger_info
+    /// Generates a new CommitProposal using a signature over the specified
+    /// ledger_info
     pub fn new_with_signature(
         author: Author,
         ledger_info: LedgerInfo,
@@ -88,8 +89,8 @@ impl CommitVote {
         self.ledger_info.epoch()
     }
 
-    /// Verifies that the consensus data hash of LedgerInfo corresponds to the commit proposal,
-    /// and then verifies the signature.
+    /// Verifies that the consensus data hash of LedgerInfo corresponds to the
+    /// commit proposal, and then verifies the signature.
     pub fn verify(&self, validator: &ValidatorVerifier) -> anyhow::Result<()> {
         validator
             .verify(self.author(), &self.ledger_info, &self.signature)

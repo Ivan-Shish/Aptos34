@@ -16,8 +16,12 @@ use aptos_temppath::TempPath;
 use aptos_types::{transaction::Transaction, waypoint::Waypoint};
 use move_core_types::language_storage::CORE_CODE_ADDRESS;
 use regex::Regex;
-use std::time::Instant;
-use std::{fs, process::Command, str::FromStr, time::Duration};
+use std::{
+    fs,
+    process::Command,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 
 fn update_node_config_restart(validator: &mut LocalNode, mut config: NodeConfig) {
     validator.stop();
@@ -48,10 +52,11 @@ async fn wait_for_node(validator: &mut dyn Validator, expected_to_connect: usize
 
 #[tokio::test]
 /// This test verifies the flow of a genesis transaction after the chain starts.
-/// 1. Test the consensus sync_only mode, every node should stop at the same version.
-/// 2. Test the db-bootstrapper applying a manual genesis transaction (remove validator 0) on diemdb directly
-/// 3. Test the nodes and clients resume working after updating waypoint
-/// 4. Test a node lagging behind can sync to the waypoint
+/// 1. Test the consensus sync_only mode, every node should stop at the same
+/// version. 2. Test the db-bootstrapper applying a manual genesis transaction
+/// (remove validator 0) on diemdb directly 3. Test the nodes and clients resume
+/// working after updating waypoint 4. Test a node lagging behind can sync to
+/// the waypoint
 async fn test_genesis_transaction_flow() {
     let db_bootstrapper = workspace_builder::get_bin("aptos-db-bootstrapper");
     let aptos_cli = workspace_builder::get_bin("aptos");
@@ -88,7 +93,10 @@ async fn test_genesis_transaction_flow() {
         wait_for_node(node, num_nodes - 1).await;
     }
 
-    println!("3. delete one node's db and test they can still sync when sync_only is true for every nodes");
+    println!(
+        "3. delete one node's db and test they can still sync when sync_only is true for every \
+         nodes"
+    );
     let node = env.validators_mut().nth(3).unwrap();
     node.stop();
     node.clear_storage().await.unwrap();

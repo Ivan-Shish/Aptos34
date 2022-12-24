@@ -38,10 +38,10 @@ pub struct MetadataCacheOpt {
     #[clap(
         long = "metadata-cache-dir",
         parse(from_os_str),
-        help = "Metadata cache dir. If specified and shared across runs, \
-        metadata files in cache won't be downloaded again from backup source, speeding up tool \
-        boot up significantly. Cache content can be messed up if used across the devnet, \
-        the testnet and the mainnet, hence it [Defaults to temporary dir]."
+        help = "Metadata cache dir. If specified and shared across runs, metadata files in cache \
+                won't be downloaded again from backup source, speeding up tool boot up \
+                significantly. Cache content can be messed up if used across the devnet, the \
+                testnet and the mainnet, hence it [Defaults to temporary dir]."
     )]
     dir: Option<PathBuf>,
 }
@@ -66,7 +66,8 @@ pub async fn initialize_identity(storage: &Arc<dyn BackupStorage>) -> Result<()>
         .await
 }
 
-/// Sync local cache folder with remote storage, and load all metadata entries from the cache.
+/// Sync local cache folder with remote storage, and load all metadata entries
+/// from the cache.
 pub async fn sync_and_load(
     opt: &MetadataCacheOpt,
     storage: Arc<dyn BackupStorage>,
@@ -101,9 +102,8 @@ pub async fn sync_and_load(
     if remote_file_handles.is_empty() {
         initialize_identity(&storage).await.context(
             "\
-            Backup storage appears empty and failed to put in identity metadata, \
-            no point to go on. If you believe there is content in the backup, check authentication.\
-            ",
+            Backup storage appears empty and failed to put in identity metadata, no point to go \
+             on. If you believe there is content in the backup, check authentication.",
         )?;
         remote_file_handles = storage.list_metadata_files().await?;
     }
@@ -152,8 +152,8 @@ pub async fn sync_and_load(
                     .err_notes(&local_file)?,
             )
             .await?;
-            // rename to target file only if successful; stale tmp file caused by failure will be
-            // reclaimed on next run
+            // rename to target file only if successful; stale tmp file caused by failure
+            // will be reclaimed on next run
             tokio::fs::rename(local_tmp_file, local_file).await?;
             info!(
                 file_handle = file_handle,
@@ -167,8 +167,8 @@ pub async fn sync_and_load(
     });
     futures::stream::iter(futs)
         .buffered_x(
-            concurrent_downloads * 2, /* buffer size */
-            concurrent_downloads,     /* concurrency */
+            concurrent_downloads * 2, // buffer size
+            concurrent_downloads,     // concurrency
         )
         .collect::<Result<Vec<_>>>()
         .await?;

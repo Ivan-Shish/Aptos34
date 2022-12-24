@@ -1,33 +1,33 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module provides `Pruner` which manages a thread pruning old data in the background and is
-//! meant to be triggered by other threads as they commit new data to the DB.
+//! This module provides `Pruner` which manages a thread pruning old data in the
+//! background and is meant to be triggered by other threads as they commit new
+//! data to the DB.
 
-use crate::metrics::{PRUNER_BATCH_SIZE, PRUNER_WINDOW};
-
+use crate::{
+    metrics::{PRUNER_BATCH_SIZE, PRUNER_WINDOW},
+    pruner::{
+        db_pruner::DBPruner,
+        pruner_manager::PrunerManager,
+        state_pruner_worker::StatePrunerWorker,
+        state_store::{generics::StaleNodeIndexSchemaTrait, StateMerklePruner},
+    },
+    pruner_utils,
+};
 use aptos_config::config::StateMerklePrunerConfig;
 use aptos_infallible::Mutex;
-
-use crate::pruner::pruner_manager::PrunerManager;
 use aptos_jellyfish_merkle::StaleNodeIndex;
-use aptos_schemadb::schema::KeyCodec;
-use aptos_schemadb::DB;
+use aptos_schemadb::{schema::KeyCodec, DB};
 use aptos_types::transaction::Version;
 use std::{sync::Arc, thread::JoinHandle};
 
-use crate::pruner::db_pruner::DBPruner;
-use crate::pruner::state_pruner_worker::StatePrunerWorker;
-use crate::pruner::state_store::generics::StaleNodeIndexSchemaTrait;
-use crate::pruner::state_store::StateMerklePruner;
-use crate::pruner_utils;
-
-/// The `Pruner` is meant to be part of a `AptosDB` instance and runs in the background to prune old
-/// data.
+/// The `Pruner` is meant to be part of a `AptosDB` instance and runs in the
+/// background to prune old data.
 ///
-/// If the state pruner is enabled, it creates a worker thread on construction and joins it on
-/// destruction. When destructed, it quits the worker thread eagerly without waiting for all
-/// pending work to be done.
+/// If the state pruner is enabled, it creates a worker thread on construction
+/// and joins it on destruction. When destructed, it quits the worker thread
+/// eagerly without waiting for all pending work to be done.
 #[derive(Debug)]
 pub struct StatePrunerManager<S: StaleNodeIndexSchemaTrait>
 where
@@ -37,17 +37,19 @@ where
     /// DB version window, which dictates how many versions of state store
     /// to keep.
     prune_window: Version,
-    /// State pruner. Is always initialized regardless if the pruner is enabled to keep tracks
-    /// of the min_readable_version.
+    /// State pruner. Is always initialized regardless if the pruner is enabled
+    /// to keep tracks of the min_readable_version.
     pruner: Arc<StateMerklePruner<S>>,
     /// Wrapper class of the state pruner.
     pub(crate) pruner_worker: Arc<StatePrunerWorker<S>>,
-    /// The worker thread handle for state_pruner, created upon Pruner instance construction and
-    /// joined upon its destruction. It is `None` when state pruner is not enabled or it only
-    /// becomes `None` after joined in `drop()`.
+    /// The worker thread handle for state_pruner, created upon Pruner instance
+    /// construction and joined upon its destruction. It is `None` when
+    /// state pruner is not enabled or it only becomes `None` after joined
+    /// in `drop()`.
     worker_thread: Option<JoinHandle<()>>,
-    /// We send a batch of version to the underlying pruners for performance reason. This tracks the
-    /// last version we sent to the pruner. Will only be set if the pruner is enabled.
+    /// We send a batch of version to the underlying pruners for performance
+    /// reason. This tracks the last version we sent to the pruner. Will
+    /// only be set if the pruner is enabled.
     last_version_sent_to_pruner: Arc<Mutex<Version>>,
     /// latest version
     latest_version: Arc<Mutex<Version>>,

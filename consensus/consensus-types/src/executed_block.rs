@@ -9,25 +9,24 @@ use crate::{
 };
 use aptos_crypto::hash::HashValue;
 use aptos_executor_types::StateComputeResult;
-use aptos_types::transaction::SignedTransaction;
 use aptos_types::{
     account_address::AccountAddress,
     block_info::BlockInfo,
     contract_event::ContractEvent,
-    transaction::{Transaction, TransactionStatus},
+    transaction::{SignedTransaction, Transaction, TransactionStatus},
 };
 use std::fmt::{Debug, Display, Formatter};
 
-/// ExecutedBlocks are managed in a speculative tree, the committed blocks form a chain. Besides
-/// block data, each executed block also has other derived meta data which could be regenerated from
-/// blocks.
+/// ExecutedBlocks are managed in a speculative tree, the committed blocks form
+/// a chain. Besides block data, each executed block also has other derived meta
+/// data which could be regenerated from blocks.
 #[derive(Clone, Eq, PartialEq)]
 pub struct ExecutedBlock {
     /// Block data that cannot be regenerated.
     block: Block,
-    /// The state_compute_result is calculated for all the pending blocks prior to insertion to
-    /// the tree. The execution results are not persisted: they're recalculated again for the
-    /// pending blocks upon restart.
+    /// The state_compute_result is calculated for all the pending blocks prior
+    /// to insertion to the tree. The execution results are not persisted:
+    /// they're recalculated again for the pending blocks upon restart.
     state_compute_result: StateComputeResult,
 }
 
@@ -126,15 +125,16 @@ impl ExecutedBlock {
     }
 
     pub fn reconfig_event(&self) -> Vec<ContractEvent> {
-        // reconfiguration suffix don't count, the state compute result is carried over from parents
+        // reconfiguration suffix don't count, the state compute result is carried over
+        // from parents
         if self.is_reconfiguration_suffix() {
             return vec![];
         }
         self.state_compute_result.reconfig_events().to_vec()
     }
 
-    /// The block is suffix of a reconfiguration block if the state result carries over the epoch state
-    /// from parent but has no transaction.
+    /// The block is suffix of a reconfiguration block if the state result
+    /// carries over the epoch state from parent but has no transaction.
     pub fn is_reconfiguration_suffix(&self) -> bool {
         self.state_compute_result.has_reconfiguration()
             && self.state_compute_result.compute_status().is_empty()

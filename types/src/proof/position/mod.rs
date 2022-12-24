@@ -4,9 +4,10 @@
 //! This module provides an abstraction for positioning a node in a binary tree,
 //! A `Position` uniquely identifies the location of a node
 //!
-//! In this implementation, `Position` is represented by the in-order-traversal sequence number
-//! of the node.  The process of locating a node and jumping between nodes is done through
-//! in-order position calculation, which can be done with bit manipulation.
+//! In this implementation, `Position` is represented by the in-order-traversal
+//! sequence number of the node.  The process of locating a node and jumping
+//! between nodes is done through in-order position calculation, which can be
+//! done with bit manipulation.
 //!
 //! For example
 //! ```text
@@ -120,9 +121,10 @@ impl Position {
         Self((self.0 | direction_bit) & !(isolate_rightmost_zero_bit(self.0) >> 1))
     }
 
-    /// Whether this position is a left child of its parent.  The observation is that,
-    /// after stripping out all right-most 1 bits, a left child will have a bit pattern
-    /// of xxx00(11..), while a right child will be represented by xxx10(11..)
+    /// Whether this position is a left child of its parent.  The observation is
+    /// that, after stripping out all right-most 1 bits, a left child will
+    /// have a bit pattern of xxx00(11..), while a right child will be
+    /// represented by xxx10(11..)
     pub fn is_left_child(self) -> bool {
         assert!(self.0 < u64::max_value() - 1); // invariant
         self.0 & (isolate_rightmost_zero_bit(self.0) << 1) == 0
@@ -141,16 +143,19 @@ impl Position {
     ///
     /// The observation is that, after stripping out the right-most common bits,
     /// two sibling nodes flip the next right-most bits with each other.
-    /// To find out the right-most common bits, first remove all the right-most ones
-    /// because they are corresponding to level's indicator. Then remove next zero right after.
+    /// To find out the right-most common bits, first remove all the right-most
+    /// ones because they are corresponding to level's indicator. Then
+    /// remove next zero right after.
     pub fn sibling(self) -> Self {
         assert!(self.0 < u64::max_value() - 1); // invariant
         Self(self.0 ^ (isolate_rightmost_zero_bit(self.0) << 1))
     }
 
-    // Given a leaf index, calculate the position of a minimum root which contains this leaf
-    /// This method calculates the index of the smallest root which contains this leaf.
-    /// Observe that, the root position is composed by a "height" number of ones
+    // Given a leaf index, calculate the position of a minimum root which contains
+    // this leaf
+    /// This method calculates the index of the smallest root which contains
+    /// this leaf. Observe that, the root position is composed by a "height"
+    /// number of ones
     ///
     /// For example
     /// ```text
@@ -236,16 +241,17 @@ fn isolate_rightmost_zero_bit(v: u64) -> u64 {
 }
 
 // The following part of the position implementation is logically separate and
-// depends on our notion of freezable.  It should probably move to another module.
+// depends on our notion of freezable.  It should probably move to another
+// module.
 impl Position {
     // Given index of right most leaf, calculate if a position is the root
     // of a perfect subtree that does not contain any placeholder nodes.
     //
     // First find its right most child
-    // the right most child of any node will be at leaf level, which will be a either placeholder
-    // node or leaf node. if right most child is a leaf node, then it is freezable.
-    // if right most child is larger than max_leaf_node, it is a placeholder node, and not
-    // freezable.
+    // the right most child of any node will be at leaf level, which will be a
+    // either placeholder node or leaf node. if right most child is a leaf node,
+    // then it is freezable. if right most child is larger than max_leaf_node,
+    // it is a placeholder node, and not freezable.
     pub fn is_freezable(self, leaf_index: u64) -> bool {
         let leaf = Self::from_leaf_index(leaf_index);
         let right_most_child = self.right_most_child();
@@ -285,8 +291,8 @@ impl fmt::Display for Position {
     }
 }
 
-/// `AncestorSiblingIterator` generates current sibling position and moves itself to its parent
-/// position for each iteration.
+/// `AncestorSiblingIterator` generates current sibling position and moves
+/// itself to its parent position for each iteration.
 #[derive(Debug)]
 pub struct AncestorSiblingIterator {
     position: Position,
@@ -302,8 +308,8 @@ impl Iterator for AncestorSiblingIterator {
     }
 }
 
-/// `AncestorIterator` generates current position and moves itself to its parent position for each
-/// iteration.
+/// `AncestorIterator` generates current position and moves itself to its parent
+/// position for each iteration.
 #[derive(Debug)]
 pub struct AncestorIterator {
     position: Position,
@@ -319,11 +325,11 @@ impl Iterator for AncestorIterator {
     }
 }
 
-/// Traverse leaves from left to right in groups that forms full subtrees, yielding root positions
-/// of such subtrees.
+/// Traverse leaves from left to right in groups that forms full subtrees,
+/// yielding root positions of such subtrees.
 /// Note that each 1-bit in num_leaves corresponds to a full subtree.
-/// For example, in the below tree of 5=0b101 leaves, the two 1-bits corresponds to Fzn2 and L4
-/// accordingly.
+/// For example, in the below tree of 5=0b101 leaves, the two 1-bits corresponds
+/// to Fzn2 and L4 accordingly.
 ///
 /// ```text
 ///            Non-fzn
@@ -339,8 +345,7 @@ impl Iterator for AncestorIterator {
 /// ```
 pub struct FrozenSubTreeIterator {
     bitmap: u64,
-    seen_leaves: u64,
-    // invariant seen_leaves < u64::max_value() - bitmap
+    seen_leaves: u64, // invariant seen_leaves < u64::max_value() - bitmap
 }
 
 impl FrozenSubTreeIterator {
@@ -363,12 +368,13 @@ impl Iterator for FrozenSubTreeIterator {
         }
 
         // Find the remaining biggest full subtree.
-        // The MSB of the bitmap represents it. For example for a tree of 0b1010=10 leaves, the
-        // biggest and leftmost full subtree has 0b1000=8 leaves, which can be got by smearing all
-        // bits after MSB with 1-bits (got 0b1111), right shift once (got 0b0111) and add 1 (got
-        // 0b1000=8). At the same time, we also observe that the in-order numbering of a full
-        // subtree root is (num_leaves - 1) greater than that of the leftmost leaf, and also
-        // (num_leaves - 1) less than that of the rightmost leaf.
+        // The MSB of the bitmap represents it. For example for a tree of 0b1010=10
+        // leaves, the biggest and leftmost full subtree has 0b1000=8 leaves,
+        // which can be got by smearing all bits after MSB with 1-bits (got
+        // 0b1111), right shift once (got 0b0111) and add 1 (got 0b1000=8). At
+        // the same time, we also observe that the in-order numbering of a full
+        // subtree root is (num_leaves - 1) greater than that of the leftmost leaf, and
+        // also (num_leaves - 1) less than that of the rightmost leaf.
         let root_offset = smear_ones_for_u64(self.bitmap) >> 1;
         assert!(root_offset < self.bitmap); // relate bit logic to integer logic
         let num_leaves = root_offset + 1;
@@ -383,19 +389,21 @@ impl Iterator for FrozenSubTreeIterator {
     }
 }
 
-/// Given an accumulator of size `current_num_leaves`, `FrozenSubtreeSiblingIterator` yields the
-/// positions of required subtrees if we want to append these subtrees to the existing accumulator
-/// to generate a bigger one of size `new_num_leaves`.
+/// Given an accumulator of size `current_num_leaves`,
+/// `FrozenSubtreeSiblingIterator` yields the positions of required subtrees if
+/// we want to append these subtrees to the existing accumulator to generate a
+/// bigger one of size `new_num_leaves`.
 ///
-/// See [`crate::proof::accumulator::InMemoryAccumulator::append_subtrees`] for more details.
+/// See [`crate::proof::accumulator::InMemoryAccumulator::append_subtrees`] for
+/// more details.
 pub struct FrozenSubtreeSiblingIterator {
     current_num_leaves: LeafCount,
     remaining_new_leaves: LeafCount,
 }
 
 impl FrozenSubtreeSiblingIterator {
-    /// Constructs a new `FrozenSubtreeSiblingIterator` given the size of current accumulator and
-    /// the size of the bigger accumulator.
+    /// Constructs a new `FrozenSubtreeSiblingIterator` given the size of
+    /// current accumulator and the size of the bigger accumulator.
     pub fn new(current_num_leaves: LeafCount, new_num_leaves: LeafCount) -> Self {
         assert!(
             new_num_leaves <= MAX_ACCUMULATOR_LEAVES,
@@ -416,9 +424,9 @@ impl FrozenSubtreeSiblingIterator {
         }
     }
 
-    /// Helper function to return the next set of leaves that form a complete subtree.  For
-    /// example, if there are 5 leaves (..0101), 2 ^ (63 - 61 leading zeros) = 4 leaves should be
-    /// taken next.
+    /// Helper function to return the next set of leaves that form a complete
+    /// subtree.  For example, if there are 5 leaves (..0101), 2 ^ (63 - 61
+    /// leading zeros) = 4 leaves should be taken next.
     fn next_new_leaf_batch(&self) -> LeafCount {
         let zeros = self.remaining_new_leaves.leading_zeros();
         1 << (MAX_ACCUMULATOR_PROOF_DEPTH - zeros as usize)
@@ -433,10 +441,11 @@ impl Iterator for FrozenSubtreeSiblingIterator {
             return None;
         }
 
-        // Now we compute the size of the next subtree. If there is a rightmost frozen subtree, we
-        // may combine it with a subtree of the same size, or append a smaller one on the right. In
-        // case self.current_num_leaves is zero and there is no rightmost frozen subtree, the
-        // largest possible one is appended.
+        // Now we compute the size of the next subtree. If there is a rightmost frozen
+        // subtree, we may combine it with a subtree of the same size, or append
+        // a smaller one on the right. In case self.current_num_leaves is zero
+        // and there is no rightmost frozen subtree, the largest possible one is
+        // appended.
         let next_subtree_leaves = if self.current_num_leaves > 0 {
             let rightmost_frozen_subtree_leaves = 1 << self.current_num_leaves.trailing_zeros();
             if self.remaining_new_leaves >= rightmost_frozen_subtree_leaves {
@@ -448,8 +457,9 @@ impl Iterator for FrozenSubtreeSiblingIterator {
             self.next_new_leaf_batch()
         };
 
-        // Now that the size of the next subtree is known, we compute the leftmost and rightmost
-        // leaves in this subtree. The root of the subtree is then the middle of these two leaves.
+        // Now that the size of the next subtree is known, we compute the leftmost and
+        // rightmost leaves in this subtree. The root of the subtree is then the
+        // middle of these two leaves.
         let first_leaf_index = self.current_num_leaves;
         let last_leaf_index = first_leaf_index + next_subtree_leaves - 1;
         self.current_num_leaves += next_subtree_leaves;

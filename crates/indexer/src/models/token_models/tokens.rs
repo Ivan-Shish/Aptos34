@@ -33,9 +33,11 @@ type Address = String;
 type TableType = String;
 pub type TableHandleToOwner = HashMap<TableHandle, TableMetadataForToken>;
 pub type TokenDataIdHash = String;
-// PK of current_token_ownerships, i.e. token_data_id_hash + property_version + owner_address, used to dedupe
+// PK of current_token_ownerships, i.e. token_data_id_hash + property_version +
+// owner_address, used to dedupe
 pub type CurrentTokenOwnershipPK = (TokenDataIdHash, BigDecimal, Address);
-// PK of current_token_pending_claims, i.e. token_data_id_hash + property_version + to/from_address, used to dedupe
+// PK of current_token_pending_claims, i.e. token_data_id_hash +
+// property_version + to/from_address, used to dedupe
 pub type CurrentTokenPendingClaimPK = (TokenDataIdHash, BigDecimal, Address, Address);
 // PK of tokens table, used to dedupe tokens
 pub type TokenPK = (TokenDataIdHash, BigDecimal);
@@ -62,11 +64,14 @@ pub struct TableMetadataForToken {
 }
 
 impl Token {
-    /// We can find token data from write sets in user transactions. Table items will contain metadata for collections
-    /// and tokens. To find ownership, we have to look in write resource write sets for who owns those table handles
+    /// We can find token data from write sets in user transactions. Table items
+    /// will contain metadata for collections and tokens. To find ownership,
+    /// we have to look in write resource write sets for who owns those table
+    /// handles
     ///
-    /// We also will compute current versions of the token tables which are at a higher granularity than the transactional tables (only
-    /// state at the last transaction will be tracked, hence using hashmap to dedupe)
+    /// We also will compute current versions of the token tables which are at a
+    /// higher granularity than the transactional tables (only state at the
+    /// last transaction will be tracked, hence using hashmap to dedupe)
     pub fn from_transaction(
         transaction: &APITransaction,
         table_handle_to_owner: &TableHandleToOwner,
@@ -152,7 +157,7 @@ impl Token {
                             table_handle_to_owner,
                         )
                         .unwrap()
-                    }
+                    },
                     APIWriteSetChange::DeleteTableItem(delete_table_item) => {
                         CurrentTokenPendingClaim::from_delete_table_item(
                             delete_table_item,
@@ -161,7 +166,7 @@ impl Token {
                             table_handle_to_owner,
                         )
                         .unwrap()
-                    }
+                    },
                     _ => None,
                 };
 
@@ -229,9 +234,11 @@ impl Token {
         Default::default()
     }
 
-    /// Get token from write table item. Table items don't have address of the table so we need to look it up in the table_handle_to_owner mapping
+    /// Get token from write table item. Table items don't have address of the
+    /// table so we need to look it up in the table_handle_to_owner mapping
     /// We get the mapping from resource.
-    /// If the mapping is missing we'll just leave owner address as blank. This isn't great but at least helps us account for the token
+    /// If the mapping is missing we'll just leave owner address as blank. This
+    /// isn't great but at least helps us account for the token
     pub fn from_write_table_item(
         table_item: &APIWriteTableItem,
         txn_version: i64,
@@ -288,8 +295,9 @@ impl Token {
         }
     }
 
-    /// Get token from delete table item. The difference from write table item is that value isn't there so
-    /// we'll set amount to 0 and token property to blank.
+    /// Get token from delete table item. The difference from write table item
+    /// is that value isn't there so we'll set amount to 0 and token
+    /// property to blank.
     pub fn from_delete_table_item(
         table_item: &APIDeleteTableItem,
         txn_version: i64,
@@ -345,8 +353,9 @@ impl Token {
 }
 
 impl TableMetadataForToken {
-    /// Mapping from table handle to owner type, including type of the table (AKA resource type)
-    /// from user transactions in a batch of transactions
+    /// Mapping from table handle to owner type, including type of the table
+    /// (AKA resource type) from user transactions in a batch of
+    /// transactions
     pub fn get_table_handle_to_owner_from_transactions(
         transactions: &[APITransaction],
     ) -> TableHandleToOwner {
@@ -371,7 +380,9 @@ impl TableMetadataForToken {
         }
         table_handle_to_owner
     }
-    /// Mapping from table handle to owner type, including type of the table (AKA resource type)
+
+    /// Mapping from table handle to owner type, including type of the table
+    /// (AKA resource type)
     fn get_table_handle_to_owner(
         write_resource: &APIWriteResource,
         txn_version: i64,
@@ -403,7 +414,7 @@ impl TableMetadataForToken {
         )? {
             TokenResource::CollectionResource(collection_resource) => {
                 collection_resource.collection_data.handle
-            }
+            },
             TokenResource::TokenStoreResource(inner) => inner.tokens.handle,
             TokenResource::PendingClaimsResource(inner) => inner.pending_claims.handle,
         };

@@ -21,12 +21,14 @@ use std::{
     sync::Arc,
 };
 
-/// This structure is a wrapper of [`ExecutedBlock`](aptos_consensus_types::executed_block::ExecutedBlock)
-/// that adds `children` field to know the parent-child relationship between blocks.
+/// This structure is a wrapper of
+/// [`ExecutedBlock`](aptos_consensus_types::executed_block::ExecutedBlock) that
+/// adds `children` field to know the parent-child relationship between blocks.
 struct LinkableBlock {
     /// Executed block that has raw block data and execution output.
     executed_block: Arc<ExecutedBlock>,
-    /// The set of children for cascading pruning. Note: a block may have multiple children.
+    /// The set of children for cascading pruning. Note: a block may have
+    /// multiple children.
     children: HashSet<HashValue>,
 }
 
@@ -61,9 +63,10 @@ impl LinkableBlock {
     }
 }
 
-/// This structure maintains a consistent block tree of parent and children links. Blocks contain
-/// parent links and are immutable.  For all parent links, a child link exists. This structure
-/// should only be used internally in BlockStore.
+/// This structure maintains a consistent block tree of parent and children
+/// links. Blocks contain parent links and are immutable.  For all parent links,
+/// a child link exists. This structure should only be used internally in
+/// BlockStore.
 pub struct BlockTree {
     /// All the blocks known to this replica (with parent links)
     id_to_block: HashMap<HashValue, LinkableBlock>,
@@ -84,7 +87,8 @@ pub struct BlockTree {
     highest_commit_cert: Arc<QuorumCert>,
     /// Map of block id to its completed quorum certificate (2f + 1 votes)
     id_to_quorum_cert: HashMap<HashValue, Arc<QuorumCert>>,
-    /// To keep the IDs of the elements that have been pruned from the tree but not cleaned up yet.
+    /// To keep the IDs of the elements that have been pruned from the tree but
+    /// not cleaned up yet.
     pruned_block_ids: VecDeque<HashValue>,
     /// Num pruned blocks to keep in memory.
     max_pruned_blocks_in_mem: usize,
@@ -226,10 +230,11 @@ impl BlockTree {
     ) -> anyhow::Result<Arc<ExecutedBlock>> {
         let block_id = block.id();
         if let Some(existing_block) = self.get_block(&block_id) {
-            debug!("Already had block {:?} for id {:?} when trying to add another block {:?} for the same id",
-                       existing_block,
-                       block_id,
-                       block);
+            debug!(
+                "Already had block {:?} for id {:?} when trying to add another block {:?} for the \
+                 same id",
+                existing_block, block_id, block
+            );
             checked_verify_eq!(existing_block.compute_result(), block.compute_result());
             Ok(existing_block)
         } else {
@@ -256,8 +261,8 @@ impl BlockTree {
         let block_id = qc.certified_block().id();
         let qc = Arc::new(qc);
 
-        // Safety invariant: For any two quorum certificates qc1, qc2 in the block store,
-        // qc1 == qc2 || qc1.round != qc2.round
+        // Safety invariant: For any two quorum certificates qc1, qc2 in the block
+        // store, qc1 == qc2 || qc1.round != qc2.round
         // The invariant is quadratic but can be maintained in linear time by the check
         // below.
         precondition!({
@@ -275,7 +280,7 @@ impl BlockTree {
                     self.highest_certified_block_id = block.id();
                     self.highest_quorum_cert = Arc::clone(&qc);
                 }
-            }
+            },
             None => bail!("Block {} not found", block_id),
         }
 
@@ -290,8 +295,9 @@ impl BlockTree {
         Ok(())
     }
 
-    /// Find the blocks to prune up to next_root_id (keep next_root_id's block). Any branches not
-    /// part of the next_root_id's tree should be removed as well.
+    /// Find the blocks to prune up to next_root_id (keep next_root_id's block).
+    /// Any branches not part of the next_root_id's tree should be removed
+    /// as well.
     ///
     /// For example, root = B0
     /// B0--> B1--> B2
@@ -300,7 +306,8 @@ impl BlockTree {
     /// prune_tree(B_3) should be left with
     /// B3--> B4, root = B3
     ///
-    /// Note this function is read-only, use with process_pruned_blocks to do the actual prune.
+    /// Note this function is read-only, use with process_pruned_blocks to do
+    /// the actual prune.
     pub(super) fn find_blocks_to_prune(&self, next_root_id: HashValue) -> VecDeque<HashValue> {
         // Nothing to do if this is the commit root
         if next_root_id == self.commit_root_id {
@@ -310,8 +317,8 @@ impl BlockTree {
         let mut blocks_pruned = VecDeque::new();
         let mut blocks_to_be_pruned = vec![self.linkable_root()];
         while let Some(block_to_remove) = blocks_to_be_pruned.pop() {
-            // Add the children to the blocks to be pruned (if any), but stop when it reaches the
-            // new root
+            // Add the children to the blocks to be pruned (if any), but stop when it
+            // reaches the new root
             for child_id in block_to_remove.children() {
                 if next_root_id == *child_id {
                     continue;
@@ -337,16 +344,18 @@ impl BlockTree {
         self.commit_root_id = root_id;
     }
 
-    /// Process the data returned by the prune_tree, they're separated because caller might
-    /// be interested in doing extra work e.g. delete from persistent storage.
-    /// Note that we do not necessarily remove the pruned blocks: they're kept in a separate buffer
-    /// for some time in order to enable other peers to retrieve the blocks even after they've
+    /// Process the data returned by the prune_tree, they're separated because
+    /// caller might be interested in doing extra work e.g. delete from
+    /// persistent storage. Note that we do not necessarily remove the
+    /// pruned blocks: they're kept in a separate buffer for some time in
+    /// order to enable other peers to retrieve the blocks even after they've
     /// been committed.
     pub(super) fn process_pruned_blocks(&mut self, mut newly_pruned_blocks: VecDeque<HashValue>) {
         counters::NUM_BLOCKS_IN_TREE.sub(newly_pruned_blocks.len() as i64);
         // The newly pruned blocks are pushed back to the deque pruned_block_ids.
-        // In case the overall number of the elements is greater than the predefined threshold,
-        // the oldest elements (in the front of the deque) are removed from the tree.
+        // In case the overall number of the elements is greater than the predefined
+        // threshold, the oldest elements (in the front of the deque) are
+        // removed from the tree.
         self.pruned_block_ids.append(&mut newly_pruned_blocks);
         if self.pruned_block_ids.len() > self.max_pruned_blocks_in_mem {
             let num_blocks_to_remove = self.pruned_block_ids.len() - self.max_pruned_blocks_in_mem;
@@ -358,12 +367,13 @@ impl BlockTree {
         }
     }
 
-    /// Returns all the blocks between the commit root and the given block, including the given block
-    /// but excluding the root.
+    /// Returns all the blocks between the commit root and the given block,
+    /// including the given block but excluding the root.
     /// In case a given block is not the successor of the root, return None.
-    /// While generally the provided blocks should always belong to the active tree, there might be
-    /// a race, in which the root of the tree is propagated forward between retrieving the block
-    /// and getting its path from root (e.g., at proposal generator). Hence, we don't want to panic
+    /// While generally the provided blocks should always belong to the active
+    /// tree, there might be a race, in which the root of the tree is
+    /// propagated forward between retrieving the block and getting its path
+    /// from root (e.g., at proposal generator). Hence, we don't want to panic
     /// and prefer to return None instead.
     pub(super) fn path_from_root_to_block(
         &self,
@@ -377,11 +387,11 @@ impl BlockTree {
             match self.get_block(&cur_block_id) {
                 Some(ref block) if block.round() <= root_round => {
                     break;
-                }
+                },
                 Some(block) => {
                     cur_block_id = block.parent_id();
                     res.push(block);
-                }
+                },
                 None => return None,
             }
         }
@@ -412,7 +422,8 @@ impl BlockTree {
         self.max_pruned_blocks_in_mem
     }
 
-    /// Update the counters for committed blocks and prune them from the in-memory and persisted store.
+    /// Update the counters for committed blocks and prune them from the
+    /// in-memory and persisted store.
     pub fn commit_callback(
         &mut self,
         storage: Arc<dyn PersistentLivenessStorage>,
@@ -436,9 +447,9 @@ impl BlockTree {
 
         let id_to_remove = self.find_blocks_to_prune(block_to_commit.id());
         if let Err(e) = storage.prune_tree(id_to_remove.clone().into_iter().collect()) {
-            // it's fine to fail here, as long as the commit succeeds, the next restart will clean
-            // up dangling blocks, and we need to prune the tree to keep the root consistent with
-            // executor.
+            // it's fine to fail here, as long as the commit succeeds, the next restart will
+            // clean up dangling blocks, and we need to prune the tree to keep
+            // the root consistent with executor.
             warn!(error = ?e, "fail to delete block");
         }
         self.process_pruned_blocks(id_to_remove);

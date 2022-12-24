@@ -122,7 +122,8 @@ impl Builder {
     }
 }
 
-/// A logging filter to determine which logs to keep or remove based on `Directive`s
+/// A logging filter to determine which logs to keep or remove based on
+/// `Directive`s
 #[derive(Debug)]
 pub struct Filter {
     directives: Vec<Directive>,
@@ -137,7 +138,7 @@ impl Filter {
         // Search for the longest match, the vector is assumed to be pre-sorted.
         for directive in self.directives.iter().rev() {
             match &directive.name {
-                Some(name) if !metadata.module_path().starts_with(name) => {}
+                Some(name) if !metadata.module_path().starts_with(name) => {},
                 Some(..) | None => return LevelFilter::from(metadata.level()) <= directive.level,
             }
         }
@@ -145,7 +146,8 @@ impl Filter {
     }
 }
 
-/// A `Filter` directive for which logs to keep based on a module `name` based filter
+/// A `Filter` directive for which logs to keep based on a module `name` based
+/// filter
 #[derive(Debug)]
 struct Directive {
     name: Option<String>,

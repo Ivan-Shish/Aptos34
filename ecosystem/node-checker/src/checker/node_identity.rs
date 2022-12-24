@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{api_index::ApiIndexProvider, Provider, ProviderCollection},
@@ -8,8 +9,6 @@ use crate::{
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -39,8 +38,8 @@ impl NodeIdentityChecker {
                 format!("{} reported by baseline and target match", attribute_str),
                 100,
                 format!(
-                    "The node under investigation reported the same {} {} \
-                as is reported by the baseline node.",
+                    "The node under investigation reported the same {} {} as is reported by the \
+                     baseline node.",
                     attribute_str, target_value
                 ),
             )
@@ -52,9 +51,9 @@ impl NodeIdentityChecker {
                 ),
                 0,
                 format!(
-                    "The node under investigation reported the {} {} while the \
-                baseline reported {}. These values should match. Confirm that \
-                the baseline you're using is appropriate for the node you're testing.",
+                    "The node under investigation reported the {} {} while the baseline reported \
+                     {}. These values should match. Confirm that the baseline you're using is \
+                     appropriate for the node you're testing.",
                     attribute_str, target_value, baseline_value
                 ),
             )
@@ -65,7 +64,8 @@ impl NodeIdentityChecker {
 
 #[async_trait::async_trait]
 impl Checker for NodeIdentityChecker {
-    /// Assert that the node identity (role type and chain ID) of the two nodes match.
+    /// Assert that the node identity (role type and chain ID) of the two nodes
+    /// match.
     async fn check(
         &self,
         providers: &ProviderCollection,
@@ -95,7 +95,7 @@ impl Checker for NodeIdentityChecker {
                     0,
                     format!("There was an error querying your node's API: {:#}", err),
                 )]);
-            }
+            },
         };
 
         let check_results = vec![

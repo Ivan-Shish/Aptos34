@@ -16,7 +16,8 @@ pub struct TransactionExecutor {
     parent_block_id: HashValue,
     start_time: Option<Instant>,
     version: Version,
-    // If commit_sender is `None`, we will commit all the execution result immediately in this struct.
+    // If commit_sender is `None`, we will commit all the execution result immediately in this
+    // struct.
     commit_sender:
         Option<mpsc::SyncSender<(HashValue, HashValue, Instant, Instant, Duration, usize)>>,
 }

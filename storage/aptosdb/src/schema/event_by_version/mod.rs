@@ -1,9 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines physical storage schema for an event index via which a ContractEvent (
-//! represented by a <txn_version, event_idx> tuple so that it can be fetched from `EventSchema`)
-//! can be found by <access_path, version, sequence_num> tuple.
+//! This module defines physical storage schema for an event index via which a
+//! ContractEvent ( represented by a <txn_version, event_idx> tuple so that it
+//! can be fetched from `EventSchema`) can be found by <access_path, version,
+//! sequence_num> tuple.
 //!
 //! ```text
 //! |<--------------key------------>|<-value->|

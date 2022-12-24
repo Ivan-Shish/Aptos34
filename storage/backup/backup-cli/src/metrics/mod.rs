@@ -17,7 +17,13 @@ pub static OTHER_TIMERS_SECONDS: Lazy<HistogramVec> = Lazy::new(|| {
         "Various timers for performance analysis.",
         // metric labels (dimensions)
         &["name"],
-        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-6, // factor=
+            2.0,  // count=
+            22
+        )
+        .unwrap(),
     )
     .unwrap()
 });

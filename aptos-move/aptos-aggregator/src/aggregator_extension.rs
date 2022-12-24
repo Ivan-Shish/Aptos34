@@ -119,7 +119,7 @@ impl Aggregator {
                 AggregatorState::NegativeDelta => history.record_negative(self.value),
                 AggregatorState::Data => {
                     unreachable!("history is not tracked when aggregator knows its value")
-                }
+                },
             }
         }
     }
@@ -131,11 +131,11 @@ impl Aggregator {
                 // If aggregator knows the value, add directly and keep the state.
                 self.value = addition(self.value, value, self.limit)?;
                 return Ok(());
-            }
+            },
             AggregatorState::PositiveDelta => {
                 // If positive delta, add directly but also record the state.
                 self.value = addition(self.value, value, self.limit)?;
-            }
+            },
             AggregatorState::NegativeDelta => {
                 // Negative delta is a special case, since the state might
                 // change depending on how big the `value` is. Suppose
@@ -149,7 +149,7 @@ impl Aggregator {
                 } else {
                     self.value = subtraction(self.value, value)?;
                 }
-            }
+            },
         }
 
         // Record side-effects of addition in history.
@@ -166,7 +166,7 @@ impl Aggregator {
                 // record the history.
                 self.value = subtraction(self.value, value)?;
                 return Ok(());
-            }
+            },
             AggregatorState::PositiveDelta => {
                 // Positive delta is a special case because the state can
                 // change depending on how big the `value` is. Suppose
@@ -185,14 +185,14 @@ impl Aggregator {
                     self.value = subtraction(value, self.value)?;
                     self.state = AggregatorState::NegativeDelta;
                 }
-            }
+            },
             AggregatorState::NegativeDelta => {
                 // Since we operate on unsigned integers, we have to add
                 // when subtracting from negative delta. Note that if limit
                 // is some X, then we cannot subtract more than X, and so
                 // we should return an error there.
                 self.value = addition(self.value, value, self.limit)?;
-            }
+            },
         }
 
         // Record side-effects of addition in history.
@@ -247,13 +247,13 @@ impl Aggregator {
                     match self.state {
                         AggregatorState::PositiveDelta => {
                             self.value = addition(value_from_storage, self.value, self.limit)?;
-                        }
+                        },
                         AggregatorState::NegativeDelta => {
                             self.value = subtraction(value_from_storage, self.value)?;
-                        }
+                        },
                         AggregatorState::Data => {
                             unreachable!("history is not tracked when aggregator knows its value")
-                        }
+                        },
                     }
 
                     // Change the state and return the new value. Also, make
@@ -302,7 +302,8 @@ impl AggregatorData {
         self.aggregators.get_mut(&id).unwrap()
     }
 
-    /// Returns the number of aggregators that are used in the current transaction.
+    /// Returns the number of aggregators that are used in the current
+    /// transaction.
     pub fn num_aggregators(&self) -> u128 {
         self.aggregators.len() as u128
     }
@@ -321,8 +322,8 @@ impl AggregatorData {
         self.new_aggregators.insert(id);
     }
 
-    /// If aggregator has been used in this transaction, it is removed. Otherwise,
-    /// it is marked for deletion.
+    /// If aggregator has been used in this transaction, it is removed.
+    /// Otherwise, it is marked for deletion.
     pub fn remove_aggregator(&mut self, id: AggregatorID) {
         // Aggregator no longer in use during this transaction: remove it.
         self.aggregators.remove(&id);
@@ -478,7 +479,8 @@ mod test {
     fn test_materialize_non_monotonic_1() {
         let mut aggregator_data = AggregatorData::default();
 
-        // +0 to +400 to +0 is ok, but materialization fails since we had 300 + 400 > 600!
+        // +0 to +400 to +0 is ok, but materialization fails since we had 300 + 400 >
+        // 600!
         let aggregator = aggregator_data.get_aggregator(test_id(600), 600);
         assert_ok!(aggregator.add(400));
         assert_ok!(aggregator.sub(300));
@@ -491,7 +493,8 @@ mod test {
     fn test_materialize_non_monotonic_2() {
         let mut aggregator_data = AggregatorData::default();
 
-        // +0 to -301 to -300 is ok, but materialization fails since we had 300 - 301 < 0!
+        // +0 to -301 to -300 is ok, but materialization fails since we had 300 - 301 <
+        // 0!
         let aggregator = aggregator_data.get_aggregator(test_id(600), 600);
         assert_ok!(aggregator.sub(301));
         assert_ok!(aggregator.add(1));

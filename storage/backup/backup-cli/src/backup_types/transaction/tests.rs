@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::ReplayConcurrencyLevelOpt;
 use crate::{
     backup_types::transaction::{
         backup::{TransactionBackupController, TransactionBackupOpt},
@@ -11,7 +10,8 @@ use crate::{
     utils::{
         backup_service_client::BackupServiceClient,
         test_utils::{start_local_backup_service, tmp_db_with_random_content},
-        ConcurrentDownloadsOpt, GlobalBackupOpt, GlobalRestoreOpt, RocksdbOpt, TrustedWaypointOpt,
+        ConcurrentDownloadsOpt, GlobalBackupOpt, GlobalRestoreOpt, ReplayConcurrencyLevelOpt,
+        RocksdbOpt, TrustedWaypointOpt,
     },
 };
 use aptos_db::AptosDB;
@@ -89,16 +89,16 @@ fn end_to_end() {
             .try_into()
             .unwrap(),
             store,
-            None, /* epoch_history */
+            None, // epoch_history
             vec![],
         )
         .run(),
     )
     .unwrap();
 
-    // We don't write down any ledger infos when recovering transactions. State-sync needs to take
-    // care of it before running consensus. The latest transactions are deemed "synced" instead of
-    // "committed" most likely.
+    // We don't write down any ledger infos when recovering transactions. State-sync
+    // needs to take care of it before running consensus. The latest
+    // transactions are deemed "synced" instead of "committed" most likely.
     let tgt_db = AptosDB::new_readonly_for_test(&tgt_db_dir);
     assert_eq!(
         tgt_db
@@ -113,7 +113,7 @@ fn end_to_end() {
             first_ver_to_backup,
             num_txns_to_restore as u64,
             target_version,
-            true, /* fetch_events */
+            true, // fetch_events
         )
         .unwrap();
 

@@ -1,11 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::tests::common;
 use crate::{
     network::MempoolSyncMsg,
     shared_mempool::types::SharedMempoolNotification,
     tests::{
+        common,
         common::TestTransaction,
         node::{
             public_full_node_config, validator_config, vfn_config, Node, NodeId, NodeInfo,
@@ -52,16 +52,19 @@ impl MempoolOverrideConfig {
     }
 }
 
-/// A test harness representing a combined network of Nodes and the mempool interactions between them
+/// A test harness representing a combined network of Nodes and the mempool
+/// interactions between them
 #[derive(Default)]
 struct TestHarness {
     nodes: HashMap<NodeId, Node>,
-    /// A mapping of `PeerNetworkId` to `NodeId`.  Used for reverse mapping network requests.
+    /// A mapping of `PeerNetworkId` to `NodeId`.  Used for reverse mapping
+    /// network requests.
     peer_to_node_id: HashMap<PeerNetworkId, NodeId>,
 }
 
 impl TestHarness {
-    /// Builds a validator only network for testing the SharedMempool interactions
+    /// Builds a validator only network for testing the SharedMempool
+    /// interactions
     fn bootstrap_validator_network(
         validator_nodes_count: u32,
         validator_mempool_config: Option<MempoolOverrideConfig>,
@@ -78,8 +81,9 @@ impl TestHarness {
         (harness, validators)
     }
 
-    /// Builds a fully functional network with Validators, attached VFNs, and full nodes
-    /// Note: None of these nodes are told about each other, and must manually be done afterwards
+    /// Builds a fully functional network with Validators, attached VFNs, and
+    /// full nodes Note: None of these nodes are told about each other, and
+    /// must manually be done afterwards
     fn bootstrap_network(
         validator_nodes_count: u32,
         validator_mempool_config: Option<MempoolOverrideConfig>,
@@ -168,7 +172,8 @@ impl TestHarness {
     }
 
     /// Updates configs to adjust for test specific mempool configurations
-    /// These adjust the reliability & timeliness of the tests based on what settings are set
+    /// These adjust the reliability & timeliness of the tests based on what
+    /// settings are set
     fn update_config(config: &mut NodeConfig, mempool_config: Option<MempoolOverrideConfig>) {
         if let Some(mempool_config) = mempool_config {
             if let Some(batch_size) = mempool_config.broadcast_batch_size {
@@ -181,7 +186,8 @@ impl TestHarness {
                 config.mempool.capacity = mempool_size;
             }
 
-            // Set the ack timeout duration to 0 to avoid sleeping to test rebroadcast scenario (broadcast must timeout for this).
+            // Set the ack timeout duration to 0 to avoid sleeping to test rebroadcast
+            // scenario (broadcast must timeout for this).
             config.mempool.shared_mempool_ack_timeout_ms =
                 mempool_config.ack_timeout_ms.unwrap_or(0);
 
@@ -219,7 +225,8 @@ impl TestHarness {
         self.nodes.get_mut(node_id).unwrap()
     }
 
-    /// Queues transactions for sending on a node.  Must use `broadcast_txns` to send to other nodes
+    /// Queues transactions for sending on a node.  Must use `broadcast_txns` to
+    /// send to other nodes
     fn add_txns(&self, node_id: &NodeId, txns: Vec<TestTransaction>) {
         self.node(node_id).add_txns(txns)
     }
@@ -291,15 +298,19 @@ impl TestHarness {
         sender_id: &NodeId,
         network_id: NetworkId,
         num_messages: usize,
-        num_transactions_in_message: Option<usize>, // If specified, checks the number of txns in the message
-        max_num_transactions_in_message: Option<usize>, // If specified, checks the max number of txns in the message
-        check_txns_in_mempool: bool, // Check whether all txns in this broadcast are accepted into recipient's mempool
-        execute_send: bool, // If true, actually delivers msg to remote peer; else, drop the message (useful for testing unreliable msg delivery)
-        drop_ack: bool,     // If true, drop ack from remote peer to this peer
+        num_transactions_in_message: Option<usize>, /* If specified, checks the number of txns
+                                                     * in the message */
+        max_num_transactions_in_message: Option<usize>, /* If specified, checks the max number
+                                                         * of txns in the message */
+        check_txns_in_mempool: bool, /* Check whether all txns in this broadcast are accepted
+                                      * into recipient's mempool */
+        execute_send: bool, /* If true, actually delivers msg to remote peer; else, drop the
+                             * message (useful for testing unreliable msg delivery) */
+        drop_ack: bool, // If true, drop ack from remote peer to this peer
     ) -> (Vec<SignedTransaction>, PeerId) {
         // Await broadcast notification
-        // Note: If there are other messages you're looking for, this could throw them away
-        // Wait for the number of messages to be broadcasted on this node
+        // Note: If there are other messages you're looking for, this could throw them
+        // away Wait for the number of messages to be broadcasted on this node
         for _ in 0..num_messages {
             self.wait_for_event(sender_id, SharedMempoolNotification::Broadcast);
         }
@@ -323,7 +334,8 @@ impl TestHarness {
                             assert_eq!(num_transactions_in_message, transactions.len());
                         }
 
-                        // Check that the number of transactions in the message is within than the max
+                        // Check that the number of transactions in the message is within than the
+                        // max
                         if let Some(max_num_transactions_in_message) =
                             max_num_transactions_in_message
                         {
@@ -347,7 +359,7 @@ impl TestHarness {
                                     NetworkId::Validator,
                                     sender.peer_id(NetworkId::Public),
                                 )
-                            }
+                            },
                             _ => PeerNetworkId::new(network_id, remote_peer_id),
                         };
                         let receiver_id =
@@ -378,18 +390,18 @@ impl TestHarness {
                             self.deliver_response(&receiver_id, network_id);
                         }
                         (transactions, remote_peer_id)
-                    }
+                    },
                     req => {
                         panic!("Unexpected broadcast transactions response {:?}", req)
-                    }
+                    },
                 }
-            }
+            },
             req => {
                 panic!(
                     "Unexpected peer manager request, didn't receive broadcast {:?}",
                     req
                 )
-            }
+            },
         }
     }
 
@@ -416,7 +428,7 @@ impl TestHarness {
                                     NetworkId::Public,
                                     sender.peer_id(NetworkId::Validator),
                                 )
-                            }
+                            },
                             _ => PeerNetworkId::new(network_id, remote_peer_id),
                         };
                         let receiver_id =
@@ -427,13 +439,15 @@ impl TestHarness {
                             ProtocolId::MempoolDirectSend,
                             PeerManagerNotification::RecvMessage(sender_peer_id, msg),
                         );
-                    }
-                    request => panic!(
-                        "did not receive expected broadcast ACK, instead got {:?}",
-                        request
-                    ),
+                    },
+                    request => {
+                        panic!(
+                            "did not receive expected broadcast ACK, instead got {:?}",
+                            request
+                        )
+                    },
                 }
-            }
+            },
             request => panic!("Node did not ACK broadcast, instead got {:?}", request),
         }
     }
@@ -490,7 +504,8 @@ fn test_max_broadcast_limit() {
     // A and B discover each other
     harness.connect(v_b, v_a);
 
-    // Test that for mempool broadcasts txns up till max broadcast, even if they are not ACK'ed
+    // Test that for mempool broadcasts txns up till max broadcast, even if they are
+    // not ACK'ed
     let (txns, _) = harness.broadcast_txns(
         v_a,
         NetworkId::Validator,

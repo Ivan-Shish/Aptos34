@@ -10,10 +10,10 @@ use aptos_rosetta::bootstrap;
 use aptos_sdk::move_types::account_address::AccountAddress;
 use aptos_types::chain_id::ChainId;
 use clap::Parser;
-use std::fs::read_to_string;
-use std::path::PathBuf;
 use std::{
+    fs::read_to_string,
     net::SocketAddr,
+    path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -35,14 +35,15 @@ async fn main() {
     match args {
         CommandArgs::OnlineRemote(_) => {
             println!("aptos-rosetta: Starting Rosetta in Online remote (no local full node) mode")
-        }
+        },
         CommandArgs::Online(_) => {
             println!("aptos-rosetta: Starting Rosetta in Online (with local full node) mode")
-        }
+        },
         CommandArgs::Offline(_) => println!("aptos-rosetta: Starting Rosetta in Offline mode"),
     }
 
-    // If we're in online mode, we run a full node side by side, the fullnode sets up the logger
+    // If we're in online mode, we run a full node side by side, the fullnode sets
+    // up the logger
     let _maybe_node = if let CommandArgs::Online(OnlineLocalArgs {
         ref node_args,
         ref online_args,
@@ -59,19 +60,20 @@ async fn main() {
             match client.get_index_bcs().await {
                 Ok(_) => {
                     break;
-                }
+                },
                 Err(err) => {
                     sample!(
                         SampleRate::Duration(Duration::from_millis(LOG_INTERVAL_MS)),
                         println!(
-                            "aptos-rosetta: Full node REST API isn't responding yet.  You should check the node logs.  It's been waiting {} seconds.  Error: {:?}",
+                            "aptos-rosetta: Full node REST API isn't responding yet.  You should \
+                             check the node logs.  It's been waiting {} seconds.  Error: {:?}",
                             start.elapsed().as_secs(),
                             err
                         )
                     );
                     tokio::time::sleep(Duration::from_millis(DEFAULT_REST_API_WAIT_INTERVAL_MS))
                         .await;
-                }
+                },
             }
         }
 

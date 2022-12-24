@@ -1,14 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/// Most of the code below comes from the crate `datatest-stable`. Because the limitation of `datatest-stable`,
-/// we are not able to run transactional tests as a subcommand of the Aptos CLI. Therefore, we need to duplicate code
-/// here and make minor modifications.
-///
-use clap::Parser;
-
 use crate::common::types::{CliError, CliTypedResult};
-
+/// Most of the code below comes from the crate `datatest-stable`. Because the
+/// limitation of `datatest-stable`, we are not able to run transactional tests
+/// as a subcommand of the Aptos CLI. Therefore, we need to duplicate code
+/// here and make minor modifications.
+use clap::Parser;
 use std::{
     io::{self, Write},
     num::NonZeroUsize,
@@ -18,7 +16,6 @@ use std::{
     sync::mpsc::{channel, Sender},
     thread,
 };
-
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -26,8 +23,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// Run Move transactional tests
 #[derive(Parser, Clone)]
 pub struct TransactionalTestOpts {
-    /// The filter string is tested against the name of all tests, and only those tests whose names
-    /// contain the filter are run.
+    /// The filter string is tested against the name of all tests, and only
+    /// those tests whose names contain the filter are run.
     #[clap(long)]
     pub filter: Option<String>,
 
@@ -56,8 +53,8 @@ pub struct TransactionalTestOpts {
     pub pattern: String,
 }
 
-/// Helper function to iterate through all the files in the given directory, skipping hidden files,
-/// and return an iterator of their paths.
+/// Helper function to iterate through all the files in the given directory,
+/// skipping hidden files, and return an iterator of their paths.
 pub fn iterate_directory(path: &Path) -> impl Iterator<Item = PathBuf> {
     walkdir::WalkDir::new(path)
         .into_iter()
@@ -209,18 +206,18 @@ impl TestSummary {
             TestResult::Ok => {
                 self.passed += 1;
                 self.write_ok()?;
-            }
+            },
             TestResult::Failed => {
                 self.failed.push(name);
                 self.write_failed()?;
-            }
+            },
             TestResult::FailedWithMsg(msg) => {
                 self.failed.push(name);
                 self.write_failed()?;
                 writeln!(self.stdout)?;
 
                 write!(self.stdout, "Error: {}", msg)?;
-            }
+            },
         }
         writeln!(self.stdout)?;
         Ok(())
@@ -309,11 +306,11 @@ impl Requirements {
         }
     }
 
-    /// Generate standard test descriptors ([`test::TestDescAndFn`]) from the descriptor of
-    /// `#[datatest::files(..)]`.
+    /// Generate standard test descriptors ([`test::TestDescAndFn`]) from the
+    /// descriptor of `#[datatest::files(..)]`.
     ///
-    /// Scans all files in a given directory, finds matching ones and generates a test descriptor
-    /// for each of them.
+    /// Scans all files in a given directory, finds matching ones and generates
+    /// a test descriptor for each of them.
     fn expand(&self) -> Vec<Test> {
         let root = Path::new(&self.root).to_path_buf();
 

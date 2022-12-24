@@ -21,7 +21,8 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 #[structopt(
     name = "aptos-db-bootstrapper",
-    about = "Calculate, verify and commit the genesis to local DB without a consensus among validators."
+    about = "Calculate, verify and commit the genesis to local DB without a consensus among \
+             validators."
 )]
 struct Opt {
     #[structopt(parse(from_os_str))]
@@ -47,14 +48,14 @@ fn main() -> Result<()> {
         "Not a GenesisTransaction"
     );
 
-    // Opening the DB exclusively, it's not allowed to run this tool alongside a running node which
-    // operates on the same DB.
+    // Opening the DB exclusively, it's not allowed to run this tool alongside a
+    // running node which operates on the same DB.
     let db = AptosDB::open(
         &opt.db_dir,
         false,
-        NO_OP_STORAGE_PRUNER_CONFIG, /* pruner */
+        NO_OP_STORAGE_PRUNER_CONFIG, // pruner
         RocksdbConfigs::default(),
-        false, /* indexer */
+        false, // indexer
         BUFFERED_STATE_TARGET_ITEMS,
         DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD,
     )

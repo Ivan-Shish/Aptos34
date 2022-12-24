@@ -171,7 +171,6 @@ impl TransactionFactory {
         self.payload(aptos_stdlib::aptos_coin_mint(to, amount))
     }
 
-    //
     // Internal Helpers
     //
 

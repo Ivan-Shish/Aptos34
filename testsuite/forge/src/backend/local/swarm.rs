@@ -43,12 +43,12 @@ pub enum SwarmDirectory {
 impl SwarmDirectory {
     pub fn persist(&mut self) {
         match self {
-            SwarmDirectory::Persistent(_) => {}
+            SwarmDirectory::Persistent(_) => {},
             SwarmDirectory::Temporary(_) => {
                 let mut temp = SwarmDirectory::Persistent(PathBuf::new());
                 mem::swap(self, &mut temp);
                 let _ = mem::replace(self, temp.into_persistent());
-            }
+            },
         }
     }
 
@@ -137,8 +137,8 @@ impl LocalSwarm {
                     // for local tests, turn off parallel execution:
                     config.execution.concurrency_level = 1;
 
-                    // Single node orders blocks too fast which would trigger backpressure and stall for 1 sec
-                    // which cause flakiness in tests.
+                    // Single node orders blocks too fast which would trigger backpressure and stall
+                    // for 1 sec which cause flakiness in tests.
                     if number_of_validators.get() == 1 {
                         // this delays empty block by (30-1) * 30ms
                         config.consensus.quorum_store_poll_count = 30;
@@ -160,8 +160,8 @@ impl LocalSwarm {
             .with_init_genesis_config(init_genesis_config)
             .build(rng)?;
 
-        // Get the initial version to start the nodes with, either the one provided or fallback to
-        // using the latest version
+        // Get the initial version to start the nodes with, either the one provided or
+        // fallback to using the latest version
         let initial_version_actual = initial_version.unwrap_or_else(|| {
             versions
                 .iter()
@@ -186,15 +186,17 @@ impl LocalSwarm {
             })
             .collect::<Result<HashMap<_, _>>>()?;
 
-        // After genesis, remove public network from validator and add to public_networks
+        // After genesis, remove public network from validator and add to
+        // public_networks
         let public_networks = validators
             .values_mut()
             .map(|validator| {
                 let mut validator_config = validator.config().clone();
 
-                // Grab the public network config from the validator and insert it into the VFN's config
-                // The validator's public network identity is the same as the VFN's public network identity
-                // We remove it from the validator so the VFN can hold it
+                // Grab the public network config from the validator and insert it into the
+                // VFN's config The validator's public network identity is the
+                // same as the VFN's public network identity We remove it from
+                // the validator so the VFN can hold it
                 let public_network = {
                     let (i, _) = validator_config
                         .full_node_networks
@@ -288,18 +290,18 @@ impl LocalSwarm {
                             node.name(),
                             e
                         ));
-                    }
+                    },
                     Err(HealthCheckError::NotRunning(error)) => {
                         return Err(anyhow!(
                             "Node '{}' is not running! Error: {:?}",
                             node.name(),
                             error
                         ));
-                    }
+                    },
                     Err(HealthCheckError::Failure(e)) => {
                         warn!("health check failure: {}", e);
                         break;
-                    }
+                    },
                 }
             }
 
@@ -642,7 +644,8 @@ impl ActiveNodesGuard {
                 // log only if idx is power of two, to reduce logs
                 if (idx & (idx - 1)) == 0 {
                     info!(
-                        "Too many active swarm nodes ({}), max allowed is {}, waiting to start {} new ones",
+                        "Too many active swarm nodes ({}), max allowed is {}, waiting to start {} \
+                         new ones",
                         *guard, max, slots,
                     );
                 }

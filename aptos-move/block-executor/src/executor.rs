@@ -37,8 +37,9 @@ where
     E: ExecutorTask<Txn = T>,
     S: TStateView<Key = T::Key>,
 {
-    /// The caller needs to ensure that concurrency_level > 1 (0 is illegal and 1 should
-    /// be handled by sequential execution) and that concurrency_level <= num_cpus.
+    /// The caller needs to ensure that concurrency_level > 1 (0 is illegal and
+    /// 1 should be handled by sequential execution) and that
+    /// concurrency_level <= num_cpus.
     pub fn new(concurrency_level: usize) -> Self {
         assert!(
             concurrency_level > 0 && concurrency_level <= num_cpus::get(),
@@ -76,7 +77,8 @@ where
         );
         let mut prev_modified_keys = last_input_output.modified_keys(idx_to_execute);
 
-        // For tracking whether the recent execution wrote outside of the previous write/delta set.
+        // For tracking whether the recent execution wrote outside of the previous
+        // write/delta set.
         let mut updates_outside = false;
         let mut apply_updates = |output: &<E as ExecutorTask>::Output| {
             // First, apply writes.
@@ -106,16 +108,16 @@ where
                 // Apply the writes/deltas to the versioned_data_cache.
                 apply_updates(&output);
                 ExecutionStatus::Success(output)
-            }
+            },
             ExecutionStatus::SkipRest(output) => {
                 // Apply the writes/deltas and record status indicating skip.
                 apply_updates(&output);
                 ExecutionStatus::SkipRest(output)
-            }
+            },
             ExecutionStatus::Abort(err) => {
                 // Record the status indicating abort.
                 ExecutionStatus::Abort(Error::UserError(err))
-            }
+            },
         };
 
         // Remove entries from previous write/delta set that were not overwritten.
@@ -165,7 +167,8 @@ where
         if aborted {
             counters::SPECULATIVE_ABORT_COUNT.inc();
 
-            // Not valid and successfully aborted, mark the latest write/delta sets as estimates.
+            // Not valid and successfully aborted, mark the latest write/delta sets as
+            // estimates.
             for k in last_input_output.modified_keys(idx_to_validate) {
                 versioned_data_cache.mark_estimate(&k, idx_to_validate);
             }
@@ -216,11 +219,11 @@ where
                     cvar.notify_one();
 
                     SchedulerTask::NoTask
-                }
+                },
                 SchedulerTask::NoTask => scheduler.next_task(),
                 SchedulerTask::Done => {
                     break;
-                }
+                },
             }
         }
     }
@@ -273,11 +276,11 @@ where
                     ExecutionStatus::SkipRest(t) => {
                         final_results.push(t);
                         break;
-                    }
+                    },
                     ExecutionStatus::Abort(err) => {
                         ret = Some(err);
                         break;
-                    }
+                    },
                 };
             }
             ret
@@ -297,7 +300,7 @@ where
                     final_results,
                     OutputDeltaResolver::new(versioned_data_cache),
                 ))
-            }
+            },
         }
     }
 
@@ -334,11 +337,11 @@ where
                         data_map.insert(ap, write_op);
                     }
                     ret.push(output);
-                }
+                },
                 ExecutionStatus::Abort(err) => {
                     // Record the status indicating abort.
                     return Err(Error::UserError(err));
-                }
+                },
             }
 
             if must_skip {

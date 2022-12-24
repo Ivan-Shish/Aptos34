@@ -120,7 +120,8 @@ impl AptosVM {
         PARANOID_TYPE_CHECKS.set(enable).ok();
     }
 
-    /// Get the paranoid type check flag if already set, otherwise return default true
+    /// Get the paranoid type check flag if already set, otherwise return
+    /// default true
     pub fn get_paranoid_checks() -> bool {
         match PARANOID_TYPE_CHECKS.get() {
             Some(enable) => *enable,
@@ -136,8 +137,8 @@ impl AptosVM {
         NUM_PROOF_READING_THREADS.set(num_threads).ok();
     }
 
-    /// Returns the # of async proof reading threads if already set, otherwise return default value
-    /// (32).
+    /// Returns the # of async proof reading threads if already set, otherwise
+    /// return default value (32).
     pub fn get_num_proof_reading_threads() -> usize {
         match NUM_PROOF_READING_THREADS.get() {
             Some(num_threads) => *num_threads,
@@ -172,8 +173,8 @@ impl AptosVM {
         self.0.load_module(module_id, state)
     }
 
-    /// Generates a transaction output for a transaction that encountered errors during the
-    /// execution process. This is public for now only for tests.
+    /// Generates a transaction output for a transaction that encountered errors
+    /// during the execution process. This is public for now only for tests.
     pub fn failed_transaction_cleanup<S: MoveResolverExt>(
         &self,
         error_code: VMStatus,
@@ -217,7 +218,7 @@ impl AptosVM {
                             code,
                             info,
                         }
-                    }
+                    },
                     _ => status,
                 };
                 // The transaction should be charged for gas, so run the epilogue to do that.
@@ -244,10 +245,10 @@ impl AptosVM {
                 )
                 .unwrap_or_else(|e| discard_error_vm_status(e).1);
                 (error_code, txn_output)
-            }
+            },
             TransactionStatus::Discard(status) => {
                 (VMStatus::Error(status), discard_error_output(status))
-            }
+            },
             TransactionStatus::Retry => unreachable!(),
         }
     }
@@ -357,7 +358,7 @@ impl AptosVM {
                         args,
                         gas_meter,
                     )
-                }
+                },
                 TransactionPayload::EntryFunction(script_fn) => {
                     let mut senders = vec![txn_data.sender()];
 
@@ -382,10 +383,10 @@ impl AptosVM {
                         args,
                         gas_meter,
                     )
-                }
+                },
                 TransactionPayload::ModuleBundle(_) => {
                     return Err(VMStatus::Error(StatusCode::UNREACHABLE));
-                }
+                },
             }
             .map_err(|e| e.into_vm_status())?;
 
@@ -429,7 +430,7 @@ impl AptosVM {
                         )
                         .finish(Location::Undefined));
                     }
-                }
+                },
                 Err(err) => return Err(err.finish(Location::Undefined)),
             }
         }
@@ -495,19 +496,19 @@ impl AptosVM {
             match CompiledModule::deserialize_with_max_version(module_blob.code(), max_version) {
                 Ok(module) => {
                     result.push(module);
-                }
+                },
                 Err(_err) => {
                     return Err(PartialVMError::new(StatusCode::CODE_DESERIALIZATION_ERROR)
                         .finish(Location::Undefined))
-                }
+                },
             }
         }
         Ok(result)
     }
 
     /// Execute a module bundle load request.
-    /// TODO: this is going to be deprecated and removed in favor of code publishing via
-    /// NativeCodeContext
+    /// TODO: this is going to be deprecated and removed in favor of code
+    /// publishing via NativeCodeContext
     fn execute_modules<S: MoveResolverExt + StateView>(
         &self,
         storage: &S,
@@ -567,7 +568,8 @@ impl AptosVM {
         self.success_transaction_cleanup(storage, change_set_ext, gas_meter, txn_data, log_context)
     }
 
-    /// Resolve a pending code publish request registered via the NativeCodeContext.
+    /// Resolve a pending code publish request registered via the
+    /// NativeCodeContext.
     fn resolve_pending_code_publish<S: MoveResolverExt>(
         &self,
         session: &mut SessionExt<S>,
@@ -615,13 +617,9 @@ impl AptosVM {
                     ),
                 )
                 .and_then(|_| {
-                    self.execute_module_initialization(
-                        session,
-                        gas_meter,
-                        &modules,
-                        exists,
-                        &[destination],
-                    )
+                    self.execute_module_initialization(session, gas_meter, &modules, exists, &[
+                        destination,
+                    ])
                 })
                 .map_err(|e| {
                     // Be sure to flash the loader cache to align storage with the cache.
@@ -687,7 +685,7 @@ impl AptosVM {
         log_context: &AdapterLogSchema,
     ) -> (VMStatus, TransactionOutputExt) {
         macro_rules! unwrap_or_discard {
-            ($res: expr) => {
+            ($res:expr) => {
                 match $res {
                     Ok(s) => s,
                     Err(e) => return discard_error_vm_status(e),
@@ -710,10 +708,11 @@ impl AptosVM {
 
         if self.0.get_gas_feature_version() >= 1 {
             // Create a new session so that the data cache is flushed.
-            // This is to ensure we correctly charge for loading certain resources, even if they
-            // have been previously cached in the prologue.
+            // This is to ensure we correctly charge for loading certain resources, even if
+            // they have been previously cached in the prologue.
             //
-            // TODO(Gas): Do this in a better way in the future, perhaps without forcing the data cache to be flushed.
+            // TODO(Gas): Do this in a better way in the future, perhaps without forcing the
+            // data cache to be flushed.
             session = self.0.new_session(storage, SessionId::txn(txn));
         }
 
@@ -740,7 +739,7 @@ impl AptosVM {
                 ),
             TransactionPayload::ModuleBundle(m) => {
                 self.execute_modules(storage, session, &mut gas_meter, &txn_data, m, log_context)
-            }
+            },
         };
 
         let gas_usage = txn_data
@@ -764,7 +763,7 @@ impl AptosVM {
                         log_context,
                     )
                 }
-            }
+            },
         }
     }
 
@@ -820,9 +819,9 @@ impl AptosVM {
                         .map_err(Err)?,
                     Err(e) => {
                         return Err(Ok((e, discard_error_output(StatusCode::INVALID_WRITE_SET))));
-                    }
+                    },
                 }
-            }
+            },
         })
     }
 
@@ -831,8 +830,8 @@ impl AptosVM {
         state_view: &impl StateView,
         write_set: &WriteSet,
     ) -> Result<(), VMStatus> {
-        // All Move executions satisfy the read-before-write property. Thus we need to read each
-        // access path that the write set is going to update.
+        // All Move executions satisfy the read-before-write property. Thus we need to
+        // read each access path that the write set is going to update.
         for (state_key, _) in write_set.iter() {
             state_view
                 .get_state_value(state_key)
@@ -1012,30 +1011,31 @@ impl AptosVM {
             TransactionPayload::Script(_) => {
                 self.0.check_gas(storage, txn_data, log_context)?;
                 self.0.run_script_prologue(session, txn_data, log_context)
-            }
+            },
             TransactionPayload::EntryFunction(_) => {
                 // NOTE: Script and EntryFunction shares the same prologue
                 self.0.check_gas(storage, txn_data, log_context)?;
                 self.0.run_script_prologue(session, txn_data, log_context)
-            }
+            },
             TransactionPayload::ModuleBundle(_module) => {
                 if MODULE_BUNDLE_DISALLOWED.load(Ordering::Relaxed) {
                     return Err(VMStatus::Error(StatusCode::FEATURE_UNDER_GATING));
                 }
                 self.0.check_gas(storage, txn_data, log_context)?;
                 self.0.run_module_prologue(session, txn_data, log_context)
-            }
+            },
         }
     }
 }
 
 // Executor external API
 impl VMExecutor for AptosVM {
-    /// Execute a block of `transactions`. The output vector will have the exact same length as the
-    /// input vector. The discarded transactions will be marked as `TransactionStatus::Discard` and
-    /// have an empty `WriteSet`. Also `state_view` is immutable, and does not have interior
-    /// mutability. Writes to be applied to the data view are encoded in the write set part of a
-    /// transaction output.
+    /// Execute a block of `transactions`. The output vector will have the exact
+    /// same length as the input vector. The discarded transactions will be
+    /// marked as `TransactionStatus::Discard` and have an empty `WriteSet`.
+    /// Also `state_view` is immutable, and does not have interior
+    /// mutability. Writes to be applied to the data view are encoded in the
+    /// write set part of a transaction output.
     fn execute_block(
         transactions: Vec<Transaction>,
         state_view: &impl StateView,
@@ -1066,17 +1066,18 @@ impl VMExecutor for AptosVM {
 
 // VMValidator external API
 impl VMValidator for AptosVM {
-    /// Determine if a transaction is valid. Will return `None` if the transaction is accepted,
-    /// `Some(Err)` if the VM rejects it, with `Err` as an error code. Verification performs the
-    /// following steps:
-    /// 1. The signature on the `SignedTransaction` matches the public key included in the
-    ///    transaction
+    /// Determine if a transaction is valid. Will return `None` if the
+    /// transaction is accepted, `Some(Err)` if the VM rejects it, with
+    /// `Err` as an error code. Verification performs the following steps:
+    /// 1. The signature on the `SignedTransaction` matches the public key
+    /// included in the    transaction
     /// 2. The script to be executed is under given specific configuration.
-    /// 3. Invokes `Account.prologue`, which checks properties such as the transaction has the
-    /// right sequence number and the sender has enough balance to pay for the gas.
-    /// TBD:
+    /// 3. Invokes `Account.prologue`, which checks properties such as the
+    /// transaction has the right sequence number and the sender has enough
+    /// balance to pay for the gas. TBD:
     /// 1. Transaction arguments matches the main function's type signature.
-    ///    We don't check this item for now and would execute the check at execution time.
+    ///    We don't check this item for now and would execute the check at
+    /// execution time.
     fn validate_transaction(
         &self,
         transaction: SignedTransaction,
@@ -1115,7 +1116,7 @@ impl VMAdapter for AptosVM {
         log_context: &AdapterLogSchema,
     ) -> Result<(), VMStatus> {
         let txn_data = TransactionMetadata::new(transaction);
-        //let account_blob = session.data_cache.get_resource
+        // let account_blob = session.data_cache.get_resource
         self.run_prologue_with_payload(
             session,
             storage,
@@ -1145,7 +1146,7 @@ impl VMAdapter for AptosVM {
                 let (vm_status, output) =
                     self.process_block_prologue(data_cache, block_metadata.clone(), log_context)?;
                 (vm_status, output, Some("block_prologue".to_string()))
-            }
+            },
             PreprocessedTransaction::WaypointWriteSet(write_set_payload) => {
                 let (vm_status, output) = self.process_waypoint_change_set(
                     data_cache,
@@ -1153,7 +1154,7 @@ impl VMAdapter for AptosVM {
                     log_context,
                 )?;
                 (vm_status, output, Some("waypoint_write_set".to_string()))
-            }
+            },
             PreprocessedTransaction::UserTransaction(txn) => {
                 fail_point!("aptos_vm::execution::user_transaction");
                 let sender = txn.sender().to_string();
@@ -1182,12 +1183,12 @@ impl VMAdapter for AptosVM {
                     USER_TRANSACTIONS_EXECUTED.with_label_values(&[label]).inc();
                 }
                 (vm_status, output, Some(sender))
-            }
+            },
             PreprocessedTransaction::InvalidSignature => {
                 let (vm_status, output) =
                     discard_error_vm_status(VMStatus::Error(StatusCode::INVALID_SIGNATURE));
                 (vm_status, output, None)
-            }
+            },
             PreprocessedTransaction::StateCheckpoint => {
                 let output = TransactionOutput::new(
                     WriteSet::default(),
@@ -1200,7 +1201,7 @@ impl VMAdapter for AptosVM {
                     TransactionOutputExt::from(output),
                     Some("state_checkpoint".into()),
                 )
-            }
+            },
         })
     }
 }
@@ -1236,17 +1237,16 @@ impl AptosSimulationVM {
         )
     }
 
-    /*
-    Executes a SignedTransaction without performing signature verification
-     */
+    // Executes a SignedTransaction without performing signature verification
     fn simulate_signed_transaction<S: MoveResolverExt + StateView>(
         &self,
         storage: &S,
         txn: &SignedTransaction,
         log_context: &AdapterLogSchema,
     ) -> (VMStatus, TransactionOutputExt) {
-        // simulation transactions should not carry valid signatures, otherwise malicious fullnodes
-        // may execute them without user's explicit permission.
+        // simulation transactions should not carry valid signatures, otherwise
+        // malicious fullnodes may execute them without user's explicit
+        // permission.
         if txn.signature_is_valid() {
             return discard_error_vm_status(VMStatus::Error(StatusCode::INVALID_SIGNATURE));
         }
@@ -1291,11 +1291,11 @@ impl AptosSimulationVM {
                     payload,
                     log_context,
                 )
-            }
+            },
             TransactionPayload::ModuleBundle(m) => {
                 self.0
                     .execute_modules(storage, session, &mut gas_meter, &txn_data, m, log_context)
-            }
+            },
         };
 
         match result {
@@ -1314,7 +1314,7 @@ impl AptosSimulationVM {
                     );
                     (vm_status, output)
                 }
-            }
+            },
         }
     }
 }

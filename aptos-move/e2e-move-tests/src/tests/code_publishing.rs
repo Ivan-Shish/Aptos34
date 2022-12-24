@@ -4,10 +4,11 @@
 use crate::{assert_abort, assert_success, assert_vm_status, tests::common, MoveHarness};
 use aptos_framework::natives::code::{PackageRegistry, UpgradePolicy};
 use aptos_package_builder::PackageBuilder;
-use aptos_types::account_address::{create_resource_address, AccountAddress};
-use aptos_types::on_chain_config::FeatureFlag;
-use move_core_types::parser::parse_struct_tag;
-use move_core_types::vm_status::StatusCode;
+use aptos_types::{
+    account_address::{create_resource_address, AccountAddress},
+    on_chain_config::FeatureFlag,
+};
+use move_core_types::{parser::parse_struct_tag, vm_status::StatusCode};
 use rstest::rstest;
 use serde::{Deserialize, Serialize};
 
@@ -21,8 +22,9 @@ struct State {
     value: u64,
 }
 
-/// Runs the basic publishing test for all legacy flag combinations. Otherwise we will only
-/// run tests which are expected to make a difference for legacy flag combinations.
+/// Runs the basic publishing test for all legacy flag combinations. Otherwise
+/// we will only run tests which are expected to make a difference for legacy
+/// flag combinations.
 #[rstest(enabled, disabled,
     case(vec![], vec![FeatureFlag::CODE_DEPENDENCY_CHECK]),
     case(vec![FeatureFlag::CODE_DEPENDENCY_CHECK], vec![]),
@@ -138,13 +140,15 @@ fn code_publishing_upgrade_fail_overlapping_module() {
     assert_abort!(status, _);
 }
 
-/// This test verifies that the cache incoherence bug on module upgrade is fixed. This bug
-/// exposes itself by that after module upgrade the old version of the module stays
-/// active until the MoveVM terminates. In order to workaround this until there is a better
-/// fix, we flush the cache in `MoveVmExt::new_session`. One can verify the fix by commenting
+/// This test verifies that the cache incoherence bug on module upgrade is
+/// fixed. This bug exposes itself by that after module upgrade the old version
+/// of the module stays active until the MoveVM terminates. In order to
+/// workaround this until there is a better fix, we flush the cache in
+/// `MoveVmExt::new_session`. One can verify the fix by commenting
 /// the flush operation out, then this test fails.
 ///
-/// TODO: for some reason this test did not capture a serious bug in `code::check_coexistence`.
+/// TODO: for some reason this test did not capture a serious bug in
+/// `code::check_coexistence`.
 #[test]
 fn code_publishing_upgrade_loader_cache_consistency() {
     let mut h = MoveHarness::new();
@@ -266,8 +270,9 @@ fn code_publishing_faked_dependency(enabled: Vec<FeatureFlag>, disabled: Vec<Fea
     );
     let pack2_dir = pack2.write_to_temp().unwrap();
     let result = h.publish_package_with_patcher(&acc2, pack2_dir.path(), |metadata| {
-        // Hide the dependency from the lower policy package from the metadata. We detect this
-        // this via checking the actual bytecode module dependencies.
+        // Hide the dependency from the lower policy package from the metadata. We
+        // detect this this via checking the actual bytecode module
+        // dependencies.
         metadata.deps.clear()
     });
     if !enabled.contains(&FeatureFlag::CODE_DEPENDENCY_CHECK) {

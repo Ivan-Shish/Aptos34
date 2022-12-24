@@ -17,8 +17,8 @@ impl DBSubPruner for TransactionStorePruner {
         min_readable_version: u64,
         target_version: u64,
     ) -> anyhow::Result<()> {
-        // Current target version  might be less than the target version to ensure we don't prune
-        // more than max_version in one go.
+        // Current target version  might be less than the target version to ensure we
+        // don't prune more than max_version in one go.
 
         let candidate_transactions =
             self.get_pruning_candidate_transactions(min_readable_version, target_version)?;

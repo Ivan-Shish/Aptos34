@@ -1,8 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::data_stream::DataStreamId;
-use crate::{data_notification::NotificationId, data_stream::DataStreamListener, error::Error};
+use crate::{
+    data_notification::NotificationId,
+    data_stream::{DataStreamId, DataStreamListener},
+    error::Error,
+};
 use aptos_types::{ledger_info::LedgerInfoWithSignatures, transaction::Version};
 use async_trait::async_trait;
 use futures::{
@@ -42,7 +45,8 @@ pub trait DataStreamingClient {
     ) -> Result<DataStreamListener, Error>;
 
     /// Fetches all epoch ending ledger infos starting at `start_epoch`
-    /// (inclusive) and ending at the last known epoch advertised in the network.
+    /// (inclusive) and ending at the last known epoch advertised in the
+    /// network.
     async fn get_all_epoch_ending_ledger_infos(
         &self,
         start_epoch: Epoch,
@@ -86,10 +90,11 @@ pub trait DataStreamingClient {
     /// that contains `known_version + 1`, i.e., any epoch change at
     /// `known_version` must be noted by the client.
     /// Transaction output proof versions are tied to ledger infos within the
-    /// same epoch, otherwise epoch ending ledger infos will signify epoch changes.
+    /// same epoch, otherwise epoch ending ledger infos will signify epoch
+    /// changes.
     ///
-    /// Note: if a `target` is provided, the stream will terminate once it reaches
-    /// the target. Otherwise, it will continue indefinitely.
+    /// Note: if a `target` is provided, the stream will terminate once it
+    /// reaches the target. Otherwise, it will continue indefinitely.
     async fn continuously_stream_transaction_outputs(
         &self,
         known_version: u64,
@@ -103,12 +108,13 @@ pub trait DataStreamingClient {
     /// that contains `known_version + 1`, i.e., any epoch change at
     /// `known_version` must be noted by the client.
     /// Transaction proof versions are tied to ledger infos within the
-    /// same epoch, otherwise epoch ending ledger infos will signify epoch changes.
+    /// same epoch, otherwise epoch ending ledger infos will signify epoch
+    /// changes.
     ///
     /// If `include_events` is true, events are also included in the proofs.
     ///
-    /// Note: if a `target` is provided, the stream will terminate once it reaches
-    /// the target. Otherwise, it will continue indefinitely.
+    /// Note: if a `target` is provided, the stream will terminate once it
+    /// reaches the target. Otherwise, it will continue indefinitely.
     async fn continuously_stream_transactions(
         &self,
         start_version: Version,
@@ -117,19 +123,20 @@ pub trait DataStreamingClient {
         target: Option<LedgerInfoWithSignatures>,
     ) -> Result<DataStreamListener, Error>;
 
-    /// Continuously streams transactions or outputs with proofs as the blockchain
-    /// grows. The stream starts at `known_version + 1` (inclusive) and
-    /// `known_epoch`, where the `known_epoch` is expected to be the epoch
-    /// that contains `known_version + 1`, i.e., any epoch change at
-    /// `known_version` must be noted by the client.
+    /// Continuously streams transactions or outputs with proofs as the
+    /// blockchain grows. The stream starts at `known_version + 1`
+    /// (inclusive) and `known_epoch`, where the `known_epoch` is expected
+    /// to be the epoch that contains `known_version + 1`, i.e., any epoch
+    /// change at `known_version` must be noted by the client.
     /// Transaction or output proof versions are tied to ledger infos within the
-    /// same epoch, otherwise epoch ending ledger infos will signify epoch changes.
+    /// same epoch, otherwise epoch ending ledger infos will signify epoch
+    /// changes.
     ///
     /// If `include_events` is true, events are also included in the proofs when
     /// receiving transaction notifications.
     ///
-    /// Note: if a `target` is provided, the stream will terminate once it reaches
-    /// the target. Otherwise, it will continue indefinitely.
+    /// Note: if a `target` is provided, the stream will terminate once it
+    /// reaches the target. Otherwise, it will continue indefinitely.
     async fn continuously_stream_transactions_or_outputs(
         &self,
         start_version: Version,
@@ -147,7 +154,8 @@ pub trait DataStreamingClient {
     /// data payloads may be invalid, e.g., due to malformed data returned by a
     /// misbehaving peer. This notifies the streaming service to terminate the
     /// stream and take any action based on the provided feedback.
-    /// 2. Clients that wish to continue fetching data need to open a new stream.
+    /// 2. Clients that wish to continue fetching data need to open a new
+    /// stream.
     async fn terminate_stream_with_feedback(
         &self,
         data_stream_id: DataStreamId,
@@ -190,10 +198,10 @@ impl StreamRequest {
             Self::ContinuouslyStreamTransactions(_) => "continuously_stream_transactions",
             Self::ContinuouslyStreamTransactionOutputs(_) => {
                 "continuously_stream_transaction_outputs"
-            }
+            },
             Self::ContinuouslyStreamTransactionsOrOutputs(_) => {
                 "continuously_stream_transactions_or_outputs"
-            }
+            },
             Self::TerminateStream(_) => "terminate_stream",
         }
     }
@@ -255,7 +263,8 @@ pub struct ContinuouslyStreamTransactionOutputsRequest {
     pub target: Option<LedgerInfoWithSignatures>,
 }
 
-/// A client request for continuously streaming transactions or outputs with proofs
+/// A client request for continuously streaming transactions or outputs with
+/// proofs
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContinuouslyStreamTransactionsOrOutputsRequest {
     pub known_version: Version,
@@ -516,8 +525,9 @@ impl NotificationAndFeedback {
     }
 }
 
-/// This method returns a (StreamingServiceClient, StreamingServiceListener) pair that can be used
-/// to allow clients to make requests to the streaming service.
+/// This method returns a (StreamingServiceClient, StreamingServiceListener)
+/// pair that can be used to allow clients to make requests to the streaming
+/// service.
 pub fn new_streaming_service_client_listener_pair(
 ) -> (StreamingServiceClient, StreamingServiceListener) {
     let (request_sender, request_listener) = mpsc::unbounded();

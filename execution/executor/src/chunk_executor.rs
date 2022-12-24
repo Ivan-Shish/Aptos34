@@ -163,7 +163,7 @@ impl<V: VMExecutor> ChunkExecutorInner<V> {
                 base_view.txn_accumulator().num_leaves(),
                 base_view.state().base_version,
                 ledger_info,
-                false, /* sync_commit */
+                false, // sync_commit
                 to_commit.result_view.state().clone(),
             )?;
         }
@@ -175,7 +175,8 @@ impl<V: VMExecutor> ChunkExecutorInner<V> {
         Ok(to_commit)
     }
 
-    // ************************* Block Executor Implementation *************************
+    // ************************* Block Executor Implementation
+    // *************************
     fn execute_chunk(
         &self,
         txn_list_with_proof: TransactionListWithProof,

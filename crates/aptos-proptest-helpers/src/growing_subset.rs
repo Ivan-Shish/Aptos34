@@ -6,10 +6,12 @@ use std::iter::FromIterator;
 
 /// A set of elements, each with an associated key, that grows over time.
 ///
-/// This is called `GrowingSubset` because the universal set the subset grows from is provided
-/// upfront. At any time, the items included form the *current subset*.
+/// This is called `GrowingSubset` because the universal set the subset grows
+/// from is provided upfront. At any time, the items included form the *current
+/// subset*.
 ///
-/// `GrowingSubset` integrates with `proptest` through the [`pick_item`][GrowingSubset::pick_item]
+/// `GrowingSubset` integrates with `proptest` through the
+/// [`pick_item`][GrowingSubset::pick_item]
 /// and [`pick_value`][GrowingSubset::pick_value] methods.
 ///
 /// # Examples
@@ -70,7 +72,8 @@ where
 {
     /// Returns the number of elements in the *current subset*.
     ///
-    /// See [`total_len`](GrowingSubset::total_len) for the length of the universal set.
+    /// See [`total_len`](GrowingSubset::total_len) for the length of the
+    /// universal set.
     pub fn len(&self) -> usize {
         self.current_pos
     }
@@ -92,8 +95,9 @@ where
         &self.items[0..self.current_pos]
     }
 
-    /// Chooses an (index, value) pair from the *current subset* using the provided
-    /// [`Index`](proptest::sample::Index) instance as the source of randomness.
+    /// Chooses an (index, value) pair from the *current subset* using the
+    /// provided [`Index`](proptest::sample::Index) instance as the source
+    /// of randomness.
     pub fn pick_item(&self, index: &Index) -> &(Ix, T) {
         index.get(self.current())
     }
@@ -104,13 +108,15 @@ where
         &self.pick_item(index).1
     }
 
-    /// Advances the valid subset to the provided index. After the end of this, the *current subset*
-    /// will contain all elements where the index is *less than* `to_idx`.
+    /// Advances the valid subset to the provided index. After the end of this,
+    /// the *current subset* will contain all elements where the index is
+    /// *less than* `to_idx`.
     ///
-    /// If duplicate indexes exist, `advance_to` will cause all of the corresponding items to be
-    /// included.
+    /// If duplicate indexes exist, `advance_to` will cause all of the
+    /// corresponding items to be included.
     ///
-    /// It is expected that `advance_to` will be called with larger indexes over time.
+    /// It is expected that `advance_to` will be called with larger indexes over
+    /// time.
     pub fn advance_to(&mut self, to_idx: &Ix) {
         let len = self.items.len();
         while self.current_pos < len {

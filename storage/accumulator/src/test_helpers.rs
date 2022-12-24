@@ -63,11 +63,12 @@ impl MockHashStore {
         Ok(())
     }
 
-    /// Return the placeholder hash if left and right hashes both are the placeholder hash,
-    /// otherwise delegate to `TestAccumulatorView::hash_internal_node`.
+    /// Return the placeholder hash if left and right hashes both are the
+    /// placeholder hash, otherwise delegate to
+    /// `TestAccumulatorView::hash_internal_node`.
     ///
-    /// This is needed because a real Accumulator subtree with only placeholder nodes are trimmed
-    /// (never generated nor accessed).
+    /// This is needed because a real Accumulator subtree with only placeholder
+    /// nodes are trimmed (never generated nor accessed).
     fn hash_internal(left: HashValue, right: HashValue) -> HashValue {
         if left == *ACCUMULATOR_PLACEHOLDER_HASH && right == *ACCUMULATOR_PLACEHOLDER_HASH {
             *ACCUMULATOR_PLACEHOLDER_HASH
@@ -121,16 +122,17 @@ impl MockHashStore {
         Ok(me)
     }
 
-    /// (Naively) Verify `self.store` has in it nodes that represent an accumulator of `leaves` and
-    /// only those nodes.
+    /// (Naively) Verify `self.store` has in it nodes that represent an
+    /// accumulator of `leaves` and only those nodes.
     ///
-    /// 1. expand the accumulator tree to a virtual full binary tree by adding placeholder nodes
-    /// 2. recursively:
+    /// 1. expand the accumulator tree to a virtual full binary tree by adding
+    /// placeholder nodes 2. recursively:
     ///     a. in-order number each node, call it "position"
     ///     b. calculate internal node hash out of its children
     ///     c. sum up frozen nodes
-    ///     d. verify frozen nodes are in store at the above mentioned "position"
-    /// 4. verify number of nodes in store matches exactly number of frozen nodes.
+    ///     d. verify frozen nodes are in store at the above mentioned
+    /// "position" 4. verify number of nodes in store matches exactly number
+    /// of frozen nodes.
     pub fn verify(&self, leaves: &[HashValue]) -> Result<HashValue> {
         if leaves.is_empty() {
             ensure!(self.store.is_empty(), "non-empty store for empty tree.");

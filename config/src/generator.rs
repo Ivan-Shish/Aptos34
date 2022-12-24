@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! Convenience structs and functions for generating a random set of nodes without the
-//! genesis.blob.
+//! Convenience structs and functions for generating a random set of nodes
+//! without the genesis.blob.
 
 use crate::{
     config::{
@@ -33,7 +33,8 @@ pub fn validator_swarm(
             node.randomize_ports();
         }
 
-        // For a validator node, any of its validator peers are considered an upstream peer
+        // For a validator node, any of its validator peers are considered an upstream
+        // peer
         let network = node.validator_network.as_mut().unwrap();
         network.discovery_method = DiscoveryMethod::Onchain;
         network.mutual_authentication = true;
@@ -67,9 +68,9 @@ pub fn validator_swarm_for_testing(nodes: usize) -> ValidatorSwarm {
     validator_swarm(&config, nodes, [1u8; 32], true)
 }
 
-/// Convenience function that builds a `PeerSet` containing a single peer for testing
-/// with a fully formatted `NetworkAddress` containing its network identity pubkey
-/// and handshake protocol version.
+/// Convenience function that builds a `PeerSet` containing a single peer for
+/// testing with a fully formatted `NetworkAddress` containing its network
+/// identity pubkey and handshake protocol version.
 pub fn build_seed_for_network(seed_config: &NetworkConfig, seed_role: PeerRole) -> PeerSet {
     let seed_pubkey = aptos_crypto::PrivateKey::public_key(&seed_config.identity_key());
     let seed_addr = seed_config

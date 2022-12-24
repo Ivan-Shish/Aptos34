@@ -156,11 +156,13 @@ pub static APTOS_NETWORK_DISCOVERY_NOTES: Lazy<IntGaugeVec> = Lazy::new(|| {
 });
 
 pub static APTOS_NETWORK_RPC_MESSAGES: Lazy<IntCounterVec> = Lazy::new(|| {
-    register_int_counter_vec!(
-        "aptos_network_rpc_messages",
-        "Number of RPC messages",
-        &["role_type", "network_id", "peer_id", "type", "state"]
-    )
+    register_int_counter_vec!("aptos_network_rpc_messages", "Number of RPC messages", &[
+        "role_type",
+        "network_id",
+        "peer_id",
+        "type",
+        "state"
+    ])
     .unwrap()
 });
 
@@ -303,8 +305,8 @@ pub fn direct_send_bytes(
     ])
 }
 
-/// Counters(queued,dequeued,dropped) related to inbound network notifications for RPCs and
-/// DirectSends.
+/// Counters(queued,dequeued,dropped) related to inbound network notifications
+/// for RPCs and DirectSends.
 pub static PENDING_NETWORK_NOTIFICATIONS: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_network_pending_network_notifications",
@@ -354,9 +356,7 @@ pub static PENDING_PEER_MANAGER_REQUESTS: Lazy<IntCounterVec> = Lazy::new(|| {
     .unwrap()
 });
 
-///
 /// Channel Counters
-///
 
 /// Counter of pending requests in Connectivity Manager
 pub static PENDING_CONNECTIVITY_MANAGER_REQUESTS: Lazy<IntGauge> = Lazy::new(|| {
@@ -403,7 +403,8 @@ pub static PENDING_MULTIPLEX_MESSAGE: Lazy<IntGauge> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counter of stream messages pending in queue to be sent out on the multiplex channel
+/// Counter of stream messages pending in queue to be sent out on the multiplex
+/// channel
 pub static PENDING_MULTIPLEX_STREAM: Lazy<IntGauge> = Lazy::new(|| {
     register_int_gauge!(
         "aptos_network_pending_multiplex_stream",

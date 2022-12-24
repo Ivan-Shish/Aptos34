@@ -25,19 +25,13 @@ use aptos_data_streaming_service::{
     streaming_client::{new_streaming_service_client_listener_pair, StreamingServiceClient},
     streaming_service::DataStreamingService,
 };
-use aptos_infallible::RwLock;
-use aptos_logger::{prelude::*, telemetry_log_writer::TelemetryLog, Level, LoggerFilterUpdater};
-use aptos_state_view::account_with_state_view::AsAccountWithStateView;
-use aptos_time_service::TimeService;
-use aptos_types::{
-    account_config::CORE_CODE_ADDRESS, account_view::AccountView, chain_id::ChainId,
-    on_chain_config::ON_CHAIN_CONFIG_REGISTRY, waypoint::Waypoint,
-};
-
 use aptos_db::AptosDB;
 use aptos_event_notifications::EventSubscriptionService;
 use aptos_executor::{chunk_executor::ChunkExecutor, db_bootstrapper::maybe_bootstrap};
 use aptos_framework::ReleaseBundle;
+use aptos_infallible::RwLock;
+use aptos_logger::{prelude::*, telemetry_log_writer::TelemetryLog, Level, LoggerFilterUpdater};
+use aptos_mempool::MempoolClientSender;
 use aptos_mempool_notifications::MempoolNotificationSender;
 use aptos_network::application::storage::PeerMetadataStorage;
 use aptos_network_builder::builder::NetworkBuilder;
@@ -45,10 +39,16 @@ use aptos_state_sync_driver::{
     driver_factory::{DriverFactory, StateSyncRuntimes},
     metadata_storage::PersistentMetadataStorage,
 };
+use aptos_state_view::account_with_state_view::AsAccountWithStateView;
 use aptos_storage_interface::{state_view::LatestDbStateCheckpointView, DbReader, DbReaderWriter};
 use aptos_storage_service_client::{StorageServiceClient, StorageServiceMultiSender};
 use aptos_storage_service_server::{
     network::StorageServiceNetworkEvents, StorageReader, StorageServiceServer,
+};
+use aptos_time_service::TimeService;
+use aptos_types::{
+    account_config::CORE_CODE_ADDRESS, account_view::AccountView, chain_id::ChainId,
+    on_chain_config::ON_CHAIN_CONFIG_REGISTRY, waypoint::Waypoint,
 };
 use aptos_vm::AptosVM;
 use clap::Parser;
@@ -70,8 +70,6 @@ use std::{
     time::Instant,
 };
 use tokio::runtime::{Builder, Runtime};
-
-use aptos_mempool::MempoolClientSender;
 
 const AC_SMP_CHANNEL_BUFFER_SIZE: usize = 1_024;
 const INTRA_NODE_CHANNEL_BUFFER_SIZE: usize = 1;
@@ -96,7 +94,8 @@ pub struct AptosNodeArgs {
     #[clap(long)]
     test: bool,
 
-    /// Random number generator seed to use when starting a single validator testnet
+    /// Random number generator seed to use when starting a single validator
+    /// testnet
     #[clap(long, parse(try_from_str = FromHex::from_hex), requires("test"))]
     seed: Option<[u8; 32]>,
 
@@ -110,8 +109,9 @@ pub struct AptosNodeArgs {
 
     /// Enable lazy mode
     ///
-    /// Setting this flag will set `consensus#mempool_poll_count` config to `u64::MAX` and
-    /// only commit a block when there is user transaction in mempool.
+    /// Setting this flag will set `consensus#mempool_poll_count` config to
+    /// `u64::MAX` and only commit a block when there is user transaction in
+    /// mempool.
     #[clap(long, requires("test"))]
     lazy: bool,
 }
@@ -143,7 +143,8 @@ impl AptosNodeArgs {
             let config_path = self.config.expect("Config is required to launch node");
             if !config_path.exists() {
                 panic!(
-                    "The node config file could not be found! Ensure the given path is correct: {:?}",
+                    "The node config file could not be found! Ensure the given path is correct: \
+                     {:?}",
                     config_path.display()
                 )
             }
@@ -279,8 +280,8 @@ where
         // Build a single validator network with a generated config
         let mut template = NodeConfig::default_for_validator();
 
-        // Adjust some fields in the default template to lower the overhead of running on a
-        // local machine
+        // Adjust some fields in the default template to lower the overhead of running
+        // on a local machine
         template.execution.concurrency_level = 1;
         template.execution.num_proof_reading_threads = 1;
         template.peer_monitoring_service.max_concurrent_requests = 1;
@@ -591,8 +592,8 @@ fn create_checkpoint_and_change_working_dir(
 
     AptosDB::open(
         &source_dir,
-        false,                       /* readonly */
-        NO_OP_STORAGE_PRUNER_CONFIG, /* pruner */
+        false,                       // readonly
+        NO_OP_STORAGE_PRUNER_CONFIG, // pruner
         RocksdbConfigs::default(),
         false,
         BUFFERED_STATE_TARGET_ITEMS,
@@ -623,8 +624,9 @@ pub fn setup_environment(
     });
 
     // If working_dir is provided, we will make RocksDb checkpoint for consensus_db,
-    // state_sync_db, ledger_db and state_merkle_db to the checkpoint_path, and running the node
-    // on the new path, so that the existing data won't change. For now this is a testonly feature.
+    // state_sync_db, ledger_db and state_merkle_db to the checkpoint_path, and
+    // running the node on the new path, so that the existing data won't change.
+    // For now this is a testonly feature.
     if let Some(working_dir) = node_config.base.working_dir.clone() {
         create_checkpoint_and_change_working_dir(&mut node_config, working_dir);
     }
@@ -634,7 +636,7 @@ pub fn setup_environment(
     let (aptos_db, db_rw) = DbReaderWriter::wrap(
         AptosDB::open(
             &node_config.storage.dir(),
-            false, /* readonly */
+            false, // readonly
             node_config.storage.storage_pruner_config,
             node_config.storage.rocksdb_configs,
             node_config.storage.enable_indexer,
@@ -654,7 +656,10 @@ pub fn setup_environment(
         maybe_bootstrap::<AptosVM>(&db_rw, genesis, genesis_waypoint)
             .map_err(|err| anyhow!("DB failed to bootstrap {}", err))?;
     } else {
-        info!("Genesis txn not provided, it's fine if you don't expect to apply it otherwise please double check config");
+        info!(
+            "Genesis txn not provided, it's fine if you don't expect to apply it otherwise please \
+             double check config"
+        );
     }
     AptosVM::set_paranoid_type_checks(node_config.execution.paranoid_type_verification);
     AptosVM::set_concurrency_level_once(node_config.execution.concurrency_level as usize);
@@ -679,7 +684,8 @@ pub fn setup_environment(
     let mut storage_service_server_network_handles = vec![];
     let mut storage_service_client_network_handles = HashMap::new();
 
-    // Create an event subscription service so that components can be notified of events and reconfigs
+    // Create an event subscription service so that components can be notified of
+    // events and reconfigs
     let mut event_subscription_service = EventSubscriptionService::new(
         ON_CHAIN_CONFIG_REGISTRY,
         Arc::new(RwLock::new(db_rw.clone())),
@@ -687,7 +693,8 @@ pub fn setup_environment(
     let mempool_reconfig_subscription =
         event_subscription_service.subscribe_to_reconfigurations()?;
 
-    // Create a consensus subscription for reconfiguration events (if this node is a validator).
+    // Create a consensus subscription for reconfiguration events (if this node is a
+    // validator).
     let consensus_reconfig_subscription = if node_config.base.role.is_validator() {
         Some(event_subscription_service.subscribe_to_reconfigurations()?)
     } else {
@@ -704,7 +711,8 @@ pub fn setup_environment(
         network_configs.push(network_config);
     }
 
-    // Instantiate every network and collect the requisite endpoints for state_sync, mempool, and consensus.
+    // Instantiate every network and collect the requisite endpoints for state_sync,
+    // mempool, and consensus.
     let mut network_ids = HashSet::new();
     network_configs.iter().for_each(|config| {
         let network_id = config.network_id;
@@ -723,8 +731,8 @@ pub fn setup_environment(
     let chain_id = fetch_chain_id(&db_rw)?;
 
     let build_info = build_information!();
-    // Start the telemetry service as early as possible and before any blocking calls
-    // We have all the necesary info here to start the telemetry service
+    // Start the telemetry service as early as possible and before any blocking
+    // calls We have all the necesary info here to start the telemetry service
     let telemetry_runtime = aptos_telemetry::service::start_telemetry_service(
         node_config.clone(),
         chain_id,
@@ -817,10 +825,12 @@ pub fn setup_environment(
         network_runtimes.push(runtime);
     }
 
-    // TODO set up on-chain discovery network based on UpstreamConfig.fallback_network
-    // and pass network handles to mempool/state sync
+    // TODO set up on-chain discovery network based on
+    // UpstreamConfig.fallback_network and pass network handles to mempool/state
+    // sync
 
-    // For state sync to send notifications to mempool and receive notifications from consensus.
+    // For state sync to send notifications to mempool and receive notifications
+    // from consensus.
     let (mempool_notifier, mempool_listener) =
         aptos_mempool_notifications::new_mempool_notifier_listener_pair();
     let (consensus_notifier, consensus_listener) =
@@ -876,14 +886,15 @@ pub fn setup_environment(
     );
     debug!("Mempool started in {} ms", instant.elapsed().as_millis());
 
-    // StateSync should be instantiated and started before Consensus to avoid a cyclic dependency:
-    // network provider -> consensus -> state synchronizer -> network provider.  This has resulted
-    // in a deadlock as observed in GitHub issue #749.
+    // StateSync should be instantiated and started before Consensus to avoid a
+    // cyclic dependency: network provider -> consensus -> state synchronizer ->
+    // network provider.  This has resulted in a deadlock as observed in GitHub
+    // issue #749.
     if let Some((consensus_network_sender, consensus_network_events)) = consensus_network_handles {
         // Make sure that state synchronizer is caught up at least to its waypoint
         // (in case it's present). There is no sense to start consensus prior to that.
-        // TODO: Note that we need the networking layer to be able to discover & connect to the
-        // peers with potentially outdated network identity public keys.
+        // TODO: Note that we need the networking layer to be able to discover & connect
+        // to the peers with potentially outdated network identity public keys.
         debug!("Wait until state sync is initialized");
         state_sync_runtimes.block_until_initialized();
         debug!("State sync initialization complete.");

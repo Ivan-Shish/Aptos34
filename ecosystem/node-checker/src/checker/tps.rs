@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{api_index::ApiIndexProvider, Provider, ProviderCollection},
@@ -13,8 +14,6 @@ use aptos_transaction_emitter_lib::{
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error as ThisError;
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 const NODE_REQUIREMENTS_LINK: &str =
     "https://aptos.dev/nodes/validator-node/operator/node-requirements";
@@ -34,7 +33,10 @@ pub enum TpsCheckerError {
     /// We return this error if the transaction emitter failed to emit
     /// more transactions than the configured min TPS. This implies
     /// a configuration error.
-    #[error("The transaction emitter only submitted {0} TPS but the minimum TPS requirement is {1}, this implies a configuration problem with the NHC instance")]
+    #[error(
+        "The transaction emitter only submitted {0} TPS but the minimum TPS requirement is {1}, \
+         this implies a configuration problem with the NHC instance"
+    )]
     InsufficientSubmittedTransactionsError(u64, u64),
 }
 
@@ -122,7 +124,7 @@ impl Checker for TpsChecker {
                     0,
                     format!("There was an error querying your node's API: {:#}", err),
                 )]);
-            }
+            },
         };
 
         let cluster_config = ClusterArgs {
@@ -150,14 +152,16 @@ impl Checker for TpsChecker {
             .into());
         }
 
-        let mut description = format!("The minimum TPS (transactions per second) \
-            required of nodes is {}, your node hit: {} (out of {} transactions submitted per second).", self.config.minimum_tps, rate.committed, rate.submitted);
+        let mut description = format!(
+            "The minimum TPS (transactions per second) required of nodes is {}, your node hit: {} \
+             (out of {} transactions submitted per second).",
+            self.config.minimum_tps, rate.committed, rate.submitted
+        );
         let evaluation_result = if rate.committed >= self.config.minimum_tps {
             if stats.committed == stats.submitted {
                 description.push_str(
-                    " Your node could theoretically hit \
-                even higher TPS, the evaluation suite only tests to check \
-                your node meets the minimum requirements.",
+                    " Your node could theoretically hit even higher TPS, the evaluation suite \
+                     only tests to check your node meets the minimum requirements.",
                 );
             }
             Self::build_result(
@@ -167,8 +171,8 @@ impl Checker for TpsChecker {
             )
         } else {
             description.push_str(
-                " This implies that the hardware you're \
-            using to run your node isn't powerful enough, please see the attached link",
+                " This implies that the hardware you're using to run your node isn't powerful \
+                 enough, please see the attached link",
             );
             Self::build_result(
                 "Transaction processing speed is too low".to_string(),

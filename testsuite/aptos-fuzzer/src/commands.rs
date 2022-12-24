@@ -14,8 +14,8 @@ use std::{
     process::Command,
 };
 
-/// Generates data for this fuzz target into the output directory. Returns the number of items
-/// generated.
+/// Generates data for this fuzz target into the output directory. Returns the
+/// number of items generated.
 ///
 /// The corpus directory should be present at the time this method is called.
 pub fn make_corpus(
@@ -34,9 +34,10 @@ pub fn make_corpus(
         let result = match target.generate(idx, &mut gen) {
             Some(bytes) => bytes,
             None => {
-                // No value could be generated. Assume that corpus generation has been exhausted.
+                // No value could be generated. Assume that corpus generation has been
+                // exhausted.
                 break;
-            }
+            },
         };
         // Use the SHA-1 of the result as the file name.
         sha1.update(&result);
@@ -66,14 +67,14 @@ pub fn fuzz_target(
 ) -> Result<()> {
     static FUZZ_RUNNER: &str = "fuzz_runner";
 
-    // Do a bit of arg parsing -- look for a "--" and insert the target and corpus directory
-    // before that.
+    // Do a bit of arg parsing -- look for a "--" and insert the target and corpus
+    // directory before that.
     let dash_dash_pos = args.iter().position(|x| x == "--");
     let splice_pos = dash_dash_pos.unwrap_or(args.len());
-    args.splice(
-        splice_pos..splice_pos,
-        vec![FUZZ_RUNNER.into(), corpus_dir.into()],
-    );
+    args.splice(splice_pos..splice_pos, vec![
+        FUZZ_RUNNER.into(),
+        corpus_dir.into(),
+    ]);
 
     // The artifact dir goes at the end.
     if dash_dash_pos.is_none() {
@@ -81,7 +82,8 @@ pub fn fuzz_target(
     }
     let mut artifact_arg: OsString = "-artifact_prefix=".into();
     artifact_arg.push(&artifact_dir);
-    // Add a trailing slash as required by libfuzzer to put the artifact in a directory.
+    // Add a trailing slash as required by libfuzzer to put the artifact in a
+    // directory.
     artifact_arg.push("/");
     args.push(artifact_arg);
 

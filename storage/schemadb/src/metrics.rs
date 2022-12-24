@@ -15,7 +15,13 @@ pub static APTOS_SCHEMADB_ITER_LATENCY_SECONDS: Lazy<HistogramVec> = Lazy::new(|
         "Aptos schemadb iter latency in seconds",
         // metric labels (dimensions)
         &["cf_name"],
-        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-6, // factor=
+            2.0,  // count=
+            22
+        )
+        .unwrap(),
     )
     .unwrap()
 });
@@ -40,7 +46,13 @@ pub static APTOS_SCHEMADB_GET_LATENCY_SECONDS: Lazy<HistogramVec> = Lazy::new(||
         "Aptos schemadb get latency in seconds",
         // metric labels (dimensions)
         &["cf_name"],
-        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-6, // factor=
+            2.0,  // count=
+            22
+        )
+        .unwrap(),
     )
     .unwrap()
 });
@@ -65,7 +77,13 @@ pub static APTOS_SCHEMADB_BATCH_COMMIT_LATENCY_SECONDS: Lazy<HistogramVec> = Laz
         "Aptos schemadb schema batch commit latency in seconds",
         // metric labels (dimensions)
         &["db_name"],
-        exponential_buckets(/*start=*/ 1e-3, /*factor=*/ 2.0, /*count=*/ 20).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-3, // factor=
+            2.0,  // count=
+            20
+        )
+        .unwrap(),
     )
     .unwrap()
 });
@@ -95,11 +113,9 @@ pub static APTOS_SCHEMADB_PUT_BYTES: Lazy<HistogramVec> = Lazy::new(|| {
 });
 
 pub static APTOS_SCHEMADB_DELETES: Lazy<IntCounterVec> = Lazy::new(|| {
-    register_int_counter_vec!(
-        "aptos_storage_deletes",
-        "Aptos storage delete calls",
-        &["cf_name"]
-    )
+    register_int_counter_vec!("aptos_storage_deletes", "Aptos storage delete calls", &[
+        "cf_name"
+    ])
     .unwrap()
 });
 
@@ -111,7 +127,13 @@ pub static APTOS_SCHEMADB_BATCH_PUT_LATENCY_SECONDS: Lazy<HistogramVec> = Lazy::
         "Aptos schemadb schema batch put latency in seconds",
         // metric labels (dimensions)
         &["db_name"],
-        exponential_buckets(/*start=*/ 1e-3, /*factor=*/ 2.0, /*count=*/ 20).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-3, // factor=
+            2.0,  // count=
+            20
+        )
+        .unwrap(),
     )
     .unwrap()
 });

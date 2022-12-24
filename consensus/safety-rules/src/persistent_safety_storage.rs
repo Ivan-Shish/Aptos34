@@ -13,14 +13,16 @@ use aptos_logger::prelude::*;
 use aptos_secure_storage::{KVStorage, Storage};
 use aptos_types::waypoint::Waypoint;
 
-/// SafetyRules needs an abstract storage interface to act as a common utility for storing
-/// persistent data to local disk, cloud, secrets managers, or even memory (for tests)
-/// Any set function is expected to sync to the remote system before returning.
+/// SafetyRules needs an abstract storage interface to act as a common utility
+/// for storing persistent data to local disk, cloud, secrets managers, or even
+/// memory (for tests) Any set function is expected to sync to the remote system
+/// before returning.
 ///
-/// Note: cached_safety_data is a local in-memory copy of SafetyData. As SafetyData should
-/// only ever be used by safety rules, we maintain an in-memory copy to avoid issuing reads
-/// to the internal storage if the SafetyData hasn't changed. On writes, we update the
-/// cache and internal storage.
+/// Note: cached_safety_data is a local in-memory copy of SafetyData. As
+/// SafetyData should only ever be used by safety rules, we maintain an
+/// in-memory copy to avoid issuing reads to the internal storage if the
+/// SafetyData hasn't changed. On writes, we update the cache and internal
+/// storage.
 pub struct PersistentSafetyStorage {
     enable_cached_safety_data: bool,
     cached_safety_data: Option<SafetyData>,
@@ -28,8 +30,8 @@ pub struct PersistentSafetyStorage {
 }
 
 impl PersistentSafetyStorage {
-    /// Use this to instantiate a PersistentStorage for a new data store, one that has no
-    /// SafetyRules values set.
+    /// Use this to instantiate a PersistentStorage for a new data store, one
+    /// that has no SafetyRules values set.
     pub fn initialize(
         mut internal_store: Storage,
         author: Author,
@@ -66,11 +68,11 @@ impl PersistentSafetyStorage {
         consensus_private_key: bls12381::PrivateKey,
     ) -> Result<(), Error> {
         let result = internal_store.set(CONSENSUS_KEY, consensus_private_key);
-        // Attempting to re-initialize existing storage. This can happen in environments like
-        // forge. Rather than be rigid here, leave it up to the developer to detect
-        // inconsistencies or why they did not reset storage between rounds. Do not repeat the
-        // checks again below, because it is just too strange to have a partially configured
-        // storage.
+        // Attempting to re-initialize existing storage. This can happen in environments
+        // like forge. Rather than be rigid here, leave it up to the developer
+        // to detect inconsistencies or why they did not reset storage between
+        // rounds. Do not repeat the checks again below, because it is just too
+        // strange to have a partially configured storage.
         if let Err(aptos_secure_storage::Error::KeyAlreadyExists(_)) = result {
             warn!("Attempted to re-initialize existing storage");
             return Ok(());
@@ -80,8 +82,8 @@ impl PersistentSafetyStorage {
         Ok(())
     }
 
-    /// Use this to instantiate a PersistentStorage with an existing data store. This is intended
-    /// for constructed environments.
+    /// Use this to instantiate a PersistentStorage with an existing data store.
+    /// This is intended for constructed environments.
     pub fn new(internal_store: Storage, enable_cached_safety_data: bool) -> Self {
         Self {
             enable_cached_safety_data,
@@ -136,11 +138,11 @@ impl PersistentSafetyStorage {
             Ok(_) => {
                 self.cached_safety_data = Some(data);
                 Ok(())
-            }
+            },
             Err(error) => {
                 self.cached_safety_data = None;
                 Err(Error::SecureStorageUnexpectedError(error.to_string()))
-            }
+            },
         }
     }
 
@@ -177,8 +179,8 @@ mod tests {
     };
     use rusty_fork::rusty_fork_test;
 
-    // Metrics are globally instantiated. We use rusty_fork to prevent concurrent tests
-    // from interfering with the metrics while we run this test.
+    // Metrics are globally instantiated. We use rusty_fork to prevent concurrent
+    // tests from interfering with the metrics while we run this test.
     rusty_fork_test! {
         #[test]
         fn test_counters() {

@@ -20,8 +20,8 @@ pub enum NoiseHandshakeError {
     ClientWriteFailed(io::Error),
 
     #[error(
-        "noise client: error reading server handshake response message, server \
-         probably rejected our handshake message: {0}"
+        "noise client: error reading server handshake response message, server probably rejected \
+         our handshake message: {0}"
     )]
     ClientReadFailed(io::Error),
 
@@ -41,8 +41,7 @@ pub enum NoiseHandshakeError {
     SelfDialDetected,
 
     #[error(
-        "noise server: client {0}: client is expecting us to have a different \
-         public key: {1}"
+        "noise server: client {0}: client is expecting us to have a different public key: {1}"
     )]
     ClientExpectingDifferentPubkey(ShortHexStr, String),
 
@@ -50,8 +49,8 @@ pub enum NoiseHandshakeError {
     ServerParseClient(ShortHexStr, NoiseError),
 
     #[error(
-        "noise server: client {0}: known client peer id connecting to us with \
-         unauthenticated public key: {1}"
+        "noise server: client {0}: known client peer id connecting to us with unauthenticated \
+         public key: {1}"
     )]
     UnauthenticatedClientPubkey(ShortHexStr, String),
 
@@ -59,8 +58,8 @@ pub enum NoiseHandshakeError {
     UnauthenticatedClient(ShortHexStr, PeerId),
 
     #[error(
-        "noise server: client {0}: client's self-reported peer id and pubkey-derived peer \
-         id don't match: self-reported: {1}, derived: {2}"
+        "noise server: client {0}: client's self-reported peer id and pubkey-derived peer id \
+         don't match: self-reported: {1}, derived: {2}"
     )]
     ClientPeerIdMismatch(ShortHexStr, PeerId, PeerId),
 
@@ -68,8 +67,8 @@ pub enum NoiseHandshakeError {
     MissingAntiReplayTimestamp(ShortHexStr),
 
     #[error(
-        "noise server: client {0}: detected a replayed handshake message, we've \
-         seen this timestamp before: {1}"
+        "noise server: client {0}: detected a replayed handshake message, we've seen this \
+         timestamp before: {1}"
     )]
     ServerReplayDetected(ShortHexStr, u64),
 
@@ -81,8 +80,8 @@ pub enum NoiseHandshakeError {
 }
 
 impl NoiseHandshakeError {
-    /// Errors that are either clear bugs or indicate some security issue. Should
-    /// immediately alert an engineer if we hit one of these errors.
+    /// Errors that are either clear bugs or indicate some security issue.
+    /// Should immediately alert an engineer if we hit one of these errors.
     pub fn should_security_log(&self) -> bool {
         use NoiseHandshakeError::*;
         matches!(self, ServerReplayDetected(_, _))

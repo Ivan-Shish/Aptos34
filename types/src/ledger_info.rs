@@ -16,36 +16,37 @@ use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::{
+    collections::BTreeMap,
     fmt::{Display, Formatter},
     ops::{Deref, DerefMut},
 };
 
 /// This structure serves a dual purpose.
 ///
-/// First, if this structure is signed by 2f+1 validators it signifies the state of the ledger at
-/// version `version` -- it contains the transaction accumulator at that version which commits to
-/// all historical transactions. This structure may be expanded to include other information that
-/// is derived from that accumulator (e.g. the current time according to the time contract) to
-/// reduce the number of proofs a client must get.
+/// First, if this structure is signed by 2f+1 validators it signifies the state
+/// of the ledger at version `version` -- it contains the transaction
+/// accumulator at that version which commits to all historical transactions.
+/// This structure may be expanded to include other information that is derived
+/// from that accumulator (e.g. the current time according to the time contract)
+/// to reduce the number of proofs a client must get.
 ///
-/// Second, the structure contains a `consensus_data_hash` value. This is the hash of an internal
-/// data structure that represents a block that is voted on in HotStuff. If 2f+1 signatures are
-/// gathered on the same ledger info that represents a Quorum Certificate (QC) on the consensus
-/// data.
+/// Second, the structure contains a `consensus_data_hash` value. This is the
+/// hash of an internal data structure that represents a block that is voted on
+/// in HotStuff. If 2f+1 signatures are gathered on the same ledger info that
+/// represents a Quorum Certificate (QC) on the consensus data.
 ///
-/// Combining these two concepts, when a validator votes on a block, B it votes for a
-/// LedgerInfo with the `version` being the latest version that will be committed if B gets 2f+1
-/// votes. It sets `consensus_data_hash` to represent B so that if those 2f+1 votes are gathered a
-/// QC is formed on B.
+/// Combining these two concepts, when a validator votes on a block, B it votes
+/// for a LedgerInfo with the `version` being the latest version that will be
+/// committed if B gets 2f+1 votes. It sets `consensus_data_hash` to represent B
+/// so that if those 2f+1 votes are gathered a QC is formed on B.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, CryptoHasher, BCSCryptoHash)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct LedgerInfo {
     commit_info: BlockInfo,
 
-    /// Hash of consensus specific data that is opaque to all parts of the system other than
-    /// consensus.
+    /// Hash of consensus specific data that is opaque to all parts of the
+    /// system other than consensus.
     consensus_data_hash: HashValue,
 }
 
@@ -56,7 +57,8 @@ impl Display for LedgerInfo {
 }
 
 impl LedgerInfo {
-    /// Constructs a `LedgerInfo` object based on the given commit info and vote data hash.
+    /// Constructs a `LedgerInfo` object based on the given commit info and vote
+    /// data hash.
     pub fn new(commit_info: BlockInfo, consensus_data_hash: HashValue) -> Self {
         Self {
             commit_info,
@@ -83,8 +85,8 @@ impl LedgerInfo {
         &self.commit_info
     }
 
-    /// A series of wrapper functions for the data stored in the commit info. For the detailed
-    /// information, please refer to `BlockInfo`
+    /// A series of wrapper functions for the data stored in the commit info.
+    /// For the detailed information, please refer to `BlockInfo`
     pub fn epoch(&self) -> u64 {
         self.commit_info.epoch()
     }
@@ -136,7 +138,8 @@ impl LedgerInfo {
     }
 }
 
-/// Wrapper around LedgerInfoWithScheme to support future upgrades, this is the data being persisted.
+/// Wrapper around LedgerInfoWithScheme to support future upgrades, this is the
+/// data being persisted.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum LedgerInfoWithSignatures {
     V0(LedgerInfoWithV0),
@@ -164,7 +167,8 @@ impl LedgerInfoWithSignatures {
     }
 }
 
-/// Helper function to generate LedgerInfoWithSignature from a set of validator signers used for testing
+/// Helper function to generate LedgerInfoWithSignature from a set of validator
+/// signers used for testing
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn generate_ledger_info_with_sig(
     validators: &[ValidatorSigner],
@@ -187,8 +191,8 @@ pub fn generate_ledger_info_with_sig(
     )
 }
 
-// Temporary hack to avoid massive changes, it won't work when new variant comes and needs proper
-// dispatch at that time.
+// Temporary hack to avoid massive changes, it won't work when new variant comes
+// and needs proper dispatch at that time.
 impl Deref for LedgerInfoWithSignatures {
     type Target = LedgerInfoWithV0;
 
@@ -209,14 +213,15 @@ impl DerefMut for LedgerInfoWithSignatures {
 
 /// The validator node returns this structure which includes signatures
 /// from validators that confirm the state.  The client needs to only pass back
-/// the LedgerInfo element since the validator node doesn't need to know the signatures
-/// again when the client performs a query, those are only there for the client
-/// to be able to verify the state
+/// the LedgerInfo element since the validator node doesn't need to know the
+/// signatures again when the client performs a query, those are only there for
+/// the client to be able to verify the state
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct LedgerInfoWithV0 {
     ledger_info: LedgerInfo,
-    /// Aggregated BLS signature of all the validators that signed the message. The bitmask in the
-    /// aggregated signature can be used to find out the individual validators signing the message
+    /// Aggregated BLS signature of all the validators that signed the message.
+    /// The bitmask in the aggregated signature can be used to find out the
+    /// individual validators signing the message
     signatures: AggregateSignature,
 }
 
@@ -234,13 +239,14 @@ impl LedgerInfoWithV0 {
         }
     }
 
-    /// Create a new `LedgerInfoWithSignatures` at genesis with the given genesis
-    /// state and initial validator set.
+    /// Create a new `LedgerInfoWithSignatures` at genesis with the given
+    /// genesis state and initial validator set.
     ///
     /// Note that the genesis `LedgerInfoWithSignatures` is unsigned. Validators
-    /// and FullNodes are configured with the same genesis transaction and generate
-    /// an identical genesis `LedgerInfoWithSignatures` independently. In contrast,
-    /// Clients will likely use a waypoint generated from the genesis `LedgerInfo`.
+    /// and FullNodes are configured with the same genesis transaction and
+    /// generate an identical genesis `LedgerInfoWithSignatures`
+    /// independently. In contrast, Clients will likely use a waypoint
+    /// generated from the genesis `LedgerInfo`.
     pub fn genesis(genesis_state_root_hash: HashValue, validator_set: ValidatorSet) -> Self {
         Self::new(
             LedgerInfo::genesis(genesis_state_root_hash, validator_set),
@@ -284,13 +290,15 @@ impl LedgerInfoWithV0 {
                 .iter(),
         )
     }
+
     pub fn signatures(&self) -> &AggregateSignature {
         &self.signatures
     }
 }
 
-/// Contains the ledger info and partially aggregated signature from a set of validators, this data
-/// is only used during the aggregating the votes from different validators and is not persisted in DB.
+/// Contains the ledger info and partially aggregated signature from a set of
+/// validators, this data is only used during the aggregating the votes from
+/// different validators and is not persisted in DB.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LedgerInfoWithPartialSignatures {
     ledger_info: LedgerInfo,
@@ -347,7 +355,6 @@ impl LedgerInfoWithPartialSignatures {
     }
 }
 
-//
 // Arbitrary implementation of LedgerInfoWithV0 (for fuzzing)
 //
 
@@ -364,6 +371,8 @@ use proptest::prelude::*;
 #[cfg(any(test, feature = "fuzzing"))]
 impl Arbitrary for LedgerInfoWithV0 {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         let dummy_signature = bls12381::Signature::dummy_signature();
         (any::<LedgerInfo>(), (1usize..100))
@@ -382,8 +391,6 @@ impl Arbitrary for LedgerInfoWithV0 {
             })
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 #[cfg(test)]

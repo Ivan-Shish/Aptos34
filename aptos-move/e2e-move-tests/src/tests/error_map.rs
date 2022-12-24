@@ -5,8 +5,10 @@ extern crate core;
 
 use crate::{assert_success, tests::common, MoveHarness};
 use aptos_framework::BuildOptions;
-use aptos_types::account_address::AccountAddress;
-use aptos_types::transaction::{ExecutionStatus, TransactionStatus};
+use aptos_types::{
+    account_address::AccountAddress,
+    transaction::{ExecutionStatus, TransactionStatus},
+};
 use move_core_types::value::MoveValue;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +33,8 @@ fn error_map() {
         }
     ));
 
-    // Now send transactions which abort with one of two errors, depending on the boolean parameter.
+    // Now send transactions which abort with one of two errors, depending on the
+    // boolean parameter.
     let result = h.run_entry_function(
         &acc,
         str::parse("0xcafe::test::entry").unwrap(),
@@ -66,7 +69,7 @@ fn check_error(status: TransactionStatus, reason_name: &str, description: &str) 
             } else {
                 panic!("expected AbortInfo populated")
             }
-        }
+        },
         _ => panic!("expected MoveAbort"),
     }
 }

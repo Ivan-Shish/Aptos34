@@ -22,8 +22,8 @@ fn compute_parent_hash(left_hash: HashValue, right_hash: HashValue) -> HashValue
     }
 }
 
-/// Given a list of leaves, constructs the smallest accumulator that has all the leaves and
-/// computes the hash of every node in the tree.
+/// Given a list of leaves, constructs the smallest accumulator that has all the
+/// leaves and computes the hash of every node in the tree.
 fn compute_hashes_for_all_positions(leaves: &[HashValue]) -> HashMap<Position, HashValue> {
     if leaves.is_empty() {
         return HashMap::new();
@@ -88,7 +88,8 @@ fn create_leaves(nums: std::ops::Range<usize>) -> Vec<HashValue> {
 
 #[test]
 fn test_accumulator_append() {
-    // expected_root_hashes[i] is the root hash of an accumulator that has the first i leaves.
+    // expected_root_hashes[i] is the root hash of an accumulator that has the first
+    // i leaves.
     let expected_root_hashes = (0..100).map(|x| {
         let leaves = create_leaves(0..x);
         compute_root_hash_naive(&leaves)

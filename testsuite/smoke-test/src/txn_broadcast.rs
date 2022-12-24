@@ -1,17 +1,22 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::smoke_test_environment::SwarmBuilder;
-use crate::test_utils::{assert_balance, create_and_fund_account, transfer_coins};
+use crate::{
+    smoke_test_environment::SwarmBuilder,
+    test_utils::{assert_balance, create_and_fund_account, transfer_coins},
+};
 use aptos_config::config::NodeConfig;
 use aptos_forge::{NodeExt, Swarm, SwarmExt};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 const MAX_WAIT_SECS: u64 = 60;
 
-/// Checks txn goes through consensus even if the local validator is not creating proposals.
-/// This behavior should be true with both mempool and quorum store.
+/// Checks txn goes through consensus even if the local validator is not
+/// creating proposals. This behavior should be true with both mempool and
+/// quorum store.
 #[tokio::test]
 async fn test_txn_broadcast() {
     let mut swarm = SwarmBuilder::new_local(4)
@@ -57,7 +62,8 @@ async fn test_txn_broadcast() {
     // set up vfn_client
     let vfn_client = swarm.full_node(vfn).unwrap().rest_client();
 
-    // set up validator_client. proposals not sent from this validator. txn should still go through.
+    // set up validator_client. proposals not sent from this validator. txn should
+    // still go through.
     let validator_client = swarm.validator(validator).unwrap().rest_client();
     validator_client
         .set_failpoint("consensus::send_proposal".to_string(), "return".to_string())

@@ -18,39 +18,42 @@ const ONE_SEC: Duration = Duration::from_secs(1);
 /// A `key` is an identifier of the item being rate limited
 ///
 /// ## Token
-/// A `token` is the smallest discrete value that we want to rate limit by.  In a situation involving
-/// network requests, this may represent a request or a byte.  `Tokens` are the counters for the
-/// rate limiting, and when there are no `tokens` left in a `bucket`, the `key` is throttled.
+/// A `token` is the smallest discrete value that we want to rate limit by.  In
+/// a situation involving network requests, this may represent a request or a
+/// byte.  `Tokens` are the counters for the rate limiting, and when there are
+/// no `tokens` left in a `bucket`, the `key` is throttled.
 ///
 /// ## Bucket
-/// A `bucket` is the tracker of the number of `tokens`.  It has a `bucket size`, and any additional
-/// tokens added to it will "spill" out of the `bucket`.  The `buckets` are filled at an `interval`
-/// with a given `fill rate`.
+/// A `bucket` is the tracker of the number of `tokens`.  It has a `bucket
+/// size`, and any additional tokens added to it will "spill" out of the
+/// `bucket`.  The `buckets` are filled at an `interval` with a given `fill
+/// rate`.
 ///
 /// ## Interval
-/// The `interval` at which we refill *all* of the `buckets` in the token bucket filter. Configured
-/// across the whole token bucket filter.
+/// The `interval` at which we refill *all* of the `buckets` in the token bucket
+/// filter. Configured across the whole token bucket filter.
 ///
 /// ## Fill Rate
 /// The rate at which we fill a `bucket` with tokens. Configured per bucket.
 ///
 /// ## Bucket Size
-/// Maximum size of a bucket.  A bucket saturates at this size.  Configured per bucket.
+/// Maximum size of a bucket.  A bucket saturates at this size.  Configured per
+/// bucket.
 ///
 /// # Features
 /// ## Keys
-/// The token bucket takes any key as long as it's hashable.  This should allow it to apply to
-/// many applications that need rate limiters.
+/// The token bucket takes any key as long as it's hashable.  This should allow
+/// it to apply to many applications that need rate limiters.
 ///
 /// ## Bucket sizes and Rates
 /// ### Defaults
-/// There are defaults for bucket size and fill rate, which will apply to unknown keys.
+/// There are defaults for bucket size and fill rate, which will apply to
+/// unknown keys.
 ///
 /// ### Refill Interval
-/// Buckets are refilled automatically at an interval.  To do this synchronously, it calculates the
-/// number of intervals that have passed.  This is done synchronously and in the future may be done
-/// asynchronously.
-///
+/// Buckets are refilled automatically at an interval.  To do this
+/// synchronously, it calculates the number of intervals that have passed.  This
+/// is done synchronously and in the future may be done asynchronously.
 pub struct TokenBucketRateLimiter<Key: Eq + Hash + Clone + Debug> {
     label: &'static str,
     log_info: String,
@@ -116,11 +119,13 @@ impl<Key: Eq + Hash + Clone + Debug> TokenBucketRateLimiter<Key> {
     /// Retrieve bucket, or create a new one
     pub fn bucket(&self, key: Key) -> SharedBucket {
         self.bucket_inner(key, |label, log_info, key, initial, size, rate, metrics| {
-            Arc::new(Mutex::new(if self.enabled {
-                Bucket::new(label, log_info, key, initial, size, rate, metrics)
-            } else {
-                Bucket::open(label)
-            }))
+            Arc::new(Mutex::new(
+                if self.enabled {
+                    Bucket::new(label, log_info, key, initial, size, rate, metrics)
+                } else {
+                    Bucket::open(label)
+                },
+            ))
         })
     }
 
@@ -131,9 +136,10 @@ impl<Key: Eq + Hash + Clone + Debug> TokenBucketRateLimiter<Key> {
         key: Key,
         bucket_create: F,
     ) -> SharedBucket {
-        // Attempt to do a weaker read lock first, followed by a write lock if it's missing
-        // For the common (read) case, there should be higher throughput
-        // Note: This read must happen in a separate block, to ensure the read unlock for the write
+        // Attempt to do a weaker read lock first, followed by a write lock if it's
+        // missing For the common (read) case, there should be higher throughput
+        // Note: This read must happen in a separate block, to ensure the read unlock
+        // for the write
         let maybe_bucket = { self.buckets.read().get(&key).cloned() };
         if let Some(bucket) = maybe_bucket {
             bucket
@@ -174,13 +180,16 @@ impl<Key: Eq + Hash + Clone + Debug> TokenBucketRateLimiter<Key> {
 }
 
 /// A token bucket object that keeps track of everything related to a key
-/// This can be used as a standalone rate limiter; however, to make it more useful
-/// it should be wrapped in an `Arc` and a `Mutex` to be shared across threads.
+/// This can be used as a standalone rate limiter; however, to make it more
+/// useful it should be wrapped in an `Arc` and a `Mutex` to be shared across
+/// threads.
 #[derive(Debug)]
 pub struct Bucket {
-    /// Label for what rate limiter it's attached to for logging & metrics purposes
+    /// Label for what rate limiter it's attached to for logging & metrics
+    /// purposes
     label: String,
-    /// Information to be logged, but can't be put in the metrics for performance reasons
+    /// Information to be logged, but can't be put in the metrics for
+    /// performance reasons
     log_info: String,
     /// The key for metrics purposes
     key: String,
@@ -188,11 +197,14 @@ pub struct Bucket {
     tokens: usize,
     /// Maximum number of `tokens` in the bucket
     size: usize,
-    /// The fill rate of the bucket (`tokens/s`).  Amount added to `tokens` on a `refill`
+    /// The fill rate of the bucket (`tokens/s`).  Amount added to `tokens` on a
+    /// `refill`
     rate: usize,
-    /// The last time buckets were refilled, to keep track of for amount to refill
+    /// The last time buckets were refilled, to keep track of for amount to
+    /// refill
     last_refresh_time: Instant,
-    /// Determines whether the rate limiting should be ignored, useful for testing
+    /// Determines whether the rate limiting should be ignored, useful for
+    /// testing
     enabled: bool,
     /// Number of requests allowed through prior to next fill
     allowed_in_period: usize,
@@ -283,15 +295,17 @@ impl Bucket {
             self.throttled_in_period = 0;
             self.add_tokens((num_intervals as usize).saturating_mul(self.rate));
 
-            // We have to base everything off the original time, or we'll have drift where we slowly slow the bucket refill rate
+            // We have to base everything off the original time, or we'll have drift where
+            // we slowly slow the bucket refill rate
             self.last_refresh_time += Duration::from_secs(num_intervals);
         }
     }
 
     /// Determine if an entire batch can be passed through
-    /// This is important for message based rate limiting, where the whole message has
-    /// to make it through, or else it must be rejected.  A result of `None` means it cannot
-    /// ever be allowed through, as it's bigger than the size of the bucket.
+    /// This is important for message based rate limiting, where the whole
+    /// message has to make it through, or else it must be rejected.  A
+    /// result of `None` means it cannot ever be allowed through, as it's
+    /// bigger than the size of the bucket.
     pub fn acquire_all_tokens(&mut self, requested: usize) -> Result<(), Option<Instant>> {
         // Skip over if we purposely have an open throttle
         if !self.enabled || requested == 0 {
@@ -348,8 +362,9 @@ impl Bucket {
         self.last_refresh_time + ONE_SEC
     }
 
-    /// Tells us when an entire batch will make it through.  Useful for Async work to wait until
-    /// all tokens are ready.  Returns `None` if it is never possible.
+    /// Tells us when an entire batch will make it through.  Useful for Async
+    /// work to wait until all tokens are ready.  Returns `None` if it is
+    /// never possible.
     pub fn time_of_tokens_needed(&self, requested: usize) -> Option<Instant> {
         if !self.enabled {
             Some(Instant::now())

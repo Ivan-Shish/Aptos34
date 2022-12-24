@@ -66,8 +66,9 @@ impl MetadataView {
         start_version: Version,
         target_version: Version,
     ) -> Result<Vec<TransactionBackupMeta>> {
-        // This can be more flexible, but for now we assume and check backups are continuous in
-        // range (which is always true when we backup from a single backup coordinator)
+        // This can be more flexible, but for now we assume and check backups are
+        // continuous in range (which is always true when we backup from a
+        // single backup coordinator)
         let mut next_ver = 0;
         let mut res = Vec::new();
         for backup in self.transaction_backups.iter().sorted() {
@@ -104,8 +105,9 @@ impl MetadataView {
         &self,
         target_version: Version,
     ) -> Result<Vec<EpochEndingBackupMeta>> {
-        // This can be more flexible, but for now we assume and check backups are continuous in
-        // range (which is always true when we backup from a single backup coordinator)
+        // This can be more flexible, but for now we assume and check backups are
+        // continuous in range (which is always true when we backup from a
+        // single backup coordinator)
         let mut next_epoch = 0;
         let mut res = Vec::new();
         for backup in self.epoch_ending_backups.iter().sorted() {
@@ -164,11 +166,20 @@ impl fmt::Display for BackupStorageState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "latest_epoch_ending_epoch: {}, latest_state_snapshot_epoch: {}, latest_state_snapshot_version: {}, latest_transaction_version: {}",
-            self.latest_epoch_ending_epoch.as_ref().map_or("none".to_string(), u64::to_string),
-            self.latest_state_snapshot_epoch.as_ref().map_or("none".to_string(), u64::to_string),
-            self.latest_state_snapshot_version.as_ref().map_or("none".to_string(), Version::to_string),
-            self.latest_transaction_version.as_ref().map_or("none".to_string(), Version::to_string),
+            "latest_epoch_ending_epoch: {}, latest_state_snapshot_epoch: {}, \
+             latest_state_snapshot_version: {}, latest_transaction_version: {}",
+            self.latest_epoch_ending_epoch
+                .as_ref()
+                .map_or("none".to_string(), u64::to_string),
+            self.latest_state_snapshot_epoch
+                .as_ref()
+                .map_or("none".to_string(), u64::to_string),
+            self.latest_state_snapshot_version
+                .as_ref()
+                .map_or("none".to_string(), Version::to_string),
+            self.latest_transaction_version
+                .as_ref()
+                .map_or("none".to_string(), Version::to_string),
         )
     }
 }

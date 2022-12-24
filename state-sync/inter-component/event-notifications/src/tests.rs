@@ -79,7 +79,8 @@ fn test_reconfig_notification_no_queuing() {
         notify_events(&mut event_service, 0, vec![reconfig_event.clone()]);
     }
 
-    // Verify that only 1 notification was received by listener_1 (i.e., messages were dropped)
+    // Verify that only 1 notification was received by listener_1 (i.e., messages
+    // were dropped)
     let notification_count = count_reconfig_notifications(&mut listener_1);
     assert_eq!(notification_count, 1);
 
@@ -89,11 +90,13 @@ fn test_reconfig_notification_no_queuing() {
         notify_initial_configs(&mut event_service, 0);
     }
 
-    // Verify that only 1 notification was received by listener_1 (i.e., messages were dropping)
+    // Verify that only 1 notification was received by listener_1 (i.e., messages
+    // were dropping)
     let notification_count = count_reconfig_notifications(&mut listener_1);
     assert_eq!(notification_count, 1);
 
-    // Verify that only 1 notification was received by listener_2 (i.e., messages were dropped)
+    // Verify that only 1 notification was received by listener_2 (i.e., messages
+    // were dropped)
     let notification_count = count_reconfig_notifications(&mut listener_2);
     assert_eq!(notification_count, 1);
 }
@@ -125,17 +128,15 @@ fn test_dynamic_subscribers() {
 
     // Notify the service of several events
     let reconfig_event = create_test_event(reconfig_event_key);
-    notify_events(
-        &mut event_service,
-        0,
-        vec![event_1.clone(), reconfig_event.clone()],
-    );
+    notify_events(&mut event_service, 0, vec![
+        event_1.clone(),
+        reconfig_event.clone(),
+    ]);
     verify_event_notification_received(vec![&mut event_listener_1], 0, vec![event_1.clone()]);
-    verify_event_notification_received(
-        vec![&mut event_listener_2],
-        0,
-        vec![event_1, reconfig_event.clone()],
-    );
+    verify_event_notification_received(vec![&mut event_listener_2], 0, vec![
+        event_1,
+        reconfig_event.clone(),
+    ]);
     verify_reconfig_notifications_received(vec![&mut reconfig_listener_1], 0, 1);
 
     // Add another reconfiguration subscriber
@@ -177,7 +178,8 @@ fn test_event_and_reconfig_subscribers() {
     let mut reconfig_listener_1 = event_service.subscribe_to_reconfigurations().unwrap();
     let mut reconfig_listener_2 = event_service.subscribe_to_reconfigurations().unwrap();
 
-    // Force an initial reconfiguration and verify the listeners received the notifications
+    // Force an initial reconfiguration and verify the listeners received the
+    // notifications
     notify_initial_configs(&mut event_service, 0);
     verify_reconfig_notifications_received(
         vec![&mut reconfig_listener_1, &mut reconfig_listener_2],
@@ -190,7 +192,8 @@ fn test_event_and_reconfig_subscribers() {
         &mut event_listener_3,
     ]);
 
-    // Notify the service of a reconfiguration event and verify correct notifications
+    // Notify the service of a reconfiguration event and verify correct
+    // notifications
     let reconfig_event = create_test_event(reconfig_event_key);
     notify_events(&mut event_service, 0, vec![reconfig_event.clone()]);
     verify_reconfig_notifications_received(
@@ -205,25 +208,25 @@ fn test_event_and_reconfig_subscribers() {
     );
     verify_no_event_notifications(vec![&mut event_listener_1, &mut event_listener_2]);
 
-    // Notify the service of a reconfiguration and two other events, and verify notifications
+    // Notify the service of a reconfiguration and two other events, and verify
+    // notifications
     let event_1 = create_test_event(event_key_1);
     let event_2 = create_test_event(event_key_2);
-    notify_events(
-        &mut event_service,
-        0,
-        vec![event_1.clone(), event_2.clone(), reconfig_event.clone()],
-    );
+    notify_events(&mut event_service, 0, vec![
+        event_1.clone(),
+        event_2.clone(),
+        reconfig_event.clone(),
+    ]);
     verify_reconfig_notifications_received(
         vec![&mut reconfig_listener_1, &mut reconfig_listener_2],
         0,
         1,
     );
     verify_event_notification_received(vec![&mut event_listener_1], 0, vec![event_1.clone()]);
-    verify_event_notification_received(
-        vec![&mut event_listener_2],
-        0,
-        vec![event_1.clone(), event_2],
-    );
+    verify_event_notification_received(vec![&mut event_listener_2], 0, vec![
+        event_1.clone(),
+        event_2,
+    ]);
     verify_event_notification_received(vec![&mut event_listener_3], 0, vec![reconfig_event]);
 
     // Notify the subscription service of one event only (no reconfigurations)
@@ -267,15 +270,15 @@ fn test_event_notification_queuing() {
     let notification_count = count_event_notifications_and_ensure_ordering(&mut listener_1);
     assert!(notification_count < num_events);
 
-    // Notify the subscription service of 50 new events (with event_key_1 and event_key_2)
+    // Notify the subscription service of 50 new events (with event_key_1 and
+    // event_key_2)
     let num_events = 50;
     let event_2 = create_test_event(event_key_1);
     for version in 0..num_events {
-        notify_events(
-            &mut event_service,
-            version,
-            vec![event_2.clone(), event_1.clone()],
-        );
+        notify_events(&mut event_service, version, vec![
+            event_2.clone(),
+            event_1.clone(),
+        ]);
     }
 
     // Verify that 50 events were received (i.e., no message dropping occurred).
@@ -322,24 +325,23 @@ fn test_event_subscribers() {
     notify_events(&mut event_service, version, vec![event_1.clone()]);
 
     // Verify listener 1 and 2 receive the event notification
-    verify_event_notification_received(
-        vec![&mut listener_1, &mut listener_2],
-        version,
-        vec![event_1],
-    );
+    verify_event_notification_received(vec![&mut listener_1, &mut listener_2], version, vec![
+        event_1,
+    ]);
 
-    // Verify listener 3 doesn't get the event. Also verify that listener 1 and 2 don't get more events.
+    // Verify listener 3 doesn't get the event. Also verify that listener 1 and 2
+    // don't get more events.
     verify_no_event_notifications(vec![&mut listener_1, &mut listener_2, &mut listener_3]);
 
-    // Notify the subscription service of new events (with event_key_2 and event_key_3)
+    // Notify the subscription service of new events (with event_key_2 and
+    // event_key_3)
     let version = 200;
     let event_2 = create_test_event(event_key_2);
     let event_3 = create_test_event(event_key_3);
-    notify_events(
-        &mut event_service,
-        version,
-        vec![event_2.clone(), event_3.clone()],
-    );
+    notify_events(&mut event_service, version, vec![
+        event_2.clone(),
+        event_3.clone(),
+    ]);
 
     // Verify listener 1 doesn't get any notifications
     verify_no_event_notifications(vec![&mut listener_1]);
@@ -363,11 +365,9 @@ fn test_no_events_no_subscribers() {
     notify_events(&mut event_service, 1, vec![]);
 
     // Verify no subscribers doesn't cause notification errors
-    notify_events(
-        &mut event_service,
-        1,
-        vec![create_test_event(create_random_event_key())],
-    );
+    notify_events(&mut event_service, 1, vec![create_test_event(
+        create_random_event_key(),
+    )]);
 
     // Attempt to subscribe to zero event keys
     assert_matches!(
@@ -385,8 +385,8 @@ fn test_no_events_no_subscribers() {
 
 #[test]
 fn test_missing_configs() {
-    // Create a subscription service and mock database with a custom config registry that
-    // includes a config that does not exist on-chain (TestOnChainConfig).
+    // Create a subscription service and mock database with a custom config registry
+    // that includes a config that does not exist on-chain (TestOnChainConfig).
     let mut config_registry = ON_CHAIN_CONFIG_REGISTRY.to_owned();
     config_registry.push(TestOnChainConfig::CONFIG_ID);
     let mut event_service = EventSubscriptionService::new(&config_registry, create_database());
@@ -394,10 +394,12 @@ fn test_missing_configs() {
     // Create a reconfig subscriber
     let mut reconfig_listener = event_service.subscribe_to_reconfigurations().unwrap();
 
-    // Notify the subscriber of a reconfiguration (where 1 on-chain config is missing from genesis)
+    // Notify the subscriber of a reconfiguration (where 1 on-chain config is
+    // missing from genesis)
     assert_ok!(event_service.notify_reconfiguration_subscribers(0));
 
-    // Verify the reconfiguration notification contains everything except the missing config
+    // Verify the reconfiguration notification contains everything except the
+    // missing config
     if let Some(reconfig_notification) = reconfig_listener.select_next_some().now_or_never() {
         let returned_configs = reconfig_notification.on_chain_configs.configs();
         assert_eq!(
@@ -424,8 +426,8 @@ impl OnChainConfig for TestOnChainConfig {
     const TYPE_IDENTIFIER: &'static str = "TestOnChainConfig";
 }
 
-// Counts the number of event notifications received by the listener. Also ensures that
-// the notifications have increasing versions.
+// Counts the number of event notifications received by the listener. Also
+// ensures that the notifications have increasing versions.
 fn count_event_notifications_and_ensure_ordering(listener: &mut EventNotificationListener) -> u64 {
     let mut notification_received = true;
     let mut notification_count = 0;
@@ -477,7 +479,8 @@ fn verify_no_reconfig_notifications(listeners: Vec<&mut ReconfigNotificationList
     }
 }
 
-// Ensures that the specified listeners have received the expected notifications.
+// Ensures that the specified listeners have received the expected
+// notifications.
 fn verify_event_notification_received(
     listeners: Vec<&mut EventNotificationListener>,
     expected_version: Version,
@@ -493,8 +496,9 @@ fn verify_event_notification_received(
     }
 }
 
-// Ensures that the specified listeners have received the expected notifications.
-// Also verifies that the reconfiguration notifications contain all on-chain configs.
+// Ensures that the specified listeners have received the expected
+// notifications. Also verifies that the reconfiguration notifications contain
+// all on-chain configs.
 fn verify_reconfig_notifications_received(
     listeners: Vec<&mut ReconfigNotificationListener>,
     expected_version: Version,

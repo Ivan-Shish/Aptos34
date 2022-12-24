@@ -75,33 +75,33 @@ async fn main_impl() -> Result<()> {
             EpochEndingRestoreController::new(opt, global_opt, storage.init_storage().await?)
                 .run(None)
                 .await?;
-        }
+        },
         RestoreType::StateSnapshot { opt, storage } => {
             StateSnapshotRestoreController::new(
                 opt,
                 global_opt,
                 storage.init_storage().await?,
-                None, /* epoch_history */
+                None, // epoch_history
             )
             .run()
             .await?;
-        }
+        },
         RestoreType::Transaction { opt, storage } => {
             TransactionRestoreController::new(
                 opt,
                 global_opt,
                 storage.init_storage().await?,
-                None, /* epoch_history */
+                None, // epoch_history
                 vec![],
             )
             .run()
             .await?;
-        }
+        },
         RestoreType::Auto { opt, storage } => {
             RestoreCoordinator::new(opt, global_opt, storage.init_storage().await?)
                 .run()
                 .await?;
-        }
+        },
     }
 
     Ok(())

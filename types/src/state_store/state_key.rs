@@ -45,12 +45,12 @@ impl StateKey {
         let (prefix, raw_key) = match self {
             StateKey::AccessPath(access_path) => {
                 (StateKeyTag::AccessPath, bcs::to_bytes(access_path)?)
-            }
+            },
             StateKey::TableItem { handle, key } => {
                 let mut bytes = bcs::to_bytes(&handle)?;
                 bytes.extend(key);
                 (StateKeyTag::TableItem, bytes)
-            }
+            },
             StateKey::Raw(raw_bytes) => (StateKeyTag::Raw, raw_bytes.to_vec()),
         };
         out.push(prefix as u8);
@@ -83,7 +83,7 @@ impl StateKey {
                 )?;
                 let key = val[1 + HANDLE_SIZE..].to_vec();
                 Ok(StateKey::table_item(handle, key))
-            }
+            },
             StateKeyTag::Raw => Ok(StateKey::Raw(val[1..].to_vec())),
         }
     }
@@ -115,15 +115,16 @@ impl CryptoHash for StateKey {
     }
 }
 
-/// Error thrown when a [`StateKey`] fails to be deserialized out of a byte sequence stored in physical
-/// storage, via [`StateKey::decode`].
+/// Error thrown when a [`StateKey`] fails to be deserialized out of a byte
+/// sequence stored in physical storage, via [`StateKey::decode`].
 #[derive(Debug, Error)]
 pub enum StateKeyDecodeErr {
     /// Input is empty.
     #[error("Missing tag due to empty input")]
     EmptyInput,
 
-    /// The first byte of the input is not a known tag representing one of the variants.
+    /// The first byte of the input is not a known tag representing one of the
+    /// variants.
     #[error("lead tag byte is unknown: {}", unknown_tag)]
     UnknownTag { unknown_tag: u8 },
 

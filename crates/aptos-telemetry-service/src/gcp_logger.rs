@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::constants::GCP_SERVICE_PROJECT_ID_ENV;
-
 use std::env;
 
 pub fn gcp_trace_id() -> Option<String> {
@@ -53,7 +52,8 @@ macro_rules! error {
     };
 }
 
-/// Log at the given level, it's recommended to use a specific level macro instead
+/// Log at the given level, it's recommended to use a specific level macro
+/// instead
 #[macro_export]
 macro_rules! log {
     // Entry, Log Level + stuff

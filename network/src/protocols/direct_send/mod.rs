@@ -15,8 +15,8 @@ pub struct Message {
     /// inbound rpc request will be dispatched to consensus for handling.
     pub protocol_id: ProtocolId,
     /// The serialized request data received from the sender. At this layer in
-    /// the stack, the request data is just an opaque blob and will only be fully
-    /// deserialized later in the handling application module.
+    /// the stack, the request data is just an opaque blob and will only be
+    /// fully deserialized later in the handling application module.
     #[serde(skip)]
     pub mdata: Bytes,
 }

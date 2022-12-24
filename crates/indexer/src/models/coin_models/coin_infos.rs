@@ -46,7 +46,9 @@ pub struct CoinInfoQuery {
 }
 
 impl CoinInfo {
-    /// We can find coin info from resources. If the coin info appears multiple times we will only keep the first transaction because it can't be modified.
+    /// We can find coin info from resources. If the coin info appears multiple
+    /// times we will only keep the first transaction because it can't be
+    /// modified.
     pub fn from_write_resource(
         write_resource: &APIWriteResource,
         txn_version: i64,
@@ -75,7 +77,7 @@ impl CoinInfo {
                     supply_aggregator_table_handle,
                     supply_aggregator_table_key,
                 }))
-            }
+            },
             _ => Ok(None),
         }
     }

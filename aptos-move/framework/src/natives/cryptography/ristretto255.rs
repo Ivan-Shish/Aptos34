@@ -1,15 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::natives::cryptography::{ristretto255_point, ristretto255_scalar};
-use crate::natives::util::make_native_from_func;
+use crate::natives::{
+    cryptography::{ristretto255_point, ristretto255_scalar},
+    util::make_native_from_func,
+};
 use aptos_types::vm_status::StatusCode;
 use curve25519_dalek::scalar::Scalar;
 use move_binary_format::errors::{PartialVMError, PartialVMResult};
 use move_core_types::gas_algebra::{InternalGasPerArg, InternalGasPerByte};
-use move_vm_types::values::{Reference, StructRef, Value};
+use move_vm_runtime::native_functions::NativeFunction;
+use move_vm_types::{
+    pop_arg,
+    values::{Reference, StructRef, Value},
+};
 use std::collections::VecDeque;
-use {move_vm_runtime::native_functions::NativeFunction, move_vm_types::pop_arg};
 
 #[derive(Debug, Clone)]
 pub struct GasParameters {
@@ -232,9 +237,10 @@ pub fn scalar_from_struct(move_scalar: Value) -> PartialVMResult<Scalar> {
     scalar_from_valid_bytes(scalar_bytes)
 }
 
-/// Constructs a curve25519-dalek Scalar from a sequence of bytes which are assumed to
-/// canonically-encode it. Callers who are not sure of the canonicity of the encoding MUST call
-/// Scalar::is_canonical() after on the returned Scalar.
+/// Constructs a curve25519-dalek Scalar from a sequence of bytes which are
+/// assumed to canonically-encode it. Callers who are not sure of the canonicity
+/// of the encoding MUST call Scalar::is_canonical() after on the returned
+/// Scalar.
 pub fn scalar_from_valid_bytes(bytes: Vec<u8>) -> PartialVMResult<Scalar> {
     // A Move Scalar's length should be exactly 32 bytes
     let slice = <[u8; 32]>::try_from(bytes)

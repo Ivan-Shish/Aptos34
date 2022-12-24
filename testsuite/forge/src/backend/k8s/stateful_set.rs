@@ -1,24 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{Get, K8sApi, Result, KUBECTL_BIN};
-use std::{process::Command, sync::Arc, time::Duration};
-
-use anyhow::bail;
-use aptos_retrier::ExponentWithLimitDelay;
-use k8s_openapi::api::{apps::v1::StatefulSet, core::v1::Pod};
-
+use crate::{create_k8s_client, Get, K8sApi, Result, KUBECTL_BIN};
 use again::RetryPolicy;
+use anyhow::bail;
 use aptos_logger::info;
+use aptos_retrier::ExponentWithLimitDelay;
 use json_patch::{Patch as JsonPatch, PatchOperation, ReplaceOperation};
+use k8s_openapi::api::{apps::v1::StatefulSet, core::v1::Pod};
 use kube::{
     api::{Api, Meta, Patch, PatchParams},
     client::Client as K8sClient,
 };
 use serde_json::{json, Value};
+use std::{process::Command, sync::Arc, time::Duration};
 use thiserror::Error;
-
-use crate::create_k8s_client;
 
 #[derive(Error, Debug)]
 #[error("{0}")]
@@ -87,7 +83,8 @@ pub async fn wait_stateful_set(
     Ok(())
 }
 
-/// Checks the status of a single K8s StatefulSet. Also inspects the pods to make sure they are all ready.
+/// Checks the status of a single K8s StatefulSet. Also inspects the pods to
+/// make sure they are all ready.
 async fn check_stateful_set_status(
     stateful_set_api: Arc<dyn Get<StatefulSet>>,
     pod_api: Arc<dyn Get<Pod>>,
@@ -132,25 +129,25 @@ async fn check_stateful_set_status(
                                             return Err(WorkloadScalingError::FinalError(
                                                 "ImagePullBackOff".to_string(),
                                             ));
-                                        }
+                                        },
                                         "CrashLoopBackOff" => {
                                             info!("Pod {} has CrashLoopBackOff", &pod_name);
                                             return Err(WorkloadScalingError::FinalError(
                                                 "CrashLoopBackOff".to_string(),
                                             ));
-                                        }
+                                        },
                                         "ErrImagePull" => {
                                             info!("Pod {} has ErrImagePull", &pod_name);
                                             return Err(WorkloadScalingError::FinalError(
                                                 "ErrImagePull".to_string(),
                                             ));
-                                        }
+                                        },
                                         _ => {
                                             info!("Waiting for pod {}", &pod_name);
                                             return Err(WorkloadScalingError::RetryableError(
                                                 format!("Waiting for pod {}", &pod_name),
                                             ));
-                                        }
+                                        },
                                     }
                                 }
                             }
@@ -170,19 +167,20 @@ async fn check_stateful_set_status(
                     &pod_name
                 )))
             }
-        }
+        },
         Err(e) => {
             info!("Failed to get StatefulSet: {}", e);
             Err(WorkloadScalingError::RetryableError(format!(
                 "Failed to get StatefulSet: {}",
                 e
             )))
-        }
+        },
     }
 }
 
-/// Given the name of a node's StatefulSet, sets the node's image tag. Assumes that the StatefulSet has only one container
-/// Note that this function will not wait for the StatefulSet to be ready.
+/// Given the name of a node's StatefulSet, sets the node's image tag. Assumes
+/// that the StatefulSet has only one container Note that this function will not
+/// wait for the StatefulSet to be ready.
 pub async fn set_stateful_set_image_tag(
     stateful_set_name: String,
     container_name: String,
@@ -271,7 +269,8 @@ pub async fn get_identity(sts_name: &str, kube_namespace: &str) -> Result<String
     let kube_client = create_k8s_client().await;
     let stateful_set_api: Api<StatefulSet> = Api::namespaced(kube_client.clone(), kube_namespace);
     let sts = stateful_set_api.get(sts_name).await?;
-    // The json path below should match `terraform/helm/aptos-node/templates/validator.yaml`.
+    // The json path below should match
+    // `terraform/helm/aptos-node/templates/validator.yaml`.
     let secret_name = sts.spec.unwrap().template.spec.unwrap().volumes.unwrap()[1]
         .secret
         .clone()
@@ -322,10 +321,9 @@ pub async fn check_for_container_restart(
 mod tests {
     use super::*;
     use async_trait::async_trait;
-    use k8s_openapi::api::apps::v1::StatefulSet;
-    use k8s_openapi::api::apps::v1::{StatefulSetSpec, StatefulSetStatus};
-    use k8s_openapi::api::core::v1::{
-        ContainerState, ContainerStateWaiting, ContainerStatus, PodStatus,
+    use k8s_openapi::api::{
+        apps::v1::{StatefulSet, StatefulSetSpec, StatefulSetStatus},
+        core::v1::{ContainerState, ContainerStateWaiting, ContainerStatus, PodStatus},
     };
     use kube::{api::ObjectMeta, Error as KubeError};
 

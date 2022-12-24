@@ -63,7 +63,8 @@ impl Tailer {
             .expect("migrations failed!");
     }
 
-    /// If chain id doesn't exist, save it. Otherwise, make sure that we're indexing the same chain
+    /// If chain id doesn't exist, save it. Otherwise, make sure that we're
+    /// indexing the same chain
     pub async fn check_or_update_chain_id(&self) -> Result<u64> {
         info!(
             processor_name = self.processor.name(),
@@ -82,14 +83,20 @@ impl Tailer {
 
         match maybe_existing_chain_id {
             Some(chain_id) => {
-                ensure!(chain_id == new_chain_id, "Wrong chain detected! Trying to index chain {} now but existing data is for chain {}", new_chain_id, chain_id);
+                ensure!(
+                    chain_id == new_chain_id,
+                    "Wrong chain detected! Trying to index chain {} now but existing data is for \
+                     chain {}",
+                    new_chain_id,
+                    chain_id
+                );
                 info!(
                     processor_name = self.processor.name(),
                     chain_id = chain_id,
                     "Chain id matches! Continue to index...",
                 );
                 Ok(chain_id as u64)
-            }
+            },
             None => {
                 info!(
                     processor_name = self.processor.name(),
@@ -105,7 +112,7 @@ impl Tailer {
                 )
                 .context(r#"Error updating chain_id!"#)
                 .map(|_| new_chain_id as u64)
-            }
+            },
         }
     }
 
@@ -166,8 +173,9 @@ impl Tailer {
         (num_txns, Some(results))
     }
 
-    /// Store last processed version from database. We can assume that all previously processed
-    /// versions are successful because any gap would cause the processor to panic
+    /// Store last processed version from database. We can assume that all
+    /// previously processed versions are successful because any gap would
+    /// cause the processor to panic
     pub fn update_last_processed_version(&self, processor_name: &str, version: u64) -> Result<()> {
         let mut conn = self.connection_pool.get()?;
 
@@ -201,8 +209,8 @@ impl Tailer {
         }
     }
 
-    /// Get starting version from database. Starting version is defined as the first version that's either
-    /// not successful or missing from the DB.
+    /// Get starting version from database. Starting version is defined as the
+    /// first version that's either not successful or missing from the DB.
     pub fn get_start_version_long(
         &self,
         processor_name: &String,
@@ -213,8 +221,9 @@ impl Tailer {
             .get()
             .expect("DB connection should be available to get starting version");
 
-        // This query gets the first version that isn't equal to the next version (versions would be sorted of course).
-        // There's also special handling if the gap happens in the beginning.
+        // This query gets the first version that isn't equal to the next version
+        // (versions would be sorted of course). There's also special handling
+        // if the gap happens in the beginning.
         let sql = "
         WITH raw_boundaries AS
         (
@@ -281,7 +290,8 @@ impl Tailer {
         }
         let mut res: Vec<Option<Gap>> = sql_query(sql)
             .bind::<Text, _>(processor_name)
-            // This is the number used to determine how far we look back for gaps. Increasing it may result in slower startup
+            // This is the number used to determine how far we look back for gaps. Increasing it may
+            // result in slower startup
             .bind::<BigInt, _>(lookback_versions)
             .get_results(&mut conn)
             .unwrap();
@@ -297,7 +307,7 @@ pub async fn await_tasks<T: Debug>(tasks: Vec<JoinHandle<T>>) -> Vec<T> {
             Ok(_) => results.push(result.unwrap()),
             Err(err) => {
                 panic!("Error joining task: {:?}", err);
-            }
+            },
         }
     }
     results
@@ -683,7 +693,8 @@ mod test {
               ]
             }
         )).unwrap();
-        // This is needed because deserializer only parses epoch once so info.epoch is always None
+        // This is needed because deserializer only parses epoch once so info.epoch is
+        // always None
         if let Transaction::BlockMetadataTransaction(ref mut bmt) = block_metadata_transaction {
             bmt.info.epoch = Some(aptos_api_types::U64::from(1));
         }
@@ -838,7 +849,8 @@ mod test {
         assert_eq!(events2.get(1).unwrap().type_, "0x1::Whatever::FakeEvent2");
         assert_eq!(wsc2.len(), 2);
 
-        // Message Transaction -> 0xb8bbd3936b05e3643f4b4f910bb00c9b6fa817c1935c74b9a16b5b7a2c8a69a3
+        // Message Transaction ->
+        // 0xb8bbd3936b05e3643f4b4f910bb00c9b6fa817c1935c74b9a16b5b7a2c8a69a3
         let message_txn: Transaction = serde_json::from_value(json!(
             {
               "type": "user_transaction",

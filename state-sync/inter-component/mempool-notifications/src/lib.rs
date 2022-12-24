@@ -36,7 +36,8 @@ pub enum Error {
 /// mempool of events (e.g., newly committed transactions).
 #[async_trait]
 pub trait MempoolNotificationSender: Send + Clone + Sync + 'static {
-    /// Notify mempool of the newly committed transactions at the specified block timestamp.
+    /// Notify mempool of the newly committed transactions at the specified
+    /// block timestamp.
     async fn notify_new_commit(
         &self,
         committed_transactions: Vec<Transaction>,
@@ -45,10 +46,11 @@ pub trait MempoolNotificationSender: Send + Clone + Sync + 'static {
     ) -> Result<(), Error>;
 }
 
-/// This method returns a (MempoolNotifier, MempoolNotificationListener) pair that can be used
-/// to allow state sync and mempool to communicate.
+/// This method returns a (MempoolNotifier, MempoolNotificationListener) pair
+/// that can be used to allow state sync and mempool to communicate.
 ///
-/// Note: state sync should take the notifier and mempool should take the listener.
+/// Note: state sync should take the notifier and mempool should take the
+/// listener.
 pub fn new_mempool_notifier_listener_pair() -> (MempoolNotifier, MempoolNotificationListener) {
     let (notification_sender, notification_receiver) =
         mpsc::channel(MEMPOOL_NOTIFICATION_CHANNEL_SIZE);
@@ -95,8 +97,8 @@ impl MempoolNotificationSender for MempoolNotifier {
 
         // Construct a oneshot channel to receive a mempool response
         let (callback, callback_receiver) = oneshot::channel();
-        // Mempool needs to be notified about all transactions (user and non-user transactions).
-        // See https://github.com/aptos-labs/aptos-core/issues/1882 for more details.
+        // Mempool needs to be notified about all transactions (user and non-user
+        // transactions). See https://github.com/aptos-labs/aptos-core/issues/1882 for more details.
         let commit_notification = MempoolCommitNotification {
             transactions: user_transactions,
             block_timestamp_usecs,
@@ -132,7 +134,8 @@ impl MempoolNotificationSender for MempoolNotifier {
     }
 }
 
-/// The mempool component responsible for responding to state sync notifications.
+/// The mempool component responsible for responding to state sync
+/// notifications.
 #[derive(Debug)]
 pub struct MempoolNotificationListener {
     notification_receiver: mpsc::Receiver<MempoolCommitNotification>,
@@ -145,7 +148,8 @@ impl MempoolNotificationListener {
         }
     }
 
-    /// Respond (succesfully) to the commit notification previously sent by state sync.
+    /// Respond (succesfully) to the commit notification previously sent by
+    /// state sync.
     pub fn ack_commit_notification(
         &self,
         mempool_commit_notification: MempoolCommitNotification,
@@ -171,7 +175,8 @@ impl FusedStream for MempoolNotificationListener {
     }
 }
 
-/// A notification for newly committed transactions sent by state sync to mempool.
+/// A notification for newly committed transactions sent by state sync to
+/// mempool.
 #[derive(Debug)]
 pub struct MempoolCommitNotification {
     pub transactions: Vec<CommittedTransaction>,
@@ -214,14 +219,13 @@ enum MempoolNotificationResponse {
 mod tests {
     use crate::{CommittedTransaction, Error, MempoolNotificationSender};
     use aptos_crypto::{ed25519::Ed25519PrivateKey, HashValue, PrivateKey, SigningKey, Uniform};
-    use aptos_types::transaction::NoOpChangeSetChecker;
     use aptos_types::{
         account_address::AccountAddress,
         block_metadata::BlockMetadata,
         chain_id::ChainId,
         transaction::{
-            ChangeSet, RawTransaction, Script, SignedTransaction, Transaction, TransactionPayload,
-            WriteSetPayload,
+            ChangeSet, NoOpChangeSetChecker, RawTransaction, Script, SignedTransaction,
+            Transaction, TransactionPayload, WriteSetPayload,
         },
         write_set::WriteSetMut,
     };
@@ -275,7 +279,8 @@ mod tests {
             transactions.push(create_genesis_transaction());
         }
 
-        // Send a notification and verify we get a timeout because mempool didn't respond
+        // Send a notification and verify we get a timeout because mempool didn't
+        // respond
         let notify_result =
             block_on(mempool_notifier.notify_new_commit(transactions.clone(), 0, 1000));
         assert_matches!(notify_result, Err(Error::TimeoutWaitingForMempool));
@@ -304,18 +309,17 @@ mod tests {
         match mempool_listener.select_next_some().now_or_never() {
             Some(mempool_commit_notification) => match user_transaction {
                 Transaction::UserTransaction(signed_transaction) => {
-                    assert_eq!(
-                        mempool_commit_notification.transactions,
-                        vec![CommittedTransaction {
+                    assert_eq!(mempool_commit_notification.transactions, vec![
+                        CommittedTransaction {
                             sender: signed_transaction.sender(),
-                            sequence_number: signed_transaction.sequence_number(),
-                        }]
-                    );
+                            sequence_number: signed_transaction.sequence_number()
+                        }
+                    ]);
                     assert_eq!(
                         mempool_commit_notification.block_timestamp_usecs,
                         block_timestamp_usecs
                     );
-                }
+                },
                 result => panic!("Expected user transaction but got: {:?}", result),
             },
             result => panic!("Expected mempool commit notification but got: {:?}", result),

@@ -98,7 +98,7 @@ impl TestHarness {
             FixedInterval::new(CONNECTION_DELAY),
             MAX_CONNECTION_DELAY,
             Some(MAX_TEST_CONNECTIONS),
-            true, /* mutual_authentication */
+            true, // mutual_authentication
         );
         let mock = Self {
             trusted_peers,
@@ -205,11 +205,13 @@ impl TestHarness {
             ConnectionRequest::DisconnectPeer(p, result_tx) => {
                 assert_eq!(peer_id, p);
                 result_tx.send(result).unwrap();
-            }
-            request => panic!(
-                "Unexpected ConnectionRequest, expected DisconnectPeer: {:?}",
-                request
-            ),
+            },
+            request => {
+                panic!(
+                    "Unexpected ConnectionRequest, expected DisconnectPeer: {:?}",
+                    request
+                )
+            },
         }
         if success {
             self.send_lost_peer_await_delivery(peer_id, address).await;
@@ -227,9 +229,10 @@ impl TestHarness {
     }
 
     async fn wait_until_empty_dial_queue(&mut self) {
-        // Wait for dial queue to be empty. Without this, it's impossible to guarantee that a completed
-        // dial is removed from a dial queue. We need this guarantee to see the effects of future
-        // triggers for connectivity check.
+        // Wait for dial queue to be empty. Without this, it's impossible to guarantee
+        // that a completed dial is removed from a dial queue. We need this
+        // guarantee to see the effects of future triggers for connectivity
+        // check.
         info!("Waiting for dial queue to be empty");
         while self.get_dial_queue_size().await > 0 {}
     }
@@ -244,11 +247,13 @@ impl TestHarness {
             ConnectionRequest::DialPeer(peer_id, address, result_tx) => {
                 result_tx.send(result).unwrap();
                 (peer_id, address)
-            }
-            request => panic!(
-                "Unexpected ConnectionRequest, expected DialPeer: {:?}",
-                request
-            ),
+            },
+            request => {
+                panic!(
+                    "Unexpected ConnectionRequest, expected DialPeer: {:?}",
+                    request
+                )
+            },
         };
         if success {
             self.send_new_peer_await_delivery(peer_id, peer_id, address.clone())
@@ -367,8 +372,8 @@ fn addr_change() {
         mock.expect_one_dial_success(other_peer_id, other_addr.clone())
             .await;
 
-        // Send request to connect to other peer at old address. ConnectivityManager should not
-        // dial, since we are already connected at the new address.
+        // Send request to connect to other peer at old address. ConnectivityManager
+        // should not dial, since we are already connected at the new address.
         mock.send_update_discovered_peers(DiscoverySource::OnChainValidatorSet, update)
             .await;
         mock.trigger_connectivity_check().await;
@@ -383,7 +388,8 @@ fn addr_change() {
         mock.trigger_connectivity_check().await;
         assert_eq!(1, mock.get_connected_size().await);
 
-        // We expect the peer which changed its address to also disconnect. (even if the address doesn't match storage)
+        // We expect the peer which changed its address to also disconnect. (even if the
+        // address doesn't match storage)
         mock.send_lost_peer_await_delivery(other_peer_id, other_addr_new.clone())
             .await;
         assert_eq!(0, mock.get_connected_size().await);
@@ -494,13 +500,14 @@ fn retry_on_failure() {
         mock.send_update_discovered_peers(DiscoverySource::OnChainValidatorSet, peers)
             .await;
 
-        // Peer manager receives a request to disconnect from the other peer, which fails.
+        // Peer manager receives a request to disconnect from the other peer, which
+        // fails.
         mock.trigger_connectivity_check().await;
         mock.expect_disconnect_fail(other_peer_id, other_addr.clone())
             .await;
 
-        // Peer manager receives another request to disconnect from the other peer, which now
-        // succeeds.
+        // Peer manager receives another request to disconnect from the other peer,
+        // which now succeeds.
         mock.trigger_connectivity_check().await;
         mock.expect_disconnect_success(other_peer_id, other_addr.clone())
             .await;
@@ -508,8 +515,9 @@ fn retry_on_failure() {
     block_on(future::join(conn_mgr.start(), test));
 }
 
-// Tests that if we dial an already connected peer or disconnect from an already disconnected
-// peer, connectivity manager does not send any additional dial or disconnect requests.
+// Tests that if we dial an already connected peer or disconnect from an already
+// disconnected peer, connectivity manager does not send any additional dial or
+// disconnect requests.
 #[test]
 fn no_op_requests() {
     let (other_peer_id, peer, _, other_addr) = test_peer(AccountAddress::ZERO);
@@ -540,7 +548,8 @@ fn no_op_requests() {
         mock.send_update_discovered_peers(DiscoverySource::OnChainValidatorSet, peers)
             .await;
 
-        // Peer manager receives a request to disconnect from the other peer, which fails.
+        // Peer manager receives a request to disconnect from the other peer, which
+        // fails.
         mock.trigger_connectivity_check().await;
         mock.expect_disconnect_fail(other_peer_id, other_addr.clone())
             .await;
@@ -550,8 +559,9 @@ fn no_op_requests() {
             .await;
 
         // Trigger connectivity check again. We don't expect connectivity manager to do
-        // anything - if it does, the task should panic. That may not fail the test (right
-        // now), but will be easily spotted by someone running the tests locally.
+        // anything - if it does, the task should panic. That may not fail the test
+        // (right now), but will be easily spotted by someone running the tests
+        // locally.
         mock.trigger_connectivity_check().await;
         assert_eq!(0, mock.get_connected_size().await);
         assert_eq!(0, mock.get_dial_queue_size().await);
@@ -671,7 +681,8 @@ fn multiple_addrs_wrapping() {
 }
 
 // Test that connectivity manager will still work when dialing a peer with
-// multiple listen addrs and then that peer advertises a smaller number of addrs.
+// multiple listen addrs and then that peer advertises a smaller number of
+// addrs.
 #[test]
 fn multiple_addrs_shrinking() {
     let (other_peer_id, mut peer, pubkey, _) = test_peer(AccountAddress::ZERO);
@@ -793,7 +804,8 @@ fn basic_update_discovered_peers() {
     conn_mgr.handle_update_discovered_peers(DiscoverySource::Config, peers_1_2.clone());
     assert_eq!(*trusted_peers.read(), peers_1_2);
 
-    // since on-chain and config now contain the same sets, clearing one should do nothing.
+    // since on-chain and config now contain the same sets, clearing one should do
+    // nothing.
     conn_mgr.handle_update_discovered_peers(DiscoverySource::Config, peers_empty.clone());
     assert_eq!(*trusted_peers.read(), peers_1_2);
 

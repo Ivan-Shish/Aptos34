@@ -4,8 +4,8 @@
 use crate::{compat::Sha3_256, hkdf::*};
 use sha2::{Sha256, Sha512};
 
-// Testing against sha256 test vectors. Unfortunately the rfc does not provide test vectors for
-// sha3 and sha512.
+// Testing against sha256 test vectors. Unfortunately the rfc does not provide
+// test vectors for sha3 and sha512.
 #[test]
 fn test_sha256_test_vectors() {
     let tests = test_vectors_sha256();
@@ -79,13 +79,13 @@ fn test_sha256_output_length() {
     );
 }
 
-// FIPS 202 approves HMAC-SHA3 and specifies the block sizes (see top of page 22).
-// SP 800-56C approves of HKDF-HMAC-hash as a randomness extractor with any approved hash function.
-// But in contrast, I can't find any NIST statement that explicitly approves the use of KMAC
-// as a randomness extractor.
-// But, it's debatable if this is a pointless construct, as HMAC only exists to cover up weaknesses
-// in Merkle-Damgard hashes, but sha3 (and Keccak) are sponge constructions, immune to length
-// extension attacks.
+// FIPS 202 approves HMAC-SHA3 and specifies the block sizes (see top of page
+// 22). SP 800-56C approves of HKDF-HMAC-hash as a randomness extractor with any
+// approved hash function. But in contrast, I can't find any NIST statement that
+// explicitly approves the use of KMAC as a randomness extractor.
+// But, it's debatable if this is a pointless construct, as HMAC only exists to
+// cover up weaknesses in Merkle-Damgard hashes, but sha3 (and Keccak) are
+// sponge constructions, immune to length extension attacks.
 #[test]
 fn test_sha3_256_output_length() {
     let max_hash_length: usize = 255 * 32; // = 8160

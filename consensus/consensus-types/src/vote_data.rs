@@ -9,9 +9,11 @@ use std::fmt::{Display, Formatter};
 /// VoteData keeps the information about the block, and its parent.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, CryptoHasher, BCSCryptoHash)]
 pub struct VoteData {
-    /// Contains all the block information needed for voting for the proposed round.
+    /// Contains all the block information needed for voting for the proposed
+    /// round.
     proposed: BlockInfo,
-    /// Contains all the block information for the block the proposal is extending.
+    /// Contains all the block information for the block the proposal is
+    /// extending.
     parent: BlockInfo,
 }
 
@@ -19,8 +21,8 @@ impl Display for VoteData {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "VoteData: [block id: {}, epoch: {}, round: {:02}, timestamp: {},\
-             parent_block_id: {}, parent_block_round: {:02}, parent_timestamp: {}]",
+            "VoteData: [block id: {}, epoch: {}, round: {:02}, timestamp: {},parent_block_id: {}, \
+             parent_block_round: {:02}, parent_timestamp: {}]",
             self.proposed().id(),
             self.proposed().epoch(),
             self.proposed().round(),
@@ -33,12 +35,14 @@ impl Display for VoteData {
 }
 
 impl VoteData {
-    /// Constructs a new VoteData from the block information of a proposed block and the block it extends.
+    /// Constructs a new VoteData from the block information of a proposed block
+    /// and the block it extends.
     pub fn new(proposed: BlockInfo, parent: BlockInfo) -> Self {
         Self { proposed, parent }
     }
 
-    /// Returns block information associated to the block being extended by the proposal.
+    /// Returns block information associated to the block being extended by the
+    /// proposal.
     pub fn parent(&self) -> &BlockInfo {
         &self.parent
     }

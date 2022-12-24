@@ -7,41 +7,39 @@ use aptos_types::{
     transaction::{ExecutionStatus, TransactionStatus},
 };
 
-// TODO(Gas): This test has been disabled since the particularly attack it uses can no longer
-//            be carried out due to the increase in execution costs.
-//            Revisit and decide whether we should remove this test or rewrite it in another way.
-/*
-#[test]
-fn push_u128s_onto_vector() {
-    let mut h = MoveHarness::new();
-
-    // Load the code
-    let acc = h.new_account_at(AccountAddress::from_hex_literal("0xbeef").unwrap());
-    assert_success!(h.publish_package(
-        &acc,
-        &common::test_dir_path("memory_quota.data/vec_push_u128"),
-    ));
-
-    let result = h.run_entry_function(
-        &acc,
-        str::parse("0xbeef::test::just_under_quota").unwrap(),
-        vec![],
-        vec![],
-    );
-    assert_success!(result);
-
-    let result = h.run_entry_function(
-        &acc,
-        str::parse("0xbeef::test::just_above_quota").unwrap(),
-        vec![],
-        vec![],
-    );
-    assert!(matches!(
-        result,
-        TransactionStatus::Keep(ExecutionStatus::ExecutionFailure { .. })
-    ));
-}
-*/
+// TODO(Gas): This test has been disabled since the particularly attack it uses
+// can no longer            be carried out due to the increase in execution
+// costs.            Revisit and decide whether we should remove this test or
+// rewrite it in another way. #[test]
+// fn push_u128s_onto_vector() {
+// let mut h = MoveHarness::new();
+//
+// Load the code
+// let acc = h.new_account_at(AccountAddress::from_hex_literal("0xbeef").
+// unwrap()); assert_success!(h.publish_package(
+// &acc,
+// &common::test_dir_path("memory_quota.data/vec_push_u128"),
+// ));
+//
+// let result = h.run_entry_function(
+// &acc,
+// str::parse("0xbeef::test::just_under_quota").unwrap(),
+// vec![],
+// vec![],
+// );
+// assert_success!(result);
+//
+// let result = h.run_entry_function(
+// &acc,
+// str::parse("0xbeef::test::just_above_quota").unwrap(),
+// vec![],
+// vec![],
+// );
+// assert!(matches!(
+// result,
+// TransactionStatus::Keep(ExecutionStatus::ExecutionFailure { .. })
+// ));
+// }
 
 #[test]
 fn clone_large_vectors() {

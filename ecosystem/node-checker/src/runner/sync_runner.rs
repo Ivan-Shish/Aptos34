@@ -56,7 +56,8 @@ pub struct SyncRunner {
     /// will be in this ProviderCollection.
     provider_collection: ProviderCollection,
 
-    /// This collection of configs can be used to build Providers at request time.
+    /// This collection of configs can be used to build Providers at request
+    /// time.
     provider_configs: ProviderConfigs,
 
     /// All the Checkers we built based on the BaselineConfiguration.
@@ -126,7 +127,8 @@ impl Runner for SyncRunner {
             ));
             provider_collection.target_api_index_provider = Some(api_index_provider.clone());
 
-            // From here, since we have an API provider, we can try to make a noise provider.
+            // From here, since we have an API provider, we can try to make a noise
+            // provider.
             if let (Some(_), Some(_)) = (
                 target_node_address.get_noise_port(),
                 target_node_address.get_public_key(),
@@ -142,7 +144,7 @@ impl Runner for SyncRunner {
                             0,
                             format!("Failed to build noise address: {:#}", err),
                         )]));
-                    }
+                    },
                 };
                 provider_collection.target_noise_provider = Some(NoiseProvider::new(
                     self.provider_configs.noise.clone(),
@@ -206,7 +208,7 @@ impl SyncRunner {
                         );
                         return Err(err);
                     }
-                }
+                },
             }
         };
         Ok(check_result)

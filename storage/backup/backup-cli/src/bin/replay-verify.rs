@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::Result;
-use aptos_backup_cli::utils::ReplayConcurrencyLevelOpt;
 use aptos_backup_cli::{
     coordinators::replay_verify::ReplayVerifyCoordinator,
     metadata::cache::MetadataCacheOpt,
     storage::StorageOpt,
-    utils::{ConcurrentDownloadsOpt, RocksdbOpt, TrustedWaypointOpt},
+    utils::{ConcurrentDownloadsOpt, ReplayConcurrencyLevelOpt, RocksdbOpt, TrustedWaypointOpt},
 };
 use aptos_config::config::{
     BUFFERED_STATE_TARGET_ITEMS, DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD,
@@ -37,13 +36,14 @@ struct Opt {
     pub rocksdb_opt: RocksdbOpt,
     #[clap(
         long,
-        help = "The first transaction version required to be replayed and verified. [Defaults to 0]"
+        help = "The first transaction version required to be replayed and verified. [Defaults to \
+                0]"
     )]
     start_version: Option<Version>,
     #[clap(
         long,
-        help = "The last transaction version required to be replayed and verified (if present \
-        in the backup). [Defaults to the latest version available] "
+        help = "The last transaction version required to be replayed and verified (if present in \
+                the backup). [Defaults to the latest version available] "
     )]
     end_version: Option<Version>,
     #[clap(long)]
@@ -70,8 +70,8 @@ async fn main_impl() -> Result<()> {
     let opt = Opt::from_args();
     let restore_handler = Arc::new(AptosDB::open(
         opt.db_dir,
-        false,                       /* read_only */
-        NO_OP_STORAGE_PRUNER_CONFIG, /* pruner config */
+        false,                       // read_only
+        NO_OP_STORAGE_PRUNER_CONFIG, // pruner config
         opt.rocksdb_opt.into(),
         false,
         BUFFERED_STATE_TARGET_ITEMS,

@@ -1,10 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::{BlockHash, Y2K_MS};
 use crate::{
     common::{
         check_network, get_block_index_from_request, get_timestamp, handle_request, with_context,
+        BlockHash, Y2K_MS,
     },
     error::ApiResult,
     types::{Block, BlockIdentifier, BlockRequest, BlockResponse, Transaction},
@@ -27,8 +27,8 @@ pub fn block_route(
 
 /// Retrieves a block (in this case a single transaction) given it's identifier.
 ///
-/// Our implementation allows for by `index`, which is the ledger `version` or by
-/// transaction `hash`.
+/// Our implementation allows for by `index`, which is the ledger `version` or
+/// by transaction `hash`.
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/BlockApi.html#block)
 async fn block(request: BlockRequest, server_context: RosettaContext) -> ApiResult<BlockResponse> {
@@ -69,7 +69,8 @@ async fn block(request: BlockRequest, server_context: RosettaContext) -> ApiResu
     Ok(BlockResponse { block })
 }
 
-/// Build up the transaction, which should contain the `operations` as the change set
+/// Build up the transaction, which should contain the `operations` as the
+/// change set
 async fn build_block(
     server_context: &RosettaContext,
     parent_block_identifier: BlockIdentifier,

@@ -101,7 +101,7 @@ where
                     HandshakeAuthMode::mutual(trusted_peers.clone()),
                     trusted_peers,
                 )
-            }
+            },
             Auth::MaybeMutual => {
                 let listener_peer_id = aptos_types::account_address::from_identity_public_key(
                     listener_key.public_key(),
@@ -124,7 +124,7 @@ where
                     HandshakeAuthMode::maybe_mutual(trusted_peers.clone()),
                     trusted_peers,
                 )
-            }
+            },
             Auth::ServerOnly => {
                 let listener_peer_id = aptos_types::account_address::from_identity_public_key(
                     listener_key.public_key(),
@@ -140,7 +140,7 @@ where
                     HandshakeAuthMode::server_only(),
                     trusted_peers,
                 )
-            }
+            },
         };
 
     let supported_protocols =
@@ -155,7 +155,7 @@ where
         HANDSHAKE_VERSION,
         chain_id,
         supported_protocols.clone(),
-        false, /* Disable proxy protocol */
+        false, // Disable proxy protocol
     );
 
     let dialer_transport = AptosNetTransport::new(
@@ -167,7 +167,7 @@ where
         HANDSHAKE_VERSION,
         chain_id,
         supported_protocols.clone(),
-        false, /* Disable proxy protocol */
+        false, // Disable proxy protocol
     );
 
     (
@@ -408,8 +408,8 @@ fn test_transport_maybe_mutual<TTransport>(
         assert_eq!(&msg, b"barbaz".as_ref());
         conn.socket.close().await.unwrap();
 
-        // Clear the trusted peers and see that we can still connect to the remote but with it
-        // being untrusted
+        // Clear the trusted peers and see that we can still connect to the remote but
+        // with it being untrusted
         trusted_peers.write().clear();
 
         // accept one inbound connection from dialer

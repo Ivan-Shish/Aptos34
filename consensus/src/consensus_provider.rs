@@ -27,7 +27,8 @@ use std::sync::{
 };
 use tokio::runtime::{self, Runtime};
 
-/// Helper function to start consensus based on configuration and return the runtime
+/// Helper function to start consensus based on configuration and return the
+/// runtime
 pub fn start_consensus(
     node_config: &NodeConfig,
     mut network_sender: ConsensusNetworkSender,

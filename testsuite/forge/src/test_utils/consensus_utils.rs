@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::{wait_for_all_nodes_to_catchup_to_version, Swarm, SwarmExt};
 use anyhow::{bail, Context, Result};
 use aptos_config::config::DEFAULT_MAX_PAGE_SIZE;
 use aptos_rest_client::Client as RestClient;
@@ -9,10 +10,10 @@ use chrono::Utc;
 use core::time;
 use futures::future::join_all;
 use itertools::Itertools;
-use std::time::Duration;
-use std::{collections::HashSet, time::Instant};
-
-use crate::{wait_for_all_nodes_to_catchup_to_version, Swarm, SwarmExt};
+use std::{
+    collections::HashSet,
+    time::{Duration, Instant},
+};
 
 #[derive(Clone, Debug)]
 pub struct NodeState {
@@ -57,7 +58,8 @@ pub async fn test_consensus_fault_tolerance(
     cycle_duration_s: f32,
     parts_in_cycle: usize,
     mut failure_injection: Box<dyn FailureInjection>,
-    // (cycle, executed_epochs, executed_rounds, executed_transactions, current_state, previous_state)
+    // (cycle, executed_epochs, executed_rounds, executed_transactions, current_state,
+    // previous_state)
     mut check_cycle: Box<
         dyn FnMut(usize, u64, u64, u64, Vec<NodeState>, Vec<NodeState>) -> Result<()>,
     >,
@@ -185,7 +187,8 @@ pub async fn test_consensus_fault_tolerance(
         assert_eq!(
             txns_a.len(),
             txns_b.len(),
-            "Fetched length of transactions for target_v {} doesn't match: from {} to {} vs from {} to {}",
+            "Fetched length of transactions for target_v {} doesn't match: from {} to {} vs from \
+             {} to {}",
             target_v,
             txns_a.first().map(|t| t.version).unwrap_or(0),
             txns_a.last().map(|t| t.version).unwrap_or(0),
@@ -207,12 +210,9 @@ pub async fn test_consensus_fault_tolerance(
             errors.len(),
             errors
                 .iter()
-                .map(|(err, cycle, ts)| format!(
-                    "cycle {} at {}: {:?} ",
-                    cycle,
-                    ts.to_rfc3339(),
-                    err
-                ))
+                .map(|(err, cycle, ts)| {
+                    format!("cycle {} at {}: {:?} ", cycle, ts.to_rfc3339(), err)
+                })
                 .join("\n")
         );
     }
@@ -235,6 +235,7 @@ pub struct NoFailureInjection {}
 #[async_trait]
 impl FailureInjection for NoFailureInjection {
     async fn inject(&mut self, _: &[(String, RestClient)], _: usize, _: usize) {}
+
     async fn clear(&mut self, _: &[(String, RestClient)]) {}
 }
 

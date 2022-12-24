@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::quorum_store::types::{Batch, BatchRequest, Fragment};
 use crate::{
     block_storage::{
         tracing::{observe_block, BlockStage},
@@ -22,6 +21,7 @@ use crate::{
     network_interface::ConsensusMsg,
     pending_votes::VoteReceptionResult,
     persistent_liveness_storage::PersistentLivenessStorage,
+    quorum_store::types::{Batch, BatchRequest, Fragment},
 };
 use anyhow::{bail, ensure, Context, Result};
 use aptos_channels::aptos_channel;
@@ -84,42 +84,42 @@ impl UnverifiedEvent {
             UnverifiedEvent::ProposalMsg(p) => {
                 p.verify(validator, quorum_store_enabled)?;
                 VerifiedEvent::ProposalMsg(p)
-            }
+            },
             UnverifiedEvent::VoteMsg(v) => {
                 v.verify(validator)?;
                 VerifiedEvent::VoteMsg(v)
-            }
+            },
             // sync info verification is on-demand (verified when it's used)
             UnverifiedEvent::SyncInfo(s) => VerifiedEvent::UnverifiedSyncInfo(s),
             UnverifiedEvent::CommitVote(cv) => {
                 cv.verify(validator)?;
                 VerifiedEvent::CommitVote(cv)
-            }
+            },
             UnverifiedEvent::CommitDecision(cd) => {
                 cd.verify(validator)?;
                 VerifiedEvent::CommitDecision(cd)
-            }
+            },
             UnverifiedEvent::FragmentMsg(f) => {
                 f.verify(peer_id)?;
                 VerifiedEvent::FragmentMsg(f)
-            }
+            },
             UnverifiedEvent::BatchRequestMsg(br) => {
                 br.verify(peer_id)?;
                 VerifiedEvent::BatchRequestMsg(br)
-            }
+            },
             // Only sender is verified. Remaining verification is on-demand (when it's used).
             UnverifiedEvent::BatchMsg(b) => {
                 b.verify(peer_id)?;
                 VerifiedEvent::UnverifiedBatchMsg(b)
-            }
+            },
             UnverifiedEvent::SignedDigestMsg(sd) => {
                 sd.verify(validator)?;
                 VerifiedEvent::SignedDigestMsg(sd)
-            }
+            },
             UnverifiedEvent::ProofOfStoreMsg(p) => {
                 p.verify(validator)?;
                 VerifiedEvent::ProofOfStoreMsg(p)
-            }
+            },
         })
     }
 
@@ -183,11 +183,11 @@ mod round_manager_test;
 #[path = "round_manager_fuzzing.rs"]
 pub mod round_manager_fuzzing;
 
-/// Consensus SMR is working in an event based fashion: RoundManager is responsible for
-/// processing the individual events (e.g., process_new_round, process_proposal, process_vote,
-/// etc.). It is exposing the async processing functions for each event type.
-/// The caller is responsible for running the event loops and driving the execution via some
-/// executors.
+/// Consensus SMR is working in an event based fashion: RoundManager is
+/// responsible for processing the individual events (e.g., process_new_round,
+/// process_proposal, process_vote, etc.). It is exposing the async processing
+/// functions for each event type. The caller is responsible for running the
+/// event loops and driving the execution via some executors.
 pub struct RoundManager {
     epoch_state: EpochState,
     block_store: Arc<BlockStore>,
@@ -247,7 +247,8 @@ impl RoundManager {
         self.onchain_config.decoupled_execution()
     }
 
-    // TODO: Evaluate if creating a block retriever is slow and cache this if needed.
+    // TODO: Evaluate if creating a block retriever is slow and cache this if
+    // needed.
     fn create_block_retriever(&self, author: Author) -> BlockRetriever {
         BlockRetriever::new(
             self.network.clone(),
@@ -261,12 +262,14 @@ impl RoundManager {
 
     /// Leader:
     ///
-    /// This event is triggered by a new quorum certificate at the previous round or a
-    /// timeout certificate at the previous round.  In either case, if this replica is the new
-    /// proposer for this round, it is ready to propose and guarantee that it can create a proposal
-    /// that all honest replicas can vote for.  While this method should only be invoked at most
-    /// once per round, we ensure that only at most one proposal can get generated per round to
-    /// avoid accidental equivocation of proposals.
+    /// This event is triggered by a new quorum certificate at the previous
+    /// round or a timeout certificate at the previous round.  In either
+    /// case, if this replica is the new proposer for this round, it is
+    /// ready to propose and guarantee that it can create a proposal
+    /// that all honest replicas can vote for.  While this method should only be
+    /// invoked at most once per round, we ensure that only at most one
+    /// proposal can get generated per round to avoid accidental
+    /// equivocation of proposals.
     ///
     /// Replica:
     ///
@@ -280,10 +283,10 @@ impl RoundManager {
         match new_round_event.reason {
             NewRoundReason::QCReady => {
                 counters::QC_ROUNDS_COUNT.inc();
-            }
+            },
             NewRoundReason::Timeout => {
                 counters::TIMEOUT_ROUNDS_COUNT.inc();
-            }
+            },
         };
         info!(
             self.new_log(LogEvent::NewRound),
@@ -384,7 +387,8 @@ impl RoundManager {
         &mut self,
         new_round_event: NewRoundEvent,
     ) -> anyhow::Result<ProposalMsg> {
-        // Proposal generator will ensure that at most one proposal is generated per round
+        // Proposal generator will ensure that at most one proposal is generated per
+        // round
         let sync_info = self.block_store.sync_info();
         let mut sender = self.network.clone();
         let callback = async move {
@@ -408,8 +412,8 @@ impl RoundManager {
     }
 
     /// Process the proposal message:
-    /// 1. ensure after processing sync info, we're at the same round as the proposal
-    /// 2. execute and decide whether to vote for the proposal
+    /// 1. ensure after processing sync info, we're at the same round as the
+    /// proposal 2. execute and decide whether to vote for the proposal
     pub async fn process_proposal_msg(&mut self, proposal_msg: ProposalMsg) -> anyhow::Result<()> {
         fail_point!("consensus::process_proposal_msg", |_| {
             Err(anyhow::anyhow!("Injected error in process_proposal_msg"))
@@ -490,13 +494,14 @@ impl RoundManager {
         }
     }
 
-    /// The function makes sure that it ensures the message_round equal to what we have locally,
-    /// brings the missing dependencies from the QC and LedgerInfo of the given sync info and
-    /// update the round_state with the certificates if succeed.
-    /// Returns Ok(true) if the sync succeeds and the round matches so we can process further.
-    /// Returns Ok(false) if the message is stale.
-    /// Returns Error in case sync mgr failed to bring the missing dependencies.
-    /// We'll try to help the remote if the SyncInfo lags behind and the flag is set.
+    /// The function makes sure that it ensures the message_round equal to what
+    /// we have locally, brings the missing dependencies from the QC and
+    /// LedgerInfo of the given sync info and update the round_state with
+    /// the certificates if succeed. Returns Ok(true) if the sync succeeds
+    /// and the round matches so we can process further. Returns Ok(false)
+    /// if the message is stale. Returns Error in case sync mgr failed to
+    /// bring the missing dependencies. We'll try to help the remote if the
+    /// SyncInfo lags behind and the flag is set.
     pub async fn ensure_round_and_sync_up(
         &mut self,
         message_round: Round,
@@ -548,14 +553,15 @@ impl RoundManager {
         }
     }
 
-    /// The replica broadcasts a "timeout vote message", which includes the round signature, which
-    /// can be aggregated to a TimeoutCertificate.
+    /// The replica broadcasts a "timeout vote message", which includes the
+    /// round signature, which can be aggregated to a TimeoutCertificate.
     /// The timeout vote message can be one of the following three options:
-    /// 1) In case a validator has previously voted in this round, it repeats the same vote and sign
-    /// a timeout.
+    /// 1) In case a validator has previously voted in this round, it repeats
+    /// the same vote and sign a timeout.
     /// 2) Otherwise vote for a NIL block and sign a timeout.
-    /// Note this function returns Err even if messages are broadcasted successfully because timeout
-    /// is considered as error. It only returns Ok(()) when the timeout is stale.
+    /// Note this function returns Err even if messages are broadcasted
+    /// successfully because timeout is considered as error. It only returns
+    /// Ok(()) when the timeout is stale.
     pub async fn process_local_timeout(&mut self, round: Round) -> anyhow::Result<()> {
         if !self.round_state.process_local_timeout(round) {
             return Ok(());
@@ -571,7 +577,7 @@ impl RoundManager {
         let (is_nil_vote, mut timeout_vote) = match self.round_state.vote_sent() {
             Some(vote) if vote.vote_data().proposed().round() == round => {
                 (vote.vote_data().is_for_nil(), vote)
-            }
+            },
             _ => {
                 // Didn't vote in this round yet, generate a backup vote
                 let nil_block = self
@@ -584,7 +590,7 @@ impl RoundManager {
                 counters::VOTE_NIL_COUNT.inc();
                 let nil_vote = self.execute_and_vote(nil_block).await?;
                 (true, nil_vote)
-            }
+            },
         };
 
         if !timeout_vote.is_timeout() {
@@ -613,7 +619,8 @@ impl RoundManager {
         bail!("Round {} timeout, broadcast to all peers", round);
     }
 
-    /// This function is called only after all the dependencies of the given QC have been retrieved.
+    /// This function is called only after all the dependencies of the given QC
+    /// have been retrieved.
     async fn process_certificates(&mut self) -> anyhow::Result<()> {
         let sync_info = self.block_store.sync_info();
         if let Some(new_round_event) = self.round_state.process_certificates(sync_info) {
@@ -626,8 +633,8 @@ impl RoundManager {
     /// 1. Filter if it's proposed by valid proposer.
     /// 2. Execute and add it to a block store.
     /// 3. Try to vote for it following the safety rules.
-    /// 4. In case a validator chooses to vote, send the vote to the representatives at the next
-    /// round.
+    /// 4. In case a validator chooses to vote, send the vote to the
+    /// representatives at the next round.
     async fn process_proposal(&mut self, proposal: Block) -> Result<()> {
         let author = proposal
             .author()
@@ -651,7 +658,8 @@ impl RoundManager {
 
         ensure!(
             self.proposer_election.is_valid_proposal(&proposal),
-            "[RoundManager] Proposer {} for block {} is not a valid proposer for this round or created duplicate proposal",
+            "[RoundManager] Proposer {} for block {} is not a valid proposer for this round or \
+             created duplicate proposal",
             author,
             proposal,
         );
@@ -664,8 +672,14 @@ impl RoundManager {
             &mut self.proposer_election,
         );
         ensure!(
-            proposal.block_data().failed_authors().map_or(false, |failed_authors| *failed_authors == expected_failed_authors),
-            "[RoundManager] Proposal for block {} has invalid failed_authors list {:?}, expected {:?}",
+            proposal
+                .block_data()
+                .failed_authors()
+                .map_or(false, |failed_authors| {
+                    *failed_authors == expected_failed_authors
+                }),
+            "[RoundManager] Proposal for block {} has invalid failed_authors list {:?}, expected \
+             {:?}",
             proposal.round(),
             proposal.block_data().failed_authors(),
             expected_failed_authors,
@@ -675,16 +689,16 @@ impl RoundManager {
 
         ensure!(
             block_time_since_epoch < self.round_state.current_round_deadline(),
-            "[RoundManager] Waiting until proposal block timestamp usecs {:?} \
-            would exceed the round duration {:?}, hence will not vote for this round",
+            "[RoundManager] Waiting until proposal block timestamp usecs {:?} would exceed the \
+             round duration {:?}, hence will not vote for this round",
             block_time_since_epoch,
             self.round_state.current_round_deadline(),
         );
 
         observe_block(proposal.timestamp_usecs(), BlockStage::SYNCED);
         if self.decoupled_execution() && self.block_store.back_pressure() {
-            // In case of back pressure, we delay processing proposal. This is done by resending the
-            // same proposal to self after some time.
+            // In case of back pressure, we delay processing proposal. This is done by
+            // resending the same proposal to self after some time.
             Ok(self
                 .resend_verified_proposal_to_self(
                     proposal,
@@ -749,7 +763,8 @@ impl RoundManager {
     /// * first execute the block and add it to the block store
     /// * then verify the voting rules
     /// * save the updated state to consensus DB
-    /// * return a VoteMsg with the LedgerInfo to be committed in case the vote gathers QC.
+    /// * return a VoteMsg with the LedgerInfo to be committed in case the vote
+    ///   gathers QC.
     async fn execute_and_vote(&mut self, proposed_block: Block) -> anyhow::Result<Vote> {
         let executed_block = self
             .block_store
@@ -791,8 +806,8 @@ impl RoundManager {
 
     /// Upon new vote:
     /// 1. Ensures we're processing the vote from the same round as local round
-    /// 2. Filter out votes for rounds that should not be processed by this validator (to avoid
-    /// potential attacks).
+    /// 2. Filter out votes for rounds that should not be processed by this
+    /// validator (to avoid potential attacks).
     /// 2. Add the vote to the pending votes and check whether it finishes a QC.
     /// 3. Once the QC/TC successfully formed, notify the RoundState.
     pub async fn process_vote_msg(&mut self, vote_msg: VoteMsg) -> anyhow::Result<()> {
@@ -835,7 +850,8 @@ impl RoundManager {
         );
 
         if !vote.is_timeout() {
-            // Unlike timeout votes regular votes are sent to the leaders of the next round only.
+            // Unlike timeout votes regular votes are sent to the leaders of the next round
+            // only.
             let next_round = round + 1;
             ensure!(
                 self.proposer_election
@@ -867,13 +883,13 @@ impl RoundManager {
                     );
                 }
                 self.new_qc_aggregated(qc, vote.author()).await
-            }
+            },
             VoteReceptionResult::New2ChainTimeoutCertificate(tc) => {
                 self.new_2chain_tc_aggregated(tc).await
-            }
+            },
             VoteReceptionResult::EchoTimeout(_) if !self.round_state.is_vote_timeout() => {
                 self.process_local_timeout(round).await
-            }
+            },
             VoteReceptionResult::VoteAdded(_)
             | VoteReceptionResult::EchoTimeout(_)
             | VoteReceptionResult::DuplicateVote => Ok(()),
@@ -1016,9 +1032,11 @@ impl RoundManager {
         false
     }
 
-    /// Given R1 <- B2 if R1 has the reconfiguration txn, we inject error on B2 if R1.round + 1 = B2.round
-    /// Direct suffix is checked by parent.has_reconfiguration && !parent.parent.has_reconfiguration
-    /// The error is injected by sending proposals to half of the validators to force a timeout.
+    /// Given R1 <- B2 if R1 has the reconfiguration txn, we inject error on B2
+    /// if R1.round + 1 = B2.round Direct suffix is checked by
+    /// parent.has_reconfiguration && !parent.parent.has_reconfiguration The
+    /// error is injected by sending proposals to half of the validators to
+    /// force a timeout.
     ///
     /// It's only enabled with fault injection (failpoints feature).
     #[cfg(feature = "failpoints")]

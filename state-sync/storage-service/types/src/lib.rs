@@ -40,7 +40,8 @@ pub enum StorageServiceError {
 pub enum StorageServiceMessage {
     /// A request to the storage service.
     Request(StorageServiceRequest),
-    /// A response from the storage service. If there was an error while handling
-    /// the request, the service will return an [`StorageServiceError`] error.
+    /// A response from the storage service. If there was an error while
+    /// handling the request, the service will return an
+    /// [`StorageServiceError`] error.
     Response(Result<StorageServiceResponse>),
 }

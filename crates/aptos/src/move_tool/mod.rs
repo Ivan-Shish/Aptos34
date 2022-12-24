@@ -8,62 +8,57 @@ pub use package_hooks::*;
 pub mod stored_package;
 mod transactional_tests_runner;
 
-pub use stored_package::*;
-
-use crate::common::types::MoveManifestAccountWrapper;
-use crate::common::types::{CliConfig, ConfigSearchMode, ProfileOptions, RestOptions};
-use crate::common::utils::{
-    create_dir_if_not_exist, dir_default_to_current, prompt_yes_with_override, write_to_file,
-};
-use crate::governance::CompileScriptFunction;
-use crate::move_tool::manifest::{
-    Dependency, ManifestNamedAddress, MovePackageManifest, PackageInfo,
-};
 use crate::{
     common::{
         types::{
-            load_account_arg, CliError, CliTypedResult, MovePackageDir, PromptOptions,
+            load_account_arg, CliConfig, CliError, CliTypedResult, ConfigSearchMode,
+            MoveManifestAccountWrapper, MovePackageDir, ProfileOptions, PromptOptions, RestOptions,
             TransactionOptions, TransactionSummary,
         },
-        utils::check_if_file_exists,
+        utils::{
+            check_if_file_exists, create_dir_if_not_exist, dir_default_to_current,
+            prompt_yes_with_override, write_to_file,
+        },
     },
+    governance::CompileScriptFunction,
+    move_tool::manifest::{Dependency, ManifestNamedAddress, MovePackageManifest, PackageInfo},
     CliCommand, CliResult,
 };
-use aptos_framework::docgen::DocgenOptions;
-use aptos_framework::natives::code::UpgradePolicy;
-use aptos_framework::prover::ProverOptions;
-use aptos_framework::{BuildOptions, BuiltPackage};
+use aptos_framework::{
+    docgen::DocgenOptions, natives::code::UpgradePolicy, prover::ProverOptions, BuildOptions,
+    BuiltPackage,
+};
 use aptos_gas::{AbstractValueSizeGasParameters, NativeGasParameters};
 use aptos_rest_client::aptos_api_types::MoveType;
 use aptos_transactional_test_harness::run_aptos_test;
-use aptos_types::account_address::{create_resource_address, AccountAddress};
-use aptos_types::transaction::{EntryFunction, Script, TransactionArgument, TransactionPayload};
+use aptos_types::{
+    account_address::{create_resource_address, AccountAddress},
+    transaction::{EntryFunction, Script, TransactionArgument, TransactionPayload},
+};
 use async_trait::async_trait;
 use clap::{ArgEnum, Parser, Subcommand};
 use itertools::Itertools;
-use move_cli::base::test::UnitTestResult;
+use move_cli::{self, base::test::UnitTestResult};
 use move_command_line_common::env::MOVE_HOME;
+use move_core_types::{
+    identifier::Identifier,
+    language_storage::{ModuleId, TypeTag},
+};
+use move_package::{source_package::layout::SourcePackageLayout, BuildConfig};
+use move_unit_test::UnitTestingConfig;
 use serde::Serialize;
-use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 use std::{
     collections::BTreeMap,
     convert::TryFrom,
     env,
+    fmt::{Display, Formatter},
+    ops::Deref,
     path::{Path, PathBuf},
     str::FromStr,
 };
+pub use stored_package::*;
 use tokio::task;
 use transactional_tests_runner::TransactionalTestOpts;
-use {
-    move_cli,
-    move_core_types::{
-        identifier::Identifier,
-        language_storage::{ModuleId, TypeTag},
-    },
-    move_package::{source_package::layout::SourcePackageLayout, BuildConfig},
-    move_unit_test::UnitTestingConfig,
-};
 
 /// Tool for Move related operations
 ///
@@ -106,7 +101,7 @@ impl MoveTool {
             MoveTool::TransactionalTest(tool) => tool.execute_serialized_success().await,
             MoveTool::CreateResourceAccountAndPublishPackage(tool) => {
                 tool.execute_serialized_success().await
-            }
+            },
         }
     }
 }
@@ -114,10 +109,10 @@ impl MoveTool {
 const VAR_BYTECODE_VERSION: &str = "MOVE_BYTECODE_VERSION";
 
 fn set_bytecode_version(version: Option<u32>) {
-    // Note: this is a bit of a hack to get the compiler emit bytecode with the right
-    //       version. In the future, we should add an option to the Move package system
-    //       that would allow us to configure this directly instead of relying on
-    //       environment variables.
+    // Note: this is a bit of a hack to get the compiler emit bytecode with the
+    // right       version. In the future, we should add an option to the Move
+    // package system       that would allow us to configure this directly
+    // instead of relying on       environment variables.
     if let Some(ver) = version {
         env::set_var(VAR_BYTECODE_VERSION, ver.to_string());
     } else if env::var(VAR_BYTECODE_VERSION) == Err(env::VarError::NotPresent) {
@@ -172,30 +167,24 @@ impl FrameworkPackageArgs {
         // Add the framework dependency if it's provided
         let mut dependencies = BTreeMap::new();
         if let Some(ref path) = self.framework_local_dir {
-            dependencies.insert(
-                APTOS_FRAMEWORK.to_string(),
-                Dependency {
-                    local: Some(path.display().to_string()),
-                    git: None,
-                    rev: None,
-                    subdir: None,
-                    aptos: None,
-                    address: None,
-                },
-            );
+            dependencies.insert(APTOS_FRAMEWORK.to_string(), Dependency {
+                local: Some(path.display().to_string()),
+                git: None,
+                rev: None,
+                subdir: None,
+                aptos: None,
+                address: None,
+            });
         } else {
             let git_rev = self.framework_git_rev.as_deref().unwrap_or(DEFAULT_BRANCH);
-            dependencies.insert(
-                APTOS_FRAMEWORK.to_string(),
-                Dependency {
-                    local: None,
-                    git: Some(APTOS_GIT_PATH.to_string()),
-                    rev: Some(git_rev.to_string()),
-                    subdir: Some(SUBDIR_PATH.to_string()),
-                    aptos: None,
-                    address: None,
-                },
-            );
+            dependencies.insert(APTOS_FRAMEWORK.to_string(), Dependency {
+                local: None,
+                git: Some(APTOS_GIT_PATH.to_string()),
+                rev: Some(git_rev.to_string()),
+                subdir: Some(SUBDIR_PATH.to_string()),
+                aptos: None,
+                address: None,
+            });
         }
 
         let manifest = MovePackageManifest {
@@ -238,7 +227,8 @@ pub struct InitPackage {
     ///
     /// Example: alice=0x1234,bob=0x5678,greg=_
     ///
-    /// Note: This will fail if there are duplicates in the Move.toml file remove those first.
+    /// Note: This will fail if there are duplicates in the Move.toml file
+    /// remove those first.
     #[clap(long, parse(try_from_str = crate::common::utils::parse_map), default_value = "")]
     pub(crate) named_addresses: BTreeMap<String, MoveManifestAccountWrapper>,
 
@@ -277,8 +267,9 @@ impl CliCommand<()> for InitPackage {
 pub struct CompilePackage {
     /// Save the package metadata in the package's build directory
     ///
-    /// If set, package metadata should be generated and stored in the package's build directory.
-    /// This metadata can be used to construct a transaction to publish a package.
+    /// If set, package metadata should be generated and stored in the package's
+    /// build directory. This metadata can be used to construct a
+    /// transaction to publish a package.
     #[clap(long)]
     pub(crate) save_metadata: bool,
 
@@ -324,7 +315,8 @@ impl CliCommand<Vec<String>> for CompilePackage {
 /// Runs Move unit tests for a package
 ///
 /// This will run Move unit tests against a package with debug mode
-/// turned on.  Note, that move code warnings currently block tests from running.
+/// turned on.  Note, that move code warnings currently block tests from
+/// running.
 #[derive(Parser)]
 pub struct TestPackage {
     /// A filter string to determine which unit tests to run
@@ -493,13 +485,14 @@ impl CliCommand<&'static str> for DocumentPackage {
 pub struct IncludedArtifactsArgs {
     /// Artifacts to be generated when building the package
     ///
-    /// Which artifacts to include in the package. This can be one of `none`, `sparse`, and
-    /// `all`. `none` is the most compact form and does not allow to reconstruct a source
-    /// package from chain; `sparse` is the minimal set of artifacts needed to reconstruct
-    /// a source package; `all` includes all available artifacts. The choice of included
-    /// artifacts heavily influences the size and therefore gas cost of publishing: `none`
-    /// is the size of bytecode alone; `sparse` is roughly 2 times as much; and `all` 3-4
-    /// as much.
+    /// Which artifacts to include in the package. This can be one of `none`,
+    /// `sparse`, and `all`. `none` is the most compact form and does not
+    /// allow to reconstruct a source package from chain; `sparse` is the
+    /// minimal set of artifacts needed to reconstruct a source package;
+    /// `all` includes all available artifacts. The choice of included
+    /// artifacts heavily influences the size and therefore gas cost of
+    /// publishing: `none` is the size of bytecode alone; `sparse` is
+    /// roughly 2 times as much; and `all` 3-4 as much.
     #[clap(long, default_value_t = IncludedArtifacts::Sparse)]
     pub(crate) included_artifacts: IncludedArtifacts,
 }
@@ -560,16 +553,18 @@ impl IncludedArtifacts {
     ) -> BuildOptions {
         use IncludedArtifacts::*;
         match self {
-            None => BuildOptions {
-                with_srcs: false,
-                with_abis: false,
-                with_source_maps: false,
-                // Always enable error map bytecode injection
-                with_error_map: true,
-                named_addresses,
-                skip_fetch_latest_git_deps,
-                bytecode_version: Some(bytecode_version),
-                ..BuildOptions::default()
+            None => {
+                BuildOptions {
+                    with_srcs: false,
+                    with_abis: false,
+                    with_source_maps: false,
+                    // Always enable error map bytecode injection
+                    with_error_map: true,
+                    named_addresses,
+                    skip_fetch_latest_git_deps,
+                    bytecode_version: Some(bytecode_version),
+                    ..BuildOptions::default()
+                }
             },
             Sparse => BuildOptions {
                 with_srcs: true,
@@ -630,9 +625,9 @@ impl CliCommand<TransactionSummary> for PublishPackage {
         println!("package size {} bytes", size);
         if !override_size_check && size > MAX_PUBLISH_PACKAGE_SIZE {
             return Err(CliError::UnexpectedError(format!(
-                "The package is larger than {} bytes ({} bytes)! To lower the size \
-                you may want to include less artifacts via `--included-artifacts`. \
-                You can also override this check with `--override-size-check",
+                "The package is larger than {} bytes ({} bytes)! To lower the size you may want \
+                 to include less artifacts via `--included-artifacts`. You can also override this \
+                 check with `--override-size-check",
                 MAX_PUBLISH_PACKAGE_SIZE, size
             )));
         }
@@ -643,7 +638,8 @@ impl CliCommand<TransactionSummary> for PublishPackage {
     }
 }
 
-/// Publishes the modules in a Move package to the Aptos blockchain under a resource account
+/// Publishes the modules in a Move package to the Aptos blockchain under a
+/// resource account
 #[derive(Parser)]
 pub struct CreateResourceAccountAndPublishPackage {
     #[clap(long)]
@@ -725,9 +721,9 @@ impl CliCommand<TransactionSummary> for CreateResourceAccountAndPublishPackage {
         println!("package size {} bytes", size);
         if !override_size_check && size > MAX_PUBLISH_PACKAGE_SIZE {
             return Err(CliError::UnexpectedError(format!(
-                "The package is larger than {} bytes ({} bytes)! To lower the size \
-                you may want to include less artifacts via `--included-artifacts`. \
-                You can also override this check with `--override-size-check",
+                "The package is larger than {} bytes ({} bytes)! To lower the size you may want \
+                 to include less artifacts via `--included-artifacts`. You can also override this \
+                 check with `--override-size-check",
                 MAX_PUBLISH_PACKAGE_SIZE, size
             )));
         }
@@ -752,7 +748,8 @@ pub struct DownloadPackage {
     #[clap(long)]
     pub package: String,
 
-    /// Directory to store downloaded package. Defaults to the current directory.
+    /// Directory to store downloaded package. Defaults to the current
+    /// directory.
     #[clap(long, parse(from_os_str))]
     pub output_dir: Option<PathBuf>,
 
@@ -779,8 +776,8 @@ impl CliCommand<&'static str> for DownloadPackage {
             .map_err(|s| CliError::CommandArgumentError(s.to_string()))?;
         if package.upgrade_policy() == UpgradePolicy::arbitrary() {
             return Err(CliError::CommandArgumentError(
-                "A package with upgrade policy `arbitrary` cannot be downloaded \
-                since it is not safe to depend on such packages."
+                "A package with upgrade policy `arbitrary` cannot be downloaded since it is not \
+                 safe to depend on such packages."
                     .to_owned(),
             ));
         }
@@ -797,7 +794,8 @@ impl CliCommand<&'static str> for DownloadPackage {
     }
 }
 
-/// Downloads a package and verifies that the bytecode matches a local compilation of the Move code
+/// Downloads a package and verifies that the bytecode matches a local
+/// compilation of the Move code
 #[derive(Parser)]
 pub struct VerifyPackage {
     /// Address of the account containing the package
@@ -849,8 +847,8 @@ impl CliCommand<&'static str> for VerifyPackage {
         // We can't check the arbitrary, because it could change on us
         if package.upgrade_policy() == UpgradePolicy::arbitrary() {
             return Err(CliError::CommandArgumentError(
-                "A package with upgrade policy `arbitrary` cannot be downloaded \
-                since it is not safe to depend on such packages."
+                "A package with upgrade policy `arbitrary` cannot be downloaded since it is not \
+                 safe to depend on such packages."
                     .to_owned(),
             ));
         }
@@ -924,7 +922,7 @@ impl CliCommand<&'static str> for ListPackage {
                     println!("  source_digest: {}", data.source_digest());
                     println!("  modules: {}", data.module_names().into_iter().join(", "));
                 }
-            }
+            },
         }
         Ok("list succeeded")
     }
@@ -949,7 +947,8 @@ impl CliCommand<&'static str> for CleanPackage {
         set_bytecode_version(self.move_options.bytecode_version);
         let path = self.move_options.get_package_path()?;
         let build_dir = path.join("build");
-        // Only remove the build dir if it exists, allowing for users to still clean their cache
+        // Only remove the build dir if it exists, allowing for users to still clean
+        // their cache
         if build_dir.exists() {
             std::fs::remove_dir_all(build_dir.as_path())
                 .map_err(|e| CliError::IO(build_dir.display().to_string(), e))?;
@@ -1145,7 +1144,7 @@ impl FunctionArgType {
                     })?);
                 }
                 bcs::to_bytes(&encoded)
-            }
+            },
             FunctionArgType::String => bcs::to_bytes(arg),
             FunctionArgType::U8 => bcs::to_bytes(
                 &u8::from_str(arg).map_err(|err| CliError::UnableToParse("u8", err.to_string()))?,
@@ -1162,7 +1161,7 @@ impl FunctionArgType {
                 let raw = hex::decode(arg)
                     .map_err(|err| CliError::UnableToParse("raw", err.to_string()))?;
                 Ok(raw)
-            }
+            },
             FunctionArgType::Vector(inner) => {
                 let parsed = match inner.deref() {
                     FunctionArgType::Address => parse_vector_arg(arg, |arg| {
@@ -1192,10 +1191,10 @@ impl FunctionArgType {
                     }),
                     vector_type => {
                         panic!("Unsupported vector type vector<{}>", vector_type)
-                    }
+                    },
                 }?;
                 Ok(parsed)
-            }
+            },
         }
         .map_err(|err| CliError::BCS("arg", err))
     }
@@ -1216,6 +1215,7 @@ fn parse_vector_arg<T: Serialize, F: Fn(&str) -> CliTypedResult<T>>(
 
 impl FromStr for FunctionArgType {
     type Err = CliError;
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "address" => Ok(FunctionArgType::Address),
@@ -1253,9 +1253,14 @@ impl FromStr for FunctionArgType {
 
                     Ok(FunctionArgType::Vector(Box::new(arg)))
                 } else {
-                    Err(CliError::CommandArgumentError(format!("Invalid arg type '{}'.  Must be one of: ['address','bool','hex','hex_array','string','u8','u64','u128','raw', 'vector<inner_type>']", str)))
+                    Err(CliError::CommandArgumentError(format!(
+                        "Invalid arg type '{}'.  Must be one of: \
+                         ['address','bool','hex','hex_array','string','u8','u64','u128','raw', \
+                         'vector<inner_type>']",
+                        str
+                    )))
                 }
-            }
+            },
         }
     }
 }
@@ -1287,6 +1292,7 @@ impl ArgWithType {
             arg: bcs::to_bytes(&arg).unwrap(),
         }
     }
+
     pub fn raw(arg: Vec<u8>) -> Self {
         ArgWithType {
             _ty: FunctionArgType::Raw,

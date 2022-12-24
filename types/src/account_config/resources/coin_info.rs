@@ -30,7 +30,8 @@ impl Aggregator {
         Self { handle, key, limit }
     }
 
-    /// Helper function to return the state key where the actual value is stored.
+    /// Helper function to return the state key where the actual value is
+    /// stored.
     pub fn state_key(&self) -> StateKey {
         let key_bytes = self.key.to_vec();
         StateKey::table_item(TableHandle(self.handle), key_bytes)

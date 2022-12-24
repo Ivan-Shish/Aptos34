@@ -102,7 +102,7 @@ pub trait Validator: Node + Sync {
 /// Trait used to represent a running FullNode
 #[async_trait::async_trait]
 pub trait FullNode: Node + Sync {
-    //TODO handle VFNs querying if they are connected to a validator
+    // TODO handle VFNs querying if they are connected to a validator
     async fn check_connectivity(&self) -> Result<bool> {
         const DIRECTION: Option<&str> = Some("outbound");
         const EXPECTED_PEERS: usize = 1;
@@ -224,8 +224,8 @@ pub trait NodeExt: Node {
                         self.peer_id(),
                         error,
                     ))
-                }
-                Err(_) => {} // For other errors we'll retry
+                },
+                Err(_) => {}, // For other errors we'll retry
             }
 
             tokio::time::sleep(Duration::from_millis(500)).await;

@@ -8,8 +8,8 @@ use crate::{
 };
 use aptos_crypto::hash::HashValue;
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
-use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::{
+    aggregate_signature::AggregateSignature,
     block_info::BlockInfo,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
 };
@@ -21,56 +21,65 @@ pub enum BlockType {
     Proposal {
         /// T of the block (e.g. one or more transaction(s)
         payload: Payload,
-        /// Author of the block that can be validated by the author's public key and the signature
+        /// Author of the block that can be validated by the author's public key
+        /// and the signature
         author: Author,
         /// Failed authors from the parent's block to this block.
         /// I.e. the list of consecutive proposers from the
-        /// immediately preceeding rounds that didn't produce a successful block.
+        /// immediately preceeding rounds that didn't produce a successful
+        /// block.
         failed_authors: Vec<(Round, Author)>,
     },
-    /// NIL blocks don't have authors or signatures: they're generated upon timeouts to fill in the
-    /// gaps in the rounds.
+    /// NIL blocks don't have authors or signatures: they're generated upon
+    /// timeouts to fill in the gaps in the rounds.
     NilBlock {
-        /// Failed authors from the parent's block to this block (including this block)
-        /// I.e. the list of consecutive proposers from the
-        /// immediately preceeding rounds that didn't produce a successful block.
+        /// Failed authors from the parent's block to this block (including this
+        /// block) I.e. the list of consecutive proposers from the
+        /// immediately preceeding rounds that didn't produce a successful
+        /// block.
         failed_authors: Vec<(Round, Author)>,
     },
-    /// A genesis block is the first committed block in any epoch that is identically constructed on
-    /// all validators by any (potentially different) LedgerInfo that justifies the epoch change
-    /// from the previous epoch.  The genesis block is used as the first root block of the
-    /// BlockTree for all epochs.
+    /// A genesis block is the first committed block in any epoch that is
+    /// identically constructed on all validators by any (potentially
+    /// different) LedgerInfo that justifies the epoch change
+    /// from the previous epoch.  The genesis block is used as the first root
+    /// block of the BlockTree for all epochs.
     Genesis,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq, CryptoHasher, BCSCryptoHash)]
-/// Block has the core data of a consensus block that should be persistent when necessary.
-/// Each block must know the id of its parent and keep the QuorurmCertificate to that parent.
+/// Block has the core data of a consensus block that should be persistent when
+/// necessary. Each block must know the id of its parent and keep the
+/// QuorurmCertificate to that parent.
 pub struct BlockData {
-    /// Epoch number corresponds to the set of validators that are active for this block.
+    /// Epoch number corresponds to the set of validators that are active for
+    /// this block.
     epoch: u64,
-    /// The round of a block is an internal monotonically increasing counter used by Consensus
-    /// protocol.
+    /// The round of a block is an internal monotonically increasing counter
+    /// used by Consensus protocol.
     round: Round,
-    /// The approximate physical time a block is proposed by a proposer.  This timestamp is used
-    /// for
-    /// * Time-dependent logic in smart contracts (the current time of execution)
-    /// * Clients determining if they are relatively up-to-date with respect to the block chain.
+    /// The approximate physical time a block is proposed by a proposer.  This
+    /// timestamp is used for
+    /// * Time-dependent logic in smart contracts (the current time of
+    ///   execution)
+    /// * Clients determining if they are relatively up-to-date with respect to
+    ///   the block chain.
     ///
     /// It makes the following guarantees:
-    ///   1. Time Monotonicity: Time is monotonically increasing in the block chain.
-    ///      (i.e. If H1 < H2, H1.Time < H2.Time).
-    ///   2. If a block of transactions B is agreed on with timestamp T, then at least
-    ///      f+1 honest validators think that T is in the past. An honest validator will
-    ///      only vote on a block when its own clock >= timestamp T.
-    ///   3. If a block of transactions B has a QC with timestamp T, an honest validator
-    ///      will not serve such a block to other validators until its own clock >= timestamp T.
-    ///   4. Current: an honest validator is not issuing blocks with a timestamp in the
-    ///       future. Currently we consider a block is malicious if it was issued more
-    ///       that 5 minutes in the future.
+    ///   1. Time Monotonicity: Time is monotonically increasing in the block
+    /// chain.      (i.e. If H1 < H2, H1.Time < H2.Time).
+    ///   2. If a block of transactions B is agreed on with timestamp T, then at
+    /// least      f+1 honest validators think that T is in the past. An
+    /// honest validator will      only vote on a block when its own clock
+    /// >= timestamp T.   3. If a block of transactions B has a QC with
+    /// timestamp T, an honest validator      will not serve such a block to
+    /// other validators until its own clock >= timestamp T.   4. Current:
+    /// an honest validator is not issuing blocks with a timestamp in the
+    ///       future. Currently we consider a block is malicious if it was
+    /// issued more       that 5 minutes in the future.
     timestamp_usecs: u64,
-    /// Contains the quorum certified ancestor and whether the quorum certified ancestor was
-    /// voted on successfully
+    /// Contains the quorum certified ancestor and whether the quorum certified
+    /// ancestor was voted on successfully
     quorum_cert: QuorumCert,
     /// If a block is a real proposal, contains its author and signature.
     block_type: BlockType,
@@ -141,16 +150,17 @@ impl BlockData {
         assert!(ledger_info.ends_epoch());
         let ancestor = BlockInfo::new(
             ledger_info.epoch(),
-            0,                 /* round */
-            HashValue::zero(), /* parent block id */
+            0,                 // round
+            HashValue::zero(), // parent block id
             ledger_info.transaction_accumulator_hash(),
             ledger_info.version(),
             ledger_info.timestamp_usecs(),
             None,
         );
 
-        // Genesis carries a placeholder quorum certificate to its parent id with LedgerInfo
-        // carrying information about version from the last LedgerInfo of previous epoch.
+        // Genesis carries a placeholder quorum certificate to its parent id with
+        // LedgerInfo carrying information about version from the last
+        // LedgerInfo of previous epoch.
         let genesis_quorum_cert = QuorumCert::new(
             VoteData::new(ancestor.clone(), ancestor.clone()),
             LedgerInfoWithSignatures::new(
@@ -163,7 +173,8 @@ impl BlockData {
     }
 
     #[cfg(any(test, feature = "fuzzing"))]
-    // This method should only used by tests and fuzzers to produce arbitrary BlockData types.
+    // This method should only used by tests and fuzzers to produce arbitrary
+    // BlockData types.
     pub fn new_for_testing(
         epoch: u64,
         round: Round,
@@ -196,8 +207,9 @@ impl BlockData {
         quorum_cert: QuorumCert,
         failed_authors: Vec<(Round, Author)>,
     ) -> Self {
-        // We want all the NIL blocks to agree on the timestamps even though they're generated
-        // independently by different validators, hence we're using the timestamp of a parent + 1.
+        // We want all the NIL blocks to agree on the timestamps even though they're
+        // generated independently by different validators, hence we're using
+        // the timestamp of a parent + 1.
         assume!(quorum_cert.certified_block().timestamp_usecs() < u64::max_value()); // unlikely to be false in this universe
         let timestamp_usecs = quorum_cert.certified_block().timestamp_usecs();
 
@@ -231,7 +243,8 @@ impl BlockData {
         }
     }
 
-    /// It's a reconfiguration suffix block if the parent block's executed state indicates next epoch.
+    /// It's a reconfiguration suffix block if the parent block's executed state
+    /// indicates next epoch.
     pub fn is_reconfiguration_suffix(&self) -> bool {
         self.quorum_cert.certified_block().has_reconfiguration()
     }

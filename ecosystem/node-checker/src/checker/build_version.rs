@@ -86,7 +86,7 @@ impl Checker for BuildVersionChecker {
                     0,
                     format!("Failed to get system information from your node: {:#}", e),
                 )])
-            }
+            },
         };
 
         let mut check_results = vec![];
@@ -94,12 +94,15 @@ impl Checker for BuildVersionChecker {
         let baseline_build_commit_hash = match self.get_build_commit_hash(&baseline_information) {
             GetValueResult::Present(value) => value,
             GetValueResult::Missing(_evaluation_result) => {
-                return
-                    Err(CheckerError::MissingDataError(
-                        BUILD_COMMIT_HASH_KEY,
-                        anyhow!("The latest set of metrics from the baseline node did not contain the necessary key \"{}\"", BUILD_COMMIT_HASH_KEY),
-                    ));
-            }
+                return Err(CheckerError::MissingDataError(
+                    BUILD_COMMIT_HASH_KEY,
+                    anyhow!(
+                        "The latest set of metrics from the baseline node did not contain the \
+                         necessary key \"{}\"",
+                        BUILD_COMMIT_HASH_KEY
+                    ),
+                ));
+            },
         };
 
         let target_build_commit_hash = match self.get_build_commit_hash(&target_information) {
@@ -107,7 +110,7 @@ impl Checker for BuildVersionChecker {
             GetValueResult::Missing(evaluation_result) => {
                 check_results.push(evaluation_result);
                 None
-            }
+            },
         };
 
         match target_build_commit_hash {
@@ -118,7 +121,8 @@ impl Checker for BuildVersionChecker {
                             "Build commit hashes match".to_string(),
                             100,
                             format!(
-                                "The build commit hash from the target node ({}) matches the build commit hash from the baseline node ({}).",
+                                "The build commit hash from the target node ({}) matches the \
+                                 build commit hash from the baseline node ({}).",
                                 target_build_commit_hash, baseline_build_commit_hash
                             ),
                         )
@@ -127,16 +131,19 @@ impl Checker for BuildVersionChecker {
                             "Build commit hash mismatch".to_string(),
                             50,
                             format!(
-                                "The build commit hash from the target node ({}) does not match the build commit hash from the baseline node ({}).",
+                                "The build commit hash from the target node ({}) does not match \
+                                 the build commit hash from the baseline node ({}).",
                                 target_build_commit_hash, baseline_build_commit_hash
                             ),
                         )
                     }
                 });
-            }
-            None => debug!(
-                "Not evaluating build commit hash because we're missing data from the target"
-            ),
+            },
+            None => {
+                debug!(
+                    "Not evaluating build commit hash because we're missing data from the target"
+                )
+            },
         }
 
         Ok(check_results)

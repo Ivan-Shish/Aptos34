@@ -1,31 +1,36 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
-use crate::pruner::db_pruner::DBPruner;
-use crate::pruner::ledger_store::ledger_store_pruner::LedgerPruner;
+use crate::pruner::{db_pruner::DBPruner, ledger_store::ledger_store_pruner::LedgerPruner};
 use aptos_config::config::LedgerPrunerConfig;
 use aptos_logger::{
     error,
     prelude::{sample, SampleRate},
 };
 use aptos_types::transaction::Version;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread::sleep;
-use std::time::Duration;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::sleep,
+    time::Duration,
+};
 
-/// Maintains the ledger pruner and periodically calls the db_pruner's prune method to prune the DB.
-/// This also exposes API to report the progress to the parent thread.
+/// Maintains the ledger pruner and periodically calls the db_pruner's prune
+/// method to prune the DB. This also exposes API to report the progress to the
+/// parent thread.
 #[derive(Debug)]
 pub struct LedgerPrunerWorker {
     /// The worker will sleep for this period of time after pruning each batch.
     pruning_time_interval_in_ms: u64,
     /// Ledger pruner.
     pruner: Arc<LedgerPruner>,
-    /// Max items to prune per batch. For the ledger pruner, this means the max versions to prune
-    /// and for the state pruner, this means the max stale nodes to prune.
+    /// Max items to prune per batch. For the ledger pruner, this means the max
+    /// versions to prune and for the state pruner, this means the max stale
+    /// nodes to prune.
     max_versions_to_prune_per_batch: u64,
-    /// Indicates whether the pruning loop should be running. Will only be set to true on pruner
-    /// destruction.
+    /// Indicates whether the pruning loop should be running. Will only be set
+    /// to true on pruner destruction.
     quit_worker: AtomicBool,
 }
 

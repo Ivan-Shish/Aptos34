@@ -126,7 +126,8 @@ impl NodeSetup {
             Waypoint::new_epoch_boundary(&LedgerInfo::mock_genesis(Some(validator_set))).unwrap();
 
         let mut nodes = vec![];
-        // pre-initialize the mapping to avoid race conditions (peer try to broadcast to someone not added yet)
+        // pre-initialize the mapping to avoid race conditions (peer try to broadcast to
+        // someone not added yet)
         let peer_metadata_storage = playground.peer_protocols();
         for signer in signers.iter().take(num_nodes) {
             let mut conn_meta = ConnectionMetadata::mock(signer.author());
@@ -313,57 +314,67 @@ impl NodeSetup {
     pub async fn next_network_message(&mut self) -> ConsensusMsg {
         match self.next_network_event().await {
             Event::Message(_, msg) => msg,
-            Event::RpcRequest(_, msg, _, _) => panic!(
-                "Unexpected event, got RpcRequest, expected Message: {:?} on node {}",
-                msg,
-                self.identity_desc()
-            ),
+            Event::RpcRequest(_, msg, _, _) => {
+                panic!(
+                    "Unexpected event, got RpcRequest, expected Message: {:?} on node {}",
+                    msg,
+                    self.identity_desc()
+                )
+            },
             _ => panic!("Unexpected Network Event"),
         }
     }
 
     pub fn no_next_msg(&mut self) {
         match self.poll_next_network_event() {
-            Some(Event::RpcRequest(_, msg, _, _)) | Some(Event::Message(_, msg)) => panic!(
-                "Unexpected Consensus Message: {:?} on node {}",
-                msg,
-                self.identity_desc()
-            ),
+            Some(Event::RpcRequest(_, msg, _, _)) | Some(Event::Message(_, msg)) => {
+                panic!(
+                    "Unexpected Consensus Message: {:?} on node {}",
+                    msg,
+                    self.identity_desc()
+                )
+            },
             Some(_) => panic!("Unexpected Network Event"),
-            None => {}
+            None => {},
         }
     }
 
     pub async fn next_proposal(&mut self) -> ProposalMsg {
         match self.next_network_message().await {
             ConsensusMsg::ProposalMsg(p) => *p,
-            msg => panic!(
-                "Unexpected Consensus Message: {:?} on node {}",
-                msg,
-                self.identity_desc()
-            ),
+            msg => {
+                panic!(
+                    "Unexpected Consensus Message: {:?} on node {}",
+                    msg,
+                    self.identity_desc()
+                )
+            },
         }
     }
 
     pub async fn next_vote(&mut self) -> VoteMsg {
         match self.next_network_message().await {
             ConsensusMsg::VoteMsg(v) => *v,
-            msg => panic!(
-                "Unexpected Consensus Message: {:?} on node {}",
-                msg,
-                self.identity_desc()
-            ),
+            msg => {
+                panic!(
+                    "Unexpected Consensus Message: {:?} on node {}",
+                    msg,
+                    self.identity_desc()
+                )
+            },
         }
     }
 
     pub async fn next_commit_decision(&mut self) -> CommitDecision {
         match self.next_network_message().await {
             ConsensusMsg::CommitDecisionMsg(v) => *v,
-            msg => panic!(
-                "Unexpected Consensus Message: {:?} on node {}",
-                msg,
-                self.identity_desc()
-            ),
+            msg => {
+                panic!(
+                    "Unexpected Consensus Message: {:?} on node {}",
+                    msg,
+                    self.identity_desc()
+                )
+            },
         }
     }
 
@@ -375,17 +386,21 @@ impl NodeSetup {
                     protocol,
                     response_sender,
                 }),
-                msg => panic!(
+                msg => {
+                    panic!(
+                        "Unexpected Consensus Message: {:?} on node {}",
+                        msg,
+                        self.identity_desc()
+                    )
+                },
+            },
+            Some(Event::Message(_, msg)) => {
+                panic!(
                     "Unexpected Consensus Message: {:?} on node {}",
                     msg,
                     self.identity_desc()
-                ),
+                )
             },
-            Some(Event::Message(_, msg)) => panic!(
-                "Unexpected Consensus Message: {:?} on node {}",
-                msg,
-                self.identity_desc()
-            ),
             Some(_) => panic!("Unexpected Network Event"),
             None => None,
         }
@@ -394,7 +409,7 @@ impl NodeSetup {
     pub fn no_next_ordered(&mut self) {
         match self.ordered_blocks_events.next().now_or_never() {
             Some(_) => panic!("Unexpected Ordered Blocks Event"),
-            None => {}
+            None => {},
         }
     }
 
@@ -601,8 +616,8 @@ fn new_round_on_quorum_cert() {
 fn vote_on_successful_proposal() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut nodes = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 1, None);
     let node = &mut nodes[0];
 
@@ -634,12 +649,13 @@ fn vote_on_successful_proposal() {
 }
 
 #[test]
-/// In back pressure mode, verify that the proposals are processed after we get out of back pressure.
+/// In back pressure mode, verify that the proposals are processed after we get
+/// out of back pressure.
 fn delay_proposal_processing_in_sync_only() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut nodes = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 1, None);
     let node = &mut nodes[0];
 
@@ -672,7 +688,8 @@ fn delay_proposal_processing_in_sync_only() {
             .await
             .unwrap_err();
 
-        // Clear the sync only mode and process verified proposal and ensure it is processed now
+        // Clear the sync only mode and process verified proposal and ensure it is
+        // processed now
         node.round_manager
             .block_store
             .set_back_pressure_for_test(false);
@@ -699,8 +716,8 @@ fn delay_proposal_processing_in_sync_only() {
 fn no_vote_on_old_proposal() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut nodes = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 1, None);
     let node = &mut nodes[0];
     let genesis_qc = certificate_for_genesis();
@@ -743,13 +760,13 @@ fn no_vote_on_old_proposal() {
 #[test]
 /// We don't vote for proposals that 'skips' rounds
 /// After that when we then receive proposal for correct round, we vote for it
-/// Basically it checks that adversary can not send proposal and skip rounds violating round_state
-/// rules
+/// Basically it checks that adversary can not send proposal and skip rounds
+/// violating round_state rules
 fn no_vote_on_mismatch_round() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut node = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 1, None)
         .pop()
         .unwrap();
@@ -794,8 +811,9 @@ fn no_vote_on_mismatch_round() {
 }
 
 #[test]
-/// Ensure that after the vote messages are broadcasted upon timeout, the receivers
-/// have the highest quorum certificate (carried by the SyncInfo of the vote message)
+/// Ensure that after the vote messages are broadcasted upon timeout, the
+/// receivers have the highest quorum certificate (carried by the SyncInfo of
+/// the vote message)
 fn sync_info_carried_on_timeout_vote() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
@@ -848,12 +866,13 @@ fn sync_info_carried_on_timeout_vote() {
 }
 
 #[test]
-/// We don't vote for proposals that comes from proposers that are not valid proposers for round
+/// We don't vote for proposals that comes from proposers that are not valid
+/// proposers for round
 fn no_vote_on_invalid_proposer() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut nodes = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 2, None);
     let incorrect_proposer = nodes.pop().unwrap();
     let mut node = nodes.pop().unwrap();
@@ -899,12 +918,13 @@ fn no_vote_on_invalid_proposer() {
 }
 
 #[test]
-/// We allow to 'skip' round if proposal carries timeout certificate for next round
+/// We allow to 'skip' round if proposal carries timeout certificate for next
+/// round
 fn new_round_on_timeout_certificate() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut node = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 1, None)
         .pop()
         .unwrap();
@@ -958,12 +978,13 @@ fn new_round_on_timeout_certificate() {
 }
 
 #[test]
-/// We allow to 'skip' round if proposal carries timeout certificate for next round
+/// We allow to 'skip' round if proposal carries timeout certificate for next
+/// round
 fn reject_invalid_failed_authors() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
-    // In order to observe the votes we're going to check proposal processing on the non-proposer
-    // node (which will send the votes to the proposer).
+    // In order to observe the votes we're going to check proposal processing on the
+    // non-proposer node (which will send the votes to the proposer).
     let mut node = NodeSetup::create_nodes(&mut playground, runtime.handle().clone(), 1, None)
         .pop()
         .unwrap();
@@ -1093,7 +1114,7 @@ fn response_on_block_retrieval() {
                 };
                 assert_eq!(response.status(), BlockRetrievalStatus::Succeeded);
                 assert_eq!(response.blocks().first().unwrap().id(), block_id);
-            }
+            },
             _ => panic!("block retrieval failure"),
         }
 
@@ -1117,7 +1138,7 @@ fn response_on_block_retrieval() {
                 };
                 assert_eq!(response.status(), BlockRetrievalStatus::IdNotFound);
                 assert!(response.blocks().is_empty());
-            }
+            },
             _ => panic!("block retrieval failure"),
         }
 
@@ -1144,7 +1165,7 @@ fn response_on_block_retrieval() {
                     node.block_store.ordered_root().id(),
                     response.blocks().get(1).unwrap().id()
                 );
-            }
+            },
             _ => panic!("block retrieval failure"),
         }
     });
@@ -1219,7 +1240,8 @@ fn recover_on_restart() {
 }
 
 #[test]
-/// Generate a NIL vote extending HQC upon timeout if no votes have been sent in the round.
+/// Generate a NIL vote extending HQC upon timeout if no votes have been sent in
+/// the round.
 fn nil_vote_on_timeout() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
@@ -1228,8 +1250,8 @@ fn nil_vote_on_timeout() {
     let genesis = node.block_store.ordered_root();
     timed_block_on(&runtime, async {
         node.next_proposal().await;
-        // Process the outgoing vote message and verify that it contains a round signature
-        // and that the vote extends genesis.
+        // Process the outgoing vote message and verify that it contains a round
+        // signature and that the vote extends genesis.
         node.round_manager
             .process_local_timeout(1)
             .await
@@ -1253,7 +1275,8 @@ fn nil_vote_on_timeout() {
 }
 
 #[test]
-/// If the node votes in a round, upon timeout the same vote is re-sent with a timeout signature.
+/// If the node votes in a round, upon timeout the same vote is re-sent with a
+/// timeout signature.
 fn vote_resent_on_timeout() {
     let runtime = consensus_runtime();
     let mut playground = NetworkPlayground::new(runtime.handle().clone());
@@ -1270,8 +1293,8 @@ fn vote_resent_on_timeout() {
         let vote = vote_msg.vote();
         assert!(!vote.is_timeout());
         assert_eq!(vote.vote_data().proposed().id(), id);
-        // Process the outgoing vote message and verify that it contains a round signature
-        // and that the vote is the same as above.
+        // Process the outgoing vote message and verify that it contains a round
+        // signature and that the vote is the same as above.
         node.round_manager
             .process_local_timeout(1)
             .await
@@ -1426,7 +1449,8 @@ fn echo_timeout() {
         }
 
         let node_1 = &mut nodes[1];
-        // it receives 4 timeout messages (1 from each) and doesn't echo since it already timeout
+        // it receives 4 timeout messages (1 from each) and doesn't echo since it
+        // already timeout
         for _ in 0..4 {
             let timeout_vote = node_1.next_vote().await;
             node_1
@@ -1789,7 +1813,7 @@ pub fn forking_retrieval_test() {
             nodes[proposal_node]
                 .pending_network_events
                 .push(Event::Message(peer, ConsensusMsg::ProposalMsg(msg)))
-        }
+        },
         _ => panic!("unexpected network message {:?}", next_message),
     }
     process_and_vote_on_proposal(

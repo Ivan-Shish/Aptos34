@@ -111,9 +111,9 @@ impl TreeInserter {
         Arc::clone(&self.block_store)
     }
 
-    /// This function is generating a placeholder QC for a block's parent that is signed by a single
-    /// signer kept by the block store. If more sophisticated QC required, please use
-    /// `insert_block_with_qc`.
+    /// This function is generating a placeholder QC for a block's parent that
+    /// is signed by a single signer kept by the block store. If more
+    /// sophisticated QC required, please use `insert_block_with_qc`.
     pub async fn insert_block(
         &mut self,
         parent: &ExecutedBlock,

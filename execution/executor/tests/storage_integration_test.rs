@@ -79,7 +79,8 @@ fn test_reconfiguration() {
     );
     let validator_account = signer.author();
 
-    // test the current keys in the validator's account equals to the key in the validator set
+    // test the current keys in the validator's account equals to the key in the
+    // validator set
     let state_proof = db.reader.get_state_proof(0).unwrap();
     let current_version = state_proof.latest_ledger_info().version();
     let db_state_view = db
@@ -109,7 +110,8 @@ fn test_reconfiguration() {
     // txn1 = give the validator some money so they can send a tx
     let txn1 = get_test_signed_transaction(
         aptos_test_root_address(),
-        /* sequence_number = */ 0,
+        // sequence_number =
+        0,
         genesis_key.clone(),
         genesis_key.public_key(),
         Some(aptos_stdlib::aptos_coin_mint(validator_account, 1_000_000)),
@@ -128,7 +130,8 @@ fn test_reconfiguration() {
     // txn3 = set the aptos version
     let txn3 = get_test_signed_transaction(
         aptos_test_root_address(),
-        /* sequence_number = */ 1,
+        // sequence_number =
+        1,
         genesis_key.clone(),
         genesis_key.public_key(),
         Some(aptos_stdlib::version_set_version(42)),

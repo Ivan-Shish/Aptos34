@@ -3,14 +3,6 @@
 
 //! Support for running the VM to execute and verify transactions.
 
-use serde::Serialize;
-use std::{
-    env,
-    fs::{self, OpenOptions},
-    io::Write,
-    path::{Path, PathBuf},
-};
-
 use crate::{
     account::{Account, AccountData},
     data_store::{
@@ -28,8 +20,6 @@ use aptos_gas::{
 };
 use aptos_keygen::KeyGen;
 use aptos_state_view::TStateView;
-use aptos_types::chain_id::ChainId;
-use aptos_types::on_chain_config::{FeatureFlag, Features};
 use aptos_types::{
     access_path::AccessPath,
     account_config::{
@@ -37,7 +27,8 @@ use aptos_types::{
         CORE_CODE_ADDRESS,
     },
     block_metadata::BlockMetadata,
-    on_chain_config::{OnChainConfig, ValidatorSet, Version},
+    chain_id::ChainId,
+    on_chain_config::{FeatureFlag, Features, OnChainConfig, ValidatorSet, Version},
     state_store::state_key::StateKey,
     transaction::{
         ExecutionStatus, SignedTransaction, Transaction, TransactionOutput, TransactionStatus,
@@ -61,6 +52,13 @@ use move_core_types::{
 };
 use move_vm_types::gas::UnmeteredGasMeter;
 use num_cpus;
+use serde::Serialize;
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 static RNG_SEED: [u8; 32] = [9u8; 32];
 
@@ -162,16 +160,16 @@ impl FakeExecutor {
     }
 
     pub fn set_golden_file(&mut self, test_name: &str) {
-        // 'test_name' includes ':' in the names, lets re-write these to be '_'s so that these
-        // files can persist on windows machines.
+        // 'test_name' includes ':' in the names, lets re-write these to be '_'s so that
+        // these files can persist on windows machines.
         let file_name = test_name.replace(':', "_");
         self.executed_output = Some(GoldenOutputs::new(&file_name));
         self.set_tracing(test_name, file_name)
     }
 
     pub fn set_golden_file_at(&mut self, path: &str, test_name: &str) {
-        // 'test_name' includes ':' in the names, lets re-write these to be '_'s so that these
-        // files can persist on windows machines.
+        // 'test_name' includes ':' in the names, lets re-write these to be '_'s so that
+        // these files can persist on windows machines.
         let file_name = test_name.replace(':', "_");
         self.executed_output = Some(GoldenOutputs::new_at_path(PathBuf::from(path), &file_name));
         self.set_tracing(test_name, file_name)
@@ -210,8 +208,8 @@ impl FakeExecutor {
         }
     }
 
-    /// Creates an executor with only the standard library Move modules published and not other
-    /// initialization done.
+    /// Creates an executor with only the standard library Move modules
+    /// published and not other initialization done.
     pub fn stdlib_only_genesis() -> Self {
         let mut genesis = Self::no_genesis();
         for (bytes, module) in
@@ -239,8 +237,8 @@ impl FakeExecutor {
         AccountData::new_from_seed(&mut self.rng, balance, seq_num)
     }
 
-    /// Creates a number of [`Account`] instances all with the same balance and sequence number,
-    /// and publishes them to this executor's data store.
+    /// Creates a number of [`Account`] instances all with the same balance and
+    /// sequence number, and publishes them to this executor's data store.
     pub fn create_accounts(&mut self, size: usize, balance: u64, seq_num: u64) -> Vec<Account> {
         let mut accounts: Vec<Account> = Vec::with_capacity(size);
         for _i in 0..size {
@@ -251,8 +249,9 @@ impl FakeExecutor {
         accounts
     }
 
-    /// Creates an account for the given static address. This address needs to be static so
-    /// we can load regular Move code to there without need to rewrite code addresses.
+    /// Creates an account for the given static address. This address needs to
+    /// be static so we can load regular Move code to there without need to
+    /// rewrite code addresses.
     pub fn new_account_at(&mut self, addr: AccountAddress) -> Account {
         // The below will use the genesis keypair but that should be fine.
         let acc = Account::new_genesis_account(addr);
@@ -284,7 +283,8 @@ impl FakeExecutor {
         self.data_store.add_module(module_id, module_blob)
     }
 
-    /// Reads the resource [`Value`] for an account from this executor's data store.
+    /// Reads the resource [`Value`] for an account from this executor's data
+    /// store.
     pub fn read_account_resource(&self, account: &Account) -> Option<AccountResource> {
         self.read_account_resource_at_address(account.address())
     }
@@ -306,12 +306,14 @@ impl FakeExecutor {
         self.read_resource(addr)
     }
 
-    /// Reads the CoinStore resource value for an account from this executor's data store.
+    /// Reads the CoinStore resource value for an account from this executor's
+    /// data store.
     pub fn read_coin_store_resource(&self, account: &Account) -> Option<CoinStoreResource> {
         self.read_coin_store_resource_at_address(account.address())
     }
 
-    /// Reads supply from CoinInfo resource value from this executor's data store.
+    /// Reads supply from CoinInfo resource value from this executor's data
+    /// store.
     pub fn read_coin_supply(&self) -> Option<u128> {
         self.read_coin_info_resource()
             .expect("coin info must exist in data store")
@@ -324,7 +326,7 @@ impl FakeExecutor {
                         .read_state_value(&state_key)
                         .expect("aggregator value must exist in data store");
                     bcs::from_bytes(&value_bytes).unwrap()
-                }
+                },
                 None => o.integer.as_ref().unwrap().value,
             })
     }
@@ -334,8 +336,8 @@ impl FakeExecutor {
         self.read_resource(&AccountAddress::ONE)
     }
 
-    /// Reads the CoinStore resource value for an account under the given address from this executor's
-    /// data store.
+    /// Reads the CoinStore resource value for an account under the given
+    /// address from this executor's data store.
     pub fn read_coin_store_resource_at_address(
         &self,
         addr: &AccountAddress,
@@ -345,8 +347,9 @@ impl FakeExecutor {
 
     /// Executes the given block of transactions.
     ///
-    /// Typical tests will call this method and check that the output matches what was expected.
-    /// However, this doesn't apply the results of successful transactions to the data store.
+    /// Typical tests will call this method and check that the output matches
+    /// what was expected. However, this doesn't apply the results of
+    /// successful transactions to the data store.
     pub fn execute_block(
         &self,
         txn_block: Vec<SignedTransaction>,
@@ -359,8 +362,8 @@ impl FakeExecutor {
         )
     }
 
-    /// Executes the transaction as a singleton block and applies the resulting write set to the
-    /// data store. Panics if execution fails
+    /// Executes the transaction as a singleton block and applies the resulting
+    /// write set to the data store. Panics if execution fails
     pub fn execute_and_apply(&mut self, transaction: SignedTransaction) -> TransactionOutput {
         let mut outputs = self.execute_block(vec![transaction]).unwrap();
         assert!(outputs.len() == 1, "transaction outputs size mismatch");
@@ -375,7 +378,7 @@ impl FakeExecutor {
                     status
                 );
                 output
-            }
+            },
             TransactionStatus::Discard(status) => panic!("transaction discarded with {:?}", status),
             TransactionStatus::Retry => panic!("transaction status is retry"),
         }
@@ -424,7 +427,7 @@ impl FakeExecutor {
                         let output_seq = Self::trace(trace_output_dir.as_path(), res);
                         trace_map.2.push(output_seq);
                     }
-                }
+                },
                 Err(e) => {
                     let mut error_file = OpenOptions::new()
                         .write(true)
@@ -432,7 +435,7 @@ impl FakeExecutor {
                         .open(trace_dir.join(TRACE_FILE_ERROR))
                         .unwrap();
                     error_file.write_all(e.to_string().as_bytes()).unwrap();
-                }
+                },
             }
             let trace_meta_dir = trace_dir.join(TRACE_DIR_META);
             Self::trace(trace_meta_dir.as_path(), &trace_map);
@@ -520,7 +523,8 @@ impl FakeExecutor {
             .expect("Executing block prologue should succeed")
             .pop()
             .expect("Failed to get the execution result for Block Prologue");
-        // check if we emit the expected event, there might be more events for transaction fees
+        // check if we emit the expected event, there might be more events for
+        // transaction fees
         let event = output.events()[0].clone();
         assert_eq!(event.key(), &new_block_event_key());
         assert!(bcs::from_bytes::<NewBlockEvent>(event.event_data()).is_ok());

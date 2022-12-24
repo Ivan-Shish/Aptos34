@@ -20,10 +20,11 @@ use core::{
 };
 use futures::future::join_all;
 use itertools::Itertools;
-use rand::seq::IteratorRandom;
-use rand::Rng;
-use std::sync::atomic::AtomicU64;
-use std::{sync::Arc, time::Instant};
+use rand::{seq::IteratorRandom, Rng};
+use std::{
+    sync::{atomic::AtomicU64, Arc},
+    time::Instant,
+};
 use tokio::time::sleep;
 
 pub struct SubmissionWorker {
@@ -306,7 +307,7 @@ pub async fn submit_transactions(
                     e
                 )
             );
-        }
+        },
         Ok(v) => {
             let failures = v.into_inner().transaction_failures;
 
@@ -342,18 +343,23 @@ pub async fn submit_transactions(
                         };
 
                     warn!(
-                        "[{:?}] Failed to submit {} txns in a batch, first failure due to {:?}, for account {}, first asked: {}, failed seq nums: {:?}, failed error codes: {:?}, last transaction for account: {:?}",
+                        "[{:?}] Failed to submit {} txns in a batch, first failure due to {:?}, \
+                         for account {}, first asked: {}, failed seq nums: {:?}, failed error \
+                         codes: {:?}, last transaction for account: {:?}",
                         client.path_prefix_string(),
                         failures.len(),
                         failure,
                         sender,
                         txns[0].sequence_number(),
-                        failures.iter().map(|f| txns[f.transaction_index].sequence_number()).collect::<Vec<_>>(),
+                        failures
+                            .iter()
+                            .map(|f| txns[f.transaction_index].sequence_number())
+                            .collect::<Vec<_>>(),
                         by_error,
                         last_transactions,
                     );
                 }
             });
-        }
+        },
     };
 }

@@ -3,8 +3,7 @@
 
 #![forbid(unsafe_code)]
 
-use aptos_framework::ReleaseOptions;
-use aptos_framework::ReleaseTarget;
+use aptos_framework::{ReleaseOptions, ReleaseTarget};
 use clap::Parser;
 
 #[derive(Parser)]
@@ -48,9 +47,10 @@ impl CustomRelease {
 
 #[derive(Debug, Parser)]
 struct StandardRelease {
-    /// The release target. One of head, devnet, testnet, or mainnet. Notice the type
-    /// of target determines what packages are included in the release. For example,
-    /// some packages may be available in testnet, but aren't in mainnet.
+    /// The release target. One of head, devnet, testnet, or mainnet. Notice the
+    /// type of target determines what packages are included in the release.
+    /// For example, some packages may be available in testnet, but aren't
+    /// in mainnet.
     #[clap(long, default_value = "head")]
     target: ReleaseTarget,
 

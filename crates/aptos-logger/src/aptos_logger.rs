@@ -1,35 +1,34 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! Implementation of writing logs to both local printers (e.g. stdout) and remote loggers
-//! (e.g. Logstash)
+//! Implementation of writing logs to both local printers (e.g. stdout) and
+//! remote loggers (e.g. Logstash)
 
-use crate::sample::SampleRate;
-use crate::telemetry_log_writer::{TelemetryLog, TelemetryLogWriter};
 use crate::{
     counters::{
         PROCESSED_STRUCT_LOG_COUNT, STRUCT_LOG_PARSE_ERROR_COUNT, STRUCT_LOG_QUEUE_ERROR_COUNT,
     },
     logger::Logger,
-    sample, Event, Filter, Key, Level, LevelFilter, Metadata,
+    sample,
+    sample::SampleRate,
+    telemetry_log_writer::{TelemetryLog, TelemetryLogWriter},
+    Event, Filter, Key, Level, LevelFilter, Metadata,
 };
 use aptos_infallible::RwLock;
 use backtrace::Backtrace;
 use chrono::{SecondsFormat, Utc};
 use futures::channel;
 use once_cell::sync::Lazy;
-use serde::ser::SerializeStruct;
-use serde::{Serialize, Serializer};
-use std::fmt::Debug;
-use std::io::Stdout;
-use std::time::Duration;
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 use std::{
     collections::BTreeMap,
     env, fmt,
-    io::Write,
+    fmt::Debug,
+    io::{Stdout, Write},
     str::FromStr,
     sync::{self, Arc},
     thread,
+    time::Duration,
 };
 use strum_macros::EnumString;
 use tokio::time;
@@ -37,7 +36,8 @@ use tokio::time;
 const RUST_LOG: &str = "RUST_LOG";
 pub const RUST_LOG_TELEMETRY: &str = "RUST_LOG_TELEMETRY";
 const RUST_LOG_FORMAT: &str = "RUST_LOG_FORMAT";
-/// Default size of log write channel, if the channel is full, logs will be dropped
+/// Default size of log write channel, if the channel is full, logs will be
+/// dropped
 pub const CHANNEL_SIZE: usize = 10000;
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(5);
 const FILTER_REFRESH_INTERVAL: Duration =
@@ -65,8 +65,10 @@ pub struct LogEntry {
     message: Option<String>,
 }
 
-// implement custom serializer for LogEntry since we want to promote the `metadata.level` field into a top-level `level` field
-// and prefix the remaining metadata attributes as `source.<metadata_field>` which can't be expressed with serde macros alone.
+// implement custom serializer for LogEntry since we want to promote the
+// `metadata.level` field into a top-level `level` field and prefix the
+// remaining metadata attributes as `source.<metadata_field>` which can't be
+// expressed with serde macros alone.
 impl Serialize for LogEntry {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -109,12 +111,17 @@ impl LogEntry {
                 let v = match value {
                     Value::Debug(d) => serde_json::Value::String(format!("{:?}", d)),
                     Value::Display(d) => serde_json::Value::String(d.to_string()),
-                    Value::Serde(s) => match serde_json::to_value(s) {
-                        Ok(value) => value,
-                        Err(e) => {
-                            // Log and skip the value that can't be serialized
-                            eprintln!("error serializing structured log: {} for key {:?}", e, key);
-                            return;
+                    Value::Serde(s) => {
+                        match serde_json::to_value(s) {
+                            Ok(value) => value,
+                            Err(e) => {
+                                // Log and skip the value that can't be serialized
+                                eprintln!(
+                                    "error serializing structured log: {} for key {:?}",
+                                    e, key
+                                );
+                                return;
+                            },
                         }
                     },
                 };
@@ -143,7 +150,8 @@ impl LogEntry {
             let mut backtrace = Backtrace::new();
             let mut frames = backtrace.frames().to_vec();
             if frames.len() > 3 {
-                frames.drain(0..3); // Remove the first 3 unnecessary frames to simplify backtrace
+                frames.drain(0..3); // Remove the first 3 unnecessary frames to
+                                    // simplify backtrace
             }
             backtrace = frames.into();
             Some(format!("{:?}", backtrace))
@@ -491,11 +499,11 @@ impl Logger for AptosData {
                     if let Err(err) = oneshot_receiver.recv_timeout(FLUSH_TIMEOUT) {
                         eprintln!("[Logging] Unable to flush recv: {}", err);
                     }
-                }
+                },
                 Err(err) => {
                     eprintln!("[Logging] Unable to flush send: {}", err);
                     std::thread::sleep(FLUSH_TIMEOUT);
-                }
+                },
             }
         }
     }
@@ -506,8 +514,8 @@ enum LoggerServiceEvent {
     Flush(sync::mpsc::SyncSender<()>),
 }
 
-/// A service for running a log listener, that will continually export logs through a local printer
-/// or to a `AptosData` for external logging.
+/// A service for running a log listener, that will continually export logs
+/// through a local printer or to a `AptosData` for external logging.
 struct LoggerService {
     receiver: sync::mpsc::Receiver<LoggerServiceEvent>,
     printer: Option<Box<dyn Writer>>,
@@ -549,7 +557,7 @@ impl LoggerService {
                             let _ = writer.write(s);
                         }
                     }
-                }
+                },
                 LoggerServiceEvent::Flush(sender) => {
                     // Flush is only done on TelemetryLogWriter
                     if let Some(writer) = &mut telemetry_writer {
@@ -562,18 +570,18 @@ impl LoggerService {
                                             eprintln!("Timed out flushing telemetry: {}", err)
                                         );
                                     }
-                                }
+                                },
                                 Err(err) => {
                                     sample!(
                                         SampleRate::Duration(Duration::from_secs(60)),
                                         eprintln!("Failed to flush telemetry: {}", err)
                                     );
-                                }
+                                },
                             }
                         }
                     }
                     let _ = sender.send(());
-                }
+                },
             }
         }
     }
@@ -604,6 +612,7 @@ impl Writer for StdoutWriter {
     fn write(&self, log: String) {
         println!("{}", log);
     }
+
     fn write_buferred(&mut self, log: String) {
         self.buffer
             .write_fmt(format_args!("{}\n", log))
@@ -636,6 +645,7 @@ impl Writer for FileWriter {
             eprintln!("Unable to write to log file: {}", err);
         }
     }
+
     fn write_buferred(&mut self, log: String) {
         self.write(log);
     }
@@ -644,7 +654,8 @@ impl Writer for FileWriter {
 /// Converts a record into a string representation:
 /// UNIX_TIMESTAMP LOG_LEVEL [thread_name] FILE:LINE MESSAGE JSON_DATA
 /// Example:
-/// 2020-03-07 05:03:03 INFO [thread_name] common/aptos-logger/src/lib.rs:261 Hello { "world": true }
+/// 2020-03-07 05:03:03 INFO [thread_name] common/aptos-logger/src/lib.rs:261
+/// Hello { "world": true }
 fn text_format(entry: &LogEntry) -> Result<String, fmt::Error> {
     use std::fmt::Write;
 
@@ -678,10 +689,12 @@ fn json_format(entry: &LogEntry) -> Result<String, fmt::Error> {
     match serde_json::to_string(&entry) {
         Ok(s) => Ok(s),
         Err(_) => {
-            // TODO: Improve the error handling here. Currently we're just increasing some misleadingly-named metric and dropping any context on why this could not be deserialized.
+            // TODO: Improve the error handling here. Currently we're just increasing some
+            // misleadingly-named metric and dropping any context on why this could not be
+            // deserialized.
             STRUCT_LOG_PARSE_ERROR_COUNT.inc();
             Err(fmt::Error)
-        }
+        },
     }
 }
 
@@ -797,7 +810,8 @@ mod tests {
         receiver
     }
 
-    // TODO: Find a better mechanism for testing that allows setting the logger not globally
+    // TODO: Find a better mechanism for testing that allows setting the logger not
+    // globally
     #[test]
     fn basic() {
         let receiver = set_test_logger();
@@ -831,14 +845,21 @@ mod tests {
         assert!(entry.backtrace.is_none());
 
         // Ensure json formatter works
-        // hardcoding a timestamp and hostname to make the tests deterministic and not depend on environment
+        // hardcoding a timestamp and hostname to make the tests deterministic and not
+        // depend on environment
         let original_timestamp = entry.timestamp;
         entry.timestamp = String::from("2022-07-24T23:42:29.540278Z");
         entry.hostname = Some("test-host");
         line_num += 1;
         let thread_name = thread::current().name().map(|s| s.to_string()).unwrap();
 
-        let expected = format!("{{\"level\":\"INFO\",\"source\":{{\"package\":\"aptos_logger\",\"file\":\"crates/aptos-logger/src/aptos_logger.rs:{line_num}\"}},\"thread_name\":\"{thread_name}\",\"hostname\":\"test-host\",\"timestamp\":\"2022-07-24T23:42:29.540278Z\",\"message\":\"This is a log\",\"data\":{{\"bar\":\"foo_bar\",\"category\":\"name\",\"display\":\"12345\",\"foo\":5,\"test\":true}}}}");
+        let expected = format!(
+            "{{\"level\":\"INFO\",\"source\":{{\"package\":\"aptos_logger\",\"file\":\"crates/\
+             aptos-logger/src/aptos_logger.rs:{line_num}\"}},\"thread_name\":\"{thread_name}\",\"\
+             hostname\":\"test-host\",\"timestamp\":\"2022-07-24T23:42:29.540278Z\",\"message\":\"\
+             This is a log\",\"data\":{{\"bar\":\"foo_bar\",\"category\":\"name\",\"display\":\"\
+             12345\",\"foo\":5,\"test\":true}}}}"
+        );
 
         assert_eq!(json_format(&entry).unwrap(), expected);
 

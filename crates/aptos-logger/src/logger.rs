@@ -4,7 +4,6 @@
 //! Global logger definition and functions
 
 use crate::{counters::STRUCT_LOG_COUNT, error, Event, Metadata};
-
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 use tracing_subscriber::prelude::*;
@@ -48,11 +47,10 @@ pub fn set_global_logger(logger: Arc<dyn Logger>, console_port: Option<u16>) {
         return;
     }
 
-    /*
-     * if console_port is set all tracing::log are captured by the tokio-tracing infrastructure.
-     * else aptos-logger intercepts all tracing::log events
-     * In both scenarios *ALL* aptos-logger::log events are captured by aptos-logger as usual.
-     */
+    // if console_port is set all tracing::log are captured by the tokio-tracing
+    // infrastructure. else aptos-logger intercepts all tracing::log events
+    // In both scenarios *ALL* aptos-logger::log events are captured by aptos-logger
+    // as usual.
     #[cfg(feature = "aptos-console")]
     {
         if let Some(p) = console_port {
@@ -74,7 +72,8 @@ pub fn set_global_logger(logger: Arc<dyn Logger>, console_port: Option<u16>) {
     }
 }
 
-/// Flush the global `Logger`. Note this is expensive, only use off the critical path.
+/// Flush the global `Logger`. Note this is expensive, only use off the critical
+/// path.
 pub fn flush() {
     if let Some(logger) = LOGGER.get() {
         logger.flush();

@@ -1,16 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{convert::TryFrom, path::Path};
-
 use anyhow::{bail, format_err, Result};
 use aptos::common::types::EncodingType;
 use aptos_config::keys::ConfigKey;
 use aptos_crypto::ed25519::Ed25519PrivateKey;
 use aptos_sdk::types::chain_id::ChainId;
 use clap::{ArgEnum, ArgGroup, Parser};
-
 use serde::{Deserialize, Serialize};
+use std::{convert::TryFrom, path::Path};
 use url::Url;
 
 const DEFAULT_API_PORT: u16 = 8080;
@@ -52,7 +50,10 @@ impl CoinSourceArgs {
                     .load_key::<Ed25519PrivateKey>("mint key pair", Path::new(path))?,
                 false,
             )),
-            _ => Err(anyhow::anyhow!("Please provide exactly one of mint-key, mint-file, coin-source-key, or coin-source-file")),
+            _ => Err(anyhow::anyhow!(
+                "Please provide exactly one of mint-key, mint-file, coin-source-key, or \
+                 coin-source-file"
+            )),
         }
     }
 }
@@ -96,10 +97,10 @@ impl Default for TransactionType {
 ))]
 pub struct EmitArgs {
     #[clap(long)]
-    /// Number of transactions outstanding in mempool - this is needed to ensure that the emitter
-    /// is producing enough load to get the highest TPS in the system. Typically this should be
-    /// configured to be ~4x of the max achievable TPS.
-    /// 0 if target_tps used.
+    /// Number of transactions outstanding in mempool - this is needed to ensure
+    /// that the emitter is producing enough load to get the highest TPS in
+    /// the system. Typically this should be configured to be ~4x of the max
+    /// achievable TPS. 0 if target_tps used.
     pub mempool_backlog: Option<usize>,
 
     /// Target constant TPS, 0 if mempool_backlog used

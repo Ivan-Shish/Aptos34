@@ -121,8 +121,8 @@ impl VerifyInput for SubmitTransactionsBatchPost {
                 for request in inner.0.iter() {
                     request.verify()?;
                 }
-            }
-            SubmitTransactionsBatchPost::Bcs(_) => {}
+            },
+            SubmitTransactionsBatchPost::Bcs(_) => {},
         }
         Ok(())
     }
@@ -137,8 +137,8 @@ pub struct TransactionsApi {
 impl TransactionsApi {
     /// Get transactions
     ///
-    /// Retrieve on-chain committed transactions. The page size and start ledger version
-    /// can be provided to get a specific sequence of transactions.
+    /// Retrieve on-chain committed transactions. The page size and start ledger
+    /// version can be provided to get a specific sequence of transactions.
     ///
     /// If the version has been pruned, then a 410 will be returned.
     ///
@@ -174,12 +174,14 @@ impl TransactionsApi {
 
     /// Get transaction by hash
     ///
-    /// Look up a transaction by its hash. This is the same hash that is returned
-    /// by the API when submitting a transaction (see PendingTransaction).
+    /// Look up a transaction by its hash. This is the same hash that is
+    /// returned by the API when submitting a transaction (see
+    /// PendingTransaction).
     ///
-    /// When given a transaction hash, the server first looks for the transaction
-    /// in storage (on-chain, committed). If no on-chain transaction is found, it
-    /// looks the transaction up by hash in the mempool (pending, not yet committed).
+    /// When given a transaction hash, the server first looks for the
+    /// transaction in storage (on-chain, committed). If no on-chain
+    /// transaction is found, it looks the transaction up by hash in the
+    /// mempool (pending, not yet committed).
     ///
     /// To create a transaction hash by yourself, do the following:
     ///   1. Hash message bytes: "RawTransaction" bytes + BCS bytes of [Transaction](https://aptos-labs.github.io/aptos-core/aptos_types/transaction/enum.Transaction.html).
@@ -196,8 +198,7 @@ impl TransactionsApi {
         &self,
         accept_type: AcceptType,
         /// Hash of transaction to retrieve
-        txn_hash: Path<HashValue>,
-        // TODO: Use a new request type that can't return 507.
+        txn_hash: Path<HashValue>, // TODO: Use a new request type that can't return 507.
     ) -> BasicResultWith404<Transaction> {
         fail_point_poem("endpoint_transaction_by_hash")?;
         self.context
@@ -272,20 +273,22 @@ impl TransactionsApi {
     ///
     /// This endpoint accepts transaction submissions in two formats.
     ///
-    /// To submit a transaction as JSON, you must submit a SubmitTransactionRequest.
-    /// To build this request, do the following:
+    /// To submit a transaction as JSON, you must submit a
+    /// SubmitTransactionRequest. To build this request, do the following:
     ///
     ///   1. Encode the transaction as BCS. If you are using a language that has
     ///      native BCS support, make sure of that library. If not, you may take
     ///      advantage of /transactions/encode_submission. When using this
     ///      endpoint, make sure you trust the node you're talking to, as it is
     ///      possible they could manipulate your request.
-    ///   2. Sign the encoded transaction and use it to create a TransactionSignature.
-    ///   3. Submit the request. Make sure to use the "application/json" Content-Type.
+    ///   2. Sign the encoded transaction and use it to create a
+    /// TransactionSignature.   3. Submit the request. Make sure to use the
+    /// "application/json" Content-Type.
     ///
     /// To submit a transaction as BCS, you must submit a SignedTransaction
     /// encoded as BCS. See SignedTransaction in types/src/transaction/mod.rs.
-    /// Make sure to use the `application/x.aptos.signed_transaction+bcs` Content-Type.
+    /// Make sure to use the `application/x.aptos.signed_transaction+bcs`
+    /// Content-Type.
     // TODO: Point to examples of both of these flows, in multiple languages.
     #[oai(
         path = "/transactions",
@@ -320,26 +323,30 @@ impl TransactionsApi {
 
     /// Submit batch transactions
     ///
-    /// This allows you to submit multiple transactions.  The response has three outcomes:
+    /// This allows you to submit multiple transactions.  The response has three
+    /// outcomes:
     ///
     ///   1. All transactions succeed, and it will return a 202
-    ///   2. Some transactions succeed, and it will return the failed transactions and a 206
-    ///   3. No transactions succeed, and it will also return the failed transactions and a 206
+    ///   2. Some transactions succeed, and it will return the failed
+    /// transactions and a 206   3. No transactions succeed, and it will
+    /// also return the failed transactions and a 206
     ///
-    /// To submit a transaction as JSON, you must submit a SubmitTransactionRequest.
-    /// To build this request, do the following:
+    /// To submit a transaction as JSON, you must submit a
+    /// SubmitTransactionRequest. To build this request, do the following:
     ///
     ///   1. Encode the transaction as BCS. If you are using a language that has
-    ///      native BCS support, make sure to use that library. If not, you may take
-    ///      advantage of /transactions/encode_submission. When using this
-    ///      endpoint, make sure you trust the node you're talking to, as it is
-    ///      possible they could manipulate your request.
-    ///   2. Sign the encoded transaction and use it to create a TransactionSignature.
-    ///   3. Submit the request. Make sure to use the "application/json" Content-Type.
+    ///      native BCS support, make sure to use that library. If not, you may
+    /// take      advantage of /transactions/encode_submission. When using
+    /// this      endpoint, make sure you trust the node you're talking to,
+    /// as it is      possible they could manipulate your request.
+    ///   2. Sign the encoded transaction and use it to create a
+    /// TransactionSignature.   3. Submit the request. Make sure to use the
+    /// "application/json" Content-Type.
     ///
     /// To submit a transaction as BCS, you must submit a SignedTransaction
     /// encoded as BCS. See SignedTransaction in types/src/transaction/mod.rs.
-    /// Make sure to use the `application/x.aptos.signed_transaction+bcs` Content-Type.
+    /// Make sure to use the `application/x.aptos.signed_transaction+bcs`
+    /// Content-Type.
     #[oai(
         path = "/transactions/batch",
         method = "post",
@@ -384,14 +391,16 @@ impl TransactionsApi {
 
     /// Simulate transaction
     ///
-    /// The output of the transaction will have the exact transaction outputs and events that running
-    /// an actual signed transaction would have.  However, it will not have the associated state
-    /// hashes, as they are not updated in storage.  This can be used to estimate the maximum gas
+    /// The output of the transaction will have the exact transaction outputs
+    /// and events that running an actual signed transaction would have.
+    /// However, it will not have the associated state hashes, as they are
+    /// not updated in storage.  This can be used to estimate the maximum gas
     /// units for a submitted transaction.
     ///
     /// To use this, you must:
     /// - Create a SignedTransaction with a zero-padded signature.
-    /// - Submit a SubmitTransactionRequest containing a UserTransactionRequest containing that signature.
+    /// - Submit a SubmitTransactionRequest containing a UserTransactionRequest
+    ///   containing that signature.
     ///
     /// To use this endpoint with BCS, you must submit a SignedTransaction
     /// encoded as BCS. See SignedTransaction in types/src/transaction/mod.rs.
@@ -407,11 +416,11 @@ impl TransactionsApi {
         /// If set to true, the max gas value in the transaction will be ignored
         /// and the maximum possible gas will be used
         estimate_max_gas_amount: Query<Option<bool>>,
-        /// If set to true, the gas unit price in the transaction will be ignored
-        /// and the estimated value will be used
+        /// If set to true, the gas unit price in the transaction will be
+        /// ignored and the estimated value will be used
         estimate_gas_unit_price: Query<Option<bool>>,
-        /// If set to true, the transaction will use a higher price than the original
-        /// estimate.
+        /// If set to true, the transaction will use a higher price than the
+        /// original estimate.
         estimate_prioritized_gas_unit_price: Query<Option<bool>>,
         data: SubmitTransactionPost,
     ) -> SimulateTransactionResult<Vec<UserTransaction>> {
@@ -438,18 +447,20 @@ impl TransactionsApi {
         ) {
             (_, true) => {
                 let gas_estimation = self.context.estimate_gas_price(&ledger_info)?;
-                // The prioritized gas estimate should always be set, but if it's not use the gas estimate
+                // The prioritized gas estimate should always be set, but if it's not use the
+                // gas estimate
                 Some(
                     gas_estimation
                         .prioritized_gas_estimate
                         .unwrap_or(gas_estimation.gas_estimate),
                 )
-            }
+            },
             (true, false) => Some(self.context.estimate_gas_price(&ledger_info)?.gas_estimate),
             (false, false) => None,
         };
 
-        // If estimate max gas amount is provided, we will just make it the maximum value
+        // If estimate max gas amount is provided, we will just make it the maximum
+        // value
         let estimated_max_gas_amount = if estimate_max_gas_amount.0.unwrap_or_default() {
             // Retrieve max possible gas units
             let (_, gas_params) = self.context.get_gas_schedule(&ledger_info)?;
@@ -500,7 +511,8 @@ impl TransactionsApi {
                 coin_store.coin() / gas_unit_price
             };
 
-            // To give better error messaging, we should not go below the minimum number of gas units
+            // To give better error messaging, we should not go below the minimum number of
+            // gas units
             let max_account_gas_units =
                 std::cmp::max(min_number_of_gas_units, max_account_gas_units);
 
@@ -543,7 +555,8 @@ impl TransactionsApi {
     /// To sign a message using the response from this endpoint:
     /// - Decode the hex encoded string in the response to bytes.
     /// - Sign the bytes to create the signature.
-    /// - Use that as the signature field in something like Ed25519Signature, which you then use to build a TransactionSignature.
+    /// - Use that as the signature field in something like Ed25519Signature,
+    ///   which you then use to build a TransactionSignature.
     //
     #[oai(
         path = "/transactions/encode_submission",
@@ -554,8 +567,9 @@ impl TransactionsApi {
     async fn encode_submission(
         &self,
         accept_type: AcceptType,
-        data: Json<EncodeSubmissionRequest>,
-        // TODO: Use a new request type that can't return 507 but still returns all the other necessary errors.
+        data: Json<EncodeSubmissionRequest>, /* TODO: Use a new request type that can't return
+                                              * 507 but still returns all the other
+                                              * necessary errors. */
     ) -> BasicResult<HexEncodedBytes> {
         data.0
             .verify()
@@ -574,12 +588,15 @@ impl TransactionsApi {
 
     /// Estimate gas price
     ///
-    /// Currently, the gas estimation is handled by taking the median of the last 100,000 transactions
-    /// If a user wants to prioritize their transaction and is willing to pay, they can pay more
-    /// than the gas price.  If they're willing to wait longer, they can pay less.  Note that the
-    /// gas price moves with the fee market, and should only increase when demand outweighs supply.
+    /// Currently, the gas estimation is handled by taking the median of the
+    /// last 100,000 transactions If a user wants to prioritize their
+    /// transaction and is willing to pay, they can pay more than the gas
+    /// price.  If they're willing to wait longer, they can pay less.  Note that
+    /// the gas price moves with the fee market, and should only increase
+    /// when demand outweighs supply.
     ///
-    /// If there have been no transactions in the last 100,000 transactions, the price will be 1.
+    /// If there have been no transactions in the last 100,000 transactions, the
+    /// price will be 1.
     #[oai(
         path = "/estimate_gas_price",
         method = "get",
@@ -608,7 +625,7 @@ impl TransactionsApi {
                     &latest_ledger_info,
                     BasicResponseStatus::Ok,
                 ))
-            }
+            },
         }
     }
 }
@@ -647,10 +664,10 @@ impl TransactionsApi {
                     &latest_ledger_info,
                     BasicResponseStatus::Ok,
                 ))
-            }
+            },
             AcceptType::Bcs => {
                 BasicResponse::try_from_bcs((data, &latest_ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 
@@ -729,7 +746,7 @@ impl TransactionsApi {
                                     ledger_info,
                                 )
                             })?
-                    }
+                    },
                     TransactionData::Pending(txn) => resolver
                         .as_converter(self.context.db.clone())
                         .try_into_pending_transaction(*txn)
@@ -744,7 +761,7 @@ impl TransactionsApi {
                 };
 
                 BasicResponse::try_from_json((transaction, ledger_info, BasicResponseStatus::Ok))
-            }
+            },
             AcceptType::Bcs => BasicResponse::try_from_bcs((
                 transaction_data,
                 ledger_info,
@@ -769,10 +786,11 @@ impl TransactionsApi {
         ))
     }
 
-    /// Retrieves a transaction by hash. First the node tries to find the transaction
-    /// in the DB. If the transaction is found there, it means the transaction is
-    /// committed. If it is not found there, it looks in mempool. If it is found there,
-    /// it means the transaction is still pending.
+    /// Retrieves a transaction by hash. First the node tries to find the
+    /// transaction in the DB. If the transaction is found there, it means
+    /// the transaction is committed. If it is not found there, it looks in
+    /// mempool. If it is found there, it means the transaction is still
+    /// pending.
     async fn get_by_hash(
         &self,
         hash: aptos_crypto::HashValue,
@@ -820,7 +838,7 @@ impl TransactionsApi {
             )),
             AcceptType::Bcs => {
                 BasicResponse::try_from_bcs((data, &latest_ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 
@@ -876,7 +894,7 @@ impl TransactionsApi {
                                     )
                                 })?;
                         }
-                    }
+                    },
                     TransactionPayload::Script(script) => {
                         if script.code().is_empty() {
                             return Err(SubmitTransactionError::bad_request_with_code(
@@ -898,13 +916,13 @@ impl TransactionsApi {
                                     )
                                 })?;
                         }
-                    }
-                    TransactionPayload::ModuleBundle(_) => {}
+                    },
+                    TransactionPayload::ModuleBundle(_) => {},
                 }
                 // TODO: Verify script args?
 
                 Ok(signed_transaction)
-            }
+            },
             SubmitTransactionPost::Json(data) => self
                 .context
                 .move_resolver_poem(ledger_info)?
@@ -939,7 +957,7 @@ impl TransactionsApi {
                         )
                     })?;
                 Ok(signed_transactions)
-            }
+            },
             SubmitTransactionsBatchPost::Json(data) => data
                 .0
                 .into_iter()
@@ -949,7 +967,11 @@ impl TransactionsApi {
                         .move_resolver_poem(ledger_info)?
                         .as_converter(self.context.db.clone())
                         .try_into_signed_transaction_poem(txn, self.context.chain_id())
-                        .context(format!("Failed to create SignedTransaction from SubmitTransactionRequest at position {}", index))
+                        .context(format!(
+                            "Failed to create SignedTransaction from SubmitTransactionRequest at \
+                             position {}",
+                            index
+                        ))
                         .map_err(|err| {
                             SubmitTransactionError::bad_request_with_code(
                                 err,
@@ -979,7 +1001,7 @@ impl TransactionsApi {
                     &mempool_status.message,
                     AptosErrorCode::MempoolIsFull,
                 ))
-            }
+            },
             MempoolStatusCode::VmError => {
                 if let Some(status) = vm_status_opt {
                     Err(AptosError::new_with_vm_status(
@@ -998,7 +1020,7 @@ impl TransactionsApi {
                         StatusCode::UNKNOWN_STATUS,
                     ))
                 }
-            }
+            },
             MempoolStatusCode::InvalidSeqNumber => Err(AptosError::new_with_error_code(
                 mempool_status.message,
                 AptosErrorCode::SequenceNumberTooOld,
@@ -1022,44 +1044,51 @@ impl TransactionsApi {
         txn: SignedTransaction,
     ) -> SubmitTransactionResult<PendingTransaction> {
         match self.create_internal(txn.clone()).await {
-            Ok(()) => match accept_type {
-                AcceptType::Json => {
-                    let resolver = self
-                        .context
-                        .move_resolver()
-                        .context("Failed to read latest state checkpoint from DB")
-                        .map_err(|e| {
-                            SubmitTransactionError::internal_with_code(
-                                e,
-                                AptosErrorCode::InternalError,
-                                ledger_info,
-                            )
-                        })?;
+            Ok(()) => {
+                match accept_type {
+                    AcceptType::Json => {
+                        let resolver = self
+                            .context
+                            .move_resolver()
+                            .context("Failed to read latest state checkpoint from DB")
+                            .map_err(|e| {
+                                SubmitTransactionError::internal_with_code(
+                                    e,
+                                    AptosErrorCode::InternalError,
+                                    ledger_info,
+                                )
+                            })?;
 
-                    // We provide the pending transaction so that users have the hash associated
-                    let pending_txn = resolver
+                        // We provide the pending transaction so that users have the hash associated
+                        let pending_txn = resolver
                             .as_converter(self.context.db.clone())
                             .try_into_pending_transaction_poem(txn)
-                            .context("Failed to build PendingTransaction from mempool response, even though it said the request was accepted")
-                            .map_err(|err| SubmitTransactionError::internal_with_code(
-                                err,
-                                AptosErrorCode::InternalError,
-                                ledger_info,
-                            ))?;
-                    SubmitTransactionResponse::try_from_json((
-                        pending_txn,
+                            .context(
+                                "Failed to build PendingTransaction from mempool response, even \
+                                 though it said the request was accepted",
+                            )
+                            .map_err(|err| {
+                                SubmitTransactionError::internal_with_code(
+                                    err,
+                                    AptosErrorCode::InternalError,
+                                    ledger_info,
+                                )
+                            })?;
+                        SubmitTransactionResponse::try_from_json((
+                            pending_txn,
+                            ledger_info,
+                            SubmitTransactionResponseStatus::Accepted,
+                        ))
+                    },
+                    // With BCS, we don't return the pending transaction for efficiency, because
+                    // there is no new information.  The hash can be retrieved
+                    // by hashing the original transaction.
+                    AcceptType::Bcs => SubmitTransactionResponse::try_from_bcs((
+                        (),
                         ledger_info,
                         SubmitTransactionResponseStatus::Accepted,
-                    ))
+                    )),
                 }
-                // With BCS, we don't return the pending transaction for efficiency, because there
-                // is no new information.  The hash can be retrieved by hashing the original
-                // transaction.
-                AcceptType::Bcs => SubmitTransactionResponse::try_from_bcs((
-                    (),
-                    ledger_info,
-                    SubmitTransactionResponseStatus::Accepted,
-                )),
             },
             Err(error) => match error.error_code {
                 AptosErrorCode::InternalError => Err(
@@ -1102,7 +1131,8 @@ impl TransactionsApi {
             }
         }
 
-        // Return the possible failures, and have a different success code for partial success
+        // Return the possible failures, and have a different success code for partial
+        // success
         let response_status = if txn_failures.is_empty() {
             SubmitTransactionsBatchResponseStatus::Accepted
         } else {
@@ -1125,8 +1155,9 @@ impl TransactionsApi {
     // from these types in render_transactions.
     /// Simulate a transaction in the VM
     ///
-    /// Note: this returns a `Vec<UserTransaction>`, but for backwards compatibility, this can't
-    /// be removed even though, there is only one possible transaction
+    /// Note: this returns a `Vec<UserTransaction>`, but for backwards
+    /// compatibility, this can't be removed even though, there is only one
+    /// possible transaction
     pub async fn simulate(
         &self,
         accept_type: &AcceptType,
@@ -1153,7 +1184,8 @@ impl TransactionsApi {
         // VM error handling is fixed.
         let output = output_ext.into_transaction_output(&move_resolver);
 
-        // Ensure that all known statuses return their values in the output (even if they aren't supposed to)
+        // Ensure that all known statuses return their values in the output (even if
+        // they aren't supposed to)
         let exe_status = match output.status().clone() {
             TransactionStatus::Keep(exec_status) => exec_status,
             TransactionStatus::Discard(status) => ExecutionStatus::MiscellaneousError(Some(status)),
@@ -1199,7 +1231,7 @@ impl TransactionsApi {
                                 AptosErrorCode::InternalError,
                                 &ledger_info,
                             ))
-                        }
+                        },
                     }
                 }
                 BasicResponse::try_from_json((
@@ -1207,10 +1239,10 @@ impl TransactionsApi {
                     &ledger_info,
                     BasicResponseStatus::Ok,
                 ))
-            }
+            },
             AcceptType::Bcs => {
                 BasicResponse::try_from_bcs((simulated_txn, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 
@@ -1220,7 +1252,8 @@ impl TransactionsApi {
         accept_type: &AcceptType,
         request: EncodeSubmissionRequest,
     ) -> BasicResult<HexEncodedBytes> {
-        // We don't want to encourage people to use this API if they can sign the request directly
+        // We don't want to encourage people to use this API if they can sign the
+        // request directly
         if accept_type == &AcceptType::Bcs {
             return Err(BasicError::bad_request_with_code_no_info(
                 "BCS is not supported for encode submission",
@@ -1289,6 +1322,7 @@ fn override_gas_parameters(
         signed_txn.chain_id(),
     );
 
-    // TODO: Check that signature is null, this would just be helpful for downstream use
+    // TODO: Check that signature is null, this would just be helpful for downstream
+    // use
     SignedTransaction::new_with_authenticator(raw_txn, signed_txn.authenticator())
 }

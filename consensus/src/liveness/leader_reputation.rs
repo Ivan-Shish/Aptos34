@@ -31,8 +31,9 @@ use std::{
 
 /// Interface to query committed NewBlockEvent.
 pub trait MetadataBackend: Send + Sync {
-    /// Return a contiguous NewBlockEvent window in which last one is at target_round or
-    /// latest committed, return all previous one if not enough.
+    /// Return a contiguous NewBlockEvent window in which last one is at
+    /// target_round or latest committed, return all previous one if not
+    /// enough.
     fn get_block_metadata(
         &self,
         target_epoch: u64,
@@ -73,10 +74,11 @@ impl AptosDBBackend {
         // assumes target round is not too far from latest commit
         let limit = self.window_size + self.seek_len;
 
-        // there is a race condition between the next two lines, and new events being added.
-        // I.e. when latest_db_version is fetched, and get_events are called.
-        // if in between a new entry gets added max_returned_version will be larger than
-        // latest_db_version, and so we should take the max of the two.
+        // there is a race condition between the next two lines, and new events being
+        // added. I.e. when latest_db_version is fetched, and get_events are
+        // called. if in between a new entry gets added max_returned_version
+        // will be larger than latest_db_version, and so we should take the max
+        // of the two.
 
         // we cannot reorder those two functions, as if get_events is first,
         // and then new entry gets added before get_latest_version is called,
@@ -119,18 +121,25 @@ impl AptosDBBackend {
         events: &Vec<VersionedNewBlockEvent>,
         hit_end: bool,
     ) -> (Vec<NewBlockEvent>, HashValue) {
-        // Do not warn when round==0, because check will always be unsure of whether we have
-        // all events from the previous epoch. If there is an actual issue, next round will log it.
+        // Do not warn when round==0, because check will always be unsure of whether we
+        // have all events from the previous epoch. If there is an actual issue,
+        // next round will log it.
         if target_round != 0 {
             let has_larger = events.first().map_or(false, |e| {
                 (e.event.epoch(), e.event.round()) >= (target_epoch, target_round)
             });
             if !has_larger {
-                // error, and not a fatal, in an unlikely scenario that we have many failed consecutive rounds,
-                // and nobody has any newer successful blocks.
+                // error, and not a fatal, in an unlikely scenario that we have many failed
+                // consecutive rounds, and nobody has any newer successful
+                // blocks.
                 warn!(
-                    "Local history is too old, asking for {} epoch and {} round, and latest from db is {} epoch and {} round! Elected proposers are unlikely to match!!",
-                    target_epoch, target_round, events.first().map_or(0, |e| e.event.epoch()), events.first().map_or(0, |e| e.event.round()))
+                    "Local history is too old, asking for {} epoch and {} round, and latest from \
+                     db is {} epoch and {} round! Elected proposers are unlikely to match!!",
+                    target_epoch,
+                    target_round,
+                    events.first().map_or(0, |e| e.event.epoch()),
+                    events.first().map_or(0, |e| e.event.round())
+                )
             }
         }
 
@@ -147,7 +156,8 @@ impl AptosDBBackend {
 
         if result.len() < self.window_size && !hit_end {
             error!(
-                "We are not fetching far enough in history, we filtered from {} to {}, but asked for {}",
+                "We are not fetching far enough in history, we filtered from {} to {}, but asked \
+                 for {}",
                 events.len(),
                 result.len(),
                 self.window_size
@@ -189,13 +199,13 @@ impl MetadataBackend for AptosDBBackend {
             match fresh_db_result {
                 Ok((events, _version, hit_end)) => {
                     self.get_from_db_result(target_epoch, target_round, &events, hit_end)
-                }
+                },
                 Err(e) => {
                     error!(
                         error = ?e, "[leader reputation] Fail to refresh window",
                     );
                     (vec![], HashValue::zero())
-                }
+                },
             }
         } else {
             self.get_from_db_result(target_epoch, target_round, events, hit_end)
@@ -376,7 +386,7 @@ impl NewBlockEventAggregation {
                             let count = map.entry(voter).or_insert(0);
                             *count += 1;
                         }
-                    }
+                    },
                     Err(msg) => {
                         error!(
                             "Voter conversion from bitmap failed at epoch {}, round {}: {}",
@@ -384,7 +394,7 @@ impl NewBlockEventAggregation {
                             meta.round(),
                             msg
                         )
-                    }
+                    },
                 }
                 map
             },
@@ -441,7 +451,7 @@ impl NewBlockEventAggregation {
                         let count = map.entry(failed_proposer).or_insert(0);
                         *count += 1;
                     }
-                }
+                },
                 Err(msg) => {
                     error!(
                         "Failed proposer conversion from indices failed at epoch {}, round {}: {}",
@@ -449,35 +459,42 @@ impl NewBlockEventAggregation {
                         meta.round(),
                         msg
                     )
-                }
+                },
             }
             map
         })
     }
 }
 
-/// Heuristic that looks at successful and failed proposals, as well as voting history,
-/// to define node reputation, used for leader selection.
+/// Heuristic that looks at successful and failed proposals, as well as voting
+/// history, to define node reputation, used for leader selection.
 ///
-/// We want to optimize leader selection to primarily maximize network's throughput,
-/// but we also, in combinatoin with staking rewards logic, need to be reasonably fair.
+/// We want to optimize leader selection to primarily maximize network's
+/// throughput, but we also, in combinatoin with staking rewards logic, need to
+/// be reasonably fair.
 ///
 /// Logic is:
-///  * if proposer round failure rate within the proposer window is strictly above threshold, use failed_weight (default 1).
-///  * otherwise, if node had no proposal rounds and no successful votes, use inactive_weight (default 10).
+///  * if proposer round failure rate within the proposer window is strictly
+///    above threshold, use failed_weight (default 1).
+///  * otherwise, if node had no proposal rounds and no successful votes, use
+///    inactive_weight (default 10).
 ///  * otherwise, use the default active_weight (default 100).
 ///
-/// We primarily want to avoid failed rounds, as they have a largest negative effect on the network.
-/// So if we see a node having failures to propose, when it was the leader, we want to avoid that node.
-/// We add a threshold (instead of penalizing on a single failure), so that transient issues in the network,
-/// or malicious behaviour of the next leader is avoided. In general, we expect there to be
-/// proposer_window_size/num_validators opportunities for a node to be a leader, so a single failure, or a
-/// subset of following leaders being malicious will not be enough to exclude a node.
-/// On the other hand, single failure, without any successes before will exclude the note.
+/// We primarily want to avoid failed rounds, as they have a largest negative
+/// effect on the network. So if we see a node having failures to propose, when
+/// it was the leader, we want to avoid that node. We add a threshold (instead
+/// of penalizing on a single failure), so that transient issues in the network,
+/// or malicious behaviour of the next leader is avoided. In general, we expect
+/// there to be proposer_window_size/num_validators opportunities for a node to
+/// be a leader, so a single failure, or a subset of following leaders being
+/// malicious will not be enough to exclude a node. On the other hand, single
+/// failure, without any successes before will exclude the note.
 /// Threshold probably makes the most sense to be between:
-///  * 10% (aggressive exclusion with 1 failure in 10 proposals being enough for exclusion)
-///  * and 33% (much less aggressive exclusion, with 1 failure for every 2 successes, should still reduce failed
-///    rounds by at least 66%, and is enough to avoid byzantine attacks as well as the rest of the protocol)
+///  * 10% (aggressive exclusion with 1 failure in 10 proposals being enough for
+///    exclusion)
+///  * and 33% (much less aggressive exclusion, with 1 failure for every 2
+///    successes, should still reduce failed rounds by at least 66%, and is
+///    enough to avoid byzantine attacks as well as the rest of the protocol)
 pub struct ProposerAndVoterHeuristic {
     author: Author,
     active_weight: u64,
@@ -547,8 +564,8 @@ impl ReputationHeuristic for ProposerAndVoterHeuristic {
     }
 }
 
-/// Committed history based proposer election implementation that could help bias towards
-/// successful leaders to help improve performance.
+/// Committed history based proposer election implementation that could help
+/// bias towards successful leaders to help improve performance.
 pub struct LeaderReputation {
     epoch: u64,
     epoch_to_proposers: HashMap<u64, Vec<Author>>,
@@ -587,7 +604,8 @@ impl LeaderReputation {
     }
 
     // Compute chain health metrics, and
-    // - return participating voting power percentage for the window_for_chain_health
+    // - return participating voting power percentage for the
+    //   window_for_chain_health
     // - update metric counters for different windows
     fn compute_chain_health_and_add_metrics(&self, history: &[NewBlockEvent], round: Round) -> f64 {
         let candidates = self.epoch_to_proposers.get(&self.epoch).unwrap();
@@ -636,7 +654,8 @@ impl LeaderReputation {
                     .set(participants.len() as i64);
 
                 if chosen {
-                    // do not treat chain as unhealthy, if chain just started, and we don't have enough history to decide.
+                    // do not treat chain as unhealthy, if chain just started, and we don't have
+                    // enough history to decide.
                     let voting_power_participation_ratio =
                         if history.len() < *participants_window_size && self.epoch <= 2 {
                             1.0

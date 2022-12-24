@@ -6,9 +6,9 @@ use aptos_secure_storage::{KVStorage, Storage, VaultStorage};
 use aptos_types::validator_signer::ValidatorSigner;
 use aptos_vault_client::dev::{self, ROOT_TOKEN};
 
-/// A test for verifying VaultStorage properly supports the SafetyRule backend.  This test
-/// depends on running Vault, which can be done by using the provided docker run script in
-/// `docker/testutils/start_vault_container.sh`
+/// A test for verifying VaultStorage properly supports the SafetyRule backend.
+/// This test depends on running Vault, which can be done by using the provided
+/// docker run script in `docker/testutils/start_vault_container.sh`
 #[test]
 fn test() {
     if dev::test_host_safe().is_none() {

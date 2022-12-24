@@ -26,13 +26,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const GAS_FEE_EVENT: &str = "0x1::aptos_coin::GasFeeEvent";
-// We will never have a negative number on chain so this will avoid collision in postgres
+// We will never have a negative number on chain so this will avoid collision in
+// postgres
 const BURN_GAS_EVENT_CREATION_NUM: i64 = -1;
 const MAX_ENTRY_FUNCTION_LENGTH: usize = 100;
 
 type OwnerAddress = String;
 type CoinType = String;
-// Primary key of the current_coin_balances table, i.e. (owner_address, coin_type)
+// Primary key of the current_coin_balances table, i.e. (owner_address,
+// coin_type)
 pub type CurrentCoinBalancePK = (OwnerAddress, CoinType);
 pub type EventToCoinType = HashMap<EventGuidResource, CoinType>;
 
@@ -61,12 +63,15 @@ pub struct CoinActivity {
 }
 
 impl CoinActivity {
-    /// There are different objects containing different information about balances and coins.
-    /// Events: Withdraw and Deposit event containing amounts. There is no coin type so we need to get that from Resources. (from event guid)
-    /// CoinInfo Resource: Contains name, symbol, decimals and supply. (if supply is aggregator, however, actual supply amount will live in a separate table)
-    /// CoinStore Resource: Contains owner address and coin type information used to complete events
-    /// Aggregator Table Item: Contains current supply of a coin
-    /// Note, we're not currently tracking supply
+    /// There are different objects containing different information about
+    /// balances and coins. Events: Withdraw and Deposit event containing
+    /// amounts. There is no coin type so we need to get that from Resources.
+    /// (from event guid) CoinInfo Resource: Contains name, symbol, decimals
+    /// and supply. (if supply is aggregator, however, actual supply amount will
+    /// live in a separate table) CoinStore Resource: Contains owner address
+    /// and coin type information used to complete events Aggregator Table
+    /// Item: Contains current supply of a coin Note, we're not currently
+    /// tracking supply
     pub fn from_transaction(
         transaction: &APITransaction,
         maybe_aptos_coin_info: &Option<CoinInfoQuery>,
@@ -103,7 +108,8 @@ impl CoinActivity {
             _ => return Default::default(),
         };
 
-        // Get coin info, then coin balances. We can leverage coin balances to get the metadata required for events
+        // Get coin info, then coin balances. We can leverage coin balances to get the
+        // metadata required for events
         let txn_version = txn_info.version.0 as i64;
         let txn_epoch = txn_info.epoch.unwrap().0 as i64;
         let mut entry_function_id_str = None;
@@ -186,7 +192,7 @@ impl CoinActivity {
                     &entry_function_id_str,
                     txn_timestamp,
                 )),
-                None => {}
+                None => {},
             };
         }
         (
@@ -216,15 +222,16 @@ impl CoinActivity {
             addr: event.guid.account_address.to_string(),
             creation_num: event.guid.creation_number.0 as i64,
         };
-        let coin_type =
-            event_to_coin_type
-                .get(&event_move_guid)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Could not find event in resources (CoinStore), version: {}, event guid: {:?}, mapping: {:?}",
-                        txn_version, event_move_guid, event_to_coin_type
-                    )
-                }).clone();
+        let coin_type = event_to_coin_type
+            .get(&event_move_guid)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Could not find event in resources (CoinStore), version: {}, event guid: \
+                     {:?}, mapping: {:?}",
+                    txn_version, event_move_guid, event_to_coin_type
+                )
+            })
+            .clone();
 
         Self {
             transaction_version: txn_version,

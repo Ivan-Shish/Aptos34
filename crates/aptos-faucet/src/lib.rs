@@ -1,10 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-// README: The aptos-faucet is deprecated in favor of the tap. Do not add new code
-// to this until you've spoken with the Ecosystem Platform team + dport.
+// README: The aptos-faucet is deprecated in favor of the tap. Do not add new
+// code to this until you've spoken with the Ecosystem Platform team + dport.
 
-//! This crate provides the Faucet service for creating and funding accounts on the Aptos Network.
+//! This crate provides the Faucet service for creating and funding accounts on
+//! the Aptos Network.
 //!
 //! THIS SERVICE SHOULD NEVER BE DEPLOYED TO MAINNET.
 //!
@@ -43,7 +44,8 @@ use warp::{http, Filter, Rejection, Reply};
 
 pub mod mint;
 
-/// Aptos Testnet utility service for creating test accounts and minting test coins
+/// Aptos Testnet utility service for creating test accounts and minting test
+/// coins
 #[derive(Clone, Debug, Parser)]
 #[clap(name = "Aptos Faucet", author, version)]
 pub struct FaucetArgs {
@@ -76,9 +78,10 @@ pub struct FaucetArgs {
     #[clap(short = 't', long, parse(try_from_str = AccountAddress::from_hex_literal))]
     pub mint_account_address: Option<AccountAddress>,
     /// Chain ID of the network this client is connecting to.
-    /// For mainnet: "MAINNET" or 1, testnet: "TESTNET" or 2, devnet: "DEVNET" or 3,
-    /// local swarm: "TESTING" or 4
-    /// Note: Chain ID of 0 is not allowed; Use number if chain id is not predefined.
+    /// For mainnet: "MAINNET" or 1, testnet: "TESTNET" or 2, devnet: "DEVNET"
+    /// or 3, local swarm: "TESTING" or 4
+    /// Note: Chain ID of 0 is not allowed; Use number if chain id is not
+    /// predefined.
     #[clap(short = 'c', long, default_value = "2")]
     pub chain_id: ChainId,
     /// Maximum amount of coins to mint.
@@ -116,8 +119,8 @@ impl FaucetArgs {
             .unwrap_or_else(aptos_test_root_address);
         let faucet_account = LocalAccount::new(faucet_address, key, 0);
 
-        // Do not use maximum amount on delegation, this allows the new delegated faucet to
-        // mint a lot for themselves!
+        // Do not use maximum amount on delegation, this allows the new delegated faucet
+        // to mint a lot for themselves!
         let maximum_amount = if self.do_not_delegate {
             self.maximum_amount
         } else {
@@ -249,9 +252,10 @@ async fn handle_health(service: Arc<Service>) -> Result<Box<dyn warp::Reply>, In
     }
 }
 
-/// The idea is that this may be happening concurrently. If we end up in such a race, the faucets
-/// might attempt to send transactions with the same sequence number, in such an event, one will
-/// succeed and the other will hit an unwrap. Eventually all faucets should get online.
+/// The idea is that this may be happening concurrently. If we end up in such a
+/// race, the faucets might attempt to send transactions with the same sequence
+/// number, in such an event, one will succeed and the other will hit an unwrap.
+/// Eventually all faucets should get online.
 pub async fn delegate_mint_account(
     service: Arc<Service>,
     server_url: Url,
@@ -262,22 +266,19 @@ pub async fn delegate_mint_account(
     let mut delegated_account = LocalAccount::generate(&mut rand::rngs::OsRng);
 
     // Create the account
-    let response = mint::process(
-        &service,
-        mint::MintParams {
-            amount: 100_000_000_000,
-            auth_key: None,
-            address: Some(
-                delegated_account
-                    .authentication_key()
-                    .clone()
-                    .derived_address()
-                    .to_hex_literal(),
-            ),
-            pub_key: None,
-            return_txns: Some(true),
-        },
-    )
+    let response = mint::process(&service, mint::MintParams {
+        amount: 100_000_000_000,
+        auth_key: None,
+        address: Some(
+            delegated_account
+                .authentication_key()
+                .clone()
+                .derived_address()
+                .to_hex_literal(),
+        ),
+        pub_key: None,
+        return_txns: Some(true),
+    })
     .await
     .expect("Failed to create new account");
 
@@ -290,7 +291,7 @@ pub async fn delegate_mint_account(
                     .await
                     .unwrap();
             }
-        }
+        },
         _ => panic!("Expected a set of Response::SubmittedTxns"),
     }
 

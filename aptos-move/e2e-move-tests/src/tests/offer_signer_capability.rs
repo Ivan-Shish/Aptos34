@@ -4,8 +4,10 @@
 use crate::{assert_success, MoveHarness};
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::SigningKey;
-use aptos_types::account_config::AccountResource;
-use aptos_types::{account_address::AccountAddress, account_config::CORE_CODE_ADDRESS};
+use aptos_types::{
+    account_address::AccountAddress,
+    account_config::{AccountResource, CORE_CODE_ADDRESS},
+};
 use move_core_types::parser::parse_struct_tag;
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +29,8 @@ fn offer_signer_capability_v2() {
     let account_alice = harness.new_account_with_key_pair();
     let account_bob = harness.new_account_at(AccountAddress::from_hex_literal("0x345").unwrap());
 
-    // This struct fixes sequence number 10, which is what Alice's account is at in this e2e test
+    // This struct fixes sequence number 10, which is what Alice's account is at in
+    // this e2e test
     let proof_struct = SignerCapabilityOfferProofChallengeV2 {
         account_address: CORE_CODE_ADDRESS,
         module_name: String::from("account"),
@@ -71,7 +74,8 @@ fn sample_offer_signer_capability_v2_test_case_for_move() {
     let account_alice = harness.new_account_with_key_pair();
     let account_bob = harness.new_account_at(AccountAddress::from_hex_literal("0x345").unwrap());
 
-    // This struct fixes sequence number 0, which is what Alice's account is at in the Move test
+    // This struct fixes sequence number 0, which is what Alice's account is at in
+    // the Move test
     let proof_struct = SignerCapabilityOfferProofChallengeV2 {
         account_address: CORE_CODE_ADDRESS,
         module_name: String::from("account"),

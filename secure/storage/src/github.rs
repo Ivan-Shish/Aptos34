@@ -6,8 +6,9 @@ use aptos_github_client::Client;
 use aptos_time_service::{TimeService, TimeServiceTrait};
 use serde::{de::DeserializeOwned, Serialize};
 
-/// GitHubStorage leverages a GitHub repository to provide a file system approach to key / value
-/// storage.  This is not intended for storing private data but for organizing public data.
+/// GitHubStorage leverages a GitHub repository to provide a file system
+/// approach to key / value storage.  This is not intended for storing private
+/// data but for organizing public data.
 pub struct GitHubStorage {
     client: Client,
     time_service: TimeService,

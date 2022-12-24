@@ -9,16 +9,16 @@ use aptos_types::{
 use aptos_vm::move_vm_ext::MoveResolverExt;
 use move_core_types::language_storage::StructTag;
 use move_resource_viewer::MoveValueAnnotator;
+pub use move_resource_viewer::{AnnotatedMoveStruct, AnnotatedMoveValue};
 use std::{
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
 
-pub use move_resource_viewer::{AnnotatedMoveStruct, AnnotatedMoveValue};
-
 pub struct AptosValueAnnotator<'a, T>(MoveValueAnnotator<'a, T>);
 
-/// A wrapper around `MoveValueAnnotator` that adds a few aptos-specific funtionalities.
+/// A wrapper around `MoveValueAnnotator` that adds a few aptos-specific
+/// funtionalities.
 #[derive(Debug)]
 pub struct AnnotatedAccountStateBlob(BTreeMap<StructTag, AnnotatedMoveStruct>);
 
@@ -54,7 +54,7 @@ impl<'a, T: MoveResolverExt> AptosValueAnnotator<'a, T> {
                 None => {
                     println!("Uncached AccessPath: {:?}", k);
                     continue;
-                }
+                },
             };
             let value = self.view_resource(&tag, v)?;
             output.insert(tag, value);

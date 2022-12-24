@@ -209,10 +209,10 @@ async fn loopback_commit_vote(
                     .push(author, event.verify(author, verifier, false).unwrap())
                     .ok();
             }
-        }
+        },
         _ => {
             panic!("We are expecting a commit vote message.");
-        }
+        },
     };
 }
 
@@ -352,7 +352,8 @@ fn buffer_manager_sync_test() {
         reset_tx.send(ResetRequest { tx, stop: false }).await.ok();
         rx.await.ok();
 
-        // start sending back commit vote after reset, to avoid [0..dropped_batches] being sent to result_rx
+        // start sending back commit vote after reset, to avoid [0..dropped_batches]
+        // being sent to result_rx
         tokio::spawn(async move {
             loop {
                 loopback_commit_vote(&mut self_loop_rx, &msg_tx, &verifier).await;

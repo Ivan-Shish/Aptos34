@@ -18,17 +18,16 @@ use aptos_config::config::{
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_storage_interface::{DbReader, DbWriter, ExecutedTrees, Order};
 use aptos_temppath::TempPath;
-use aptos_types::ledger_info::LedgerInfoWithSignatures;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::transaction::{TransactionToCommit, Version};
 use aptos_types::{
+    ledger_info::LedgerInfoWithSignatures,
     proof::SparseMerkleLeafNode,
-    state_store::{state_key::StateKey, state_value::StateValue},
-    transaction::{ExecutionStatus, TransactionInfo},
+    state_store::{
+        state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
+    },
+    transaction::{ExecutionStatus, TransactionInfo, TransactionToCommit, Version},
 };
 use proptest::prelude::*;
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 use test_helper::{test_save_blocks_impl, test_sync_transactions_impl};
 
 proptest! {
@@ -185,7 +184,7 @@ pub fn test_state_merkle_pruning_impl(
     let tmp_dir = TempPath::new();
     let db = AptosDB::open(
         &tmp_dir,
-        false, /* is_read_only */
+        false, // is_read_only
         PrunerConfig {
             ledger_pruner_config: LedgerPrunerConfig {
                 enable: true,
@@ -205,7 +204,7 @@ pub fn test_state_merkle_pruning_impl(
             },
         },
         RocksdbConfigs::default(),
-        false, /* enable_indexer */
+        false, // enable_indexer
         BUFFERED_STATE_TARGET_ITEMS,
         DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD,
     )
@@ -225,10 +224,10 @@ pub fn test_state_merkle_pruning_impl(
         test_helper::update_in_memory_state(&mut in_memory_state, txns_to_commit.as_slice());
         db.save_transactions(
             txns_to_commit,
-            next_ver,                /* first_version */
-            next_ver.checked_sub(1), /* base_state_version */
+            next_ver,                // first_version
+            next_ver.checked_sub(1), // base_state_version
             Some(ledger_info_with_sigs),
-            true, /* sync_commit */
+            true, // sync_commit
             in_memory_state.clone(),
         )
         .unwrap();
@@ -267,8 +266,8 @@ pub fn test_state_merkle_pruning_impl(
         pruner.wait_for_pruner().unwrap();
         epoch_snapshot_pruner.wait_for_pruner().unwrap();
 
-        // Check strictly that all trees in the window accessible and all those nodes not needed
-        // must be gone.
+        // Check strictly that all trees in the window accessible and all those nodes
+        // not needed must be gone.
         let non_pruned_versions: HashSet<_> = snapshots
             .into_iter()
             .chain(epoch_snapshots.into_iter())

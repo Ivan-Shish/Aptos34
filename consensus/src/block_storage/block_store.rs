@@ -16,7 +16,6 @@ use crate::{
     util::time_service::TimeService,
 };
 use anyhow::{bail, ensure, format_err, Context};
-
 use aptos_consensus_types::{
     block::Block, common::Round, executed_block::ExecutedBlock, quorum_cert::QuorumCert,
     sync_info::SyncInfo, timeout_2chain::TwoChainTimeoutCertificate,
@@ -27,12 +26,11 @@ use aptos_infallible::RwLock;
 use aptos_logger::prelude::*;
 use aptos_types::{ledger_info::LedgerInfoWithSignatures, transaction::TransactionStatus};
 use futures::executor::block_on;
-use std::{sync::Arc, time::Duration};
-
 #[cfg(test)]
 use std::collections::VecDeque;
 #[cfg(any(test, feature = "fuzzing"))]
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::{sync::Arc, time::Duration};
 
 #[cfg(test)]
 #[path = "block_store_test.rs"]
@@ -62,25 +60,25 @@ pub fn update_counters_for_committed_blocks(blocks_to_commit: &[Arc<ExecutedBloc
                     counters::COMMITTED_TXNS_COUNT
                         .with_label_values(&["success"])
                         .inc();
-                }
+                },
                 TransactionStatus::Discard(_) => {
                     counters::COMMITTED_TXNS_COUNT
                         .with_label_values(&["failed"])
                         .inc();
-                }
+                },
                 TransactionStatus::Retry => {
                     counters::COMMITTED_TXNS_COUNT
                         .with_label_values(&["retry"])
                         .inc();
-                }
+                },
             }
         }
     }
 }
 
-/// Responsible for maintaining all the blocks of payload and the dependencies of those blocks
-/// (parent and previous QC links).  It is expected to be accessed concurrently by multiple threads
-/// and is thread-safe.
+/// Responsible for maintaining all the blocks of payload and the dependencies
+/// of those blocks (parent and previous QC links).  It is expected to be
+/// accessed concurrently by multiple threads and is thread-safe.
 ///
 /// Example tree block structure based on parent links.
 ///                         ╭--> A3
@@ -88,8 +86,8 @@ pub fn update_counters_for_committed_blocks(blocks_to_commit: &[Arc<ExecutedBloc
 ///             ╰--> C1--> C2
 ///                         ╰--> D3
 ///
-/// Example corresponding tree block structure for the QC links (must follow QC constraints).
-///                         ╭--> A3
+/// Example corresponding tree block structure for the QC links (must follow QC
+/// constraints).                         ╭--> A3
 /// Genesis--> B0--> B1--> B2--> B3
 ///             ├--> C1
 ///             ├--------> C2
@@ -97,10 +95,11 @@ pub fn update_counters_for_committed_blocks(blocks_to_commit: &[Arc<ExecutedBloc
 pub struct BlockStore {
     inner: Arc<RwLock<BlockTree>>,
     state_computer: Arc<dyn StateComputer>,
-    /// The persistent storage backing up the in-memory data structure, every write should go
-    /// through this before in-memory tree.
+    /// The persistent storage backing up the in-memory data structure, every
+    /// write should go through this before in-memory tree.
     storage: Arc<dyn PersistentLivenessStorage>,
-    /// Used to ensure that any block stored will have a timestamp < the local time
+    /// Used to ensure that any block stored will have a timestamp < the local
+    /// time
     time_service: Arc<dyn TimeService>,
     // consistent with round type
     back_pressure_limit: Round,
@@ -174,7 +173,7 @@ impl BlockStore {
     ) -> Self {
         let RootInfo(root_block, root_qc, root_ordered_cert, root_commit_cert) = root;
 
-        //verify root is correct
+        // verify root is correct
         assert!(
             // decoupled execution allows dummy versions
             root_qc.certified_block().version() == 0
@@ -195,13 +194,13 @@ impl BlockStore {
         let result = StateComputeResult::new(
             root_metadata.accu_hash,
             root_metadata.frozen_root_hashes,
-            root_metadata.num_leaves, /* num_leaves */
-            vec![],                   /* parent_root_hashes */
-            0,                        /* parent_num_leaves */
-            None,                     /* epoch_state */
-            vec![],                   /* compute_status */
-            vec![],                   /* txn_infos */
-            vec![],                   /* reconfig_events */
+            root_metadata.num_leaves, // num_leaves
+            vec![],                   // parent_root_hashes
+            0,                        // parent_num_leaves
+            None,                     // epoch_state
+            vec![],                   // compute_status
+            vec![],                   // txn_infos
+            vec![],                   // reconfig_events
         );
 
         let executed_root_block = ExecutedBlock::new(
@@ -272,8 +271,9 @@ impl BlockStore {
         let block_tree = self.inner.clone();
         let storage = self.storage.clone();
 
-        // This callback is invoked synchronously withe coupled-execution and asynchronously in decoupled setup.
-        // the callback could be used for multiple batches of blocks.
+        // This callback is invoked synchronously withe coupled-execution and
+        // asynchronously in decoupled setup. the callback could be used for
+        // multiple batches of blocks.
         self.state_computer
             .commit(
                 &blocks_to_commit,
@@ -334,13 +334,16 @@ impl BlockStore {
     }
 
     /// Execute and insert a block if it passes all validation tests.
-    /// Returns the Arc to the block kept in the block store after persisting it to storage
+    /// Returns the Arc to the block kept in the block store after persisting it
+    /// to storage
     ///
-    /// This function assumes that the ancestors are present (returns MissingParent otherwise).
+    /// This function assumes that the ancestors are present (returns
+    /// MissingParent otherwise).
     ///
     /// Duplicate inserts will return the previously inserted block (
-    /// note that it is considered a valid non-error case, for example, it can happen if a validator
-    /// receives a certificate for a block that is currently being added).
+    /// note that it is considered a valid non-error case, for example, it can
+    /// happen if a validator receives a certificate for a block that is
+    /// currently being added).
     pub async fn execute_and_insert_block(
         &self,
         block: Block,
@@ -365,7 +368,7 @@ impl BlockStore {
                     self.execute_block(block.block().clone()).await?;
                 }
                 self.execute_block(block).await
-            }
+            },
             err => err,
         }?;
 
@@ -392,8 +395,8 @@ impl BlockStore {
     }
 
     async fn execute_block(&self, block: Block) -> anyhow::Result<ExecutedBlock, Error> {
-        // Although NIL blocks don't have a payload, we still send a T::default() to compute
-        // because we may inject a block prologue transaction.
+        // Although NIL blocks don't have a payload, we still send a T::default() to
+        // compute because we may inject a block prologue transaction.
         let state_compute_result = self
             .state_computer
             .compute(&block, block.parent_id())
@@ -402,13 +405,14 @@ impl BlockStore {
         Ok(ExecutedBlock::new(block, state_compute_result))
     }
 
-    /// Validates quorum certificates and inserts it into block tree assuming dependencies exist.
+    /// Validates quorum certificates and inserts it into block tree assuming
+    /// dependencies exist.
     pub fn insert_single_quorum_cert(&self, qc: QuorumCert) -> anyhow::Result<()> {
-        // If the parent block is not the root block (i.e not None), ensure the executed state
-        // of a block is consistent with its QuorumCert, otherwise persist the QuorumCert's
-        // state and on restart, a new execution will agree with it.  A new execution will match
-        // the QuorumCert's state on the next restart will work if there is a memory
-        // corruption, for example.
+        // If the parent block is not the root block (i.e not None), ensure the executed
+        // state of a block is consistent with its QuorumCert, otherwise persist
+        // the QuorumCert's state and on restart, a new execution will agree
+        // with it.  A new execution will match the QuorumCert's state on the
+        // next restart will work if there is a memory corruption, for example.
         match self.get_block(qc.certified_block().id()) {
             Some(executed_block) => {
                 ensure!(
@@ -425,7 +429,7 @@ impl BlockStore {
                     executed_block.block().timestamp_usecs(),
                     BlockStage::QC_ADDED,
                 );
-            }
+            },
             None => bail!("Insert {} without having the block in store first", qc),
         };
 
@@ -435,8 +439,9 @@ impl BlockStore {
         self.inner.write().insert_quorum_cert(qc)
     }
 
-    /// Replace the highest 2chain timeout certificate in case the given one has a higher round.
-    /// In case a timeout certificate is updated, persist it to storage.
+    /// Replace the highest 2chain timeout certificate in case the given one has
+    /// a higher round. In case a timeout certificate is updated, persist it
+    /// to storage.
     pub fn insert_2chain_timeout_certificate(
         &self,
         tc: Arc<TwoChainTimeoutCertificate>,
@@ -454,8 +459,9 @@ impl BlockStore {
         Ok(())
     }
 
-    /// Prune the tree up to next_root_id (keep next_root_id's block).  Any branches not part of
-    /// the next_root_id's tree should be removed as well.
+    /// Prune the tree up to next_root_id (keep next_root_id's block).  Any
+    /// branches not part of the next_root_id's tree should be removed as
+    /// well.
     ///
     /// For example, root = B0
     /// B0--> B1--> B2
@@ -472,9 +478,9 @@ impl BlockStore {
             .storage
             .prune_tree(id_to_remove.clone().into_iter().collect())
         {
-            // it's fine to fail here, as long as the commit succeeds, the next restart will clean
-            // up dangling blocks, and we need to prune the tree to keep the root consistent with
-            // executor.
+            // it's fine to fail here, as long as the commit succeeds, the next restart will
+            // clean up dangling blocks, and we need to prune the tree to keep
+            // the root consistent with executor.
             warn!(error = ?e, "fail to delete block");
         }
 

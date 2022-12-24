@@ -11,8 +11,9 @@ use tempfile::NamedTempFile;
 const VAULT_HOST: &str = "http://localhost:8200";
 const VAULT_TOKEN: &str = "root_token";
 
-/// Execute an in order series of blocks (0 <- 1 <- 2 <- 3 and commit 0 and continue to rotate
-/// left, appending new blocks on the right, committing the left most block
+/// Execute an in order series of blocks (0 <- 1 <- 2 <- 3 and commit 0 and
+/// continue to rotate left, appending new blocks on the right, committing the
+/// left most block
 fn lsr(mut safety_rules: Box<dyn TSafetyRules>, signer: ValidatorSigner, n: u64) {
     let data = block_test_utils::random_payload(1);
 

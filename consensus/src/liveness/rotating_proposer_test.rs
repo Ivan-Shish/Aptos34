@@ -13,8 +13,8 @@ fn test_rotating_proposer() {
     let proposers = vec![chosen_author, another_author];
     let pe = RotatingProposer::new(proposers, 1);
 
-    // Send a proposal from both chosen author and another author, the only winning proposals
-    // follow the round-robin rotation.
+    // Send a proposal from both chosen author and another author, the only winning
+    // proposals follow the round-robin rotation.
 
     assert!(!pe.is_valid_proposer(chosen_author, 1));
     assert!(pe.is_valid_proposer(another_author, 1),);
@@ -31,8 +31,8 @@ fn test_rotating_proposer_with_three_contiguous_rounds() {
     let proposers = vec![chosen_author, another_author];
     let pe = RotatingProposer::new(proposers, 3);
 
-    // Send a proposal from both chosen author and another author, the only winning proposals
-    // follow the round-robin rotation with 3 contiguous rounds.
+    // Send a proposal from both chosen author and another author, the only winning
+    // proposals follow the round-robin rotation with 3 contiguous rounds.
 
     assert!(!pe.is_valid_proposer(another_author, 1));
     assert!(pe.is_valid_proposer(chosen_author, 1));
@@ -48,8 +48,8 @@ fn test_fixed_proposer() {
     let another_author = AccountAddress::random();
     let pe = RotatingProposer::new(vec![chosen_author], 1);
 
-    // Send a proposal from both chosen author and another author, the only winning proposal is
-    // from the chosen author.
+    // Send a proposal from both chosen author and another author, the only winning
+    // proposal is from the chosen author.
 
     assert!(pe.is_valid_proposer(chosen_author, 1));
     assert!(!pe.is_valid_proposer(another_author, 1));

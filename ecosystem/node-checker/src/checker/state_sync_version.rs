@@ -1,14 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{api_index::ApiIndexProvider, Provider, ProviderCollection},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -43,15 +42,16 @@ impl StateSyncVersionChecker {
         latest_baseline_version: u64,
         delay_secs: u64,
     ) -> CheckResult {
-        // We convert to i64 to avoid potential overflow if somehow the ledger version went backwards.
+        // We convert to i64 to avoid potential overflow if somehow the ledger version
+        // went backwards.
         let target_progress = latest_target_version as i64 - previous_target_version as i64;
         match target_progress {
             target_progress if (target_progress == 0) => Self::build_result(
                 "Ledger version is not increasing".to_string(),
                 25,
                 format!(
-                    "Successfully pulled ledger version from your node \
-                        twice, but the ledger version is not increasing ({} both times).",
+                    "Successfully pulled ledger version from your node twice, but the ledger \
+                     version is not increasing ({} both times).",
                     latest_target_version
                 ),
             ),
@@ -59,14 +59,14 @@ impl StateSyncVersionChecker {
                 "Ledger version went backwards!".to_string(),
                 0,
                 format!(
-                    "Successfully pulled ledger version from your node twice, \
-                    but the second time the ledger version went backwards! \
-                    First datapoint: {}, second datapoint: {}",
+                    "Successfully pulled ledger version from your node twice, but the second time \
+                     the ledger version went backwards! First datapoint: {}, second datapoint: {}",
                     previous_target_version, latest_target_version
                 ),
             ),
             _wildcard => {
-                // We convert to i64 to avoid potential overflow if the target is ahead of the baseline.
+                // We convert to i64 to avoid potential overflow if the target is ahead of the
+                // baseline.
                 let delta_from_baseline =
                     latest_baseline_version as i64 - latest_target_version as i64;
                 if delta_from_baseline > self.config.version_delta_tolerance as i64 {
@@ -74,10 +74,10 @@ impl StateSyncVersionChecker {
                         "Ledger version is lagging".to_string(),
                         50,
                         format!(
-                            "Successfully pulled ledger version from your node twice \
-                            and saw the version was increasing, but it is lagging {} versions \
-                            behind the baseline node, more than the allowed lag of {}. \
-                            Target version: {}. Baseline version: {}.",
+                            "Successfully pulled ledger version from your node twice and saw the \
+                             version was increasing, but it is lagging {} versions behind the \
+                             baseline node, more than the allowed lag of {}. Target version: {}. \
+                             Baseline version: {}.",
                             delta_from_baseline,
                             self.config.version_delta_tolerance,
                             latest_target_version,
@@ -89,11 +89,11 @@ impl StateSyncVersionChecker {
                         "Ledger version is increasing".to_string(),
                         100,
                         format!(
-                            "NHC pulled ledger version from your node twice, \
-                            saw that the version is increasing (it increased by {} over \
-                            {} seconds), and saw that it is within tolerance of the \
-                            baseline node. The baseline ledger version is {} and your node's \
-                            ledger version is {}, which is within the allowed lag of {} versions.",
+                            "NHC pulled ledger version from your node twice, saw that the version \
+                             is increasing (it increased by {} over {} seconds), and saw that it \
+                             is within tolerance of the baseline node. The baseline ledger \
+                             version is {} and your node's ledger version is {}, which is within \
+                             the allowed lag of {} versions.",
                             target_progress,
                             delay_secs,
                             latest_baseline_version,
@@ -102,7 +102,7 @@ impl StateSyncVersionChecker {
                         ),
                     )
                 }
-            }
+            },
         }
     }
 }
@@ -137,7 +137,7 @@ impl Checker for StateSyncVersionChecker {
                     0,
                     format!("There was an error querying your node's API: {:#}", err),
                 )]);
-            }
+            },
         };
 
         // Now wait.
@@ -152,7 +152,7 @@ impl Checker for StateSyncVersionChecker {
                     0,
                     format!("There was an error querying your node's API: {:#}", err),
                 )]);
-            }
+            },
         };
 
         // Get the latest version from the baseline node. In this case, if we

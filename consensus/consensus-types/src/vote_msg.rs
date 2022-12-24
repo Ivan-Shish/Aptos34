@@ -10,8 +10,9 @@ use std::fmt::{Display, Formatter};
 
 /// VoteMsg is the struct that is ultimately sent by the voter in response for
 /// receiving a proposal.
-/// VoteMsg carries the `LedgerInfo` of a block that is going to be committed in case this vote
-/// is gathers QuorumCertificate (see the detailed explanation in the comments of `LedgerInfo`).
+/// VoteMsg carries the `LedgerInfo` of a block that is going to be committed in
+/// case this vote is gathers QuorumCertificate (see the detailed explanation in
+/// the comments of `LedgerInfo`).
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct VoteMsg {
     /// The container for the vote (VoteData, LedgerInfo, Signature)
@@ -64,9 +65,9 @@ impl VoteMsg {
                 "2-chain Timeout hqc should be less or equal than the sync info hqc"
             );
         }
-        // We're not verifying SyncInfo here yet: we are going to verify it only in case we need
-        // it. This way we avoid verifying O(n) SyncInfo messages while aggregating the votes
-        // (O(n^2) signature verifications).
+        // We're not verifying SyncInfo here yet: we are going to verify it only in case
+        // we need it. This way we avoid verifying O(n) SyncInfo messages while
+        // aggregating the votes (O(n^2) signature verifications).
         self.vote().verify(validator)
     }
 }

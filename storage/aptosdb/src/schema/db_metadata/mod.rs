@@ -1,16 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
-//! This module defines the physical storage schema for db wide miscellaneous metadata entries.
-//! For example, the progress of a db pruner.
+//! This module defines the physical storage schema for db wide miscellaneous
+//! metadata entries. For example, the progress of a db pruner.
 //!
 //! ```text
 //! |<------key---->|<---- value --->|
 //! | metadata key  | metadata value |
 //! ```
-//!
 
-use crate::schema::DB_METADATA_CF_NAME;
-use crate::state_restore::StateSnapshotProgress;
+use crate::{schema::DB_METADATA_CF_NAME, state_restore::StateSnapshotProgress};
 use anyhow::Result;
 use aptos_schemadb::{
     define_schema,

@@ -15,13 +15,16 @@ pub mod stake;
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod test;
 
-use crate::common::types::{CliCommand, CliResult, CliTypedResult};
-use crate::common::utils::cli_build_information;
+use crate::common::{
+    types::{CliCommand, CliResult, CliTypedResult},
+    utils::cli_build_information,
+};
 use async_trait::async_trait;
 use clap::Parser;
 use std::collections::BTreeMap;
 
-/// Command Line Interface (CLI) for developing and interacting with the Aptos blockchain
+/// Command Line Interface (CLI) for developing and interacting with the Aptos
+/// blockchain
 #[derive(Parser)]
 #[clap(name = "aptos", author, version, propagate_version = true)]
 pub enum Tool {
@@ -66,7 +69,8 @@ impl Tool {
 
 /// Show build information about the CLI
 ///
-/// This is useful for debugging as well as determining what versions are compatible with the CLI
+/// This is useful for debugging as well as determining what versions are
+/// compatible with the CLI
 #[derive(Parser)]
 pub struct InfoTool {}
 

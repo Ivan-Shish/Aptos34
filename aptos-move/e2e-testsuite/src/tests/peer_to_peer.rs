@@ -14,7 +14,8 @@ use std::{convert::TryFrom, time::Instant};
 fn single_peer_to_peer_with_event() {
     ::aptos_logger::Logger::init_for_testing();
     let mut executor = FakeExecutor::from_head_genesis();
-    // create and publish a sender with 1_000_000 coins and a receiver with 100_000 coins
+    // create and publish a sender with 1_000_000 coins and a receiver with 100_000
+    // coins
     let sender = executor.create_raw_account_data(1_000_000, 10);
     let receiver = executor.create_raw_account_data(100_000, 10);
     executor.add_account_data(&sender);
@@ -61,7 +62,8 @@ fn single_peer_to_peer_with_event() {
 fn few_peer_to_peer_with_event() {
     let mut executor = FakeExecutor::from_head_genesis();
 
-    // create and publish a sender with 3_000_000 coins and a receiver with 3_000_000 coins
+    // create and publish a sender with 3_000_000 coins and a receiver with
+    // 3_000_000 coins
     let sender = executor.create_raw_account_data(3_000_000, 10);
     let receiver = executor.create_raw_account_data(3_000_000, 10);
     executor.add_account_data(&sender);
@@ -154,7 +156,8 @@ pub(crate) fn create_cyclic_transfers(
 ) -> (Vec<TxnInfo>, Vec<SignedTransaction>) {
     let mut txns: Vec<SignedTransaction> = Vec::new();
     let mut txns_info: Vec<TxnInfo> = Vec::new();
-    // loop through all transactions and let each transfer the same amount to the next one
+    // loop through all transactions and let each transfer the same amount to the
+    // next one
     let count = accounts.len();
     for i in 0..count {
         let sender = &accounts[i];
@@ -186,7 +189,8 @@ fn create_one_to_many_transfers(
         .read_account_resource(sender)
         .expect("sender must exist");
     let seq_num = sender_resource.sequence_number();
-    // loop through all transactions and let each transfer the same amount to the next one
+    // loop through all transactions and let each transfer the same amount to the
+    // next one
     let count = accounts.len();
     for (i, receiver) in accounts.iter().enumerate().take(count).skip(1) {
         // let receiver = &accounts[i];
@@ -209,10 +213,11 @@ fn create_many_to_one_transfers(
     let mut txns_info: Vec<TxnInfo> = Vec::new();
     // grab account 0 as a sender
     let receiver = &accounts[0];
-    // loop through all transactions and let each transfer the same amount to the next one
+    // loop through all transactions and let each transfer the same amount to the
+    // next one
     let count = accounts.len();
     for sender in accounts.iter().take(count).skip(1) {
-        //let sender = &accounts[i];
+        // let sender = &accounts[i];
         let sender_resource = executor
             .read_account_resource(sender)
             .expect("sender must exist");

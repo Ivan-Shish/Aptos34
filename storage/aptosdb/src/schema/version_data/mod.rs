@@ -1,16 +1,16 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines physical storage schema for various data associated with each transaction
-//! version.
+//! This module defines physical storage schema for various data associated with
+//! each transaction version.
 //!
 //! ```text
 //! |<--key-->|<--value->|
 //! | version |   data   |
 //! ```
 //!
-//! `Version` is serialized in big endian so that records in RocksDB will be in order of it's
-//! numeric value.
+//! `Version` is serialized in big endian so that records in RocksDB will be in
+//! order of it's numeric value.
 
 use super::VERSION_DATA_CF_NAME;
 use crate::schema::ensure_slice_len_eq;
@@ -19,8 +19,7 @@ use aptos_schemadb::{
     define_schema,
     schema::{KeyCodec, ValueCodec},
 };
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::transaction::Version;
+use aptos_types::{state_store::state_storage_usage::StateStorageUsage, transaction::Version};
 use byteorder::{BigEndian, ReadBytesExt};
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest_derive::Arbitrary;

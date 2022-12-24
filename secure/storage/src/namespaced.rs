@@ -10,9 +10,10 @@ use serde::{de::DeserializeOwned, Serialize};
 
 pub const NAMESPACE_SEPARATOR: &str = "/";
 
-/// This provides a light wrapper around KV storages to support a namespace. That namespace is
-/// effectively prefixing all keys with then namespace value and "/" so a namespace of foo and a
-/// key of bar becomes "foo/bar". Without a namespace, the key would just be "bar".
+/// This provides a light wrapper around KV storages to support a namespace.
+/// That namespace is effectively prefixing all keys with then namespace value
+/// and "/" so a namespace of foo and a key of bar becomes "foo/bar". Without a
+/// namespace, the key would just be "bar".
 pub struct Namespaced<S> {
     namespace: String,
     inner: S,
@@ -51,8 +52,8 @@ impl<'a, S> Namespaced<&'a S>
 where
     S: KVStorage,
 {
-    /// This is a small hack in order to allow for calling KVStorage::get from a Namespaced created
-    /// from an `&S` and not an `S`
+    /// This is a small hack in order to allow for calling KVStorage::get from a
+    /// Namespaced created from an `&S` and not an `S`
     pub fn get<T: DeserializeOwned>(&self, key: &str) -> Result<GetResponse<T>, Error> {
         self.inner.get(&self.namespaced(key))
     }

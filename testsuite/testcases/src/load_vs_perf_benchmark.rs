@@ -80,7 +80,8 @@ impl NetworkTest for LoadVsPerfBenchmark {
             runtime.block_on(aptos_info.reconfig());
 
             println!(
-                "{: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12}",
+                "{: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | \
+                 {: <12} | {: <12} | {: <12}",
                 "wanted/s",
                 "submitted/s",
                 "committed/s",
@@ -96,7 +97,8 @@ impl NetworkTest for LoadVsPerfBenchmark {
             for result in &results {
                 let rate = result.stats.rate(result.actual_duration);
                 println!(
-                    "{: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12}",
+                    "{: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: \
+                     <12} | {: <12} | {: <12} | {: <12}",
                     result.tps,
                     rate.submitted,
                     rate.committed,

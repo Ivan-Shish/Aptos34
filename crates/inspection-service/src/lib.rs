@@ -15,11 +15,9 @@ use aptos_metrics_core::{register_int_counter_vec, IntCounterVec};
 use once_cell::sync::Lazy;
 
 pub static NUM_METRICS: Lazy<IntCounterVec> = Lazy::new(|| {
-    register_int_counter_vec!(
-        "aptos_metrics",
-        "Number of metrics in certain states",
-        &["type"]
-    )
+    register_int_counter_vec!("aptos_metrics", "Number of metrics in certain states", &[
+        "type"
+    ])
     .unwrap()
 });
 
@@ -45,7 +43,8 @@ pub fn gather_metrics() -> Vec<prometheus::proto::MetricFamily> {
         total = total.saturating_add(family_count as u64);
     }
 
-    // These metrics will be reported on the next pull, rather than create a new family
+    // These metrics will be reported on the next pull, rather than create a new
+    // family
     NUM_METRICS.with_label_values(&["total"]).inc_by(total);
     NUM_METRICS
         .with_label_values(&["families_over_1000"])

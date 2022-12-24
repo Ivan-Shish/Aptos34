@@ -7,11 +7,12 @@ use static_assertions::const_assert;
 use std::{fmt, str};
 use thiserror::Error;
 
-/// An efficient container for formatting a byte slice as a hex-formatted string,
-/// stored on the stack.
+/// An efficient container for formatting a byte slice as a hex-formatted
+/// string, stored on the stack.
 ///
-/// Using `ShortHexStr` instead of `hex::encode` is about 3-4x faster on a recent
-/// MBP 2019 (~48 ns/iter vs ~170 ns/iter) in an artifical micro benchmark.
+/// Using `ShortHexStr` instead of `hex::encode` is about 3-4x faster on a
+/// recent MBP 2019 (~48 ns/iter vs ~170 ns/iter) in an artifical micro
+/// benchmark.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Clone, Copy)]
 pub struct ShortHexStr([u8; ShortHexStr::LENGTH]);
 
@@ -20,8 +21,8 @@ pub struct ShortHexStr([u8; ShortHexStr::LENGTH]);
 pub struct InputTooShortError;
 
 impl ShortHexStr {
-    pub const SOURCE_LENGTH: usize = 4;
     pub const LENGTH: usize = 2 * ShortHexStr::SOURCE_LENGTH;
+    pub const SOURCE_LENGTH: usize = 4;
 
     /// Format a new `ShortHexStr` from a byte slice.
     ///
@@ -47,9 +48,9 @@ impl ShortHexStr {
         // runtime check. Shaves ~6-7 ns/iter in a micro bench but the unsafe is
         // probably not worth the hassle.
         str::from_utf8(&self.0).expect(
-            "This can never fail since &self.0 will only ever contain the \
-             following characters: '0123456789abcdef', which are all valid \
-             ASCII characters and therefore all valid UTF-8",
+            "This can never fail since &self.0 will only ever contain the following characters: \
+             '0123456789abcdef', which are all valid ASCII characters and therefore all valid \
+             UTF-8",
         )
     }
 }
@@ -78,13 +79,13 @@ impl Serialize for ShortHexStr {
 /// Maps a nibble to its corresponding hex-formatted ASCII character.
 const HEX_CHARS_LOWER: &[u8; 16] = b"0123456789abcdef";
 
-/// Format a byte as hex. Returns a tuple containing the first character and then
-/// the second character as ASCII bytes.
+/// Format a byte as hex. Returns a tuple containing the first character and
+/// then the second character as ASCII bytes.
 #[inline(always)]
 fn byte2hex(byte: u8) -> (u8, u8) {
     #[allow(clippy::integer_arithmetic)] // X >> 4 is valid for all bytes
-    let hi = HEX_CHARS_LOWER[((byte >> 4) & 0x0f) as usize];
-    let lo = HEX_CHARS_LOWER[(byte & 0x0f) as usize];
+    let hi = HEX_CHARS_LOWER[((byte >> 4) & 0x0F) as usize];
+    let lo = HEX_CHARS_LOWER[(byte & 0x0F) as usize];
     (hi, lo)
 }
 
@@ -129,7 +130,7 @@ mod test {
 
     #[test]
     fn test_hex_encode() {
-        let src = [0x12_u8, 0x34, 0xfe, 0xba];
+        let src = [0x12_u8, 0x34, 0xFE, 0xBA];
         let mut actual = [0u8; 8];
         hex_encode(&src, &mut actual);
         let expected = b"1234feba";

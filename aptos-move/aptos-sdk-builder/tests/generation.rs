@@ -15,7 +15,10 @@ fn get_aptos_registry() -> Registry {
     serde_yaml::from_str::<Registry>(content.as_str()).unwrap()
 }
 
-const EXPECTED_SCRIPT_FUN_OUTPUT: &str = "3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 8 84 101 115 116 67 111 105 110 8 116 114 97 110 115 102 101 114 0 2 32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 34 34 34 34 34 34 34 34 34 34 34 34 34 34 34 34 8 135 214 18 0 0 0 0 0 \n";
+const EXPECTED_SCRIPT_FUN_OUTPUT: &str =
+    "3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 8 84 101 115 116 67 111 \
+     105 110 8 116 114 97 110 115 102 101 114 0 2 32 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 34 34 34 34 \
+     34 34 34 34 34 34 34 34 34 34 34 34 8 135 214 18 0 0 0 0 0 \n";
 
 fn test_rust(abis: &[EntryABI], demo_file: &str, expected_output: &str) {
     let mut registry = get_aptos_registry();
@@ -58,7 +61,8 @@ test = false
 
     std::fs::copy(demo_file, stdlib_dir_path.join("src/stdlib_demo.rs")).unwrap();
 
-    // Use a stable `target` dir to avoid downloading and recompiling crates everytime.
+    // Use a stable `target` dir to avoid downloading and recompiling crates
+    // everytime.
     let target_dir = std::env::current_dir().unwrap().join("../../target");
     let status = Command::new("cargo")
         .current_dir(dir.path().join("framework"))

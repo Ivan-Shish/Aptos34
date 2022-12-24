@@ -4,14 +4,16 @@
 use crate::smoke_test_environment::SwarmBuilder;
 use aptos_config::config::NodeConfig;
 use aptos_forge::{NodeExt, Swarm};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 const MAX_WAIT_SECS: u64 = 60;
 
 /// Bring up a swarm normally, then run get_bin, and bring up a VFN.
-/// Previously get_bin triggered a rebuild of aptos-node, which caused issues that were only seen
-/// during parallel execution of tests.
+/// Previously get_bin triggered a rebuild of aptos-node, which caused issues
+/// that were only seen during parallel execution of tests.
 /// This test should make regressions obvious.
 #[tokio::test]
 async fn test_aptos_node_after_get_bin() {

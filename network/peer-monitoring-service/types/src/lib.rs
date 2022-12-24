@@ -38,7 +38,8 @@ pub enum PeerMonitoringServiceRequest {
     GetKnownPeers,            // Returns all of the known peers in the network
     GetServerProtocolVersion, // Fetches the protocol version run by the server
     GetValidatorsAndVFNs,     // Returns the current validators and VFNs
-    Ping, // A simple message used by the client to ensure liveness and measure latency
+    Ping,                     /* A simple message used by the client to ensure liveness and
+                               * measure latency */
 }
 
 impl PeerMonitoringServiceRequest {
@@ -62,8 +63,10 @@ pub enum PeerMonitoringServiceResponse {
     ConnectedPeers(ConnectedPeersResponse), // Holds all currently connected peers
     DepthFromValidators(DepthFromValidatorsResponse), // Holds the min depth from the validators
     KnownPeers(KnownPeersResponse),         // Holds all currently known peers
-    Ping(PingResponse), // A simple message to respond to liveness checks (i.e., pings)
-    ServerProtocolVersion(ServerProtocolVersionResponse), // Returns the current server protocol version
+    Ping(PingResponse),                     /* A simple message to respond to liveness checks
+                                             * (i.e., pings) */
+    ServerProtocolVersion(ServerProtocolVersionResponse), /* Returns the current server
+                                                           * protocol version */
     ValidatorsAndVFNs(ValidatorsAndVFNsResponse), // Holds the current validator set and VFNs
 }
 
@@ -123,6 +126,7 @@ pub struct UnexpectedResponseError(pub String);
 
 impl TryFrom<PeerMonitoringServiceResponse> for ConnectedPeersResponse {
     type Error = UnexpectedResponseError;
+
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
             PeerMonitoringServiceResponse::ConnectedPeers(inner) => Ok(inner),
@@ -136,6 +140,7 @@ impl TryFrom<PeerMonitoringServiceResponse> for ConnectedPeersResponse {
 
 impl TryFrom<PeerMonitoringServiceResponse> for DepthFromValidatorsResponse {
     type Error = UnexpectedResponseError;
+
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
             PeerMonitoringServiceResponse::DepthFromValidators(inner) => Ok(inner),
@@ -149,6 +154,7 @@ impl TryFrom<PeerMonitoringServiceResponse> for DepthFromValidatorsResponse {
 
 impl TryFrom<PeerMonitoringServiceResponse> for KnownPeersResponse {
     type Error = UnexpectedResponseError;
+
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
             PeerMonitoringServiceResponse::KnownPeers(inner) => Ok(inner),
@@ -162,6 +168,7 @@ impl TryFrom<PeerMonitoringServiceResponse> for KnownPeersResponse {
 
 impl TryFrom<PeerMonitoringServiceResponse> for PingResponse {
     type Error = UnexpectedResponseError;
+
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
             PeerMonitoringServiceResponse::Ping(inner) => Ok(inner),
@@ -175,6 +182,7 @@ impl TryFrom<PeerMonitoringServiceResponse> for PingResponse {
 
 impl TryFrom<PeerMonitoringServiceResponse> for ServerProtocolVersionResponse {
     type Error = UnexpectedResponseError;
+
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
             PeerMonitoringServiceResponse::ServerProtocolVersion(inner) => Ok(inner),
@@ -188,6 +196,7 @@ impl TryFrom<PeerMonitoringServiceResponse> for ServerProtocolVersionResponse {
 
 impl TryFrom<PeerMonitoringServiceResponse> for ValidatorsAndVFNsResponse {
     type Error = UnexpectedResponseError;
+
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
             PeerMonitoringServiceResponse::ValidatorsAndVFNs(inner) => Ok(inner),

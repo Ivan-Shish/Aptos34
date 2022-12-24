@@ -8,10 +8,11 @@
 //! queued items. While there is only one [`Receiver`], there can be
 //! many [`Sender`]s, which are also cheap to clone.
 //!
-//! This channel differs from our other channel implementation, [`aptos_channel`],
-//! in that it is just a single queue (vs. different queues for different keys)
-//! with backpressure (senders will block if the queue is full instead of evicting
-//! another item in the queue) that only implements FIFO (vs. LIFO or KLAST).
+//! This channel differs from our other channel implementation,
+//! [`aptos_channel`], in that it is just a single queue (vs. different queues
+//! for different keys) with backpressure (senders will block if the queue is
+//! full instead of evicting another item in the queue) that only implements
+//! FIFO (vs. LIFO or KLAST).
 
 use aptos_metrics_core::IntGauge;
 use futures::{
@@ -56,8 +57,8 @@ impl<T> Clone for Sender<T> {
     }
 }
 
-/// `Sender` implements `Sink` in the same way as `mpsc::Sender`, but it increments the
-/// associated `IntGauge` when it sends a message successfully.
+/// `Sender` implements `Sink` in the same way as `mpsc::Sender`, but it
+/// increments the associated `IntGauge` when it sends a message successfully.
 impl<T> Sink<T> for Sender<T> {
     type Error = mpsc::SendError;
 
@@ -97,8 +98,8 @@ where
     }
 }
 
-/// `Receiver` implements `Stream` in the same way as `mpsc::Stream`, but it decrements the
-/// associated `IntGauge` when it gets polled successfully.
+/// `Receiver` implements `Stream` in the same way as `mpsc::Stream`, but it
+/// decrements the associated `IntGauge` when it gets polled successfully.
 impl<T> Stream for Receiver<T> {
     type Item = T;
 

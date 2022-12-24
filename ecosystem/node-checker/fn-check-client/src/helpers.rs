@@ -10,9 +10,13 @@ use std::net::{SocketAddr, ToSocketAddrs};
 // of it if it is a format we can send to NHC. Otherwise we return an error.
 // We also return the noise port.
 pub fn extract_network_address(network_address: &NetworkAddress) -> Result<(Url, u16)> {
-    let mut socket_addrs = network_address
-        .to_socket_addrs()
-        .with_context(|| format!("Failed to parse network address as SocketAddr, this might imply that the domain name doesn't resolve to an IP: {}", network_address))?;
+    let mut socket_addrs = network_address.to_socket_addrs().with_context(|| {
+        format!(
+            "Failed to parse network address as SocketAddr, this might imply that the domain name \
+             doesn't resolve to an IP: {}",
+            network_address
+        )
+    })?;
     let socket_addr = socket_addrs
         .next()
         .ok_or_else(|| anyhow::anyhow!("No socket address found"))?;

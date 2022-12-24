@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Processes that are directly spawned by shared mempool runtime initialization
+use super::types::MempoolClientRequest;
 use crate::{
     core_mempool::{CoreMempool, TimelineState},
     counters,
@@ -35,8 +36,6 @@ use std::{
 };
 use tokio::{runtime::Handle, time::interval};
 use tokio_stream::wrappers::IntervalStream;
-
-use super::types::MempoolClientRequest;
 
 /// Coordinator that handles inbound network events and outbound txn broadcasts.
 pub(crate) async fn coordinator<V>(
@@ -108,7 +107,8 @@ pub(crate) async fn coordinator<V>(
     ));
 }
 
-/// Spawn a task for processing `MempoolClientRequest`s from a client such as API service
+/// Spawn a task for processing `MempoolClientRequest`s from a client such as
+/// API service
 async fn handle_client_request<V>(
     smp: &mut SharedMempool<V>,
     bounded_executor: &BoundedExecutor,
@@ -118,13 +118,14 @@ async fn handle_client_request<V>(
 {
     match request {
         MempoolClientRequest::SubmitTransaction(txn, callback) => {
-            // This timer measures how long it took for the bounded executor to *schedule* the
-            // task.
+            // This timer measures how long it took for the bounded executor to *schedule*
+            // the task.
             let _timer = counters::task_spawn_latency_timer(
                 counters::CLIENT_EVENT_LABEL,
                 counters::SPAWN_LABEL,
             );
-            // This timer measures how long it took for the task to go from scheduled to started.
+            // This timer measures how long it took for the task to go from scheduled to
+            // started.
             let task_start_timer = counters::task_spawn_latency_timer(
                 counters::CLIENT_EVENT_LABEL,
                 counters::START_LABEL,
@@ -137,15 +138,16 @@ async fn handle_client_request<V>(
                     task_start_timer,
                 ))
                 .await;
-        }
+        },
         MempoolClientRequest::GetTransactionByHash(hash, callback) => {
-            // This timer measures how long it took for the bounded executor to *schedule* the
-            // task.
+            // This timer measures how long it took for the bounded executor to *schedule*
+            // the task.
             let _timer = counters::task_spawn_latency_timer(
                 counters::CLIENT_EVENT_GET_TXN_LABEL,
                 counters::SPAWN_LABEL,
             );
-            // This timer measures how long it took for the task to go from scheduled to started.
+            // This timer measures how long it took for the task to go from scheduled to
+            // started.
             let task_start_timer = counters::task_spawn_latency_timer(
                 counters::CLIENT_EVENT_GET_TXN_LABEL,
                 counters::START_LABEL,
@@ -158,12 +160,13 @@ async fn handle_client_request<V>(
                     task_start_timer,
                 ))
                 .await;
-        }
+        },
     }
 }
 
-/// Handle removing committed transactions from local mempool immediately.  This should be done
-/// immediately to ensure broadcasts of committed transactions stop as soon as possible.
+/// Handle removing committed transactions from local mempool immediately.  This
+/// should be done immediately to ensure broadcasts of committed transactions
+/// stop as soon as possible.
 fn handle_commit_notification<V>(
     smp: &mut SharedMempool<V>,
     msg: MempoolCommitNotification,
@@ -208,7 +211,8 @@ fn handle_commit_notification<V>(
     counters::mempool_service_latency(counters::COMMIT_STATE_SYNC_LABEL, counter_result, latency);
 }
 
-/// Spawn a task to restart the transaction validator with the new reconfig data.
+/// Spawn a task to restart the transaction validator with the new reconfig
+/// data.
 async fn handle_mempool_reconfig_event<V>(
     smp: &mut SharedMempool<V>,
     bounded_executor: &BoundedExecutor,
@@ -233,9 +237,12 @@ async fn handle_mempool_reconfig_event<V>(
 }
 
 /// Handles all NewPeer, LostPeer, and network messages.
-/// - NewPeer events start new automatic broadcasts if the peer is upstream. If the peer is not upstream, we ignore it.
-/// - LostPeer events disable the upstream peer, which will cancel ongoing broadcasts.
-/// - Network messages follow a simple Request/Response framework to accept new transactions
+/// - NewPeer events start new automatic broadcasts if the peer is upstream. If
+///   the peer is not upstream, we ignore it.
+/// - LostPeer events disable the upstream peer, which will cancel ongoing
+///   broadcasts.
+/// - Network messages follow a simple Request/Response framework to accept new
+///   transactions
 /// TODO: Move to RPC off of DirectSend
 async fn handle_network_event<V>(
     executor: &Handle,
@@ -263,7 +270,7 @@ async fn handle_network_event<V>(
                 tasks::execute_broadcast(peer, false, smp, scheduled_broadcasts, executor.clone())
                     .await;
             }
-        }
+        },
         Event::LostPeer(metadata) => {
             counters::shared_mempool_event_inc("lost_peer");
             let peer = PeerNetworkId::new(network_id, metadata.remote_peer_id);
@@ -275,7 +282,7 @@ async fn handle_network_event<V>(
                 ));
             smp.network_interface.disable_peer(peer);
             notify_subscribers(SharedMempoolNotification::PeerStateChange, &smp.subscribers);
-        }
+        },
         Event::Message(peer_id, msg) => {
             counters::shared_mempool_event_inc("message");
             match msg {
@@ -315,7 +322,7 @@ async fn handle_network_event<V>(
                             task_start_timer,
                         ))
                         .await;
-                }
+                },
                 MempoolSyncMsg::BroadcastTransactionsResponse {
                     request_id,
                     retry,
@@ -329,9 +336,9 @@ async fn handle_network_event<V>(
                         backoff,
                         ack_timestamp,
                     );
-                }
+                },
             }
-        }
+        },
         Event::RpcRequest(peer_id, _msg, _, _res_tx) => {
             counters::unexpected_msg_count_inc(&network_id);
             sample!(
@@ -339,7 +346,7 @@ async fn handle_network_event<V>(
                 warn!(LogSchema::new(LogEntry::UnexpectedNetworkMsg)
                     .peer(&PeerNetworkId::new(network_id, peer_id)))
             );
-        }
+        },
     }
 }
 
@@ -362,8 +369,9 @@ pub(crate) async fn gc_coordinator(mempool: Arc<Mutex<CoreMempool>>, gc_interval
 }
 
 /// Periodically logs a snapshot of transactions in core mempool.
-/// In the future we may want an interactive way to directly query mempool's internal state.
-/// For now, we will rely on this periodic snapshot to observe the internal state.
+/// In the future we may want an interactive way to directly query mempool's
+/// internal state. For now, we will rely on this periodic snapshot to observe
+/// the internal state.
 pub(crate) async fn snapshot_job(mempool: Arc<Mutex<CoreMempool>>, snapshot_interval_secs: u64) {
     let mut interval = IntervalStream::new(interval(Duration::from_secs(snapshot_interval_secs)));
     while let Some(_interval) = interval.next().await {

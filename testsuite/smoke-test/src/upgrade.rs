@@ -13,12 +13,12 @@ use aptos_release_builder::components::{
     gas::generate_gas_upgrade_proposal,
 };
 use aptos_temppath::TempPath;
-use std::fs;
-use std::process::Command;
+use std::{fs, process::Command};
 
 #[tokio::test]
 /// This test verifies the flow of aptos framework upgrade process.
-/// i.e: The network will be alive after applying the new aptos framework release.
+/// i.e: The network will be alive after applying the new aptos framework
+/// release.
 async fn test_upgrade_flow() {
     // prebuild tools.
     let aptos_cli = workspace_builder::get_bin("aptos");
@@ -126,7 +126,7 @@ async fn test_upgrade_flow() {
         *env.aptos_public_info().root_account().sequence_number_mut() += 1;
     }
 
-    //TODO: Make sure gas schedule is indeed updated by the tool.
+    // TODO: Make sure gas schedule is indeed updated by the tool.
 
     // Test the module publishing workflow
     let base_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));

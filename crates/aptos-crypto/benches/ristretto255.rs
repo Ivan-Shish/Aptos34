@@ -4,15 +4,15 @@
 #[macro_use]
 extern crate criterion;
 
-use criterion::{measurement::Measurement, BenchmarkGroup, Criterion, Throughput};
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::scalar::Scalar;
-
 use aptos_crypto::test_utils::random_bytes;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-use curve25519_dalek::traits::Identity;
-use rand::distributions::Uniform;
-use rand::{prelude::ThreadRng, thread_rng, Rng};
+use criterion::{measurement::Measurement, BenchmarkGroup, Criterion, Throughput};
+use curve25519_dalek::{
+    constants::RISTRETTO_BASEPOINT_TABLE,
+    ristretto::{CompressedRistretto, RistrettoPoint},
+    scalar::Scalar,
+    traits::Identity,
+};
+use rand::{distributions::Uniform, prelude::ThreadRng, thread_rng, Rng};
 use std::ops::{Add, Mul, Neg, Sub};
 
 fn benchmark_groups(c: &mut Criterion) {
@@ -46,7 +46,8 @@ fn benchmark_groups(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmarks the time for a single scalar multiplication on the Ristretto255 basepoint (with precomputation).
+/// Benchmarks the time for a single scalar multiplication on the Ristretto255
+/// basepoint (with precomputation).
 fn basepoint_mul<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng: ThreadRng = thread_rng();
 
@@ -58,7 +59,8 @@ fn basepoint_mul<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     });
 }
 
-/// Benchmarks the time for a double scalar multiplication where one of the bases is the Ristretto255 basepoint.
+/// Benchmarks the time for a double scalar multiplication where one of the
+/// bases is the Ristretto255 basepoint.
 fn basepoint_double_mul<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng: ThreadRng = thread_rng();
 
@@ -152,7 +154,8 @@ fn point_identity<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     g.bench_function("point_identity", move |b| b.iter(RistrettoPoint::identity));
 }
 
-/// Benchmarks the time for a single scalar multiplication on a Ristretto255 point (without precomputation).
+/// Benchmarks the time for a single scalar multiplication on a Ristretto255
+/// point (without precomputation).
 fn point_mul<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng: ThreadRng = thread_rng();
 

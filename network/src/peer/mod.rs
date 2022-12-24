@@ -1,13 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! [`Peer`] manages a single connection to a remote peer after the initial connection
-//! establishment and handshake.
+//! [`Peer`] manages a single connection to a remote peer after the initial
+//! connection establishment and handshake.
 //!
 //! Its responsibilities include sending and receiving [`NetworkMessage`]s
-//! over-the-wire, maintaining a completion queue of pending RPC requests (through
-//! the [`InboundRpcs`] and [`OutboundRpcs`] completion queues), and eventually
-//! shutting down when the [`PeerManager`] requests it or the connection is lost.
+//! over-the-wire, maintaining a completion queue of pending RPC requests
+//! (through the [`InboundRpcs`] and [`OutboundRpcs`] completion queues), and
+//! eventually shutting down when the [`PeerManager`] requests it or the
+//! connection is lost.
 //!
 //! [`Peer`] owns the actual underlying connection socket and is reponsible for
 //! the socket's shutdown, graceful or otherwise.
@@ -62,7 +63,8 @@ mod test;
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod fuzzing;
 
-/// Requests [`Peer`] receives from the [`PeerManager`](crate::peer_manager::PeerManager).
+/// Requests [`Peer`] receives from the
+/// [`PeerManager`](crate::peer_manager::PeerManager).
 #[derive(Debug)]
 pub enum PeerRequest {
     /// Send an RPC request to peer.
@@ -71,7 +73,8 @@ pub enum PeerRequest {
     SendDirectSend(Message),
 }
 
-/// Notifications that [`Peer`] sends to the [`PeerManager`](crate::peer_manager::PeerManager).
+/// Notifications that [`Peer`] sends to the
+/// [`PeerManager`](crate::peer_manager::PeerManager).
 #[derive(Debug, PartialEq)]
 pub enum PeerNotification {
     /// A new RPC request has been received from peer.
@@ -128,7 +131,8 @@ pub struct Peer<TSocket> {
     peer_notifs_tx: aptos_channel::Sender<ProtocolId, PeerNotification>,
     /// Inbound rpc request queue for handling requests from remote peer.
     inbound_rpcs: InboundRpcs,
-    /// Outbound rpc request queue for sending requests to remote peer and handling responses.
+    /// Outbound rpc request queue for sending requests to remote peer and
+    /// handling responses.
     outbound_rpcs: OutboundRpcs,
     /// Flag to indicate if the actor is being shut down.
     state: State,
@@ -307,13 +311,14 @@ where
         self.do_shutdown(writer_close_tx, reason).await;
     }
 
-    // Start a new task on the given executor which is responsible for writing outbound messages on
-    // the wire. The function returns two channels which can be used to send instructions to the
-    // task:
+    // Start a new task on the given executor which is responsible for writing
+    // outbound messages on the wire. The function returns two channels which
+    // can be used to send instructions to the task:
     // 1. The first channel is used to send outbound NetworkMessages to the task
-    // 2. The second channel is used to instruct the task to close the connection and terminate.
-    // If outbound messages are queued when the task receives a close instruction, it discards
-    // them and immediately closes the connection.
+    // 2. The second channel is used to instruct the task to close the connection
+    // and terminate. If outbound messages are queued when the task receives a
+    // close instruction, it discards them and immediately closes the
+    // connection.
     fn start_writer_task(
         executor: &Handle,
         time_service: TimeService,
@@ -370,7 +375,7 @@ where
                         network_context,
                         remote_peer_id.short_str()
                     );
-                }
+                },
                 Ok(Err(err)) => {
                     info!(
                         log_context,
@@ -380,7 +385,7 @@ where
                         remote_peer_id.short_str(),
                         err
                     );
-                }
+                },
                 Ok(Ok(())) => {
                     info!(
                         log_context,
@@ -388,7 +393,7 @@ where
                         network_context,
                         remote_peer_id.short_str()
                     );
-                }
+                },
             }
         };
         let multiplex_task = async move {
@@ -439,7 +444,7 @@ where
                     self.remote_peer_id().short_str(),
                     error_msg,
                 );
-            }
+            },
             NetworkMessage::RpcRequest(request) => {
                 if let Err(err) = self
                     .inbound_rpcs
@@ -454,10 +459,10 @@ where
                         err
                     );
                 }
-            }
+            },
             NetworkMessage::RpcResponse(response) => {
                 self.outbound_rpcs.handle_inbound_response(response)
-            }
+            },
         };
         Ok(())
     }
@@ -469,12 +474,12 @@ where
         match message {
             StreamMessage::Header(header) => {
                 self.inbound_stream.new_stream(header)?;
-            }
+            },
             StreamMessage::Fragment(fragment) => {
                 if let Some(message) = self.inbound_stream.append_fragment(fragment)? {
                     self.handle_inbound_network_message(message).await?;
                 }
-            }
+            },
         }
         Ok(())
     }
@@ -494,23 +499,25 @@ where
 
         let message = match message {
             Ok(message) => message,
-            Err(err) => match err {
-                ReadError::DeserializeError(_, _, ref frame_prefix) => {
-                    // DeserializeError's are recoverable so we'll let the other
-                    // peer know about the error and log the issue, but we won't
-                    // close the connection.
-                    let message_type = frame_prefix.as_ref().first().unwrap_or(&0);
-                    let protocol_id = frame_prefix.as_ref().get(1).unwrap_or(&0);
-                    let error_code = ErrorCode::parsing_error(*message_type, *protocol_id);
-                    let message = NetworkMessage::Error(error_code);
+            Err(err) => {
+                match err {
+                    ReadError::DeserializeError(_, _, ref frame_prefix) => {
+                        // DeserializeError's are recoverable so we'll let the other
+                        // peer know about the error and log the issue, but we won't
+                        // close the connection.
+                        let message_type = frame_prefix.as_ref().first().unwrap_or(&0);
+                        let protocol_id = frame_prefix.as_ref().get(1).unwrap_or(&0);
+                        let error_code = ErrorCode::parsing_error(*message_type, *protocol_id);
+                        let message = NetworkMessage::Error(error_code);
 
-                    write_reqs_tx.send(message).await?;
-                    return Err(err.into());
-                }
-                ReadError::IoError(_) => {
-                    // IoErrors are mostly unrecoverable so just close the connection.
-                    self.shutdown(DisconnectReason::ConnectionLost);
-                    return Err(err.into());
+                        write_reqs_tx.send(message).await?;
+                        return Err(err.into());
+                    },
+                    ReadError::IoError(_) => {
+                        // IoErrors are mostly unrecoverable so just close the connection.
+                        self.shutdown(DisconnectReason::ConnectionLost);
+                        return Err(err.into());
+                    },
                 }
             },
         };
@@ -518,14 +525,14 @@ where
         match message {
             MultiplexMessage::Message(message) => {
                 self.handle_inbound_network_message(message).await
-            }
+            },
             MultiplexMessage::Stream(message) => self.handle_inbound_stream_message(message).await,
         }
     }
 
-    /// Handle an inbound DirectSendMsg from the remote peer. There's not much to
-    /// do here other than bump some counters and forward the message up to the
-    /// PeerManager.
+    /// Handle an inbound DirectSendMsg from the remote peer. There's not much
+    /// to do here other than bump some counters and forward the message up
+    /// to the PeerManager.
     fn handle_inbound_direct_send(&mut self, message: DirectSendMsg) {
         let peer_id = self.remote_peer_id();
         let protocol_id = message.protocol_id;
@@ -592,7 +599,7 @@ where
                         counters::direct_send_messages(&self.network_context, SENT_LABEL).inc();
                         counters::direct_send_bytes(&self.network_context, SENT_LABEL)
                             .inc_by(message_len as u64);
-                    }
+                    },
                     Err(e) => {
                         warn!(
                             NetworkSchema::new(&self.network_context)
@@ -603,9 +610,9 @@ where
                             self.remote_peer_id().short_str(),
                             e,
                         );
-                    }
+                    },
                 }
-            }
+            },
             PeerRequest::SendRpc(request) => {
                 let protocol_id = request.protocol_id;
                 network_application_outbound_traffic(
@@ -628,13 +635,13 @@ where
                         e,
                     );
                 }
-            }
+            },
         }
     }
 
     fn shutdown(&mut self, reason: DisconnectReason) {
-        // Set the state of the actor to `State::ShuttingDown` to true ensures that the peer actor
-        // will terminate and close the connection.
+        // Set the state of the actor to `State::ShuttingDown` to true ensures that the
+        // peer actor will terminate and close the connection.
         self.state = State::ShuttingDown(reason);
     }
 

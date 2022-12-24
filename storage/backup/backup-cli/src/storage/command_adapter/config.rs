@@ -73,7 +73,8 @@ pub struct Commands {
 pub struct CommandAdapterConfig {
     /// Command lines that implements `BackupStorage` APIs.
     pub commands: Commands,
-    /// Additional environment variables to be set when command lines are spawned.
+    /// Additional environment variables to be set when command lines are
+    /// spawned.
     pub env_vars: Vec<EnvVar>,
 }
 

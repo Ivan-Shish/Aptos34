@@ -4,20 +4,20 @@
 #[macro_use]
 extern crate criterion;
 
-use blake2::digest::{Update, VariableOutput};
-use blake2::Blake2bVar;
+use aptos_crypto::{bls12381::DST_BLS_SIG_IN_G2_WITH_POP, test_utils::random_bytes};
+use blake2::{
+    digest::{Update, VariableOutput},
+    Blake2bVar,
+};
+use blake2_rfc::blake2b::Blake2b;
 use criterion::{
     measurement::Measurement, AxisScale, BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration,
     Throughput,
 };
 use digest::Digest;
 use rand::thread_rng;
-use std::ptr::null;
-
-use aptos_crypto::bls12381::DST_BLS_SIG_IN_G2_WITH_POP;
-use aptos_crypto::test_utils::random_bytes;
-use blake2_rfc::blake2b::Blake2b;
 use sha2::{Sha256, Sha512};
+use std::ptr::null;
 use tiny_keccak::{Hasher as KeccakHasher, Keccak};
 
 /// Runs all the benchmarks.
@@ -51,7 +51,8 @@ fn bench_group(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmarks the time to hash an arbitrary message of size n bytes using SHA2-256
+/// Benchmarks the time to hash an arbitrary message of size n bytes using
+/// SHA2-256
 fn sha2_256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     let mut rng = thread_rng();
 
@@ -74,7 +75,8 @@ fn sha2_256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     });
 }
 
-/// Benchmarks the time to hash an arbitrary message of size n bytes using SHA2-512
+/// Benchmarks the time to hash an arbitrary message of size n bytes using
+/// SHA2-512
 fn sha2_512<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     let mut rng = thread_rng();
 
@@ -97,7 +99,8 @@ fn sha2_512<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     });
 }
 
-/// Benchmarks the time to hash an arbitrary message of size n bytes using SHA3-256
+/// Benchmarks the time to hash an arbitrary message of size n bytes using
+/// SHA3-256
 fn sha3_256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     let mut rng = thread_rng();
 
@@ -120,7 +123,8 @@ fn sha3_256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     });
 }
 
-/// Benchmarks the time to hash an arbitrary message of size n bytes using Keccak-256
+/// Benchmarks the time to hash an arbitrary message of size n bytes using
+/// Keccak-256
 fn keccak256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     let mut rng = thread_rng();
 
@@ -144,7 +148,8 @@ fn keccak256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     });
 }
 
-/// Benchmarks the time to hash an arbitrary message of size n bytes into G_1 using the specified DST.
+/// Benchmarks the time to hash an arbitrary message of size n bytes into G_1
+/// using the specified DST.
 pub fn hash_to_g1<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize, dst: &[u8]) {
     let mut rng = thread_rng();
 
@@ -174,7 +179,8 @@ pub fn hash_to_g1<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize, dst: &[u8
     });
 }
 
-/// Benchmarks the time to hash an arbitrary message of size n bytes into G_2 using the specified DST.
+/// Benchmarks the time to hash an arbitrary message of size n bytes into G_2
+/// using the specified DST.
 pub fn hash_to_g2<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize, dst: &[u8]) {
     let mut rng = thread_rng();
 

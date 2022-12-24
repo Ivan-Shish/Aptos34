@@ -50,7 +50,8 @@ pub enum ConnectionRequest {
 pub enum ConnectionNotification {
     /// Connection with a new peer has been established.
     NewPeer(ConnectionMetadata, NetworkContext),
-    /// Connection to a peer has been terminated. This could have been triggered from either end.
+    /// Connection to a peer has been terminated. This could have been triggered
+    /// from either end.
     LostPeer(ConnectionMetadata, NetworkContext, DisconnectReason),
 }
 
@@ -65,10 +66,10 @@ impl fmt::Display for ConnectionNotification {
         match self {
             ConnectionNotification::NewPeer(metadata, context) => {
                 write!(f, "[{},{}]", metadata, context)
-            }
+            },
             ConnectionNotification::LostPeer(metadata, context, reason) => {
                 write!(f, "[{},{},{}]", metadata, context, reason)
-            }
+            },
         }
     }
 }

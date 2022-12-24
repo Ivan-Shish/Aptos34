@@ -3,6 +3,7 @@
 
 //! Convenience Network API for Aptos
 
+use super::wire::handshake::v1::ProtocolIdSet;
 pub use crate::protocols::rpc::error::RpcError;
 use crate::{
     error::NetworkError,
@@ -27,20 +28,20 @@ use futures::{
 };
 use pin_project::pin_project;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{cmp::min, iter::FromIterator, marker::PhantomData, pin::Pin, time::Duration};
-
-use super::wire::handshake::v1::ProtocolIdSet;
-use std::fmt::Debug;
+use std::{
+    cmp::min, fmt::Debug, iter::FromIterator, marker::PhantomData, pin::Pin, time::Duration,
+};
 
 pub trait Message: DeserializeOwned + Serialize {}
 impl<T: DeserializeOwned + Serialize> Message for T {}
 
 /// Events received by network clients in a validator
 ///
-/// An enumeration of the various types of messages that the network will be sending
-/// to its clients. This differs from [`PeerNotification`] since the contents are deserialized
-/// into the type `TMessage` over which `Event` is generic. Note that we assume here that for every
-/// consumer of this API there's a singleton message type, `TMessage`,  which encapsulates all the
+/// An enumeration of the various types of messages that the network will be
+/// sending to its clients. This differs from [`PeerNotification`] since the
+/// contents are deserialized into the type `TMessage` over which `Event` is
+/// generic. Note that we assume here that for every consumer of this API
+/// there's a singleton message type, `TMessage`,  which encapsulates all the
 /// messages and RPCs that are received by that consumer.
 ///
 /// [`PeerNotification`]: crate::peer::PeerNotification
@@ -49,8 +50,8 @@ pub enum Event<TMessage> {
     /// New inbound direct-send message from peer.
     Message(PeerId, TMessage),
     /// New inbound rpc request. The request is fulfilled by sending the
-    /// serialized response `Bytes` over the `oneshot::Sender`, where the network
-    /// layer will handle sending the response over-the-wire.
+    /// serialized response `Bytes` over the `oneshot::Sender`, where the
+    /// network layer will handle sending the response over-the-wire.
     RpcRequest(
         PeerId,
         TMessage,
@@ -72,7 +73,7 @@ impl<TMessage: PartialEq> PartialEq for Event<TMessage> {
             // ignore oneshot::Sender in comparison
             (RpcRequest(pid1, msg1, proto1, _), RpcRequest(pid2, msg2, proto2, _)) => {
                 pid1 == pid2 && msg1 == msg2 && proto1 == proto2
-            }
+            },
             (NewPeer(metadata1), NewPeer(metadata2)) => metadata1 == metadata2,
             (LostPeer(metadata1), LostPeer(metadata2)) => metadata1 == metadata2,
             _ => false,
@@ -87,9 +88,9 @@ impl<TMessage: PartialEq> PartialEq for Event<TMessage> {
 pub struct AppConfig {
     /// The set of protocols needed for this application.
     pub protocols: ProtocolIdSet,
-    /// The config for the inbound message queue from network to the application.
-    /// Used for specifying the queue style (e.g. FIFO vs LIFO) and sub-queue max
-    /// capacity.
+    /// The config for the inbound message queue from network to the
+    /// application. Used for specifying the queue style (e.g. FIFO vs LIFO)
+    /// and sub-queue max capacity.
     // TODO(philiphayes): only relevant for services
     // TODO(philiphayes): in the future, use a Service trait here instead?
     pub inbound_queue: Option<aptos_channel::Config>,
@@ -117,8 +118,8 @@ impl AppConfig {
         }
     }
 
-    /// AptosNet peer-to-peer service configuration. A peer-to-peer service is both
-    /// a client and a service.
+    /// AptosNet peer-to-peer service configuration. A peer-to-peer service is
+    /// both a client and a service.
     pub fn p2p(
         protocols: impl IntoIterator<Item = ProtocolId>,
         inbound_queue: aptos_channel::Config,
@@ -132,8 +133,8 @@ impl AppConfig {
 
 /// A `Stream` of `Event<TMessage>` from the lower network layer to an upper
 /// network application that deserializes inbound network direct-send and rpc
-/// messages into `TMessage`. Inbound messages that fail to deserialize are logged
-/// and dropped.
+/// messages into `TMessage`. Inbound messages that fail to deserialize are
+/// logged and dropped.
 ///
 /// `NetworkEvents` is really just a thin wrapper around a
 /// `channel::Receiver<PeerNotification>` that deserializes inbound messages.
@@ -192,8 +193,8 @@ impl<TMessage> Stream for NetworkEvents<TMessage> {
     }
 }
 
-/// Deserialize inbound direct send and rpc messages into the application `TMessage`
-/// type, logging and dropping messages that fail to deserialize.
+/// Deserialize inbound direct send and rpc messages into the application
+/// `TMessage` type, logging and dropping messages that fail to deserialize.
 fn peer_mgr_notif_to_event<TMessage: Message>(
     notif: PeerManagerNotification,
 ) -> future::Ready<Option<Event<TMessage>>> {
@@ -201,15 +202,16 @@ fn peer_mgr_notif_to_event<TMessage: Message>(
         PeerManagerNotification::RecvRpc(peer_id, rpc_req) => {
             request_to_network_event(peer_id, &rpc_req)
                 .map(|msg| Event::RpcRequest(peer_id, msg, rpc_req.protocol_id, rpc_req.res_tx))
-        }
+        },
         PeerManagerNotification::RecvMessage(peer_id, request) => {
             request_to_network_event(peer_id, &request).map(|msg| Event::Message(peer_id, msg))
-        }
+        },
     };
     future::ready(maybe_event)
 }
 
-/// Converts a `SerializedRequest` into a network `Event` for sending to other nodes
+/// Converts a `SerializedRequest` into a network `Event` for sending to other
+/// nodes
 fn request_to_network_event<TMessage: Message, Request: SerializedRequest>(
     peer_id: PeerId,
     request: &Request,
@@ -226,7 +228,7 @@ fn request_to_network_event<TMessage: Message, Request: SerializedRequest>(
                 data_prefix = hex::encode(&data[..min(16, data.len())]),
             );
             None
-        }
+        },
     }
 }
 
@@ -249,11 +251,13 @@ impl<TMessage> FusedStream for NetworkEvents<TMessage> {
 /// dialing or disconnecting from peers and updating the list of accepted public
 /// keys.
 ///
-/// `NetworkSender` is in fact a thin wrapper around a `PeerManagerRequestSender`, which in turn is
-/// a thin wrapper on `aptos_channel::Sender<(PeerId, ProtocolId), PeerManagerRequest>`,
-/// mostly focused on providing a more ergonomic API. However, network applications will usually
-/// provide their own thin wrapper around `NetworkSender` that narrows the API to the specific
-/// interface they need. For instance, `mempool` only requires direct-send functionality so its
+/// `NetworkSender` is in fact a thin wrapper around a
+/// `PeerManagerRequestSender`, which in turn is a thin wrapper on
+/// `aptos_channel::Sender<(PeerId, ProtocolId), PeerManagerRequest>`,
+/// mostly focused on providing a more ergonomic API. However, network
+/// applications will usually provide their own thin wrapper around
+/// `NetworkSender` that narrows the API to the specific interface they need.
+/// For instance, `mempool` only requires direct-send functionality so its
 /// `MempoolNetworkSender` only exposes a `send_to` function.
 ///
 /// Provide Protobuf wrapper over `[peer_manager::PeerManagerRequestSender]`
@@ -293,8 +297,8 @@ impl<TMessage> NetworkSender<TMessage> {
         Ok(())
     }
 
-    /// Request that a given Peer be disconnected and synchronously wait for the request to be
-    /// performed.
+    /// Request that a given Peer be disconnected and synchronously wait for the
+    /// request to be performed.
     pub async fn disconnect_peer(&self, peer: PeerId) -> Result<(), NetworkError> {
         self.connection_reqs_tx.disconnect_peer(peer).await?;
         Ok(())
@@ -331,8 +335,9 @@ impl<TMessage: Message> NetworkSender<TMessage> {
     }
 
     /// Send a protobuf rpc request to a single recipient while handling
-    /// serialization and deserialization of the request and response respectively.
-    /// Assumes that the request and response both have the same message type.
+    /// serialization and deserialization of the request and response
+    /// respectively. Assumes that the request and response both have the
+    /// same message type.
     pub async fn send_rpc(
         &self,
         recipient: PeerId,
@@ -351,8 +356,9 @@ impl<TMessage: Message> NetworkSender<TMessage> {
     }
 }
 
-/// A simplified version of `NetworkSender` that doesn't use `ProtocolId` in the input
-/// It was already being implemented for every application, but is now standardized
+/// A simplified version of `NetworkSender` that doesn't use `ProtocolId` in the
+/// input It was already being implemented for every application, but is now
+/// standardized
 #[async_trait]
 pub trait ApplicationNetworkSender<TMessage: Send>: Clone {
     fn send_to(&self, _recipient: PeerId, _message: TMessage) -> Result<(), NetworkError> {
@@ -380,8 +386,9 @@ pub trait SerializedRequest {
     fn protocol_id(&self) -> ProtocolId;
     fn data(&self) -> &Bytes;
 
-    /// Converts the `SerializedMessage` into its deserialized version of `TMessage` based on the
-    /// `ProtocolId`.  See: [`ProtocolId::from_bytes`]
+    /// Converts the `SerializedMessage` into its deserialized version of
+    /// `TMessage` based on the `ProtocolId`.  See:
+    /// [`ProtocolId::from_bytes`]
     fn to_message<TMessage: DeserializeOwned>(&self) -> anyhow::Result<TMessage> {
         self.protocol_id().from_bytes(self.data())
     }

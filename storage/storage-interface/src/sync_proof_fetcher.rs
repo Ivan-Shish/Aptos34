@@ -12,8 +12,8 @@ use aptos_types::{
 use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc};
 
-/// An implementation of proof fetcher, which synchronously fetches proofs from the underlying persistent
-/// storage.
+/// An implementation of proof fetcher, which synchronously fetches proofs from
+/// the underlying persistent storage.
 pub struct SyncProofFetcher {
     reader: Arc<dyn DbReader>,
     state_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProofExt>>,

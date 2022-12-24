@@ -25,16 +25,16 @@ use aptos_network::{
     protocols::{rpc::error::RpcError, wire::handshake::v1::ProtocolId},
 };
 use aptos_storage_service_client::StorageServiceClient;
-use aptos_storage_service_types::requests::{
-    DataRequest, EpochEndingLedgerInfoRequest, NewTransactionOutputsWithProofRequest,
-    NewTransactionsOrOutputsWithProofRequest, NewTransactionsWithProofRequest,
-    StateValuesWithProofRequest, StorageServiceRequest, TransactionOutputsWithProofRequest,
-    TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
+use aptos_storage_service_types::{
+    requests::{
+        DataRequest, EpochEndingLedgerInfoRequest, NewTransactionOutputsWithProofRequest,
+        NewTransactionsOrOutputsWithProofRequest, NewTransactionsWithProofRequest,
+        StateValuesWithProofRequest, StorageServiceRequest, TransactionOutputsWithProofRequest,
+        TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
+    },
+    responses::{StorageServerSummary, StorageServiceResponse, TransactionOrOutputListWithProof},
+    Epoch,
 };
-use aptos_storage_service_types::responses::{
-    StorageServerSummary, StorageServiceResponse, TransactionOrOutputListWithProof,
-};
-use aptos_storage_service_types::Epoch;
 use aptos_time_service::{TimeService, TimeServiceTrait};
 use aptos_types::{
     epoch_change::EpochChangeProof,
@@ -65,8 +65,8 @@ const PEER_LOG_FREQ_SECS: u64 = 10;
 const POLLER_LOG_FREQ_SECS: u64 = 2;
 const REGULAR_PEER_SAMPLE_FREQ: u64 = 3;
 
-/// An [`AptosDataClient`] that fulfills requests from remote peers' Storage Service
-/// over AptosNet.
+/// An [`AptosDataClient`] that fulfills requests from remote peers' Storage
+/// Service over AptosNet.
 ///
 /// The `AptosNetDataClient`:
 ///
@@ -173,9 +173,11 @@ impl AptosNetDataClient {
             .choose(&mut rand::thread_rng())
             .copied()
             .ok_or_else(|| {
-                Error::DataIsUnavailable(
-                    format!("No connected peers are advertising that they can serve this data! Request: {:?}",request),
-                )
+                Error::DataIsUnavailable(format!(
+                    "No connected peers are advertising that they can serve this data! Request: \
+                     {:?}",
+                    request
+                ))
             })
     }
 
@@ -354,7 +356,8 @@ impl AptosNetDataClient {
             )));
         }
 
-        // try to convert the storage service enum into the exact variant we're expecting.
+        // try to convert the storage service enum into the exact variant we're
+        // expecting.
         match T::try_from(storage_response) {
             Ok(new_payload) => Ok(Response::new(context, new_payload)),
             // if the variant doesn't match what we're expecting, report the issue.
@@ -363,7 +366,7 @@ impl AptosNetDataClient {
                     .response_callback
                     .notify_bad_response(ResponseError::InvalidPayloadDataType);
                 Err(err.into())
-            }
+            },
         }
     }
 
@@ -427,7 +430,7 @@ impl AptosNetDataClient {
                     response_callback: Box::new(response_callback),
                 };
                 Ok(Response::new(context, response))
-            }
+            },
             Err(error) => {
                 // Convert network error and storage service error types into
                 // data client errors. Also categorize the error type for scoring
@@ -440,7 +443,7 @@ impl AptosNetDataClient {
                     },
                     aptos_storage_service_client::Error::StorageServiceError(err) => {
                         Error::UnexpectedErrorEncountered(err.to_string())
-                    }
+                    },
                 };
 
                 warn!(
@@ -460,11 +463,12 @@ impl AptosNetDataClient {
 
                 self.notify_bad_response(id, peer, &request, ErrorType::NotUseful);
                 Err(client_error)
-            }
+            },
         }
     }
 
-    /// Updates the score of the peer who sent the response with the specified id
+    /// Updates the score of the peer who sent the response with the specified
+    /// id
     fn notify_bad_response(
         &self,
         _id: ResponseId,
@@ -676,8 +680,8 @@ impl fmt::Debug for AptosNetResponseCallback {
     }
 }
 
-/// A poller for storage summaries that is responsible for periodically refreshing
-/// the view of advertised data in the network.
+/// A poller for storage summaries that is responsible for periodically
+/// refreshing the view of advertised data in the network.
 pub struct DataSummaryPoller {
     data_client: AptosNetDataClient, // The data client through which to poll peers
     poll_interval: Duration,         // The interval between polling rounds
@@ -871,7 +875,7 @@ pub(crate) fn poll_peer(
                         .peer(&peer))
                 );
                 return;
-            }
+            },
         };
 
         // Update the summary for the peer

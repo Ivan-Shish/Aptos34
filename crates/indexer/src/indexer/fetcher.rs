@@ -7,10 +7,8 @@ use aptos_api_types::{AsConverter, LedgerInfo, Transaction, TransactionOnChainDa
 use aptos_logger::prelude::*;
 use aptos_storage_interface::state_view::DbStateView;
 use aptos_vm::data_cache::StorageAdapterOwned;
-use futures::channel::mpsc;
-use futures::SinkExt;
-use std::sync::Arc;
-use std::time::Duration;
+use futures::{channel::mpsc, SinkExt};
+use std::{sync::Arc, time::Duration};
 use tokio::task::JoinHandle;
 
 // Default Values
@@ -53,8 +51,9 @@ impl Fetcher {
         Ok(())
     }
 
-    /// Will keep looping and checking the latest ledger info to see if there are new transactions
-    /// If there are, it will set the highest known version
+    /// Will keep looping and checking the latest ledger info to see if there
+    /// are new transactions If there are, it will set the highest known
+    /// version
     async fn ensure_highest_known_version(&mut self) {
         let mut empty_loops = 0;
         while self.highest_known_version == 0 || self.current_version > self.highest_known_version {
@@ -81,12 +80,17 @@ impl Fetcher {
     }
 
     /// Main loop for fetching transactions
-    /// Fetches transactions in batches of `options.transaction_fetch_batch_size` and sends them to the processor channel.
-    /// If the processor channel is full, it will wait for the processor to catch up.
-    /// 1. Get the latest ledger info, and set the highest known version (if we've caught up)
-    /// 2. Determine how many batches of size `options.transaction_fetch_batch_size` we need to catch up
-    /// 3. Spawn tasks which fetch 'raw' `OnChainTransactions` from storage, and convert them to `Transaction`s. We spawn at most `options.max_tasks` tasks.
-    /// 4. We wait for all the tasks to complete, then send the `Transaction`s to the processor, via the `transactions_sender` channel.
+    /// Fetches transactions in batches of
+    /// `options.transaction_fetch_batch_size` and sends them to the processor
+    /// channel. If the processor channel is full, it will wait for the
+    /// processor to catch up. 1. Get the latest ledger info, and set the
+    /// highest known version (if we've caught up) 2. Determine how many
+    /// batches of size `options.transaction_fetch_batch_size` we need to catch
+    /// up 3. Spawn tasks which fetch 'raw' `OnChainTransactions` from
+    /// storage, and convert them to `Transaction`s. We spawn at most
+    /// `options.max_tasks` tasks. 4. We wait for all the tasks to complete,
+    /// then send the `Transaction`s to the processor, via the
+    /// `transactions_sender` channel.
     pub async fn run(&mut self) {
         let transaction_fetch_batch_size = self.options.transaction_fetch_batch_size;
         loop {
@@ -145,7 +149,8 @@ impl Fetcher {
         }
     }
 
-    /// Sends the transaction batches to the processor via the `transactions_sender` channel
+    /// Sends the transaction batches to the processor via the
+    /// `transactions_sender` channel
     async fn send_transaction_batches(&mut self, transaction_batches: Vec<Vec<Transaction>>) {
         let send_start = chrono::Utc::now().naive_utc();
         let num_batches = transaction_batches.len();
@@ -211,7 +216,7 @@ async fn fetch_raw_txns_with_retries(
                     );
                 }
                 tokio::time::sleep(Duration::from_millis(300)).await;
-            }
+            },
         }
     }
 }
@@ -273,23 +278,23 @@ async fn fetch_nexts(
                 match txn {
                     Transaction::PendingTransaction(_) => {
                         unreachable!("Indexer should never see pending transactions")
-                    }
+                    },
                     Transaction::UserTransaction(ref mut ut) => {
                         ut.info.block_height = Some(block_height_bcs);
                         ut.info.epoch = Some(epoch_bcs);
-                    }
+                    },
                     Transaction::GenesisTransaction(ref mut gt) => {
                         gt.info.block_height = Some(block_height_bcs);
                         gt.info.epoch = Some(epoch_bcs);
-                    }
+                    },
                     Transaction::BlockMetadataTransaction(ref mut bmt) => {
                         bmt.info.block_height = Some(block_height_bcs);
                         bmt.info.epoch = Some(epoch_bcs);
-                    }
+                    },
                     Transaction::StateCheckpointTransaction(ref mut sct) => {
                         sct.info.block_height = Some(block_height_bcs);
                         sct.info.epoch = Some(epoch_bcs);
-                    }
+                    },
                 };
                 txn
             }) {
@@ -307,7 +312,7 @@ async fn fetch_nexts(
                     "Could not convert txn {} from OnChainTransactions: {:?}",
                     txn_version, err
                 );
-            }
+            },
         }
     }
 
@@ -355,7 +360,7 @@ where
             } else {
                 v
             }
-        }
+        },
         None => default,
     }
 }
@@ -432,13 +437,14 @@ impl TransactionFetcher {
 impl TransactionFetcherTrait for TransactionFetcher {
     /// Fetches the next batch based on its internal version counter
     async fn fetch_next_batch(&mut self) -> Vec<Transaction> {
-        // try_next is nonblocking unlike next. It'll try to fetch the next one and return immediately.
+        // try_next is nonblocking unlike next. It'll try to fetch the next one and
+        // return immediately.
         match self.transaction_receiver.try_next() {
             Ok(Some(transactions)) => transactions,
             Ok(None) => {
                 // We never close the channel, so this should never happen
                 panic!("Transaction fetcher channel closed");
-            }
+            },
             // The error here is when the channel is empty which we definitely expect.
             Err(_) => vec![],
         }

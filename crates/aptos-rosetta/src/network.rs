@@ -67,8 +67,9 @@ async fn network_list(
 
 /// Get Network options
 ///
-/// This lists out all errors, operations, and statuses, along with versioning information.
-/// This should be able to run without a running full node connection
+/// This lists out all errors, operations, and statuses, along with versioning
+/// information. This should be able to run without a running full node
+/// connection
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/NetworkApi.html#networkoptions)
 async fn network_options(
@@ -122,7 +123,8 @@ async fn network_options(
 
 /// Get network status including the latest state
 ///
-/// This should respond with the latest ledger version, timestamp, and genesis information
+/// This should respond with the latest ledger version, timestamp, and genesis
+/// information
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/NetworkApi.html#networkoptions)
 async fn network_status(

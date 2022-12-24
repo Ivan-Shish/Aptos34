@@ -63,8 +63,8 @@ pub(crate) fn get_routes(backup_handler: BackupHandler) -> BoxedFilter<(impl Rep
     let bh = backup_handler.clone();
     let epoch_ending_ledger_infos = warp::path!(u64 / u64)
         .map(move |start_epoch, end_epoch| {
-            // use async move block to group `bh` and the iterator into the same lifetime, since the
-            // latter references the former.
+            // use async move block to group `bh` and the iterator into the same lifetime,
+            // since the latter references the former.
             reply_with_async_channel_writer(
                 &bh,
                 EPOCH_ENDING_LEDGER_INFOS,
@@ -83,8 +83,8 @@ pub(crate) fn get_routes(backup_handler: BackupHandler) -> BoxedFilter<(impl Rep
     let bh = backup_handler.clone();
     let transactions = warp::path!(Version / usize)
         .map(move |start_version, num_transactions| {
-            // use async move block to group `bh` and the iterator into the same lifetime, since the
-            // latter references the former.
+            // use async move block to group `bh` and the iterator into the same lifetime,
+            // since the latter references the former.
             reply_with_async_channel_writer(&bh, TRANSACTIONS, |bh, sender| async move {
                 send_size_prefixed_bcs_bytes(
                     bh.get_transaction_iter(start_version, num_transactions),

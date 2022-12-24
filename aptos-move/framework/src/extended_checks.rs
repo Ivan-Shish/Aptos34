@@ -2,28 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{KnownAttribute, RuntimeModuleMetadataV1};
-use move_core_types::account_address::AccountAddress;
-use move_core_types::errmap::{ErrorDescription, ErrorMapping};
-use move_core_types::identifier::Identifier;
-use move_core_types::language_storage::ModuleId;
-use move_model::ast::{Attribute, Value};
-use move_model::model::{
-    FunctionEnv, FunctionVisibility, GlobalEnv, Loc, ModuleEnv, NamedConstantEnv, Parameter,
-    QualifiedId, StructId,
+use move_core_types::{
+    account_address::AccountAddress,
+    errmap::{ErrorDescription, ErrorMapping},
+    identifier::Identifier,
+    language_storage::ModuleId,
 };
-use move_model::symbol::Symbol;
-use move_model::ty::{PrimitiveType, Type};
-use std::collections::BTreeMap;
-use std::rc::Rc;
+use move_model::{
+    ast::{Attribute, Value},
+    model::{
+        FunctionEnv, FunctionVisibility, GlobalEnv, Loc, ModuleEnv, NamedConstantEnv, Parameter,
+        QualifiedId, StructId,
+    },
+    symbol::Symbol,
+    ty::{PrimitiveType, Type},
+};
+use std::{collections::BTreeMap, rc::Rc};
 
 const INIT_MODULE_FUN: &str = "init_module";
 const VIEW_FUN_ATTRIBUTE: &str = "view";
 const LEGAC_ENTRY_FUN_ATTRIBUTE: &str = "legacy_entry_fun";
 const ERROR_PREFIX: &str = "E";
 
-/// Run the extended context checker on target modules in the environment and returns a map
-/// from module to extended runtime metadata. Any errors during context checking are reported to
-/// `env`. This is invoked after general build succeeds.
+/// Run the extended context checker on target modules in the environment and
+/// returns a map from module to extended runtime metadata. Any errors during
+/// context checking are reported to `env`. This is invoked after general build
+/// succeeds.
 pub fn run_extended_checks(env: &GlobalEnv) -> BTreeMap<ModuleId, RuntimeModuleMetadataV1> {
     let mut checker = ExtendedChecker::new(env);
     checker.run();
@@ -129,18 +133,19 @@ impl<'a> ExtendedChecker<'a> {
         use Type::*;
         match ty {
             Primitive(_) | TypeParameter(_) => {
-                // Any primitive type allowed, any parameter expected to instantiate with primitive
-            }
+                // Any primitive type allowed, any parameter expected to
+                // instantiate with primitive
+            },
             Reference(false, bt) if matches!(bt.as_ref(), Primitive(PrimitiveType::Signer)) => {
                 // Reference to signer allowed
-            }
+            },
             Vector(ety) => {
                 // Vectors are allowed if element type is allowed
                 self.check_transaction_input_type(loc, &**ety)
-            }
+            },
             Struct(mid, sid, _) if self.is_allowed_input_struct(mid.qualified(*sid)) => {
                 // Specific struct types are allowed
-            }
+            },
             _ => {
                 // Everything else is disallowed.
                 self.env.error(
@@ -150,7 +155,7 @@ impl<'a> ExtendedChecker<'a> {
                         ty.display(&self.env.get_type_display_ctx())
                     ),
                 );
-            }
+            },
         }
     }
 

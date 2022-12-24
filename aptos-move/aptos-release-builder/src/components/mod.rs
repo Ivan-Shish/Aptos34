@@ -41,7 +41,8 @@ pub struct ReleaseConfig {
     pub is_multi_step: bool,
 }
 
-// Compare the current on chain config with the value recorded on chain. Return false if there's a difference.
+// Compare the current on chain config with the value recorded on chain. Return
+// false if there's a difference.
 fn fetch_and_equals<T: OnChainConfig + PartialEq>(
     client: &Option<Client>,
     expected: &T,
@@ -67,7 +68,7 @@ fn fetch_and_equals<T: OnChainConfig + PartialEq>(
             )?;
 
             Ok(&config == expected)
-        }
+        },
         None => Ok(false),
     }
 }
@@ -89,8 +90,9 @@ impl ReleaseConfig {
             .as_ref()
             .map(|url| Client::new(url.clone()));
 
-        // If we are generating multi-step proposal files, we generate the files in reverse order,
-        // since we need to pass in the hash of the next file to the previous file.
+        // If we are generating multi-step proposal files, we generate the files in
+        // reverse order, since we need to pass in the hash of the next file to
+        // the previous file.
         if self.is_multi_step {
             release_generation_functions.reverse();
         }
@@ -193,7 +195,8 @@ impl ReleaseConfig {
                         )
                         .await
                 })?;
-                // Only update the feature flags section when there's a divergence between the local configs and on chain configs.
+                // Only update the feature flags section when there's a divergence between the
+                // local configs and on chain configs.
                 needs_update = feature_flags.has_modified(features.inner());
             }
             if needs_update {

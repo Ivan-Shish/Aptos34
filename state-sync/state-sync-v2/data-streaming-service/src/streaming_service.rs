@@ -145,7 +145,7 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStreamingService<T> {
         let feedback_label = match notification_and_feedback {
             Some(notification_and_feedback) => {
                 notification_and_feedback.notification_feedback.get_label()
-            }
+            },
             None => TERMINATE_NO_FEEDBACK,
         };
         metrics::increment_counter(&metrics::TERMINATE_DATA_STREAM, feedback_label);
@@ -232,7 +232,8 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStreamingService<T> {
         Ok(stream_listener)
     }
 
-    /// Refreshes the global data summary by communicating with the Aptos data client
+    /// Refreshes the global data summary by communicating with the Aptos data
+    /// client
     fn refresh_global_data_summary(&mut self) {
         if let Err(error) = self.fetch_global_data_summary() {
             metrics::increment_counter(&metrics::GLOBAL_DATA_SUMMARY_ERROR, error.get_label());
@@ -347,7 +348,8 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStreamingService<T> {
     }
 
     /// Returns the data stream associated with the given `data_stream_id`.
-    /// Note: this method assumes the caller has already verified the stream exists.
+    /// Note: this method assumes the caller has already verified the stream
+    /// exists.
     fn get_data_stream(
         &mut self,
         data_stream_id: &DataStreamId,
@@ -382,20 +384,24 @@ fn verify_optimal_chunk_sizes(optimal_chunk_sizes: &OptimalChunkSizes) -> Result
 /// the internal state of the object.
 #[cfg(test)]
 mod streaming_service_tests {
-    use crate::data_stream::{DataStreamId, DataStreamListener};
-    use crate::error::Error;
-    use crate::streaming_client::{
-        GetAllStatesRequest, NotificationAndFeedback, NotificationFeedback, StreamRequest,
-        StreamRequestMessage, TerminateStreamRequest,
+    use crate::{
+        data_stream::{DataStreamId, DataStreamListener},
+        error::Error,
+        streaming_client::{
+            GetAllStatesRequest, NotificationAndFeedback, NotificationFeedback, StreamRequest,
+            StreamRequestMessage, TerminateStreamRequest,
+        },
+        tests,
+        tests::utils::MIN_ADVERTISED_STATES,
     };
-    use crate::tests;
-    use crate::tests::utils::MIN_ADVERTISED_STATES;
-    use futures::channel::oneshot;
-    use futures::channel::oneshot::Receiver;
-    use futures::FutureExt;
-    use futures::StreamExt;
-    use std::ops::Add;
-    use std::time::{Duration, Instant};
+    use futures::{
+        channel::{oneshot, oneshot::Receiver},
+        FutureExt, StreamExt,
+    };
+    use std::{
+        ops::Add,
+        time::{Duration, Instant},
+    };
     use tokio::time::timeout;
 
     const MAX_STREAM_WAIT_SECS: u64 = 60;
@@ -500,7 +506,8 @@ mod streaming_service_tests {
 
     #[tokio::test]
     async fn test_terminate_data_streams_feedback() {
-        // Verify stream termination even if invalid feedback is given (i.e., id mismatch)
+        // Verify stream termination even if invalid feedback is given (i.e., id
+        // mismatch)
         for invalid_feedback in [false, true] {
             // Create a new streaming service
             let (_, mut streaming_service) =

@@ -8,14 +8,15 @@ use async_trait::async_trait;
 use futures::future::AbortHandle;
 use std::{sync::Arc, time::Duration};
 
-/// SimulatedTimeService implements TimeService, however it does not depend on actual time
-/// There are multiple ways to use it:
-/// SimulatedTimeService::new will create time service that simply 'stuck' on time 0
-/// SimulatedTimeService::update_auto_advance_limit can then be used to allow time to advance up to
-/// certain limit. SimulatedTimeService::auto_advance_until will create time service that will 'run'
-/// until certain time limit Note that SimulatedTimeService does not actually wait for any timeouts,
-/// notion of time in it is abstract. Tasks run asap as long as they are scheduled before configured
-/// time limit
+/// SimulatedTimeService implements TimeService, however it does not depend on
+/// actual time There are multiple ways to use it:
+/// SimulatedTimeService::new will create time service that simply 'stuck' on
+/// time 0 SimulatedTimeService::update_auto_advance_limit can then be used to
+/// allow time to advance up to certain limit.
+/// SimulatedTimeService::auto_advance_until will create time service that will
+/// 'run' until certain time limit Note that SimulatedTimeService does not
+/// actually wait for any timeouts, notion of time in it is abstract. Tasks run
+/// asap as long as they are scheduled before configured time limit
 pub struct SimulatedTimeService {
     inner: Arc<Mutex<SimulatedTimeServiceInner>>,
 }
@@ -86,7 +87,8 @@ impl SimulatedTimeService {
         }
     }
 
-    /// Creates new SimulatedTimeService that automatically advance time up to time_limit
+    /// Creates new SimulatedTimeService that automatically advance time up to
+    /// time_limit
     pub fn auto_advance_until(time_limit: Duration) -> SimulatedTimeService {
         SimulatedTimeService {
             inner: Arc::new(Mutex::new(SimulatedTimeServiceInner {
@@ -98,8 +100,8 @@ impl SimulatedTimeService {
         }
     }
 
-    /// Update time_limit of this SimulatedTimeService instance and run pending tasks that has
-    /// deadline lower then new time_limit
+    /// Update time_limit of this SimulatedTimeService instance and run pending
+    /// tasks that has deadline lower then new time_limit
     #[allow(dead_code)]
     pub fn update_auto_advance_limit(&mut self, time: Duration) {
         let mut inner = self.inner.lock();
@@ -116,7 +118,8 @@ impl SimulatedTimeService {
             }
         }
         for (_, mut t) in drain {
-            // probably could be done better then that, but for now I feel its good enough for tests
+            // probably could be done better then that, but for now I feel its good enough
+            // for tests
             futures::executor::block_on(t.run());
         }
     }

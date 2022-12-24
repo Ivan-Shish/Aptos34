@@ -79,7 +79,7 @@ fn collect_consensus_metrics(core_metrics: &mut BTreeMap<String, String>) {
         CONSENSUS_TIMEOUT_COUNT.into(),
         aptos_consensus::counters::TIMEOUT_COUNT.get().to_string(),
     );
-    //TODO(joshlind): add block tracing and back pressure!
+    // TODO(joshlind): add block tracing and back pressure!
 }
 
 /// Collects the mempool metrics and appends it to the given map

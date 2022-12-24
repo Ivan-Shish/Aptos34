@@ -6,7 +6,8 @@ use crate::{GenesisConfigFn, NodeConfigFn, Result};
 use rand::rngs::StdRng;
 use std::{num::NonZeroUsize, time::Duration};
 
-/// Trait used to represent a interface for constructing a launching new networks
+/// Trait used to represent a interface for constructing a launching new
+/// networks
 #[async_trait::async_trait]
 pub trait Factory {
     fn versions<'a>(&'a self) -> Box<dyn Iterator<Item = Version> + 'a>;

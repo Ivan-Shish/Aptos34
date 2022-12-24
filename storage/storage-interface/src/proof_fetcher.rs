@@ -11,8 +11,8 @@ use std::collections::HashMap;
 
 /// Defines the trait for fetching proof from the DB
 pub trait ProofFetcher: Sync + Send {
-    /// Fetches the state value along with its proof. If root_hash is provided, will also verify
-    /// its proof.
+    /// Fetches the state value along with its proof. If root_hash is provided,
+    /// will also verify its proof.
     fn fetch_state_value_and_proof(
         &self,
         state_key: &StateKey,

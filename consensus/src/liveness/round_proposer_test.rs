@@ -4,9 +4,8 @@
 use crate::liveness::{
     proposer_election::ProposerElection, round_proposer_election::RoundProposer,
 };
-use aptos_types::account_address::AccountAddress;
-
 use aptos_consensus_types::common::{Author, Round};
+use aptos_types::account_address::AccountAddress;
 use std::collections::HashMap;
 
 #[test]
@@ -22,12 +21,12 @@ fn test_round_proposer() {
 
     let pe = RoundProposer::new(round_proposers, chosen_author_round1);
 
-    // Send a proposal from both chosen author and another author, the only winning proposals
-    // follow the round-proposers mapping
+    // Send a proposal from both chosen author and another author, the only winning
+    // proposals follow the round-proposers mapping
 
-    // In round 3, send a proposal from chosen_author_round1 (which is also the default proposer).
-    // The proposal should win because the map doesn't specify proposer for round 3 hence
-    // falling back on the default proposer
+    // In round 3, send a proposal from chosen_author_round1 (which is also the
+    // default proposer). The proposal should win because the map doesn't
+    // specify proposer for round 3 hence falling back on the default proposer
 
     assert!(pe.is_valid_proposer(chosen_author_round1, 1),);
     assert!(!pe.is_valid_proposer(another_author, 1));

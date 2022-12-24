@@ -15,8 +15,8 @@ use std::fmt::{Display, Formatter};
 /// evaluate a proposal / block for correctness / safety and to produce a Vote.
 #[derive(Clone, Debug, CryptoHasher, Deserialize, BCSCryptoHash, Serialize)]
 pub struct VoteProposal {
-    /// Contains the data necessary to construct the parent's execution output state
-    /// and the childs in a verifiable way
+    /// Contains the data necessary to construct the parent's execution output
+    /// state and the childs in a verifiable way
     accumulator_extension_proof: AccumulatorExtensionProof<TransactionAccumulatorHasher>,
     /// The block / proposal to evaluate
     #[serde(bound(deserialize = "Block: Deserialize<'de>"))]
@@ -56,7 +56,8 @@ impl VoteProposal {
         self.next_epoch_state.as_ref()
     }
 
-    /// This function returns the vote data with a dummy executed_state_id and version
+    /// This function returns the vote data with a dummy executed_state_id and
+    /// version
     fn vote_data_ordering_only(&self) -> VoteData {
         VoteData::new(
             self.block().gen_block_info(

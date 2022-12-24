@@ -1,36 +1,36 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::docgen::DocgenOptions;
-use crate::natives::code::{
-    ModuleMetadata, MoveOption, PackageDep, PackageMetadata, UpgradePolicy,
-};
 use crate::{
-    extended_checks, zip_metadata, zip_metadata_str, RuntimeModuleMetadataV1, APTOS_METADATA_KEY_V1,
+    docgen::DocgenOptions,
+    extended_checks,
+    natives::code::{ModuleMetadata, MoveOption, PackageDep, PackageMetadata, UpgradePolicy},
+    zip_metadata, zip_metadata_str, RuntimeModuleMetadataV1, APTOS_METADATA_KEY_V1,
 };
 use anyhow::bail;
-use aptos_types::account_address::AccountAddress;
-use aptos_types::transaction::EntryABI;
+use aptos_types::{account_address::AccountAddress, transaction::EntryABI};
 use clap::Parser;
-use codespan_reporting::diagnostic::Severity;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::{
+    diagnostic::Severity,
+    term::termcolor::{ColorChoice, StandardStream},
+};
 use itertools::Itertools;
 use move_binary_format::CompiledModule;
 use move_command_line_common::files::MOVE_COMPILED_EXTENSION;
 use move_compiler::compiled_unit::{CompiledUnit, NamedCompiledModule};
-use move_core_types::language_storage::ModuleId;
-use move_core_types::metadata::Metadata;
+use move_core_types::{language_storage::ModuleId, metadata::Metadata};
 use move_model::model::GlobalEnv;
-use move_package::compilation::compiled_package::CompiledPackage;
-use move_package::compilation::package_layout::CompiledPackageLayout;
-use move_package::source_package::manifest_parser::{
-    parse_move_manifest_string, parse_source_manifest,
+use move_package::{
+    compilation::{compiled_package::CompiledPackage, package_layout::CompiledPackageLayout},
+    source_package::manifest_parser::{parse_move_manifest_string, parse_source_manifest},
+    BuildConfig, ModelConfig,
 };
-use move_package::{BuildConfig, ModelConfig};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
-use std::io::stderr;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io::stderr,
+    path::{Path, PathBuf},
+};
 
 pub const METADATA_FILE_NAME: &str = "package-metadata.bcs";
 pub const UPGRADE_POLICY_CUSTOM_FIELD: &str = "upgrade_policy";
@@ -48,7 +48,8 @@ pub struct BuildOptions {
     pub with_error_map: bool,
     #[clap(long)]
     pub with_docs: bool,
-    /// Installation directory for compiled artifacts. Defaults to <package>/build.
+    /// Installation directory for compiled artifacts. Defaults to
+    /// <package>/build.
     #[clap(long, parse(from_os_str))]
     pub install_dir: Option<PathBuf>,
     #[clap(skip)] // TODO: have a parser for this; there is one in the CLI buts its  downstream
@@ -61,8 +62,8 @@ pub struct BuildOptions {
     pub bytecode_version: Option<u32>,
 }
 
-// Because named_addresses has no parser, we can't use clap's default impl. This must be aligned
-// with defaults above.
+// Because named_addresses has no parser, we can't use clap's default impl. This
+// must be aligned with defaults above.
 impl Default for BuildOptions {
     fn default() -> Self {
         Self {
@@ -82,8 +83,8 @@ impl Default for BuildOptions {
     }
 }
 
-/// Represents a built package.  It allows to extract `PackageMetadata`. Can also be used to
-/// just build Move code and related artifacts.
+/// Represents a built package.  It allows to extract `PackageMetadata`. Can
+/// also be used to just build Move code and related artifacts.
 pub struct BuiltPackage {
     options: BuildOptions,
     package_path: PathBuf,
@@ -107,20 +108,17 @@ pub(crate) fn build_model(
         fetch_deps_only: false,
         skip_fetch_latest_git_deps: true,
     };
-    build_config.move_model_for_package(
-        package_path,
-        ModelConfig {
-            target_filter,
-            all_files_as_targets: false,
-        },
-    )
+    build_config.move_model_for_package(package_path, ModelConfig {
+        target_filter,
+        all_files_as_targets: false,
+    })
 }
 
 impl BuiltPackage {
     /// Builds the package and on success delivers a `BuiltPackage`.
     ///
-    /// This function currently reports all Move compilation errors and warnings to stdout,
-    /// and is not `Ok` if there was an error among those.
+    /// This function currently reports all Move compilation errors and warnings
+    /// to stdout, and is not `Ok` if there was an error among those.
     pub fn build(package_path: PathBuf, options: BuildOptions) -> anyhow::Result<Self> {
         let build_config = BuildConfig {
             dev_mode: false,
@@ -137,8 +135,8 @@ impl BuiltPackage {
         eprintln!("Compiling, may take a little while to download git dependencies...");
         let mut package = build_config.compile_package_no_exit(&package_path, &mut stderr())?;
 
-        // Build the Move model for extra processing and run extended checks as well derive
-        // runtime metadata
+        // Build the Move model for extra processing and run extended checks as well
+        // derive runtime metadata
         let model = &build_model(
             package_path.as_path(),
             options.named_addresses.clone(),
@@ -256,7 +254,8 @@ impl BuiltPackage {
             .collect()
     }
 
-    /// Extracts metadata, as needed for releasing a package, from the built package.
+    /// Extracts metadata, as needed for releasing a package, from the built
+    /// package.
     pub fn extract_metadata(&self) -> anyhow::Result<PackageMetadata> {
         let source_digest = self
             .package
@@ -371,8 +370,8 @@ fn inject_runtime_metadata(
                         }
                     }
                 }
-            }
-            CompiledUnit::Script(_) => {}
+            },
+            CompiledUnit::Script(_) => {},
         }
     }
     Ok(())

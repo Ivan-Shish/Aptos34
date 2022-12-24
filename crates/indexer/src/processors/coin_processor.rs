@@ -164,7 +164,10 @@ fn insert_coin_infos(
                     supply_aggregator_table_key.eq(excluded(supply_aggregator_table_key)),
                     inserted_at.eq(excluded(inserted_at)),
                 )),
-            Some(" WHERE coin_infos.transaction_version_created >= EXCLUDED.transaction_version_created "),
+            Some(
+                " WHERE coin_infos.transaction_version_created >= \
+                 EXCLUDED.transaction_version_created ",
+            ),
         )?;
     }
     Ok(())
@@ -210,8 +213,11 @@ fn insert_current_coin_balances(
                     last_transaction_timestamp.eq(excluded(last_transaction_timestamp)),
                     inserted_at.eq(excluded(inserted_at)),
                 )),
-                Some(" WHERE current_coin_balances.last_transaction_version <= excluded.last_transaction_version "),
-            )?;
+            Some(
+                " WHERE current_coin_balances.last_transaction_version <= \
+                 excluded.last_transaction_version ",
+            ),
+        )?;
     }
     Ok(())
 }
@@ -272,7 +278,8 @@ impl TransactionProcessor for CoinTransactionProcessor {
             all_coin_activities.append(&mut coin_activities);
             all_coin_balances.append(&mut coin_balances);
             all_coin_supply.append(&mut coin_supply);
-            // For coin infos, we only want to keep the first version, so insert only if key is not present already
+            // For coin infos, we only want to keep the first version, so insert only if key
+            // is not present already
             for (key, value) in coin_infos {
                 all_coin_infos.entry(key).or_insert(value);
             }

@@ -35,7 +35,8 @@ pub enum Error {
 /// synchronization notifications to state sync.
 #[async_trait]
 pub trait ConsensusNotificationSender: Send + Sync {
-    /// Notify state sync of newly committed transactions and reconfiguration events.
+    /// Notify state sync of newly committed transactions and reconfiguration
+    /// events.
     async fn notify_new_commit(
         &self,
         transactions: Vec<Transaction>,
@@ -46,10 +47,11 @@ pub trait ConsensusNotificationSender: Send + Sync {
     async fn sync_to_target(&self, target: LedgerInfoWithSignatures) -> Result<(), Error>;
 }
 
-/// This method returns a (ConsensusNotifier, ConsensusNotificationListener) pair that can be used
-/// to allow consensus and state sync to communicate.
+/// This method returns a (ConsensusNotifier, ConsensusNotificationListener)
+/// pair that can be used to allow consensus and state sync to communicate.
 ///
-/// Note: consensus should take the notifier and state sync should take the listener.
+/// Note: consensus should take the notifier and state sync should take the
+/// listener.
 pub fn new_consensus_notifier_listener_pair(
     timeout_ms: u64,
 ) -> (ConsensusNotifier, ConsensusNotificationListener) {
@@ -61,8 +63,8 @@ pub fn new_consensus_notifier_listener_pair(
     (consensus_notifier, consensus_listener)
 }
 
-/// The consensus component responsible for sending notifications and requests to
-/// state sync.
+/// The consensus component responsible for sending notifications and requests
+/// to state sync.
 ///
 /// Note: When a ConsensusNotifier instance is created, state sync must take and
 /// listen to the receiver in the corresponding ConsensusNotificationListener.
@@ -348,11 +350,13 @@ mod tests {
                         reconfiguration_events,
                         commit_notification.reconfiguration_events
                     );
-                }
-                result => panic!(
-                    "Expected consensus commit notification but got: {:?}",
-                    result
-                ),
+                },
+                result => {
+                    panic!(
+                        "Expected consensus commit notification but got: {:?}",
+                        result
+                    )
+                },
             },
             result => panic!("Expected consensus notification but got: {:?}", result),
         };
@@ -370,7 +374,7 @@ mod tests {
             Some(consensus_notification) => match consensus_notification {
                 ConsensusNotification::SyncToTarget(sync_notification) => {
                     assert_eq!(create_ledger_info(), sync_notification.target);
-                }
+                },
                 result => panic!("Expected consensus sync notification but got: {:?}", result),
             },
             result => panic!("Expected consensus notification but got: {:?}", result),
@@ -386,21 +390,23 @@ mod tests {
             crate::new_consensus_notifier_listener_pair(CONSENSUS_NOTIFICATION_TIMEOUT);
 
         // Spawn a new thread to handle any messages on the receiver
-        let _handler = std::thread::spawn(move || loop {
-            match consensus_listener.select_next_some().now_or_never() {
-                Some(ConsensusNotification::NotifyCommit(commit_notification)) => {
-                    let _result = block_on(
-                        consensus_listener
-                            .respond_to_commit_notification(commit_notification, Ok(())),
-                    );
+        let _handler = std::thread::spawn(move || {
+            loop {
+                match consensus_listener.select_next_some().now_or_never() {
+                    Some(ConsensusNotification::NotifyCommit(commit_notification)) => {
+                        let _result = block_on(
+                            consensus_listener
+                                .respond_to_commit_notification(commit_notification, Ok(())),
+                        );
+                    },
+                    Some(ConsensusNotification::SyncToTarget(sync_notification)) => {
+                        let _result = block_on(consensus_listener.respond_to_sync_notification(
+                            sync_notification,
+                            Err(Error::UnexpectedErrorEncountered("Oops?".into())),
+                        ));
+                    },
+                    _ => { /* Do nothing */ },
                 }
-                Some(ConsensusNotification::SyncToTarget(sync_notification)) => {
-                    let _result = block_on(consensus_listener.respond_to_sync_notification(
-                        sync_notification,
-                        Err(Error::UnexpectedErrorEncountered("Oops?".into())),
-                    ));
-                }
-                _ => { /* Do nothing */ }
             }
         });
 

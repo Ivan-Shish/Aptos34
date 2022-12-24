@@ -16,15 +16,17 @@ use std::fmt::{Debug, Display, Formatter};
 
 /// Vote is the struct that is ultimately sent by the voter in response for
 /// receiving a proposal.
-/// Vote carries the `LedgerInfo` of a block that is going to be committed in case this vote
-/// is gathers QuorumCertificate (see the detailed explanation in the comments of `LedgerInfo`).
+/// Vote carries the `LedgerInfo` of a block that is going to be committed in
+/// case this vote is gathers QuorumCertificate (see the detailed explanation in
+/// the comments of `LedgerInfo`).
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct Vote {
     /// The data of the vote
     vote_data: VoteData,
     /// The identity of the voter.
     author: Author,
-    /// LedgerInfo of a block that is going to be committed in case this vote gathers QC.
+    /// LedgerInfo of a block that is going to be committed in case this vote
+    /// gathers QC.
     ledger_info: LedgerInfo,
     /// Signature of the LedgerInfo
     signature: bls12381::Signature,
@@ -53,8 +55,8 @@ impl Display for Vote {
 }
 
 impl Vote {
-    /// Generates a new Vote corresponding to the "fast-vote" path without the round signatures
-    /// that can be aggregated into a timeout certificate
+    /// Generates a new Vote corresponding to the "fast-vote" path without the
+    /// round signatures that can be aggregated into a timeout certificate
     pub fn new(
         vote_data: VoteData,
         author: Author,
@@ -130,14 +132,15 @@ impl Vote {
         self.two_chain_timeout.as_ref()
     }
 
-    /// The vote message is considered a timeout vote message if it carries a signature on the
-    /// round, which can then be used for aggregating it to the TimeoutCertificate.
+    /// The vote message is considered a timeout vote message if it carries a
+    /// signature on the round, which can then be used for aggregating it to
+    /// the TimeoutCertificate.
     pub fn is_timeout(&self) -> bool {
         self.two_chain_timeout.is_some()
     }
 
-    /// Verifies that the consensus data hash of LedgerInfo corresponds to the vote info,
-    /// and then verifies the signature.
+    /// Verifies that the consensus data hash of LedgerInfo corresponds to the
+    /// vote info, and then verifies the signature.
     pub fn verify(&self, validator: &ValidatorVerifier) -> anyhow::Result<()> {
         ensure!(
             self.ledger_info.consensus_data_hash() == self.vote_data.hash(),

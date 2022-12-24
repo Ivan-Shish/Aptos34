@@ -16,11 +16,11 @@ use aptos_types::{
 };
 use std::{cmp::max, collections::HashSet, sync::Arc};
 
-/// PersistentLivenessStorage is essential for maintaining liveness when a node crashes.  Specifically,
-/// upon a restart, a correct node will recover.  Even if all nodes crash, liveness is
-/// guaranteed.
-/// Blocks persisted are proposed but not yet committed.  The committed state is persisted
-/// via StateComputer.
+/// PersistentLivenessStorage is essential for maintaining liveness when a node
+/// crashes.  Specifically, upon a restart, a correct node will recover.  Even
+/// if all nodes crash, liveness is guaranteed.
+/// Blocks persisted are proposed but not yet committed.  The committed state is
+/// persisted via StateComputer.
 pub trait PersistentLivenessStorage: Send + Sync {
     /// Persist the blocks and quorum certs into storage atomically.
     fn save_tree(&self, blocks: Vec<Block>, quorum_certs: Vec<QuorumCert>) -> Result<()>;
@@ -37,8 +37,8 @@ pub trait PersistentLivenessStorage: Send + Sync {
     /// Construct necessary data to start consensus.
     fn start(&self) -> LivenessStorageData;
 
-    /// Persist the highest 2chain timeout certificate for improved liveness - proof for other replicas
-    /// to jump to this round
+    /// Persist the highest 2chain timeout certificate for improved liveness -
+    /// proof for other replicas to jump to this round
     fn save_highest_2chain_timeout_cert(
         &self,
         highest_timeout_cert: &TwoChainTimeoutCertificate,
@@ -55,7 +55,8 @@ pub trait PersistentLivenessStorage: Send + Sync {
 #[derive(Clone)]
 pub struct RootInfo(pub Block, pub QuorumCert, pub QuorumCert, pub QuorumCert);
 
-/// LedgerRecoveryData is a subset of RecoveryData that we can get solely from ledger info.
+/// LedgerRecoveryData is a subset of RecoveryData that we can get solely from
+/// ledger info.
 #[derive(Clone)]
 pub struct LedgerRecoveryData {
     storage_ledger: LedgerInfoWithSignatures,
@@ -70,10 +71,12 @@ impl LedgerRecoveryData {
         self.storage_ledger.commit_info().round()
     }
 
-    /// Finds the root (last committed block) and returns the root block, the QC to the root block
-    /// and the ledger info for the root block, return an error if it can not be found.
+    /// Finds the root (last committed block) and returns the root block, the QC
+    /// to the root block and the ledger info for the root block, return an
+    /// error if it can not be found.
     ///
-    /// We guarantee that the block corresponding to the storage's latest ledger info always exists.
+    /// We guarantee that the block corresponding to the storage's latest ledger
+    /// info always exists.
     pub fn find_root(
         &self,
         blocks: &mut Vec<Block>,
@@ -84,8 +87,8 @@ impl LedgerRecoveryData {
             self.storage_ledger
         );
 
-        // We start from the block that storage's latest ledger info, if storage has end-epoch
-        // LedgerInfo, we generate the virtual genesis block
+        // We start from the block that storage's latest ledger info, if storage has
+        // end-epoch LedgerInfo, we generate the virtual genesis block
         let (root_id, latest_ledger_info_sig) = if self.storage_ledger.ledger_info().ends_epoch() {
             let genesis =
                 Block::make_genesis_block_from_ledger_info(self.storage_ledger.ledger_info());
@@ -170,8 +173,9 @@ impl From<TransactionAccumulatorSummary> for RootMetadata {
     }
 }
 
-/// The recovery data constructed from raw consensusdb data, it'll find the root value and
-/// blocks that need cleanup or return error if the input data is inconsistent.
+/// The recovery data constructed from raw consensusdb data, it'll find the root
+/// value and blocks that need cleanup or return error if the input data is
+/// inconsistent.
 pub struct RecoveryData {
     // The last vote message sent by this validator.
     last_vote: Option<Vote>,
@@ -403,17 +407,24 @@ impl PersistentLivenessStorage for StorageWriteProxy {
                         .expect("unable to cleanup highest 2-chain timeout cert");
                 }
                 info!(
-                    "Starting up the consensus state machine with recovery data - [last_vote {}], [highest timeout certificate: {}]",
-                    initial_data.last_vote.as_ref().map_or("None".to_string(), |v| v.to_string()),
-                    initial_data.highest_2chain_timeout_certificate().as_ref().map_or("None".to_string(), |v| v.to_string()),
+                    "Starting up the consensus state machine with recovery data - [last_vote {}], \
+                     [highest timeout certificate: {}]",
+                    initial_data
+                        .last_vote
+                        .as_ref()
+                        .map_or("None".to_string(), |v| v.to_string()),
+                    initial_data
+                        .highest_2chain_timeout_certificate()
+                        .as_ref()
+                        .map_or("None".to_string(), |v| v.to_string()),
                 );
 
                 LivenessStorageData::FullRecoveryData(initial_data)
-            }
+            },
             Err(e) => {
                 error!(error = ?e, "Failed to construct recovery data");
                 LivenessStorageData::PartialRecoveryData(ledger_recovery_data)
-            }
+            },
         }
     }
 

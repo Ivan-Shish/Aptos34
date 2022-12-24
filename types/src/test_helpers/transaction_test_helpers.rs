@@ -77,7 +77,8 @@ pub fn get_test_signed_transaction(
     SignedTransaction::new(raw_txn, public_key, signature)
 }
 
-// Test helper for creating transactions for which the signature hasn't been checked.
+// Test helper for creating transactions for which the signature hasn't been
+// checked.
 pub fn get_test_unchecked_transaction(
     sender: AccountAddress,
     sequence_number: u64,
@@ -101,7 +102,8 @@ pub fn get_test_unchecked_transaction(
     )
 }
 
-// Test helper for creating transactions for which the signature hasn't been checked.
+// Test helper for creating transactions for which the signature hasn't been
+// checked.
 fn get_test_unchecked_transaction_(
     sender: AccountAddress,
     sequence_number: u64,
@@ -128,8 +130,8 @@ fn get_test_unchecked_transaction_(
     SignedTransaction::new(raw_txn, public_key, signature)
 }
 
-// Test helper for transaction creation. Short version for get_test_signed_transaction
-// Omits some fields
+// Test helper for transaction creation. Short version for
+// get_test_signed_transaction Omits some fields
 pub fn get_test_signed_txn(
     sender: AccountAddress,
     sequence_number: u64,

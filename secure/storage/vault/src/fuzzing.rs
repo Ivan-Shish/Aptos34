@@ -14,7 +14,8 @@ use ureq::Response;
 
 const MAX_COLLECTION_SIZE: usize = 100;
 
-// This generates an arbitrary generic response returned by vault for various API calls.
+// This generates an arbitrary generic response returned by vault for various
+// API calls.
 prop_compose! {
     pub fn arb_generic_response(
     )(
@@ -67,8 +68,8 @@ prop_compose! {
     }
 }
 
-// This generates an arbitrary secret read response returned by vault, as well as an arbitrary pair
-// of input strings for the secret and key.
+// This generates an arbitrary secret read response returned by vault, as well
+// as an arbitrary pair of input strings for the secret and key.
 prop_compose! {
     pub fn arb_secret_read_response(
     )(
@@ -142,8 +143,8 @@ prop_compose! {
     }
 }
 
-// This generates an arbitrary transit create response returned by vault, as well as an arbitrary
-// string name.
+// This generates an arbitrary transit create response returned by vault, as
+// well as an arbitrary string name.
 prop_compose! {
     pub fn arb_transit_create_response(
     )(
@@ -160,8 +161,8 @@ prop_compose! {
     }
 }
 
-// This generates an arbitrary transit export response returned by vault, as well as an arbitrary
-// string name and version.
+// This generates an arbitrary transit export response returned by vault, as
+// well as an arbitrary string name and version.
 prop_compose! {
     pub fn arb_transit_export_response(
     )(
@@ -223,8 +224,8 @@ prop_compose! {
     }
 }
 
-// This generates an arbitrary transit read response returned by vault, as well as an arbitrary
-// string name.
+// This generates an arbitrary transit read response returned by vault, as well
+// as an arbitrary string name.
 prop_compose! {
     pub fn arb_transit_read_response(
     )(
@@ -291,8 +292,9 @@ prop_compose! {
     }
 }
 
-// Note: these tests ensure that the various fuzzers are maintained (i.e., not broken
-// at some time in the future and only discovered when a fuzz test fails).
+// Note: these tests ensure that the various fuzzers are maintained (i.e., not
+// broken at some time in the future and only discovered when a fuzz test
+// fails).
 #[cfg(test)]
 mod tests {
     use crate::{

@@ -22,8 +22,8 @@ use futures::{executor::block_on, future, io::AsyncReadExt, sink::SinkExt, strea
 use proptest::{arbitrary::any, collection::vec};
 use std::time::Duration;
 
-/// Generate a sequence of `MultiplexMessage`, bcs serialize them, and write them
-/// out to a buffer using our length-prefixed message codec.
+/// Generate a sequence of `MultiplexMessage`, bcs serialize them, and write
+/// them out to a buffer using our length-prefixed message codec.
 pub fn generate_corpus(gen: &mut ValueGenerator) -> Vec<u8> {
     let network_msgs = gen.generate(vec(any::<MultiplexMessage>(), 1..20));
 
@@ -50,9 +50,9 @@ pub fn generate_corpus(gen: &mut ValueGenerator) -> Vec<u8> {
 /// Fuzz the `Peer` actor's inbound message handling.
 ///
 /// For each fuzzer iteration, we spin up a new `Peer` actor and pipe the raw
-/// fuzzer data into it. This mostly tests that the `Peer` inbound message handling
-/// doesn't panic or leak memory when reading, deserializing, and handling messages
-/// from remote peers.
+/// fuzzer data into it. This mostly tests that the `Peer` inbound message
+/// handling doesn't panic or leak memory when reading, deserializing, and
+/// handling messages from remote peers.
 pub fn fuzz(data: &[u8]) {
     // Use the basic single-threaded runtime, since our current tokio version has
     // a chance to leak memory and/or thread handles when using the threaded

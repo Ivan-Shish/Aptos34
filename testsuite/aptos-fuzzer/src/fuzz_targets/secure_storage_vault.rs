@@ -20,8 +20,8 @@ use aptos_vault_client::{
 #[derive(Clone, Debug, Default)]
 pub struct VaultGenericResponse;
 
-/// This implementation will fuzz process_generic_response(): the method used by the vault
-/// client to process generic responses from the vault backend.
+/// This implementation will fuzz process_generic_response(): the method used by
+/// the vault client to process generic responses from the vault backend.
 impl FuzzTargetImpl for VaultGenericResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_generic_response()"
@@ -40,8 +40,8 @@ impl FuzzTargetImpl for VaultGenericResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultPolicyReadResponse;
 
-/// This implementation will fuzz process_policy_read_response(): the method used by the vault
-/// client to process policies read from the vault backend.
+/// This implementation will fuzz process_policy_read_response(): the method
+/// used by the vault client to process policies read from the vault backend.
 impl FuzzTargetImpl for VaultPolicyReadResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_policy_read_response()"
@@ -60,8 +60,8 @@ impl FuzzTargetImpl for VaultPolicyReadResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultPolicyListResponse;
 
-/// This implementation will fuzz process_policy_list_response(): the method used by the vault
-/// client to process policy lists from the vault backend.
+/// This implementation will fuzz process_policy_list_response(): the method
+/// used by the vault client to process policy lists from the vault backend.
 impl FuzzTargetImpl for VaultPolicyListResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_policy_list_response()"
@@ -80,8 +80,8 @@ impl FuzzTargetImpl for VaultPolicyListResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultSecretListResponse;
 
-/// This implementation will fuzz process_secret_list_response(): the method used by the vault
-/// client to process secrets listed from the vault backend.
+/// This implementation will fuzz process_secret_list_response(): the method
+/// used by the vault client to process secrets listed from the vault backend.
 impl FuzzTargetImpl for VaultSecretListResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_secret_list_response()"
@@ -100,8 +100,8 @@ impl FuzzTargetImpl for VaultSecretListResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultSecretReadResponse;
 
-/// This implementation will fuzz process_secret_read_response(): the method used by the vault
-/// client to process secrets read from the vault backend.
+/// This implementation will fuzz process_secret_read_response(): the method
+/// used by the vault client to process secrets read from the vault backend.
 impl FuzzTargetImpl for VaultSecretReadResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_secret_read_response()"
@@ -120,8 +120,9 @@ impl FuzzTargetImpl for VaultSecretReadResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTokenCreateResponse;
 
-/// This implementation will fuzz process_token_create_response(): the method used by the vault
-/// client to process a token create request from the vault backend.
+/// This implementation will fuzz process_token_create_response(): the method
+/// used by the vault client to process a token create request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTokenCreateResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_token_create_response()"
@@ -140,8 +141,9 @@ impl FuzzTargetImpl for VaultTokenCreateResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTokenRenewResponse;
 
-/// This implementation will fuzz process_token_renew_response(): the method used by the vault
-/// client to process a token renew request from the vault backend.
+/// This implementation will fuzz process_token_renew_response(): the method
+/// used by the vault client to process a token renew request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTokenRenewResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_token_renew_response()"
@@ -160,8 +162,9 @@ impl FuzzTargetImpl for VaultTokenRenewResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTransitCreateResponse;
 
-/// This implementation will fuzz process_transit_create_response(): the method used by the vault
-/// client to process a key create request from the vault backend.
+/// This implementation will fuzz process_transit_create_response(): the method
+/// used by the vault client to process a key create request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTransitCreateResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_transit_create_response()"
@@ -180,8 +183,9 @@ impl FuzzTargetImpl for VaultTransitCreateResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTransitExportResponse;
 
-/// This implementation will fuzz process_transit_export_response(): the method used by the vault
-/// client to process a key export request from the vault backend.
+/// This implementation will fuzz process_transit_export_response(): the method
+/// used by the vault client to process a key export request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTransitExportResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_transit_export_response()"
@@ -200,8 +204,9 @@ impl FuzzTargetImpl for VaultTransitExportResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTransitListResponse;
 
-/// This implementation will fuzz process_transit_list_response(): the method used by the vault
-/// client to process a key list request from the vault backend.
+/// This implementation will fuzz process_transit_list_response(): the method
+/// used by the vault client to process a key list request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTransitListResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_transit_list_response()"
@@ -220,8 +225,9 @@ impl FuzzTargetImpl for VaultTransitListResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTransitReadResponse;
 
-/// This implementation will fuzz process_transit_read_response(): the method used by the vault
-/// client to process a key read request from the vault backend.
+/// This implementation will fuzz process_transit_read_response(): the method
+/// used by the vault client to process a key read request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTransitReadResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_transit_read_response()"
@@ -240,8 +246,9 @@ impl FuzzTargetImpl for VaultTransitReadResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTransitRestoreResponse;
 
-/// This implementation will fuzz process_transit_restore_response(): the method used by the vault
-/// client to process a key restore request from the vault backend.
+/// This implementation will fuzz process_transit_restore_response(): the method
+/// used by the vault client to process a key restore request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTransitRestoreResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_transit_restore_response()"
@@ -260,8 +267,9 @@ impl FuzzTargetImpl for VaultTransitRestoreResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultTransitSignResponse;
 
-/// This implementation will fuzz process_transit_sign_response(): the method used by the vault
-/// client to process a signature request from the vault backend.
+/// This implementation will fuzz process_transit_sign_response(): the method
+/// used by the vault client to process a signature request from the vault
+/// backend.
 impl FuzzTargetImpl for VaultTransitSignResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_transit_sign_response()"
@@ -280,8 +288,8 @@ impl FuzzTargetImpl for VaultTransitSignResponse {
 #[derive(Clone, Debug, Default)]
 pub struct VaultUnsealedResponse;
 
-/// This implementation will fuzz process_unsealed_response(): the method used by the vault
-/// client to process an unsealed request from the vault backend.
+/// This implementation will fuzz process_unsealed_response(): the method used
+/// by the vault client to process an unsealed request from the vault backend.
 impl FuzzTargetImpl for VaultUnsealedResponse {
     fn description(&self) -> &'static str {
         "Secure storage vault: process_unsealed_response()"

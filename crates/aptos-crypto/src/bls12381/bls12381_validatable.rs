@@ -1,20 +1,22 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module implements the Validate trait for BLS12-381 public keys, which enables library users
-//! to make sure public keys used for verifying normal (non-aggregated) signatures lie in the prime-order
-//! subgroup of the BLS12-381 group.
+//! This module implements the Validate trait for BLS12-381 public keys, which
+//! enables library users to make sure public keys used for verifying normal
+//! (non-aggregated) signatures lie in the prime-order subgroup of the BLS12-381
+//! group.
 //!
-//! NOTE: For public keys used to verify multisignatures, aggregate signatures and signature shares,
-//! library users need NOT rely on this `Validatable<PublicKey>` wrapper and should instead verify
-//! the proof-of-possession (PoP) of a public key, which implicitly guarantees the PK lies in the
-//! prime-order subgroup. (See `bls12381_pop.rs` and `mod.rs` for details.)
+//! NOTE: For public keys used to verify multisignatures, aggregate signatures
+//! and signature shares, library users need NOT rely on this
+//! `Validatable<PublicKey>` wrapper and should instead verify
+//! the proof-of-possession (PoP) of a public key, which implicitly guarantees
+//! the PK lies in the prime-order subgroup. (See `bls12381_pop.rs` and `mod.rs`
+//! for details.)
 
 use crate::{bls12381::PublicKey, validatable::Validate, CryptoMaterialError, ValidCryptoMaterial};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
-use std::hash::Hash;
+use std::{convert::TryFrom, hash::Hash};
 
 /// An unvalidated `PublicKey`
 #[derive(Debug, Clone, Eq)]
@@ -32,8 +34,9 @@ impl TryFrom<&[u8]> for UnvalidatedPublicKey {
 
     /// Deserializes an UnvalidatedPublicKey from a sequence of bytes.
     ///
-    /// WARNING: Does NOT do any checks whatsoever on these bytes beyond checking the length.
-    /// The returned `UnvalidatedPublicKey` can only be used to create a `Validatable::<PublicKey>`
+    /// WARNING: Does NOT do any checks whatsoever on these bytes beyond
+    /// checking the length. The returned `UnvalidatedPublicKey` can only be
+    /// used to create a `Validatable::<PublicKey>`
     /// via `Validatable::<PublicKey>::from_unvalidated`.
     fn try_from(bytes: &[u8]) -> std::result::Result<Self, CryptoMaterialError> {
         if bytes.len() != PublicKey::LENGTH {

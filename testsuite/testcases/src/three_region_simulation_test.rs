@@ -15,10 +15,10 @@ use tokio::runtime::Runtime;
 pub struct ExecutionDelayConfig {
     /// Fraction (0.0 - 1.0) of nodes on which any delay will be introduced
     pub inject_delay_node_fraction: f64,
-    /// For nodes with delay, what percentage (0-100) of transaction will be delayed.
-    /// (this is needed because delay that can be introduced is integer number of ms)
-    /// Different node speed come from this setting, each node is selected a number
-    /// between 1 and given max.
+    /// For nodes with delay, what percentage (0-100) of transaction will be
+    /// delayed. (this is needed because delay that can be introduced is
+    /// integer number of ms) Different node speed come from this setting,
+    /// each node is selected a number between 1 and given max.
     pub inject_delay_max_transaction_percentage: u32,
     /// Fixed busy-loop delay applied to each transaction that is delayed,
     /// before it is executed.
@@ -39,7 +39,8 @@ impl Test for ThreeRegionSimulationTest {
 /// 1. 3 equal size group of nodes, each in a different region
 /// 2. Each region has minimal network delay amongst its nodes
 /// 3. Each region has a network delay to the other two regions, as estimated by https://www.cloudping.co/grid
-/// 4. Currently simulating a 50 percentile network delay between us-west <--> af-south <--> eu-north
+/// 4. Currently simulating a 50 percentile network delay between us-west <-->
+/// af-south <--> eu-north
 fn create_three_region_swarm_network_delay(swarm: &dyn Swarm) -> SwarmNetworkDelay {
     let all_validators = swarm.validators().map(|v| v.peer_id()).collect::<Vec<_>>();
 

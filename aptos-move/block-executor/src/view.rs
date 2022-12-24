@@ -23,13 +23,15 @@ use std::{collections::BTreeMap, hash::Hash, sync::Arc};
 /// Resolved and serialized data for WriteOps, None means deletion.
 pub type ResolvedData = Option<Vec<u8>>;
 
-/// A struct that is always used by a single thread performing an execution task. The struct is
-/// passed to the VM and acts as a proxy to resolve reads first in the shared multi-version
-/// data-structure. It also allows the caller to track the read-set and any dependencies.
+/// A struct that is always used by a single thread performing an execution
+/// task. The struct is passed to the VM and acts as a proxy to resolve reads
+/// first in the shared multi-version data-structure. It also allows the caller
+/// to track the read-set and any dependencies.
 ///
-/// TODO(issue 10177): MvHashMapView currently needs to be sync due to trait bounds, but should
-/// not be. In this case, the read_dependency member can have a RefCell<bool> type and the
-/// captured_reads member can have RefCell<Vec<ReadDescriptor<K>>> type.
+/// TODO(issue 10177): MvHashMapView currently needs to be sync due to trait
+/// bounds, but should not be. In this case, the read_dependency member can have
+/// a RefCell<bool> type and the captured_reads member can have
+/// RefCell<Vec<ReadDescriptor<K>>> type.
 pub(crate) struct MVHashMapView<'a, K, V> {
     versioned_map: &'a MVHashMap<K, V>,
     scheduler: &'a Scheduler,
@@ -83,25 +85,25 @@ impl<
                         .lock()
                         .push(ReadDescriptor::from_version(key.clone(), idx, incarnation));
                     return ReadResult::Value(v);
-                }
+                },
                 Ok(Resolved(value)) => {
                     self.captured_reads
                         .lock()
                         .push(ReadDescriptor::from_resolved(key.clone(), value));
                     return ReadResult::U128(value);
-                }
+                },
                 Err(NotFound) => {
                     self.captured_reads
                         .lock()
                         .push(ReadDescriptor::from_storage(key.clone()));
                     return ReadResult::None;
-                }
+                },
                 Err(Unresolved(delta)) => {
                     self.captured_reads
                         .lock()
                         .push(ReadDescriptor::from_unresolved(key.clone(), delta));
                     return ReadResult::Unresolved(delta);
-                }
+                },
                 Err(Dependency(dep_idx)) => {
                     // `self.txn_idx` estimated to depend on a write from `dep_idx`.
                     match self.scheduler.wait_for_dependency(txn_idx, dep_idx) {
@@ -126,10 +128,10 @@ impl<
                             while !*dep_resolved {
                                 dep_resolved = cvar.wait(dep_resolved).unwrap();
                             }
-                        }
+                        },
                         None => continue,
                     }
-                }
+                },
                 Err(DeltaApplicationFailure) => {
                     // Delta application failure currently should never happen. Here, we assume it
                     // happened because of speculation and return 0 to the Move-VM. Validation will
@@ -138,7 +140,7 @@ impl<
                         .lock()
                         .push(ReadDescriptor::from_delta_application_failure(key.clone()));
                     return ReadResult::U128(0);
-                }
+                },
             };
         }
     }
@@ -200,28 +202,33 @@ impl<'a, T: Transaction, S: TStateView<Key = T::Key>> TStateView for LatestView<
                         .apply_to(from_storage)
                         .map_err(|pe| pe.finish(Location::Undefined).into_vm_status())?;
                     Ok(Some(serialize(&result)))
-                }
+                },
                 ReadResult::None => self.base_view.get_state_value(state_key),
             },
-            ViewMapKind::BTree(map) => map.get(state_key).map_or_else(
-                || {
-                    // let ret =
-                    self.base_view.get_state_value(state_key)
+            ViewMapKind::BTree(map) => {
+                map.get(state_key).map_or_else(
+                    || {
+                        // let ret =
+                        self.base_view.get_state_value(state_key)
 
-                    // TODO: common treatment with the above case.
-                    // TODO: enable below when logging isn't a circular dependency.
-                    // Even speculatively, reading from base view should not return an error.
-                    // let log_context = AdapterLogSchema::new(self.base_view.id(), self.txn_idx);
-                    // error!(
-                    //     log_context,
-                    //     "[VM, StateView] Error getting data from storage for {:?}", state_key
-                    // );
-                    // Alert (increase critical error count).
-                    // log_context.alert();
-                    // ret
-                },
-                |v| Ok(v.extract_raw_bytes()),
-            ),
+                        // TODO: common treatment with the above case.
+                        // TODO: enable below when logging isn't a circular
+                        // dependency.
+                        // Even speculatively, reading from base view should not
+                        // return an error.
+                        // let log_context =
+                        // AdapterLogSchema::new(self.base_view.id(),
+                        // self.txn_idx); error!(
+                        //     log_context,
+                        //     "[VM, StateView] Error getting data from storage
+                        // for {:?}", state_key );
+                        // Alert (increase critical error count).
+                        // log_context.alert();
+                        // ret
+                    },
+                    |v| Ok(v.extract_raw_bytes()),
+                )
+            },
         }
     }
 

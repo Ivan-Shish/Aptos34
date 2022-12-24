@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/// A collection of constants and default values for configuring various Forge components.
+/// A collection of constants and default values for configuring various Forge
+/// components.
 
 // These are test keys for forge ephemeral networks. Do not use these elsewhere!
 pub const DEFAULT_ROOT_KEY: &str =
@@ -24,13 +25,14 @@ pub const GENESIS_HELM_CHART_PATH: &str = "terraform/helm/genesis";
 
 // cleanup namespaces after 30 minutes unless "keep = true"
 pub const NAMESPACE_CLEANUP_THRESHOLD_SECS: u64 = 1800;
-// Leave a buffer of around 20 minutes for test provisioning and cleanup to be done before cleaning
-// up underlying resources.
+// Leave a buffer of around 20 minutes for test provisioning and cleanup to be
+// done before cleaning up underlying resources.
 pub const NAMESPACE_CLEANUP_DURATION_BUFFER_SECS: u64 = 1200;
 pub const POD_CLEANUP_THRESHOLD_SECS: u64 = 86400;
 pub const MANAGEMENT_CONFIGMAP_PREFIX: &str = "forge-management";
 
-// this is the port on the validator service itself, as opposed to 80 on the validator haproxy service
+// this is the port on the validator service itself, as opposed to 80 on the
+// validator haproxy service
 pub const NODE_METRIC_PORT: u32 = 9101;
 pub const REST_API_SERVICE_PORT: u32 = 8080;
 pub const REST_API_HAPROXY_SERVICE_PORT: u32 = 80;

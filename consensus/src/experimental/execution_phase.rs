@@ -16,7 +16,6 @@ use std::{
 /// ExecutionPhase is a singleton that receives ordered blocks from
 /// the buffer manager and execute them. After the execution is done,
 /// ExecutionPhase sends the ordered blocks back to the buffer manager.
-///
 
 pub struct ExecutionRequest {
     pub ordered_blocks: Vec<ExecutedBlock>,
@@ -53,6 +52,7 @@ impl ExecutionPhase {
 impl StatelessPipeline for ExecutionPhase {
     type Request = ExecutionRequest;
     type Response = ExecutionResponse;
+
     async fn process(&self, req: ExecutionRequest) -> ExecutionResponse {
         let ExecutionRequest { ordered_blocks } = req;
 
@@ -71,13 +71,13 @@ impl StatelessPipeline for ExecutionPhase {
             match self.execution_proxy.compute(b.block(), b.parent_id()).await {
                 Ok(compute_result) => {
                     result.push(ExecutedBlock::new(b.block().clone(), compute_result));
-                }
+                },
                 Err(e) => {
                     return ExecutionResponse {
                         block_id,
                         inner: Err(e),
                     }
-                }
+                },
             }
         }
 

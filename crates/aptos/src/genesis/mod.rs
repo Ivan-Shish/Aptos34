@@ -7,40 +7,44 @@ pub mod keys;
 mod tests;
 pub mod tools;
 
-use crate::common::utils::dir_default_to_current;
-use crate::genesis::git::{OPERATOR_FILE, OWNER_FILE};
 use crate::{
     common::{
         types::{CliError, CliTypedResult, PromptOptions},
-        utils::{check_if_file_exists, write_to_file},
+        utils::{check_if_file_exists, dir_default_to_current, write_to_file},
     },
     genesis::git::{
         Client, GitOptions, BALANCES_FILE, EMPLOYEE_VESTING_ACCOUNTS_FILE, LAYOUT_FILE,
+        OPERATOR_FILE, OWNER_FILE,
     },
     CliCommand, CliResult,
 };
-use aptos_crypto::ed25519::ED25519_PUBLIC_KEY_LENGTH;
-use aptos_crypto::{bls12381, x25519, ValidCryptoMaterial, ValidCryptoMaterialStringExt};
-use aptos_genesis::builder::GenesisConfiguration;
-use aptos_genesis::config::{
-    AccountBalanceMap, EmployeePoolMap, HostAndPort, StringOperatorConfiguration,
-    StringOwnerConfiguration,
+use aptos_crypto::{
+    bls12381, ed25519::ED25519_PUBLIC_KEY_LENGTH, x25519, ValidCryptoMaterial,
+    ValidCryptoMaterialStringExt,
 };
 use aptos_genesis::{
-    config::{Layout, ValidatorConfiguration},
+    builder::GenesisConfiguration,
+    config::{
+        AccountBalanceMap, EmployeePoolMap, HostAndPort, Layout, StringOperatorConfiguration,
+        StringOwnerConfiguration, ValidatorConfiguration,
+    },
     mainnet::MainnetGenesisInfo,
     GenesisInfo,
 };
 use aptos_logger::info;
-use aptos_types::account_address::{AccountAddress, AccountAddressWithChecks};
-use aptos_types::on_chain_config::OnChainConsensusConfig;
+use aptos_types::{
+    account_address::{AccountAddress, AccountAddressWithChecks},
+    on_chain_config::OnChainConsensusConfig,
+};
 use aptos_vm_genesis::{default_gas_schedule, AccountBalance, EmployeePool};
 use async_trait::async_trait;
 use clap::Parser;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::path::Path;
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet, HashSet},
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 const WAYPOINT_FILE: &str = "waypoint.txt";
 const GENESIS_FILE: &str = "genesis.blob";
@@ -157,8 +161,8 @@ pub fn fetch_mainnet_genesis_info(git_options: GitOptions) -> CliTypedResult<Mai
         )));
     }
 
-    // Check that the user has a reasonable amount of APT, since below the minimum gas amount is
-    // not useful 1 APT minimally
+    // Check that the user has a reasonable amount of APT, since below the minimum
+    // gas amount is not useful 1 APT minimally
     const MIN_USEFUL_AMOUNT: u64 = 200000000;
     let ten_percent_of_total = total_supply / 10;
     for account in accounts.iter() {
@@ -314,14 +318,14 @@ fn get_validator_configs(
         match get_config(client, user, is_mainnet) {
             Ok(validator) => {
                 validators.push(validator);
-            }
+            },
             Err(failure) => {
                 if let CliError::UnexpectedError(failure) = failure {
                     errors.push(format!("{}: {}", user, failure));
                 } else {
                     errors.push(format!("{}: {:?}", user, failure));
                 }
-            }
+            },
         }
     }
 
@@ -412,7 +416,8 @@ fn get_config(
     )?
     .unwrap_or(true);
 
-    // We don't require the operator file if the validator is not joining during genesis.
+    // We don't require the operator file if the validator is not joining during
+    // genesis.
     if is_mainnet && !join_during_genesis {
         return Ok(ValidatorConfiguration {
             owner_account_address: owner_account_address.into(),
@@ -478,24 +483,24 @@ fn get_config(
 
     // Verify owner & operator agree on operator
     if operator_account_address != operator_account_address_from_file {
-        return Err(
-            CliError::CommandArgumentError(
-                format!("Operator account {} in owner file {} does not match operator account {} in operator file {}",
-                        operator_account_address,
-                        owner_file.display(),
-                        operator_account_address_from_file,
-                        operator_file.display()
-                )));
+        return Err(CliError::CommandArgumentError(format!(
+            "Operator account {} in owner file {} does not match operator account {} in operator \
+             file {}",
+            operator_account_address,
+            owner_file.display(),
+            operator_account_address_from_file,
+            operator_file.display()
+        )));
     }
     if operator_account_public_key != operator_account_public_key_from_file {
-        return Err(
-            CliError::CommandArgumentError(
-                format!("Operator public key {} in owner file {} does not match operator public key {} in operator file {}",
-                        operator_account_public_key,
-                        owner_file.display(),
-                        operator_account_public_key_from_file,
-                        operator_file.display()
-                )));
+        return Err(CliError::CommandArgumentError(format!(
+            "Operator public key {} in owner file {} does not match operator public key {} in \
+             operator file {}",
+            operator_account_public_key,
+            owner_file.display(),
+            operator_account_public_key_from_file,
+            operator_file.display()
+        )));
     }
 
     // Build Validator configuration
@@ -536,7 +541,7 @@ fn parse_key<T: ValidCryptoMaterial>(num_bytes: usize, str: &str) -> anyhow::Res
                 working.len(),
                 num_chars
             )
-        }
+        },
         Ordering::Greater => {
             anyhow::bail!(
                 "Key {} is too long {} must be {} hex characters with or without a 0x in front",
@@ -544,8 +549,8 @@ fn parse_key<T: ValidCryptoMaterial>(num_bytes: usize, str: &str) -> anyhow::Res
                 working.len(),
                 num_chars
             )
-        }
-        Ordering::Equal => {}
+        },
+        Ordering::Equal => {},
     }
 
     if !working.chars().all(|c| char::is_ascii_hexdigit(&c)) {
@@ -678,7 +683,8 @@ fn validate_validators(
         // TODO: Make this field optional but checked
         if !is_pooled_validator && *owner_balance < validator.stake_amount {
             errors.push(CliError::UnexpectedError(format!(
-                "Owner {} in validator {} has less in it's balance {} than the stake amount for the validator {}",
+                "Owner {} in validator {} has less in it's balance {} than the stake amount for \
+                 the validator {}",
                 validator.owner_account_address, name, owner_balance, validator.stake_amount
             )));
         }
@@ -699,7 +705,8 @@ fn validate_validators(
         if validator.join_during_genesis {
             if validator.validator_network_public_key.is_none() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} does not have a validator network public key, though it's joining during genesis",
+                    "Validator {} does not have a validator network public key, though it's \
+                     joining during genesis",
                     name
                 )));
             }
@@ -713,7 +720,8 @@ fn validate_validators(
 
             if validator.validator_host.is_none() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} does not have a validator host, though it's joining during genesis",
+                    "Validator {} does not have a validator host, though it's joining during \
+                     genesis",
                     name
                 )));
             }
@@ -727,7 +735,8 @@ fn validate_validators(
 
             if validator.consensus_public_key.is_none() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} does not have a consensus public key, though it's joining during genesis",
+                    "Validator {} does not have a consensus public key, though it's joining \
+                     during genesis",
                     name
                 )));
             }
@@ -743,7 +752,8 @@ fn validate_validators(
 
             if validator.proof_of_possession.is_none() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} does not have a consensus proof of possession, though it's joining during genesis",
+                    "Validator {} does not have a consensus proof of possession, though it's \
+                     joining during genesis",
                     name
                 )));
             }
@@ -763,13 +773,13 @@ fn validate_validators(
             ) {
                 (None, None) => {
                     info!("Validator {} does not have a full node setup", name);
-                }
+                },
                 (Some(_), None) | (None, Some(_)) => {
                     errors.push(CliError::UnexpectedError(format!(
                         "Validator {} has a full node host or public key but not both",
                         name
                     )));
-                }
+                },
                 (Some(full_node_host), Some(full_node_network_public_key)) => {
                     // Ensure that the validator and the full node aren't the same
                     let validator_host = validator.validator_host.as_ref().unwrap();
@@ -777,9 +787,9 @@ fn validate_validators(
                         validator.validator_network_public_key.as_ref().unwrap();
                     if validator_host == full_node_host {
                         errors.push(CliError::UnexpectedError(format!(
-                            "Validator {} has a validator and a full node host that are the same {:?}",
-                            name,
-                            validator_host
+                            "Validator {} has a validator and a full node host that are the same \
+                             {:?}",
+                            name, validator_host
                         )));
                     }
                     if !unique_hosts.insert(validator.full_node_host.as_ref().unwrap().clone()) {
@@ -792,9 +802,9 @@ fn validate_validators(
 
                     if validator_network_public_key == full_node_network_public_key {
                         errors.push(CliError::UnexpectedError(format!(
-                            "Validator {} has a validator and a full node network public key that are the same {}",
-                            name,
-                            validator_network_public_key
+                            "Validator {} has a validator and a full node network public key that \
+                             are the same {}",
+                            name, validator_network_public_key
                         )));
                     }
                     if !unique_network_keys.insert(validator.full_node_network_public_key.unwrap())
@@ -805,12 +815,13 @@ fn validate_validators(
                             validator.full_node_network_public_key.unwrap()
                         )));
                     }
-                }
+                },
             }
         } else {
             if validator.validator_network_public_key.is_some() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} has a validator network public key, but it is *NOT* joining during genesis",
+                    "Validator {} has a validator network public key, but it is *NOT* joining \
+                     during genesis",
                     name
                 )));
             }
@@ -822,19 +833,22 @@ fn validate_validators(
             }
             if validator.consensus_public_key.is_some() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} has a consensus public key, but it is *NOT* joining during genesis",
+                    "Validator {} has a consensus public key, but it is *NOT* joining during \
+                     genesis",
                     name
                 )));
             }
             if validator.proof_of_possession.is_some() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} has a consensus proof of possession, but it is *NOT* joining during genesis",
+                    "Validator {} has a consensus proof of possession, but it is *NOT* joining \
+                     during genesis",
                     name
                 )));
             }
             if validator.full_node_network_public_key.is_some() {
                 errors.push(CliError::UnexpectedError(format!(
-                    "Validator {} has a full node public key, but it is *NOT* joining during genesis",
+                    "Validator {} has a full node public key, but it is *NOT* joining during \
+                     genesis",
                     name
                 )));
             }

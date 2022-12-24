@@ -6,8 +6,10 @@ use crate::{
     pending_votes::{PendingVotes, VoteReceptionResult},
     util::time_service::{SendTask, TimeService},
 };
-use aptos_consensus_types::timeout_2chain::TwoChainTimeoutWithPartialSignatures;
-use aptos_consensus_types::{common::Round, sync_info::SyncInfo, vote::Vote};
+use aptos_consensus_types::{
+    common::Round, sync_info::SyncInfo, timeout_2chain::TwoChainTimeoutWithPartialSignatures,
+    vote::Vote,
+};
 use aptos_crypto::HashValue;
 use aptos_logger::{prelude::*, Schema};
 use aptos_types::{
@@ -17,7 +19,8 @@ use futures::future::AbortHandle;
 use serde::Serialize;
 use std::{fmt, sync::Arc, time::Duration};
 
-/// A reason for starting a new round: introduced for monitoring / debug purposes.
+/// A reason for starting a new round: introduced for monitoring / debug
+/// purposes.
 #[derive(Serialize, Debug, PartialEq, Eq)]
 pub enum NewRoundReason {
     QCReady,
@@ -33,10 +36,10 @@ impl fmt::Display for NewRoundReason {
     }
 }
 
-/// NewRoundEvents produced by RoundState are guaranteed to be monotonically increasing.
-/// NewRoundEvents are consumed by the rest of the system: they can cause sending new proposals
-/// or voting for some proposals that wouldn't have been voted otherwise.
-/// The duration is populated for debugging and testing
+/// NewRoundEvents produced by RoundState are guaranteed to be monotonically
+/// increasing. NewRoundEvents are consumed by the rest of the system: they can
+/// cause sending new proposals or voting for some proposals that wouldn't have
+/// been voted otherwise. The duration is populated for debugging and testing
 #[derive(Debug)]
 pub struct NewRoundEvent {
     pub round: Round,
@@ -56,18 +59,20 @@ impl fmt::Display for NewRoundEvent {
     }
 }
 
-/// Determines the maximum round duration based on the round difference between the current
-/// round and the committed round
+/// Determines the maximum round duration based on the round difference between
+/// the current round and the committed round
 pub trait RoundTimeInterval: Send + Sync + 'static {
-    /// Use the index of the round after the highest quorum certificate to commit a block and
-    /// return the duration for this round
+    /// Use the index of the round after the highest quorum certificate to
+    /// commit a block and return the duration for this round
     ///
-    /// Round indices start at 0 (round index = 0 is the first round after the round that led
-    /// to the highest committed round).  Given that round r is the highest round to commit a
-    /// block, then round index 0 is round r+1.  Note that for genesis does not follow the
-    /// 3-chain rule for commits, so round 1 has round index 0.  For example, if one wants
-    /// to calculate the round duration of round 6 and the highest committed round is 3 (meaning
-    /// the highest round to commit a block is round 5, then the round index is 0.
+    /// Round indices start at 0 (round index = 0 is the first round after the
+    /// round that led to the highest committed round).  Given that round r
+    /// is the highest round to commit a block, then round index 0 is round
+    /// r+1.  Note that for genesis does not follow the 3-chain rule for
+    /// commits, so round 1 has round index 0.  For example, if one wants to
+    /// calculate the round duration of round 6 and the highest committed round
+    /// is 3 (meaning the highest round to commit a block is round 5, then
+    /// the round index is 0.
     fn get_round_duration(&self, round_index_after_committed_qc: usize) -> Duration;
 }
 
@@ -120,20 +125,22 @@ impl RoundTimeInterval for ExponentialTimeInterval {
     }
 }
 
-/// `RoundState` contains information about a specific round and moves forward when
-/// receives new certificates.
+/// `RoundState` contains information about a specific round and moves forward
+/// when receives new certificates.
 ///
 /// A round `r` starts in the following cases:
 /// * there is a QuorumCert for round `r-1`,
 /// * there is a TimeoutCertificate for round `r-1`.
 ///
-/// Round interval calculation is the responsibility of the RoundStateTimeoutInterval trait. It
-/// depends on the delta between the current round and the highest committed round (the intuition is
-/// that we want to exponentially grow the interval the further the current round is from the last
-/// committed round).
+/// Round interval calculation is the responsibility of the
+/// RoundStateTimeoutInterval trait. It depends on the delta between the current
+/// round and the highest committed round (the intuition is that we want to
+/// exponentially grow the interval the further the current round is from the
+/// last committed round).
 ///
-/// Whenever a new round starts a local timeout is set following the round interval. This local
-/// timeout is going to send the timeout events once in interval until the new round starts.
+/// Whenever a new round starts a local timeout is set following the round
+/// interval. This local timeout is going to send the timeout events once in
+/// interval until the new round starts.
 pub struct RoundState {
     // Determines the time interval for a round given the number of non-committed rounds since
     // last commit.
@@ -188,7 +195,8 @@ impl RoundState {
         timeout_sender: aptos_channels::Sender<Round>,
     ) -> Self {
         // Our counters are initialized lazily, so they're not going to appear in
-        // Prometheus if some conditions never happen. Invoking get() function enforces creation.
+        // Prometheus if some conditions never happen. Invoking get() function enforces
+        // creation.
         counters::QC_ROUNDS_COUNT.get();
         counters::TIMEOUT_ROUNDS_COUNT.get();
         counters::TIMEOUT_COUNT.get();
@@ -221,8 +229,8 @@ impl RoundState {
         self.current_round_deadline
     }
 
-    /// In case the local timeout corresponds to the current round, reset the timeout and
-    /// return true. Otherwise ignore and return false.
+    /// In case the local timeout corresponds to the current round, reset the
+    /// timeout and return true. Otherwise ignore and return false.
     pub fn process_local_timeout(&mut self, round: Round) -> bool {
         if round != self.current_round {
             return false;
@@ -233,8 +241,9 @@ impl RoundState {
         true
     }
 
-    /// Notify the RoundState about the potentially new QC, TC, and highest committed round.
-    /// Note that some of these values might not be available by the caller.
+    /// Notify the RoundState about the potentially new QC, TC, and highest
+    /// committed round. Note that some of these values might not be
+    /// available by the caller.
     pub fn process_certificates(&mut self, sync_info: SyncInfo) -> Option<NewRoundEvent> {
         if sync_info.highest_ordered_round() > self.highest_committed_round {
             self.highest_committed_round = sync_info.highest_ordered_round();
@@ -248,8 +257,8 @@ impl RoundState {
             self.pending_votes = PendingVotes::new();
             self.vote_sent = None;
             let timeout = self.setup_timeout(1);
-            // The new round reason is QCReady in case both QC.round + 1 == new_round, otherwise
-            // it's Timeout and TC.round + 1 == new_round.
+            // The new round reason is QCReady in case both QC.round + 1 == new_round,
+            // otherwise it's Timeout and TC.round + 1 == new_round.
             let new_round_reason = if sync_info.highest_certified_round() + 1 == new_round {
                 NewRoundReason::QCReady
             } else {
@@ -293,7 +302,8 @@ impl RoundState {
         self.vote_sent.clone()
     }
 
-    /// Setup a longer timeout task for leader because it enters the round earlier.
+    /// Setup a longer timeout task for leader because it enters the round
+    /// earlier.
     pub fn setup_leader_timeout(&mut self) {
         self.setup_timeout(2);
     }
@@ -316,7 +326,8 @@ impl RoundState {
         timeout
     }
 
-    /// Setup the current round deadline and return the duration of the current round
+    /// Setup the current round deadline and return the duration of the current
+    /// round
     fn setup_deadline(&mut self, multiplier: u32) -> Duration {
         let round_index_after_committed_round = {
             if self.highest_committed_round == 0 {

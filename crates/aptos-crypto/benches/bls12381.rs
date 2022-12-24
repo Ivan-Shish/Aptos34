@@ -4,15 +4,6 @@
 #[macro_use]
 extern crate criterion;
 
-use criterion::{
-    measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId, Criterion,
-    PlotConfiguration, Throughput,
-};
-use rand::{distributions, rngs::ThreadRng, thread_rng, Rng};
-
-use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
-use serde::{Deserialize, Serialize};
-
 use aptos_crypto::{
     bls12381,
     bls12381::ProofOfPossession,
@@ -20,6 +11,13 @@ use aptos_crypto::{
     traits::{Signature, SigningKey, Uniform},
     PrivateKey,
 };
+use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
+use criterion::{
+    measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId, Criterion,
+    PlotConfiguration, Throughput,
+};
+use rand::{distributions, rngs::ThreadRng, thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, CryptoHasher, BCSCryptoHash, Serialize, Deserialize)]
 struct TestAptosCrypto(String);
@@ -57,12 +55,14 @@ fn bench_group(c: &mut Criterion) {
 
     let mut size = 128;
     for _ in 1..=4 {
-        // Even single-threaded, this function has higher throughput that `aggregate_one_sigshare`
+        // Even single-threaded, this function has higher throughput that
+        // `aggregate_one_sigshare`
         aggregate_sigshare(&mut group, size);
 
-        // Even single-threaded, this function has higher throughput than `aggregate_one_pk`. Seems
-        // to be due to only making a single call to blst::PublicKey::from_aggregate (which calls a
-        // $pk_to_aff function) for the entire batch.
+        // Even single-threaded, this function has higher throughput than
+        // `aggregate_one_pk`. Seems to be due to only making a single call to
+        // blst::PublicKey::from_aggregate (which calls a $pk_to_aff function)
+        // for the entire batch.
         aggregate_pks(&mut group, size);
 
         verify_multisig(&mut group, size);
@@ -73,8 +73,8 @@ fn bench_group(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmarks the time to deserialize a BLS12-381 point representing a PK in G1. (Does not test for
-/// prime-order subgroup membership.)
+/// Benchmarks the time to deserialize a BLS12-381 point representing a PK in
+/// G1. (Does not test for prime-order subgroup membership.)
 fn pk_deserialize<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng = thread_rng();
 
@@ -92,8 +92,8 @@ fn pk_deserialize<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     });
 }
 
-/// Benchmarks the time to aggregate a BLS PK in G1. (Does not test for prime-order subgroup
-/// membership.)
+/// Benchmarks the time to aggregate a BLS PK in G1. (Does not test for
+/// prime-order subgroup membership.)
 fn aggregate_one_pk<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng = thread_rng();
 
@@ -114,8 +114,8 @@ fn aggregate_one_pk<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     });
 }
 
-/// Benchmarks the time to deserialize a BLS12-381 point representing a signature in G2. (Does not test for
-/// prime-order subgroup membership.)
+/// Benchmarks the time to deserialize a BLS12-381 point representing a
+/// signature in G2. (Does not test for prime-order subgroup membership.)
 fn sig_deserialize<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng = thread_rng();
 
@@ -134,8 +134,8 @@ fn sig_deserialize<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     });
 }
 
-/// Benchmarks the time to aggregate a BLS signature in G2. (Does not test for prime-order subgroup
-/// membership.)
+/// Benchmarks the time to aggregate a BLS signature in G2. (Does not test for
+/// prime-order subgroup membership.)
 fn aggregate_one_sigshare<M: Measurement>(g: &mut BenchmarkGroup<M>) {
     let mut rng = thread_rng();
 
@@ -322,8 +322,9 @@ fn aggregate_sigshare<M: Measurement>(g: &mut BenchmarkGroup<M>, size: usize) {
     );
 }
 
-/// Benchmarks the time to verify a multisignature from the perspective of a verifier who has the
-/// public keys of `n` signers and receives a multisignature from `size` of them
+/// Benchmarks the time to verify a multisignature from the perspective of a
+/// verifier who has the public keys of `n` signers and receives a
+/// multisignature from `size` of them
 fn verify_multisig<M: Measurement>(g: &mut BenchmarkGroup<M>, size: usize) {
     let mut rng = thread_rng();
 
@@ -374,8 +375,8 @@ fn verify_multisig<M: Measurement>(g: &mut BenchmarkGroup<M>, size: usize) {
     );
 }
 
-/// Benchmarks the time to verify an aggregate signature from the perspective of a verifier who
-/// receives an aggregate signature from `n` signers.
+/// Benchmarks the time to verify an aggregate signature from the perspective of
+/// a verifier who receives an aggregate signature from `n` signers.
 fn verify_aggsig<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
     let mut rng = thread_rng();
 

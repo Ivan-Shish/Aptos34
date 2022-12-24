@@ -3,11 +3,12 @@
 
 #![forbid(unsafe_code)]
 
-//! This crate provides [`AptosDB`] which represents physical storage of the core Aptos data
-//! structures.
+//! This crate provides [`AptosDB`] which represents physical storage of the
+//! core Aptos data structures.
 //!
-//! It relays read/write operations on the physical storage via [`schemadb`] to the underlying
-//! Key-Value storage system, and implements aptos data structures on top of it.
+//! It relays read/write operations on the physical storage via [`schemadb`] to
+//! the underlying Key-Value storage system, and implements aptos data
+//! structures on top of it.
 
 // Used in this and other crates for testing.
 #[cfg(any(test, feature = "fuzzing"))]
@@ -48,8 +49,14 @@ use crate::{
         API_LATENCY_SECONDS, COMMITTED_TXNS, LATEST_TXN_VERSION, LEDGER_VERSION, NEXT_BLOCK_EPOCH,
         OTHER_TIMERS_SECONDS, ROCKSDB_PROPERTIES,
     },
-    pruner::{pruner_manager::PrunerManager, pruner_utils},
+    pruner::{
+        ledger_pruner_manager::LedgerPrunerManager,
+        ledger_store::ledger_store_pruner::LedgerPruner, pruner_manager::PrunerManager,
+        pruner_utils, state_pruner_manager::StatePrunerManager, state_store::StateMerklePruner,
+    },
     schema::*,
+    stale_node_index::StaleNodeIndexSchema,
+    stale_node_index_cross_epoch::StaleNodeIndexCrossEpochSchema,
     state_store::StateStore,
     transaction_store::TransactionStore,
 };
@@ -60,13 +67,16 @@ use aptos_config::config::{
     PrunerConfig, RocksdbConfig, RocksdbConfigs, BUFFERED_STATE_TARGET_ITEMS,
     NO_OP_STORAGE_PRUNER_CONFIG,
 };
-
 use aptos_crypto::hash::HashValue;
 use aptos_db_indexer::Indexer;
 use aptos_infallible::Mutex;
 use aptos_logger::prelude::*;
 use aptos_rocksdb_options::gen_rocksdb_options;
 use aptos_schemadb::{SchemaBatch, DB};
+use aptos_storage_interface::{
+    state_delta::StateDelta, state_view::DbStateView, DbReader, DbWriter, ExecutedTrees, Order,
+    StateSnapshotReceiver, MAX_REQUEST_LIMIT,
+};
 use aptos_types::{
     account_address::AccountAddress,
     account_config::{new_block_event_key, NewBlockEvent},
@@ -107,25 +117,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    pruner::{
-        ledger_pruner_manager::LedgerPrunerManager,
-        ledger_store::ledger_store_pruner::LedgerPruner, state_pruner_manager::StatePrunerManager,
-        state_store::StateMerklePruner,
-    },
-    stale_node_index::StaleNodeIndexSchema,
-    stale_node_index_cross_epoch::StaleNodeIndexCrossEpochSchema,
-};
-use aptos_storage_interface::{
-    state_delta::StateDelta, state_view::DbStateView, DbReader, DbWriter, ExecutedTrees, Order,
-    StateSnapshotReceiver, MAX_REQUEST_LIMIT,
-};
-
 pub const LEDGER_DB_NAME: &str = "ledger_db";
 pub const STATE_MERKLE_DB_NAME: &str = "state_merkle_db";
 
-// TODO: Either implement an iteration API to allow a very old client to loop through a long history
-// or guarantee that there is always a recent enough waypoint and client knows to boot from there.
+// TODO: Either implement an iteration API to allow a very old client to loop
+// through a long history or guarantee that there is always a recent enough
+// waypoint and client knows to boot from there.
 const MAX_NUM_EPOCH_ENDING_LEDGER_INFO: usize = 100;
 static ROCKSDB_PROPERTY_MAP: Lazy<HashMap<&str, String>> = Lazy::new(|| {
     [
@@ -205,20 +202,22 @@ struct RocksdbPropertyReporter {
 impl RocksdbPropertyReporter {
     fn new(ledger_rocksdb: Arc<DB>, state_merkle_rocksdb: Arc<DB>) -> Self {
         let (send, recv) = mpsc::channel();
-        let join_handle = Some(thread::spawn(move || loop {
-            if let Err(e) = update_rocksdb_properties(&ledger_rocksdb, &state_merkle_rocksdb) {
-                warn!(
-                    error = ?e,
-                    "Updating rocksdb property failed."
-                );
-            }
-            // report rocksdb properties each 10 seconds
-            const TIMEOUT_MS: u64 = if cfg!(test) { 10 } else { 10000 };
+        let join_handle = Some(thread::spawn(move || {
+            loop {
+                if let Err(e) = update_rocksdb_properties(&ledger_rocksdb, &state_merkle_rocksdb) {
+                    warn!(
+                        error = ?e,
+                        "Updating rocksdb property failed."
+                    );
+                }
+                // report rocksdb properties each 10 seconds
+                const TIMEOUT_MS: u64 = if cfg!(test) { 10 } else { 10000 };
 
-            match recv.recv_timeout(Duration::from_millis(TIMEOUT_MS)) {
-                Ok(_) => break,
-                Err(mpsc::RecvTimeoutError::Timeout) => (),
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                match recv.recv_timeout(Duration::from_millis(TIMEOUT_MS)) {
+                    Ok(_) => break,
+                    Err(mpsc::RecvTimeoutError::Timeout) => (),
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
             }
         }));
         Self {
@@ -240,8 +239,8 @@ impl Drop for RocksdbPropertyReporter {
     }
 }
 
-/// This holds a handle to the underlying DB responsible for physical storage and provides APIs for
-/// access to the core Aptos data structures.
+/// This holds a handle to the underlying DB responsible for physical storage
+/// and provides APIs for access to the core Aptos data structures.
 #[derive(Debug)]
 pub struct AptosDB {
     ledger_db: Arc<DB>,
@@ -471,7 +470,7 @@ impl AptosDB {
         Self::open(
             db_root_path,
             readonly,
-            NO_OP_STORAGE_PRUNER_CONFIG, /* pruner */
+            NO_OP_STORAGE_PRUNER_CONFIG, // pruner
             RocksdbConfigs::default(),
             enable_indexer,
             buffered_state_target_items,
@@ -498,7 +497,8 @@ impl AptosDB {
         Self::new_without_pruner(db_root_path, false, BUFFERED_STATE_TARGET_ITEMS, 0, false)
     }
 
-    /// This opens db in non-readonly mode, without the pruner, and with the indexer
+    /// This opens db in non-readonly mode, without the pruner, and with the
+    /// indexer
     #[cfg(any(test, feature = "fuzzing"))]
     pub fn new_for_test_with_indexer<P: AsRef<Path> + Clone>(db_root_path: P) -> Self {
         Self::new_without_pruner(
@@ -548,9 +548,10 @@ impl AptosDB {
         update_rocksdb_properties(&self.ledger_db, &self.state_merkle_db)
     }
 
-    /// Returns ledger infos reflecting epoch bumps starting with the given epoch. If there are no
-    /// more than `MAX_NUM_EPOCH_ENDING_LEDGER_INFO` results, this function returns all of them,
-    /// otherwise the first `MAX_NUM_EPOCH_ENDING_LEDGER_INFO` results are returned and a flag
+    /// Returns ledger infos reflecting epoch bumps starting with the given
+    /// epoch. If there are no more than `MAX_NUM_EPOCH_ENDING_LEDGER_INFO`
+    /// results, this function returns all of them, otherwise the first
+    /// `MAX_NUM_EPOCH_ENDING_LEDGER_INFO` results are returned and a flag
     /// (when true) will be used to indicate the fact that there is more.
     fn get_epoch_ending_ledger_infos(
         &self,
@@ -576,8 +577,9 @@ impl AptosDB {
             start_epoch,
             end_epoch,
         );
-        // Note that the latest epoch can be the same with the current epoch (in most cases), or
-        // current_epoch + 1 (when the latest ledger_info carries next validator set)
+        // Note that the latest epoch can be the same with the current epoch (in most
+        // cases), or current_epoch + 1 (when the latest ledger_info carries
+        // next validator set)
         let latest_epoch = self
             .ledger_store
             .get_latest_ledger_info()?
@@ -585,9 +587,10 @@ impl AptosDB {
             .next_block_epoch();
         ensure!(
             end_epoch <= latest_epoch,
-            "Unable to provide epoch change ledger info for still open epoch. asked upper bound: {}, last sealed epoch: {}",
+            "Unable to provide epoch change ledger info for still open epoch. asked upper bound: \
+             {}, last sealed epoch: {}",
             end_epoch,
-            latest_epoch - 1,  // okay to -1 because genesis LedgerInfo has .next_block_epoch() == 1
+            latest_epoch - 1, // okay to -1 because genesis LedgerInfo has .next_block_epoch() == 1
         );
 
         let (paging_epoch, more) = if end_epoch - start_epoch > limit as u64 {
@@ -610,8 +613,8 @@ impl AptosDB {
         Ok((lis, more))
     }
 
-    /// Returns the transaction with proof for a given version, or error if the transaction is not
-    /// found.
+    /// Returns the transaction with proof for a given version, or error if the
+    /// transaction is not found.
     fn get_transaction_with_proof(
         &self,
         version: Version,
@@ -640,7 +643,8 @@ impl AptosDB {
         })
     }
 
-    // ================================== Backup APIs ===================================
+    // ================================== Backup APIs
+    // ===================================
 
     /// Gets an instance of `BackupHandler` for data backup purpose.
     pub fn get_backup_handler(&self) -> BackupHandler {
@@ -670,7 +674,8 @@ impl AptosDB {
         Ok(())
     }
 
-    // ================================== Private APIs ==================================
+    // ================================== Private APIs
+    // ==================================
     fn get_events_by_event_key(
         &self,
         event_key: &EventKey,
@@ -703,12 +708,13 @@ impl AptosDB {
             ledger_version,
         )?;
 
-        // When descending, it's possible that user is asking for something beyond the latest
-        // sequence number, in which case we will consider it a bad request and return an empty
-        // list.
-        // For example, if the latest sequence number is 100, and the caller is asking for 110 to
-        // 90, we will get 90 to 100 from the index lookup above. Seeing that the last item
-        // is 100 instead of 110 tells us 110 is out of bound.
+        // When descending, it's possible that user is asking for something beyond the
+        // latest sequence number, in which case we will consider it a bad
+        // request and return an empty list.
+        // For example, if the latest sequence number is 100, and the caller is asking
+        // for 110 to 90, we will get 90 to 100 from the index lookup above.
+        // Seeing that the last item is 100 instead of 110 tells us 110 is out
+        // of bound.
         if order == Order::Descending {
             if let Some((seq_num, _, _)) = event_indices.last() {
                 if *seq_num < cursor {
@@ -812,9 +818,9 @@ impl AptosDB {
         })
     }
 
-    /// Write the whole schema batch including all data necessary to mutate the ledger
-    /// state of some transaction by leveraging rocksdb atomicity support. Also committed are the
-    /// LedgerCounters.
+    /// Write the whole schema batch including all data necessary to mutate the
+    /// ledger state of some transaction by leveraging rocksdb atomicity
+    /// support. Also committed are the LedgerCounters.
     fn commit(&self, batch: SchemaBatch) -> Result<()> {
         self.ledger_db.write_schemas(batch)?;
         Ok(())
@@ -825,7 +831,7 @@ impl AptosDB {
             Some(indexer) => indexer.get_table_info(handle),
             None => {
                 bail!("Indexer not enabled.");
-            }
+            },
         }
     }
 
@@ -860,7 +866,8 @@ impl AptosDB {
             self.ledger_store.ensure_epoch_ending(version)
         } else {
             bail!(
-                "{} at version {} is pruned. snapshots are available at >= {}, epoch snapshots are available at >= {}",
+                "{} at version {} is pruned. snapshots are available at >= {}, epoch snapshots \
+                 are available at >= {}",
                 data_type,
                 version,
                 min_readable_version,
@@ -967,8 +974,9 @@ impl DbReader for AptosDB {
         })
     }
 
-    /// Returns the transaction by version, delegates to `AptosDB::get_transaction_with_proof`.
-    /// Returns an error if the provided version is not found.
+    /// Returns the transaction by version, delegates to
+    /// `AptosDB::get_transaction_with_proof`. Returns an error if the
+    /// provided version is not found.
     fn get_transaction_by_version(
         &self,
         version: Version,
@@ -980,11 +988,14 @@ impl DbReader for AptosDB {
         })
     }
 
-    // ======================= State Synchronizer Internal APIs ===================================
-    /// Returns batch of transactions for the purpose of synchronizing state to another node.
+    // ======================= State Synchronizer Internal APIs
+    // ===================================
+    /// Returns batch of transactions for the purpose of synchronizing state to
+    /// another node.
     ///
     /// If any version beyond ledger_version is requested, it is ignored.
-    /// Returns an error if any version <= ledger_version is requested but not found.
+    /// Returns an error if any version <= ledger_version is requested but not
+    /// found.
     ///
     /// This is used by the State Synchronizer module internally.
     fn get_transactions(
@@ -1091,10 +1102,12 @@ impl DbReader for AptosDB {
         })
     }
 
-    /// Returns a batch of transactions for the purpose of synchronizing state to another node.
+    /// Returns a batch of transactions for the purpose of synchronizing state
+    /// to another node.
     ///
     /// If any version beyond ledger_version is requested, it is ignored.
-    /// Returns an error if any version <= ledger_version is requested but not found.
+    /// Returns an error if any version <= ledger_version is requested but not
+    /// found.
     ///
     /// This is used by the State Synchronizer module internally.
     fn get_transaction_outputs(
@@ -1488,11 +1501,13 @@ impl DbReader for AptosDB {
 }
 
 impl DbWriter for AptosDB {
-    /// `first_version` is the version of the first transaction in `txns_to_commit`.
-    /// When `ledger_info_with_sigs` is provided, verify that the transaction accumulator root hash
-    /// it carries is generated after the `txns_to_commit` are applied.
-    /// Note that even if `txns_to_commit` is empty, `first_version` is checked to be
-    /// `ledger_info_with_sigs.ledger_info.version + 1` if `ledger_info_with_sigs` is not `None`.
+    /// `first_version` is the version of the first transaction in
+    /// `txns_to_commit`. When `ledger_info_with_sigs` is provided, verify
+    /// that the transaction accumulator root hash it carries is generated
+    /// after the `txns_to_commit` are applied. Note that even if
+    /// `txns_to_commit` is empty, `first_version` is checked to be
+    /// `ledger_info_with_sigs.ledger_info.version + 1` if
+    /// `ledger_info_with_sigs` is not `None`.
     fn save_transactions(
         &self,
         txns_to_commit: &[TransactionToCommit],
@@ -1503,17 +1518,18 @@ impl DbWriter for AptosDB {
         latest_in_memory_state: StateDelta,
     ) -> Result<()> {
         gauged_api("save_transactions", || {
-            // Executing and committing from more than one threads not allowed -- consensus and
-            // state sync must hand over to each other after all pending execution and committing
-            // complete.
+            // Executing and committing from more than one threads not allowed -- consensus
+            // and state sync must hand over to each other after all pending
+            // execution and committing complete.
             let _lock = self
                 .ledger_commit_lock
                 .try_lock()
                 .expect("Concurrent committing detected.");
 
             let num_txns = txns_to_commit.len() as u64;
-            // ledger_info_with_sigs could be None if we are doing state synchronization. In this case
-            // txns_to_commit should not be empty. Otherwise it is okay to commit empty blocks.
+            // ledger_info_with_sigs could be None if we are doing state synchronization. In
+            // this case txns_to_commit should not be empty. Otherwise it is
+            // okay to commit empty blocks.
             ensure!(
                 ledger_info_with_sigs.is_some() || num_txns > 0,
                 "txns_to_commit is empty while ledger_info_with_sigs is None.",
@@ -1524,8 +1540,9 @@ impl DbWriter for AptosDB {
             if let Some(x) = ledger_info_with_sigs {
                 let claimed_last_version = x.ledger_info().version();
                 ensure!(
-                    claimed_last_version  == last_version,
-                    "Transaction batch not applicable: first_version {}, num_txns {}, last_version_in_ledger_info {}",
+                    claimed_last_version == last_version,
+                    "Transaction batch not applicable: first_version {}, num_txns {}, \
+                     last_version_in_ledger_info {}",
                     first_version,
                     num_txns,
                     claimed_last_version,
@@ -1542,7 +1559,8 @@ impl DbWriter for AptosDB {
                 &batch,
             )?;
 
-            // If expected ledger info is provided, verify result root hash and save the ledger info.
+            // If expected ledger info is provided, verify result root hash and save the
+            // ledger info.
             if let Some(x) = ledger_info_with_sigs {
                 let expected_root_hash = x.ledger_info().transaction_accumulator_hash();
                 ensure!(
@@ -1555,24 +1573,27 @@ impl DbWriter for AptosDB {
                 self.ledger_store.put_ledger_info(x, &batch)?;
             }
 
-            ensure!(Some(last_version) == latest_in_memory_state.current_version,
-                "the last_version {:?} to commit doesn't match the current_version {:?} in latest_in_memory_state",
+            ensure!(
+                Some(last_version) == latest_in_memory_state.current_version,
+                "the last_version {:?} to commit doesn't match the current_version {:?} in \
+                 latest_in_memory_state",
                 last_version,
-               latest_in_memory_state.current_version.expect("Must exist")
+                latest_in_memory_state.current_version.expect("Must exist")
             );
 
             {
                 let mut buffered_state = self.state_store.buffered_state().lock();
                 ensure!(
                     base_state_version == buffered_state.current_state().base_version,
-                    "base_state_version {:?} does not equal to the base_version {:?} in buffered state with current version {:?}",
+                    "base_state_version {:?} does not equal to the base_version {:?} in buffered \
+                     state with current version {:?}",
                     base_state_version,
                     buffered_state.current_state().base_version,
                     buffered_state.current_state().current_version,
                 );
 
-                // Ensure the incoming committing requests are always consecutive and the version in
-                // buffered state is consistent with that in db.
+                // Ensure the incoming committing requests are always consecutive and the
+                // version in buffered state is consistent with that in db.
                 let next_version_in_buffered_state = buffered_state
                     .current_state()
                     .current_version
@@ -1583,8 +1604,10 @@ impl DbWriter for AptosDB {
                     .map(|(version, _)| version + 1)
                     .unwrap_or(0);
                 ensure!(
-                     num_transactions_in_db == first_version && num_transactions_in_db == next_version_in_buffered_state,
-                    "The first version {} passed in, the next version in buffered state {} and the next version in db {} are inconsistent.",
+                    num_transactions_in_db == first_version
+                        && num_transactions_in_db == next_version_in_buffered_state,
+                    "The first version {} passed in, the next version in buffered state {} and \
+                     the next version in db {} are inconsistent.",
                     first_version,
                     next_version_in_buffered_state,
                     num_transactions_in_db,
@@ -1599,32 +1622,30 @@ impl DbWriter for AptosDB {
                 }
 
                 let mut end_with_reconfig = false;
-                let updates_until_latest_checkpoint_since_current = if let Some(
-                    latest_checkpoint_version,
-                ) =
-                    latest_in_memory_state.base_version
-                {
-                    if latest_checkpoint_version >= first_version {
-                        let idx = (latest_checkpoint_version - first_version) as usize;
-                        ensure!(
-                            txns_to_commit[idx].is_state_checkpoint(),
-                            "The new latest snapshot version passed in {:?} does not match with the last checkpoint version in txns_to_commit {:?}",
-                            latest_checkpoint_version,
-                            first_version + idx as u64
-                        );
-                        end_with_reconfig = txns_to_commit[idx].is_reconfig();
-                        Some(
-                            txns_to_commit[..=idx]
-                                .iter()
-                                .flat_map(|txn_to_commit| txn_to_commit.state_updates().clone())
-                                .collect(),
-                        )
+                let updates_until_latest_checkpoint_since_current =
+                    if let Some(latest_checkpoint_version) = latest_in_memory_state.base_version {
+                        if latest_checkpoint_version >= first_version {
+                            let idx = (latest_checkpoint_version - first_version) as usize;
+                            ensure!(
+                                txns_to_commit[idx].is_state_checkpoint(),
+                                "The new latest snapshot version passed in {:?} does not match \
+                                 with the last checkpoint version in txns_to_commit {:?}",
+                                latest_checkpoint_version,
+                                first_version + idx as u64
+                            );
+                            end_with_reconfig = txns_to_commit[idx].is_reconfig();
+                            Some(
+                                txns_to_commit[..=idx]
+                                    .iter()
+                                    .flat_map(|txn_to_commit| txn_to_commit.state_updates().clone())
+                                    .collect(),
+                            )
+                        } else {
+                            None
+                        }
                     } else {
                         None
-                    }
-                } else {
-                    None
-                };
+                    };
 
                 buffered_state.update(
                     updates_until_latest_checkpoint_since_current,
@@ -1633,8 +1654,8 @@ impl DbWriter for AptosDB {
                 )?;
             }
 
-            // If commit succeeds and there are at least one transaction written to the storage, we
-            // will inform the pruner thread to work.
+            // If commit succeeds and there are at least one transaction written to the
+            // storage, we will inform the pruner thread to work.
             if num_txns > 0 {
                 let last_version = first_version + num_txns - 1;
                 COMMITTED_TXNS.inc_by(num_txns);
@@ -1645,8 +1666,8 @@ impl DbWriter for AptosDB {
                     .maybe_set_pruner_target_db_version(last_version);
             }
 
-            // Note: this must happen after txns have been saved to db because types can be newly
-            // created in this same chunk of transactions.
+            // Note: this must happen after txns have been saved to db because types can be
+            // newly created in this same chunk of transactions.
             if let Some(indexer) = &self.indexer {
                 let _timer = OTHER_TIMERS_SECONDS
                     .with_label_values(&["indexer_index"])
@@ -1655,7 +1676,8 @@ impl DbWriter for AptosDB {
                 indexer.index(self.state_store.clone(), first_version, &write_sets)?;
             }
 
-            // Once everything is successfully persisted, update the latest in-memory ledger info.
+            // Once everything is successfully persisted, update the latest in-memory ledger
+            // info.
             if let Some(x) = ledger_info_with_sigs {
                 self.ledger_store.set_latest_ledger_info(x.clone());
 
@@ -1685,7 +1707,8 @@ impl DbWriter for AptosDB {
         ledger_infos: &[LedgerInfoWithSignatures],
     ) -> Result<()> {
         gauged_api("finalize_state_snapshot", || {
-            // Ensure the output with proof only contains a single transaction output and info
+            // Ensure the output with proof only contains a single transaction output and
+            // info
             let num_transaction_outputs = output_with_proof.transactions_and_outputs.len();
             let num_transaction_infos = output_with_proof.proof.transaction_infos.len();
             ensure!(
@@ -1764,7 +1787,8 @@ impl DbWriter for AptosDB {
                 &mut batch,
             )?;
 
-            // Apply the change set writes to the database (atomically) and update in-memory state
+            // Apply the change set writes to the database (atomically) and update in-memory
+            // state
             self.ledger_db.clone().write_schemas(batch)?;
             restore_utils::update_latest_ledger_info(self.ledger_store.clone(), ledger_infos)?;
             self.state_store.reset();
@@ -1822,7 +1846,7 @@ where
                 "AptosDB API returned error."
             );
             "Err"
-        }
+        },
     };
     API_LATENCY_SECONDS
         .with_label_values(&[api_name, res_type])

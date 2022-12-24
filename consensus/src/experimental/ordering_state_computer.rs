@@ -1,13 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::payload_manager::PayloadManager;
 use crate::{
     error::StateSyncError,
     experimental::{
         buffer_manager::{OrderedBlocks, ResetAck, ResetRequest},
         errors::Error,
     },
+    payload_manager::PayloadManager,
     state_replication::{StateComputer, StateComputerCommitCallBackType},
 };
 use anyhow::Result;
@@ -65,7 +65,8 @@ impl StateComputer for OrderingStateComputer {
     }
 
     /// Send ordered blocks to the real execution phase through the channel.
-    /// A future is fulfilled right away when the blocks are sent into the channel.
+    /// A future is fulfilled right away when the blocks are sent into the
+    /// channel.
     async fn commit(
         &self,
         blocks: &[Arc<ExecutedBlock>],
@@ -112,8 +113,8 @@ impl StateComputer for OrderingStateComputer {
             .map_err(|_| Error::ResetDropped)?;
         rx.await.map_err(|_| Error::ResetDropped)?;
 
-        // TODO: handle the sync error, should re-push the ordered blocks to buffer manager
-        // when it's reset but sync fails.
+        // TODO: handle the sync error, should re-push the ordered blocks to buffer
+        // manager when it's reset but sync fails.
         self.state_computer_for_sync.sync_to(target).await?;
         Ok(())
     }

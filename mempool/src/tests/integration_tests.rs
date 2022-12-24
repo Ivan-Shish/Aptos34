@@ -89,7 +89,8 @@ async fn single_inbound_node_test() {
     for (mut node, (other_peer_network_id, other_metadata)) in inbound_node_combinations() {
         node.connect_self(other_peer_network_id.network_id(), other_metadata);
 
-        // Let's also send it an incoming request with more txns and respond with an ack (DirectSend & Rpc)
+        // Let's also send it an incoming request with more txns and respond with an ack
+        // (DirectSend & Rpc)
         node.receive_message(
             ProtocolId::MempoolDirectSend,
             other_peer_network_id,
@@ -122,8 +123,9 @@ async fn single_outbound_node_test() {
     }
 }
 
-/// Tests if the node is a VFN, and it's getting forwarded messages from a PFN.  It should forward
-/// messages to the upstream VAL.  Upstream and downstream nodes are mocked.
+/// Tests if the node is a VFN, and it's getting forwarded messages from a PFN.
+/// It should forward messages to the upstream VAL.  Upstream and downstream
+/// nodes are mocked.
 #[tokio::test]
 async fn vfn_middle_man_test() {
     let mut node = MempoolTestFrameworkBuilder::single_vfn();
@@ -167,8 +169,9 @@ async fn test_skip_ack_rebroadcast() {
         .await;
 }
 
-/// Tests when a node gets disconnected.  Node should pick up after the second sending
-/// TODO: also add an outbound test to ensure it'll broadcast all transactions again
+/// Tests when a node gets disconnected.  Node should pick up after the second
+/// sending TODO: also add an outbound test to ensure it'll broadcast all
+/// transactions again
 #[tokio::test]
 async fn test_interrupt_in_sync_inbound() {
     for (mut node, (other_peer_network_id, other_metadata)) in inbound_node_combinations() {
@@ -192,7 +195,8 @@ async fn test_interrupt_in_sync_inbound() {
     }
 }
 
-/// Tests that transactions will only be sent when they're ready (previous seq no have been sent)
+/// Tests that transactions will only be sent when they're ready (previous seq
+/// no have been sent)
 #[tokio::test]
 async fn test_ready_txns() {
     let mut node = MempoolTestFrameworkBuilder::single_validator();
@@ -220,7 +224,8 @@ async fn test_ready_txns() {
     node.assert_only_txns_in_mempool(ALL_TXNS);
 }
 
-/// Test that in the validator network, messages won't be sent back to the original sender
+/// Test that in the validator network, messages won't be sent back to the
+/// original sender
 #[tokio::test]
 async fn test_broadcast_self_txns() {
     let mut node = MempoolTestFrameworkBuilder::single_validator();
@@ -291,7 +296,8 @@ async fn test_mempool_full_rebroadcast() {
         .await;
 }
 
-/// The retry broadcast can become empty due to commits. The next broadcast should ignore this empty broadcast.
+/// The retry broadcast can become empty due to commits. The next broadcast
+/// should ignore this empty broadcast.
 #[tokio::test]
 async fn test_rebroadcast_retry_is_empty() {
     let mut node = MempoolTestFrameworkBuilder::single_validator();
@@ -318,8 +324,9 @@ async fn test_rebroadcast_retry_is_empty() {
 
 // -- Multi node tests below here --
 
-/// Tests if the node is a VFN, and it's getting forwarded messages from a PFN.  It should forward
-/// messages to the upstream VAL.  Upstream and downstream nodes also are running nodes.
+/// Tests if the node is a VFN, and it's getting forwarded messages from a PFN.
+/// It should forward messages to the upstream VAL.  Upstream and downstream
+/// nodes also are running nodes.
 #[tokio::test]
 async fn fn_to_val_test() {
     for protocol_id in ALL_PROTOCOLS {

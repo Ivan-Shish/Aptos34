@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This file defines state store APIs that are related account state Merkle tree.
+//! This file defines state store APIs that are related account state Merkle
+//! tree.
 
 use crate::{
     db_metadata::{DbMetadataKey, DbMetadataSchema, DbMetadataValue},
@@ -61,8 +62,10 @@ type StateValueBatch = crate::state_restore::StateValueBatch<StateKey, Option<St
 
 // We assume TARGET_SNAPSHOT_INTERVAL_IN_VERSION > block size.
 const MAX_WRITE_SETS_AFTER_SNAPSHOT: LeafCount = buffered_state::TARGET_SNAPSHOT_INTERVAL_IN_VERSION
-    * (buffered_state::ASYNC_COMMIT_CHANNEL_BUFFER_SIZE + 2 + 1/*  Rendezvous channel */)
-    * 2;
+    * (
+        buffered_state::ASYNC_COMMIT_CHANNEL_BUFFER_SIZE + 2 + 1
+        // Rendezvous channel
+    ) * 2;
 
 static IO_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
     rayon::ThreadPoolBuilder::new()
@@ -98,10 +101,10 @@ impl Deref for StateStore {
     }
 }
 
-// "using an Arc<dyn DbReader> as an Arc<dyn StateReader>" is not allowed in stable Rust. Actually we
-// want another trait, `StateReader`, which is a subset of `DbReader` here but Rust does not support trait
-// upcasting coercion for now. Should change it to a different trait once upcasting is stabilized.
-// ref: https://github.com/rust-lang/rust/issues/65991
+// "using an Arc<dyn DbReader> as an Arc<dyn StateReader>" is not allowed in
+// stable Rust. Actually we want another trait, `StateReader`, which is a subset
+// of `DbReader` here but Rust does not support trait upcasting coercion for
+// now. Should change it to a different trait once upcasting is stabilized. ref: https://github.com/rust-lang/rust/issues/65991
 impl DbReader for StateDb {
     /// Returns the latest state snapshot strictly before `next_version` if any.
     fn get_state_snapshot_before(
@@ -114,9 +117,10 @@ impl DbReader for StateDb {
             .transpose()
     }
 
-    /// Get the latest state value of the given key up to the given version. Only used for testing for now
-    /// but should replace the `get_value_with_proof_by_version` call for VM execution if just fetch the
-    /// value without proof.
+    /// Get the latest state value of the given key up to the given version.
+    /// Only used for testing for now but should replace the
+    /// `get_value_with_proof_by_version` call for VM execution if just fetch
+    /// the value without proof.
     fn get_state_value_by_version(
         &self,
         state_key: &StateKey,
@@ -169,8 +173,8 @@ impl DbReader for StateDb {
 }
 
 impl StateDb {
-    /// Get the latest state value and the its corresponding version when its of the given key up
-    /// to the given version.
+    /// Get the latest state value and the its corresponding version when its of
+    /// the given key up to the given version.
     pub fn get_state_value_with_version_by_version(
         &self,
         state_key: &StateKey,
@@ -187,8 +191,8 @@ impl StateDb {
             .and_then(|((_, version), value_opt)| value_opt.map(|value| (version, value))))
     }
 
-    /// Get the latest ended epoch strictly before required version, i.e. if the passed in version
-    /// ends an epoch, return one epoch early than that.
+    /// Get the latest ended epoch strictly before required version, i.e. if the
+    /// passed in version ends an epoch, return one epoch early than that.
     pub fn get_previous_epoch_ending(&self, version: Version) -> Result<Option<(u64, Version)>> {
         if version == 0 {
             return Ok(None);
@@ -213,9 +217,10 @@ impl DbReader for StateStore {
         self.deref().get_state_snapshot_before(next_version)
     }
 
-    /// Get the latest state value of the given key up to the given version. Only used for testing for now
-    /// but should replace the `get_value_with_proof_by_version` call for VM execution if just fetch the
-    /// value without proof.
+    /// Get the latest state value of the given key up to the given version.
+    /// Only used for testing for now but should replace the
+    /// `get_value_with_proof_by_version` call for VM execution if just fetch
+    /// the value without proof.
     fn get_state_value_by_version(
         &self,
         state_key: &StateKey,
@@ -333,7 +338,8 @@ impl StateStore {
             buffered_state_target_items,
         );
 
-        // In some backup-restore tests we hope to open the db without consistency check.
+        // In some backup-restore tests we hope to open the db without consistency
+        // check.
         if hack_for_tests {
             return Ok(buffered_state);
         }
@@ -346,7 +352,8 @@ impl StateStore {
             info!(
                 snapshot_next_version = snapshot_next_version,
                 num_transactions = num_transactions,
-                "snapshot is after latest transaction version. It should only happen in restore mode",
+                "snapshot is after latest transaction version. It should only happen in restore \
+                 mode",
             );
         }
 
@@ -354,7 +361,8 @@ impl StateStore {
         if snapshot_next_version < num_transactions {
             ensure!(
                 num_transactions - snapshot_next_version <= MAX_WRITE_SETS_AFTER_SNAPSHOT,
-                "Too many versions after state snapshot. snapshot_next_version: {}, num_transactions: {}",
+                "Too many versions after state snapshot. snapshot_next_version: {}, \
+                 num_transactions: {}",
                 snapshot_next_version,
                 num_transactions,
             );
@@ -385,11 +393,12 @@ impl StateStore {
             let (updates_until_last_checkpoint, state_after_last_checkpoint) = calculator
                 .calculate_for_write_sets_after_snapshot(last_checkpoint_index, &write_sets)?;
 
-            // synchronously commit the snapshot at the last checkpoint here if not committed to disk yet.
+            // synchronously commit the snapshot at the last checkpoint here if not
+            // committed to disk yet.
             buffered_state.update(
                 updates_until_last_checkpoint,
                 state_after_last_checkpoint,
-                true, /* sync_commit */
+                true, // sync_commit
             )?;
         }
 
@@ -416,9 +425,9 @@ impl StateStore {
         &self.buffered_state
     }
 
-    /// Returns the key, value pairs for a particular state key prefix at at desired version. This
-    /// API can be used to get all resources of an account by passing the account address as the
-    /// key prefix.
+    /// Returns the key, value pairs for a particular state key prefix at at
+    /// desired version. This API can be used to get all resources of an
+    /// account by passing the account address as the key prefix.
     pub fn get_prefixed_state_value_iterator(
         &self,
         key_prefix: &StateKeyPrefix,
@@ -480,13 +489,14 @@ impl StateStore {
 
     /// Put storage usage stats and State key and value indices into the batch.
     /// The state KV indices will be generated as follows:
-    /// 1. A deletion at current version is always coupled with stale index for the tombstone with
-    /// `stale_since_version` equal to the version, to ensure tombstone is cleared from db after
-    /// pruner processes the current version.
-    /// 2. An update at current version will first try to find the corresponding old value, if it
-    /// exists, a stale index of that old value will be added. Otherwise, it's a no-op. Because
-    /// non-existence means either the key never shows up or it got deleted. Neither case needs
-    /// extra stale index as 1 cover the latter case.
+    /// 1. A deletion at current version is always coupled with stale index for
+    /// the tombstone with `stale_since_version` equal to the version, to
+    /// ensure tombstone is cleared from db after pruner processes the
+    /// current version. 2. An update at current version will first try to
+    /// find the corresponding old value, if it exists, a stale index of
+    /// that old value will be added. Otherwise, it's a no-op. Because
+    /// non-existence means either the key never shows up or it got deleted.
+    /// Neither case needs extra stale index as 1 cover the latter case.
     pub fn put_stats_and_indices(
         &self,
         value_state_sets: &[&HashMap<StateKey, Option<StateValue>>],
@@ -595,8 +605,8 @@ impl StateStore {
         Ok(())
     }
 
-    /// Merklize the results generated by `value_state_sets` to `batch` and return the result root
-    /// hashes for each write set.
+    /// Merklize the results generated by `value_state_sets` to `batch` and
+    /// return the result root hashes for each write set.
     #[cfg(test)]
     pub fn merklize_value_set(
         &self,
@@ -638,7 +648,7 @@ impl StateStore {
         .map(move |res| match res {
             Ok((_hashed_key, (key, version))) => {
                 Ok((key.clone(), store.expect_value_by_version(&key, version)?))
-            }
+            },
             Err(err) => Err(err),
         }))
     }
@@ -696,11 +706,12 @@ impl StateStore {
             self,
             version,
             expected_root_hash,
-            false, /* async_commit */
+            false, // async_commit
         )?))
     }
 
-    /// Prune the stale state value schema generated between a range of version in (begin, end]
+    /// Prune the stale state value schema generated between a range of version
+    /// in (begin, end]
     pub fn prune_state_values(
         &self,
         begin: Version,

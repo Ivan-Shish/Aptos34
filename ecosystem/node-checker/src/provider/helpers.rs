@@ -3,18 +3,15 @@
 
 pub const MISSING_PROVIDER_MESSAGE: &str = "Incomplete request";
 
-/// This macro helps you turn an Option<P> where P is a Provider or Arc<Provider>
-/// into a &P, returning a CheckResult if the Option is None and required is true,
-/// or just an empty vec if required is false.
+/// This macro helps you turn an Option<P> where P is a Provider or
+/// Arc<Provider> into a &P, returning a CheckResult if the Option is None and
+/// required is true, or just an empty vec if required is false.
 ///
 /// Example invocations:
 ///
 /// ```
-/// let target_metrics_provider = get_provider!(
-///     input.target_metrics_provider,
-///     true,
-///     MetricsProvider
-/// );
+/// let target_metrics_provider =
+///     get_provider!(input.target_metrics_provider, true, MetricsProvider);
 /// ```
 ///
 /// The first argument is the Option, the second is `required`, and the last is
@@ -34,10 +31,15 @@ macro_rules! get_provider {
                     return Ok(vec![CheckResult::new(
                         // This line is why this macro will only work inside a Checker.
                         checker_type_name.to_string(),
-                        format!("{}: {}", checker_type_name, $crate::provider::MISSING_PROVIDER_MESSAGE),
+                        format!(
+                            "{}: {}",
+                            checker_type_name,
+                            $crate::provider::MISSING_PROVIDER_MESSAGE
+                        ),
                         0,
                         format!(
-                            "Failed to fetch the data for the {} because of an error originating from the {}: {}",
+                            "Failed to fetch the data for the {} because of an error originating \
+                             from the {}: {}",
                             checker_type_name,
                             provider_type_name,
                             <$provider_type as $crate::provider::Provider>::explanation()
@@ -46,7 +48,7 @@ macro_rules! get_provider {
                 } else {
                     return Ok(vec![]);
                 }
-            }
+            },
         }
     };
 }

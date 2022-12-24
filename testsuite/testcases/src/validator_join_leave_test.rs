@@ -2,19 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{LoadDestination, NetworkLoadTest};
-use aptos::account::create::DEFAULT_FUNDED_COINS;
+use aptos::{account::create::DEFAULT_FUNDED_COINS, test::CliTestFramework};
 use aptos_forge::{
     reconfig, NetworkContext, NetworkTest, NodeExt, Result, Swarm, SwarmExt, Test, FORGE_KEY_SEED,
 };
-use aptos_logger::info;
-use aptos_sdk::crypto::ed25519::Ed25519PrivateKey;
-use aptos_sdk::crypto::PrivateKey;
-
 use aptos_keygen::KeyGen;
-
-use aptos::test::CliTestFramework;
-use aptos_types::account_address::AccountAddress;
-use aptos_types::transaction::authenticator::AuthenticationKey;
+use aptos_logger::info;
+use aptos_sdk::crypto::{ed25519::Ed25519PrivateKey, PrivateKey};
+use aptos_types::{account_address::AccountAddress, transaction::authenticator::AuthenticationKey};
 use std::time::Duration;
 use tokio::runtime::Runtime;
 
@@ -40,7 +35,8 @@ impl NetworkLoadTest for ValidatorJoinLeaveTest {
         let num_validators = all_validators.len();
         if num_validators < 7 {
             return Err(anyhow::format_err!(
-                "ValidatorSet leaving and rejoining test require at least 7 validators! Given: {:?}.",
+                "ValidatorSet leaving and rejoining test require at least 7 validators! Given: \
+                 {:?}.",
                 num_validators
             ));
         }
@@ -55,7 +51,8 @@ impl NetworkLoadTest for ValidatorJoinLeaveTest {
             CliTestFramework::new(
                 swarm.validators().next().unwrap().rest_api_endpoint(),
                 faucet_endpoint,
-                /*num_cli_accounts=*/ 0,
+                // num_cli_accounts=
+                0,
             )
             .await
         });
@@ -67,8 +64,9 @@ impl NetworkLoadTest for ValidatorJoinLeaveTest {
         let starting_seed_in_decimal = i64::from_str_radix(FORGE_KEY_SEED, 16)?;
 
         for i in 0..num_validators {
-            // Initialize keyGen to get validator private keys. We uses the same seed in the test
-            // driver as in the genesis script so that the validator keys are deterministic.
+            // Initialize keyGen to get validator private keys. We uses the same seed in the
+            // test driver as in the genesis script so that the validator keys
+            // are deterministic.
             let mut seed_slice = [0u8; 32];
             let seed_in_decimal = starting_seed_in_decimal + (i as i64);
             let seed_in_hex_string = format!("{seed_in_decimal:0>64x}");

@@ -15,8 +15,7 @@ use aptos_types::{
     block_metadata::BlockMetadata,
     epoch_state::EpochState,
     ledger_info::LedgerInfo,
-    transaction::SignedTransaction,
-    transaction::{Transaction, Version},
+    transaction::{SignedTransaction, Transaction, Version},
     validator_signer::ValidatorSigner,
     validator_verifier::ValidatorVerifier,
 };
@@ -37,16 +36,17 @@ pub mod block_test_utils;
 pub mod block_test;
 
 #[derive(Serialize, Clone, PartialEq, Eq)]
-/// Block has the core data of a consensus block that should be persistent when necessary.
-/// Each block must know the id of its parent and keep the QuorurmCertificate to that parent.
+/// Block has the core data of a consensus block that should be persistent when
+/// necessary. Each block must know the id of its parent and keep the
+/// QuorurmCertificate to that parent.
 pub struct Block {
     /// This block's id as a hash value, it is generated at call time
     #[serde(skip)]
     id: HashValue,
     /// The container for the actual block
     block_data: BlockData,
-    /// Signature that the hash of this block has been authored by the owner of the private key,
-    /// this is only set within Proposal blocks
+    /// Signature that the hash of this block has been authored by the owner of
+    /// the private key, this is only set within Proposal blocks
     signature: Option<bls12381::Signature>,
 }
 
@@ -152,8 +152,9 @@ impl Block {
         Self::make_genesis_block_from_ledger_info(&LedgerInfo::mock_genesis(None))
     }
 
-    /// Construct new genesis block for next epoch deterministically from the end-epoch LedgerInfo
-    /// We carry over most fields except round and block id
+    /// Construct new genesis block for next epoch deterministically from the
+    /// end-epoch LedgerInfo We carry over most fields except round and
+    /// block id
     pub fn make_genesis_block_from_ledger_info(ledger_info: &LedgerInfo) -> Self {
         let block_data = BlockData::new_genesis_from_ledger_info(ledger_info);
         Block {
@@ -164,7 +165,8 @@ impl Block {
     }
 
     #[cfg(any(test, feature = "fuzzing"))]
-    // This method should only used by tests and fuzzers to produce arbitrary Block types.
+    // This method should only used by tests and fuzzers to produce arbitrary Block
+    // types.
     pub fn new_for_testing(
         id: HashValue,
         block_data: BlockData,
@@ -177,8 +179,9 @@ impl Block {
         }
     }
 
-    /// The NIL blocks are special: they're not carrying any real payload and are generated
-    /// independently by different validators just to fill in the round with some QC.
+    /// The NIL blocks are special: they're not carrying any real payload and
+    /// are generated independently by different validators just to fill in
+    /// the round with some QC.
     pub fn new_nil(
         round: Round,
         quorum_cert: QuorumCert,
@@ -247,12 +250,12 @@ impl Block {
                     .ok_or_else(|| format_err!("Missing signature in Proposal"))?;
                 validator.verify(*author, &self.block_data, signature)?;
                 self.quorum_cert().verify(validator)
-            }
+            },
         }
     }
 
-    /// Makes sure that the proposal makes sense, independently of the current state.
-    /// If this is the genesis block, we skip these checks.
+    /// Makes sure that the proposal makes sense, independently of the current
+    /// state. If this is the genesis block, we skip these checks.
     pub fn verify_well_formed(&self) -> anyhow::Result<()> {
         ensure!(
             !self.is_genesis_block(),
@@ -279,7 +282,8 @@ impl Block {
             // for whatever reason (from different max configuration, etc),
             // but don't allow anything that shouldn't be there.
             //
-            // we validate the full correctness of this field in round_manager.process_proposal()
+            // we validate the full correctness of this field in
+            // round_manager.process_proposal()
             let succ_round = self.round() + (if self.is_nil_block() { 1 } else { 0 });
             let skipped_rounds = succ_round.checked_sub(parent.round() + 1);
             ensure!(

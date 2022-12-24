@@ -114,7 +114,8 @@ pub async fn check_create_mint_transfer(swarm: &mut LocalSwarm) {
 }
 
 /// This helper function creates 3 new accounts, mints funds, transfers funds
-/// between the accounts and verifies that these operations succeed on one specific validator.
+/// between the accounts and verifies that these operations succeed on one
+/// specific validator.
 pub async fn check_create_mint_transfer_node(swarm: &mut LocalSwarm, idx: usize) {
     let client = swarm.validators().nth(idx).unwrap().rest_client();
 
@@ -124,7 +125,8 @@ pub async fn check_create_mint_transfer_node(swarm: &mut LocalSwarm, idx: usize)
     let mut account_0 = info.create_and_fund_user_account(10).await.unwrap();
     assert_balance(&client, &account_0, 10).await;
 
-    // Create account 1, mint 1 coin, transfer 3 coins from account 0 to 1, check balances
+    // Create account 1, mint 1 coin, transfer 3 coins from account 0 to 1, check
+    // balances
     let account_1 = info.create_and_fund_user_account(1).await.unwrap();
     transfer_coins(&client, &transaction_factory, &mut account_0, &account_1, 3).await;
 

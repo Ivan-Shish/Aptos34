@@ -3,7 +3,8 @@
 
 use move_core_types::gas_algebra::{Arg, GasQuantity, InternalGasUnit, UnitDiv};
 
-/// Unit of abstract value size -- a conceptual measurement of the memory space a Move value occupies.
+/// Unit of abstract value size -- a conceptual measurement of the memory space
+/// a Move value occupies.
 pub enum AbstractValueUnit {}
 
 pub type AbstractValueSize = GasQuantity<AbstractValueUnit>;

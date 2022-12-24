@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::utils::prompt_yes;
 use crate::common::{
     types::{
         CliCommand, CliConfig, CliError, CliTypedResult, ConfigSearchMode, EncodingOptions,
@@ -9,16 +8,18 @@ use crate::common::{
         PublicKeyInputOptions, RestOptions, RotationProofChallenge, TransactionOptions,
         TransactionSummary,
     },
-    utils::{prompt_yes_with_override, read_line},
+    utils::{prompt_yes, prompt_yes_with_override, read_line},
 };
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::{
     ed25519::{Ed25519PrivateKey, Ed25519PublicKey},
     PrivateKey, SigningKey,
 };
-use aptos_rest_client::aptos_api_types::{AptosError, AptosErrorCode};
-use aptos_rest_client::error::{AptosErrorResponse, RestError};
-use aptos_rest_client::Client;
+use aptos_rest_client::{
+    aptos_api_types::{AptosError, AptosErrorCode},
+    error::{AptosErrorResponse, RestError},
+    Client,
+};
 use aptos_types::{
     account_address::AccountAddress, account_config::CORE_CODE_ADDRESS,
     transaction::authenticator::AuthenticationKey,
@@ -40,7 +41,8 @@ pub struct RotateKey {
     #[clap(flatten)]
     pub(crate) txn_options: TransactionOptions,
 
-    /// File name that contains the new private key encoded in the type from `--encoding`
+    /// File name that contains the new private key encoded in the type from
+    /// `--encoding`
     #[clap(long, group = "new_private_key", parse(from_os_str))]
     pub(crate) new_private_key_file: Option<PathBuf>,
 
@@ -57,7 +59,8 @@ pub struct RotateKey {
 
     /// Skip saving profile
     ///
-    /// This skips the interactive profile saving after rotating the authentication key
+    /// This skips the interactive profile saving after rotating the
+    /// authentication key
     #[clap(long)]
     pub(crate) skip_saving_profile: bool,
 }
@@ -198,10 +201,10 @@ impl CliCommand<RotateSummary> for RotateKey {
                                 transaction: txn_summary,
                                 message: None,
                             });
-                        }
+                        },
                         _ => {
                             return Err(cli_err);
-                        }
+                        },
                     }
                 }
 
@@ -247,8 +250,9 @@ impl CliCommand<RotateSummary> for RotateKey {
 
 /// Lookup the account address through the on-chain lookup table
 ///
-/// If the account is rotated, it will provide the address accordingly.  If the account was not
-/// rotated, it will provide the derived address only if the account exists onchain.
+/// If the account is rotated, it will provide the address accordingly.  If the
+/// account was not rotated, it will provide the derived address only if the
+/// account exists onchain.
 #[derive(Debug, Parser)]
 pub struct LookupAddress {
     #[clap(flatten)]
@@ -314,10 +318,11 @@ impl CliCommand<AccountAddress> for LookupAddress {
                 ..
             })) => {
                 // If the table item wasn't found, let's at least check if the account exists
-                // It won't be in the table if it wasn't rotated, then return the derived account address
+                // It won't be in the table if it wasn't rotated, then return the derived
+                // account address
                 rest_client.get_account_bcs(address_key).await?;
                 Ok(address_key)
-            }
+            },
             Err(err) => Err(err)?,
         }
     }

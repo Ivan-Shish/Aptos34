@@ -1,26 +1,22 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::types::{
-    CliCommand, CliConfig, CliError, CliResult, CliTypedResult, ConfigSearchMode, ProfileSummary,
-    CONFIG_FOLDER,
+use crate::{
+    common::{
+        types::{
+            CliCommand, CliConfig, CliError, CliResult, CliTypedResult, ConfigSearchMode,
+            ProfileSummary, CONFIG_FOLDER,
+        },
+        utils::{create_dir_if_not_exist, current_dir, read_from_file, write_to_user_only_file},
+    },
+    genesis::git::{from_yaml, to_yaml},
+    Tool,
 };
-use crate::common::utils::{
-    create_dir_if_not_exist, current_dir, read_from_file, write_to_user_only_file,
-};
-use crate::genesis::git::{from_yaml, to_yaml};
-use crate::Tool;
 use async_trait::async_trait;
-use clap::ArgEnum;
-use clap::CommandFactory;
-use clap::Parser;
+use clap::{ArgEnum, CommandFactory, Parser};
 use clap_complete::{generate, Shell};
-use serde::Deserialize;
-use serde::Serialize;
-use std::collections::BTreeMap;
-use std::fmt::Formatter;
-use std::path::PathBuf;
-use std::str::FromStr;
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, fmt::Formatter, path::PathBuf, str::FromStr};
 
 /// Tool for interacting with configuration of the Aptos CLI tool
 ///
@@ -49,8 +45,8 @@ impl ConfigTool {
 
 /// Generate shell completion files
 ///
-/// First generate the completion file, then follow the shell specific directions on how
-/// to install the completion file.
+/// First generate the completion file, then follow the shell specific
+/// directions on how to install the completion file.
 #[derive(Parser)]
 pub struct GenerateShellCompletions {
     /// Shell to generate completions for one of [bash, elvish, powershell, zsh]
@@ -84,14 +80,15 @@ impl CliCommand<()> for GenerateShellCompletions {
 pub struct SetGlobalConfig {
     /// A configuration for where to place and use the config
     ///
-    /// `Workspace` will put the `.aptos/` folder in the current directory, where
-    /// `Global` will put the `.aptos/` folder in your home directory
+    /// `Workspace` will put the `.aptos/` folder in the current directory,
+    /// where `Global` will put the `.aptos/` folder in your home directory
     #[clap(long)]
     config_type: Option<ConfigType>,
     /// A configuration for how to expect the prompt response
     ///
-    /// Option can be one of ["yes", "no", "prompt"], "yes" runs cli with "--assume-yes", where
-    /// "no" runs cli with "--assume-no", default: "prompt"
+    /// Option can be one of ["yes", "no", "prompt"], "yes" runs cli with
+    /// "--assume-yes", where "no" runs cli with "--assume-no", default:
+    /// "prompt"
     #[clap(long)]
     default_prompt_response: Option<PromptResponseType>,
 }
@@ -265,7 +262,7 @@ fn find_workspace_config(
                     break Ok(starting_path.join(CONFIG_FOLDER));
                 }
             }
-        }
+        },
     }
 }
 
@@ -320,8 +317,8 @@ const ASSUME_NO: &str = "no";
 
 /// A configuration for how to expect the prompt response
 ///
-/// Option can be one of ["yes", "no", "prompt"], "yes" runs cli with "--assume-yes", where
-/// "no" runs cli with "--assume-no", default: "prompt"
+/// Option can be one of ["yes", "no", "prompt"], "yes" runs cli with
+/// "--assume-yes", where "no" runs cli with "--assume-no", default: "prompt"
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, ArgEnum)]
 pub enum PromptResponseType {
     /// normal prompt

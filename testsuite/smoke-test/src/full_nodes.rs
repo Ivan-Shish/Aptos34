@@ -1,8 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::smoke_test_environment::SwarmBuilder;
-use crate::test_utils::{assert_balance, create_and_fund_account, transfer_coins};
+use crate::{
+    smoke_test_environment::SwarmBuilder,
+    test_utils::{assert_balance, create_and_fund_account, transfer_coins},
+};
 use aptos_config::{
     config::{DiscoveryMethod, NodeConfig, Peer, PeerRole, HANDSHAKE_VERSION},
     network_id::NetworkId,
@@ -179,7 +181,8 @@ async fn test_private_full_node() {
 
     let transaction_factory = swarm.chain_info().transaction_factory();
 
-    // Here we want to add two swarms, a private full node, followed by a user full node connected to it
+    // Here we want to add two swarms, a private full node, followed by a user full
+    // node connected to it
     let mut private_config = NodeConfig::default_for_public_full_node();
     let private_network = private_config.full_node_networks.first_mut().unwrap();
     // Disallow public connections
@@ -251,7 +254,8 @@ async fn test_private_full_node() {
         .await
         .unwrap();
 
-    // send txn from user node and check both validator and user node have correct balance
+    // send txn from user node and check both validator and user node have correct
+    // balance
     transfer_coins(
         &user_client,
         &transaction_factory,
@@ -287,8 +291,9 @@ fn add_node_to_seeds(
     let seed_key = seed_network_config.identity_key().public_key();
 
     let seed_peer = if peer_role != PeerRole::Downstream {
-        // For upstreams, we know the address, but so don't duplicate the keys in the config (lazy way)
-        // TODO: This is ridiculous, we need a better way to manipulate these `NetworkAddress`s
+        // For upstreams, we know the address, but so don't duplicate the keys in the
+        // config (lazy way) TODO: This is ridiculous, we need a better way to
+        // manipulate these `NetworkAddress`s
         let address = seed_network_config.listen_address.clone();
         let port_protocol = address
             .as_slice()

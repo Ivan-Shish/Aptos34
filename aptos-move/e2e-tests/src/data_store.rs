@@ -6,11 +6,10 @@
 use crate::account::AccountData;
 use anyhow::Result;
 use aptos_state_view::TStateView;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
 use aptos_types::{
     access_path::AccessPath,
     account_config::CoinInfoResource,
-    state_store::state_key::StateKey,
+    state_store::{state_key::StateKey, state_storage_usage::StateStorageUsage},
     transaction::ChangeSet,
     write_set::{WriteOp, WriteSet},
 };
@@ -35,8 +34,8 @@ pub static GENESIS_CHANGE_SET_MAINNET: Lazy<ChangeSet> =
 
 /// An in-memory implementation of [`StateView`] and [`RemoteCache`] for the VM.
 ///
-/// Tests use this to set up state, and pass in a reference to the cache whenever a `StateView` or
-/// `RemoteCache` is needed.
+/// Tests use this to set up state, and pass in a reference to the cache
+/// whenever a `StateView` or `RemoteCache` is needed.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct FakeDataStore {
     state_data: HashMap<StateKey, Vec<u8>>,
@@ -54,10 +53,10 @@ impl FakeDataStore {
             match write_op {
                 WriteOp::Modification(blob) | WriteOp::Creation(blob) => {
                     self.set(state_key.clone(), blob.clone());
-                }
+                },
                 WriteOp::Deletion => {
                     self.remove(state_key);
-                }
+                },
             }
         }
     }

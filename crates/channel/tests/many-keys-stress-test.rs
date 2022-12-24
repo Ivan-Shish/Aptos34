@@ -11,9 +11,9 @@ use std::{
 };
 
 /// A small benchmark/stress test that sends `num_msgs` for each `num_keys`. The
-/// default arguments simulate many transient keys that just push a single message
-/// and then never more. Without garbage collecting empty per-key-queues, the
-/// program will eventually OOM.
+/// default arguments simulate many transient keys that just push a single
+/// message and then never more. Without garbage collecting empty
+/// per-key-queues, the program will eventually OOM.
 #[derive(Debug)]
 pub struct Args {
     num_keys: usize,

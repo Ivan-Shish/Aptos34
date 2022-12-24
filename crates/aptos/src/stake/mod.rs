@@ -1,21 +1,26 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::types::{
-    CliCommand, CliError, CliResult, CliTypedResult, TransactionOptions, TransactionSummary,
+use crate::{
+    common::{
+        types::{
+            CliCommand, CliError, CliResult, CliTypedResult, TransactionOptions, TransactionSummary,
+        },
+        utils::prompt_yes_with_override,
+    },
+    node::{get_stake_pools, StakePoolType},
 };
-use crate::common::utils::prompt_yes_with_override;
-use crate::node::{get_stake_pools, StakePoolType};
 use aptos_cached_packages::aptos_stdlib;
-use aptos_types::account_address::{
-    create_vesting_contract_address, default_stake_pool_address, AccountAddress,
+use aptos_types::{
+    account_address::{
+        create_vesting_contract_address, default_stake_pool_address, AccountAddress,
+    },
+    vesting::VestingAdminStore,
 };
-use aptos_types::vesting::VestingAdminStore;
 use async_trait::async_trait;
 use clap::Parser;
 
 /// Tool for manipulating stake and stake pools
-///
 #[derive(Parser)]
 pub enum StakeTool {
     AddStake(AddStake),
@@ -88,7 +93,7 @@ impl CliCommand<Vec<TransactionSummary>> for AddStake {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::StakingContract => {
                     transaction_summaries.push(
                         self.txn_options
@@ -99,12 +104,12 @@ impl CliCommand<Vec<TransactionSummary>> for AddStake {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::Vesting => {
                     return Err(CliError::UnexpectedError(
                         "Adding stake is not supported for vesting contracts".into(),
                     ))
-                }
+                },
             }
         }
         Ok(transaction_summaries)
@@ -113,7 +118,8 @@ impl CliCommand<Vec<TransactionSummary>> for AddStake {
 
 /// Unlock staked APT in a stake pool
 ///
-/// APT coins can only be unlocked if they no longer have an applied lockup period
+/// APT coins can only be unlocked if they no longer have an applied lockup
+/// period
 #[derive(Parser)]
 pub struct UnlockStake {
     /// Amount of Octas (10^-8 APT) to unlock
@@ -149,7 +155,7 @@ impl CliCommand<Vec<TransactionSummary>> for UnlockStake {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::StakingContract => {
                     transaction_summaries.push(
                         self.txn_options
@@ -160,12 +166,12 @@ impl CliCommand<Vec<TransactionSummary>> for UnlockStake {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::Vesting => {
                     return Err(CliError::UnexpectedError(
                         "Unlocking stake is not supported for vesting contracts".into(),
                     ))
-                }
+                },
             }
         }
         Ok(transaction_summaries)
@@ -233,7 +239,7 @@ impl CliCommand<Vec<TransactionSummary>> for IncreaseLockup {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::StakingContract => {
                     transaction_summaries.push(
                         self.txn_options
@@ -243,7 +249,7 @@ impl CliCommand<Vec<TransactionSummary>> for IncreaseLockup {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::Vesting => {
                     transaction_summaries.push(
                         self.txn_options
@@ -253,7 +259,7 @@ impl CliCommand<Vec<TransactionSummary>> for IncreaseLockup {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
             }
         }
         Ok(transaction_summaries)
@@ -343,7 +349,7 @@ impl CliCommand<Vec<TransactionSummary>> for SetOperator {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::StakingContract => {
                     transaction_summaries.push(
                         self.txn_options
@@ -356,7 +362,7 @@ impl CliCommand<Vec<TransactionSummary>> for SetOperator {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::Vesting => {
                     transaction_summaries.push(
                         self.txn_options
@@ -369,7 +375,7 @@ impl CliCommand<Vec<TransactionSummary>> for SetOperator {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
             }
         }
         Ok(transaction_summaries)
@@ -418,7 +424,7 @@ impl CliCommand<Vec<TransactionSummary>> for SetDelegatedVoter {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::StakingContract => {
                     transaction_summaries.push(
                         self.txn_options
@@ -429,7 +435,7 @@ impl CliCommand<Vec<TransactionSummary>> for SetDelegatedVoter {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
                 StakePoolType::Vesting => {
                     transaction_summaries.push(
                         self.txn_options
@@ -440,7 +446,7 @@ impl CliCommand<Vec<TransactionSummary>> for SetDelegatedVoter {
                             .await
                             .map(|inner| inner.into())?,
                     );
-                }
+                },
             }
         }
         Ok(transaction_summaries)
@@ -448,8 +454,6 @@ impl CliCommand<Vec<TransactionSummary>> for SetDelegatedVoter {
 }
 
 /// Create a staking contract stake pool
-///
-///
 #[derive(Parser)]
 pub struct CreateStakingContract {
     /// Account Address of operator
@@ -504,8 +508,8 @@ impl CliCommand<TransactionSummary> for CreateStakingContract {
     }
 }
 
-/// Distribute any fully unlocked tokens (rewards and/or vested tokens) from the vesting contract
-/// to shareholders.
+/// Distribute any fully unlocked tokens (rewards and/or vested tokens) from the
+/// vesting contract to shareholders.
 #[derive(Parser)]
 pub struct DistributeVestedCoins {
     /// Address of the vesting contract's admin.
@@ -532,11 +536,11 @@ impl CliCommand<TransactionSummary> for DistributeVestedCoins {
 }
 
 /// Unlock any vesting tokens according to the vesting contract's schedule.
-/// This also unlock any accumulated staking rewards and pays commission to the operator of the
-/// vesting contract's stake pool first.
+/// This also unlock any accumulated staking rewards and pays commission to the
+/// operator of the vesting contract's stake pool first.
 ///
-/// The unlocked vested tokens and staking rewards are still subject to the staking lockup and
-/// cannot be withdrawn until after the lockup expires.
+/// The unlocked vested tokens and staking rewards are still subject to the
+/// staking lockup and cannot be withdrawn until after the lockup expires.
 #[derive(Parser)]
 pub struct UnlockVestedCoins {
     /// Address of the vesting contract's admin.
@@ -564,9 +568,9 @@ impl CliCommand<TransactionSummary> for UnlockVestedCoins {
 
 /// Request commission from running a stake pool
 ///
-/// Allows operators or owners to request commission from running a stake pool (only if there's a
-/// staking contract set up with the staker).  The commission will be withdrawable at the end of the
-/// stake pool's current lockup period.
+/// Allows operators or owners to request commission from running a stake pool
+/// (only if there's a staking contract set up with the staker).  The commission
+/// will be withdrawable at the end of the stake pool's current lockup period.
 #[derive(Parser)]
 pub struct RequestCommission {
     /// Address of the owner of the stake pool
@@ -601,8 +605,8 @@ impl CliCommand<TransactionSummary> for RequestCommission {
             )
             .await;
 
-        // Note: this only works if the vesting contract has exactly one staking contract
-        // associated
+        // Note: this only works if the vesting contract has exactly one staking
+        // contract associated
         let staker_address = if let Ok(vesting_admin_store) = vesting_admin_store {
             vesting_admin_store.into_inner().vesting_contracts[0]
         } else {

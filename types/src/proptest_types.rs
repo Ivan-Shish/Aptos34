@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::transaction::NoOpChangeSetChecker;
 use crate::{
     access_path::AccessPath,
     account_address::{self, AccountAddress},
@@ -19,8 +18,8 @@ use crate::{
     proof::TransactionInfoListWithProof,
     state_store::{state_key::StateKey, state_value::StateValue},
     transaction::{
-        ChangeSet, ExecutionStatus, Module, ModuleBundle, RawTransaction, Script,
-        SignatureCheckedTransaction, SignedTransaction, Transaction, TransactionArgument,
+        ChangeSet, ExecutionStatus, Module, ModuleBundle, NoOpChangeSetChecker, RawTransaction,
+        Script, SignatureCheckedTransaction, SignedTransaction, Transaction, TransactionArgument,
         TransactionInfo, TransactionListWithProof, TransactionPayload, TransactionStatus,
         TransactionToCommit, Version, WriteSetPayload,
     },
@@ -64,27 +63,29 @@ impl WriteOp {
 
 impl Arbitrary for WriteOp {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         prop_oneof![Self::deletion_strategy(), Self::value_strategy()].boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for WriteSetPayload {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         any::<ChangeSet>().prop_map(WriteSetPayload::Direct).boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for WriteSet {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
-        // XXX there's no checking for repeated access paths here, nor in write_set. Is that
-        // important? Not sure.
+        // XXX there's no checking for repeated access paths here, nor in write_set. Is
+        // that important? Not sure.
         vec((any::<AccessPath>(), any::<WriteOp>()), 0..64)
             .prop_map(|write_set| {
                 let write_set_mut =
@@ -97,19 +98,17 @@ impl Arbitrary for WriteSet {
             })
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for ChangeSet {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         (any::<WriteSet>(), vec(any::<ContractEvent>(), 0..10))
             .prop_map(|(ws, events)| ChangeSet::new(ws, events, &NoOpChangeSetChecker).unwrap())
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl EventKey {
@@ -251,6 +250,8 @@ impl AccountInfoUniverse {
 
 impl Arbitrary for AccountInfoUniverse {
     type Parameters = usize;
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(num_accounts: Self::Parameters) -> Self::Strategy {
         vec(
             (
@@ -269,9 +270,12 @@ impl Arbitrary for AccountInfoUniverse {
             AccountInfoUniverse::new(
                 account_private_keys,
                 consensus_private_keys,
-                /* epoch = */ 0,
-                /* round = */ 0,
-                /* next_version = */ 0,
+                // epoch =
+                0,
+                // round =
+                0,
+                // next_version =
+                0,
             )
         })
         .boxed()
@@ -280,8 +284,6 @@ impl Arbitrary for AccountInfoUniverse {
     fn arbitrary() -> Self::Strategy {
         unimplemented!("Size of the universe must be provided explicitly (use any_with instead).")
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 #[derive(Arbitrary, Debug)]
@@ -392,16 +394,16 @@ fn new_raw_transaction(
 
 impl Arbitrary for RawTransaction {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         Self::strategy_impl(any::<AccountAddress>(), any::<TransactionPayload>()).boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl SignatureCheckedTransaction {
-    // This isn't an Arbitrary impl because this doesn't generate *any* possible SignedTransaction,
-    // just one kind of them.
+    // This isn't an Arbitrary impl because this doesn't generate *any* possible
+    // SignedTransaction, just one kind of them.
     pub fn script_strategy(
         keypair_strategy: impl Strategy<Value = KeyPair<Ed25519PrivateKey, Ed25519PublicKey>>,
     ) -> impl Strategy<Value = Self> {
@@ -465,23 +467,24 @@ impl SignatureCheckedTransactionGen {
 
 impl Arbitrary for SignatureCheckedTransaction {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         Self::strategy_impl(ed25519::keypair_strategy(), any::<TransactionPayload>()).boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
-/// This `Arbitrary` impl only generates valid signed transactions. TODO: maybe add invalid ones?
+/// This `Arbitrary` impl only generates valid signed transactions. TODO: maybe
+/// add invalid ones?
 impl Arbitrary for SignedTransaction {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         any::<SignatureCheckedTransaction>()
             .prop_map(|txn| txn.into_inner())
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl TransactionPayload {
@@ -509,27 +512,27 @@ prop_compose! {
 
 impl Arbitrary for TransactionStatus {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         arb_transaction_status().boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for TransactionPayload {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: ()) -> Self::Strategy {
-        // Most transactions in practice will be programs, but other parts of the system should
-        // at least not choke on write set strategies so introduce them with decent probability.
-        // The figures below are probability weights.
+        // Most transactions in practice will be programs, but other parts of the system
+        // should at least not choke on write set strategies so introduce them
+        // with decent probability. The figures below are probability weights.
         prop_oneof![
             4 => Self::script_strategy(),
             1 => Self::module_strategy(),
         ]
         .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for Script {
@@ -574,6 +577,8 @@ prop_compose! {
 
 impl Arbitrary for LedgerInfoWithSignatures {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         (any::<LedgerInfo>(), (1usize..100))
             .prop_flat_map(|(ledger_info, num_validators_range)| {
@@ -603,8 +608,6 @@ impl Arbitrary for LedgerInfoWithSignatures {
             })
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 #[derive(Arbitrary, Debug)]
@@ -723,15 +726,17 @@ impl ContractEvent {
 
 impl Arbitrary for ContractEvent {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         ContractEvent::strategy_impl(any::<EventKey>()).boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for TransactionToCommit {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         (
             any_with::<AccountInfoUniverse>(1),
@@ -740,13 +745,12 @@ impl Arbitrary for TransactionToCommit {
             .prop_map(|(mut universe, gen)| gen.materialize(&mut universe))
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
-/// Represents information already determined for generating a `TransactionToCommit`, along with
-/// to be determined information that needs to settle upon `materialize()`, for example a to be
-/// determined account can be represented by an `Index` which will be materialized to an entry in
+/// Represents information already determined for generating a
+/// `TransactionToCommit`, along with to be determined information that needs to
+/// settle upon `materialize()`, for example a to be determined account can be
+/// represented by an `Index` which will be materialized to an entry in
 /// the `AccountInfoUniverse`.
 ///
 /// See `TransactionToCommitGen::materialize()` and supporting types.
@@ -757,8 +761,9 @@ pub struct TransactionToCommitGen {
     /// Events: account and event content.
     event_gens: Vec<(Index, ContractEventGen)>,
     /// State updates: account and the blob.
-    /// N.B. the transaction sender and event owners must be updated to reflect information such as
-    /// sequence numbers so that test data generated through this is more realistic and logical.
+    /// N.B. the transaction sender and event owners must be updated to reflect
+    /// information such as sequence numbers so that test data generated
+    /// through this is more realistic and logical.
     account_state_gens: Vec<(Index, AccountStateGen)>,
     /// Gas used.
     gas_used: u64,
@@ -801,7 +806,7 @@ impl TransactionToCommitGen {
             state_updates,
             WriteSetMut::new(write_set).freeze().expect("Cannot fail"),
             events,
-            false, /* event_gen never generates reconfig events */
+            false, // event_gen never generates reconfig events
         )
     }
 
@@ -814,6 +819,7 @@ impl TransactionToCommitGen {
 
 impl Arbitrary for TransactionToCommitGen {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         (
@@ -858,8 +864,6 @@ impl Arbitrary for TransactionToCommitGen {
             )
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 fn arb_transaction_list_with_proof() -> impl Strategy<Value = TransactionListWithProof> {
@@ -902,15 +906,17 @@ fn arb_transaction_list_with_proof() -> impl Strategy<Value = TransactionListWit
 
 impl Arbitrary for TransactionListWithProof {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         arb_transaction_list_with_proof().boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 impl Arbitrary for BlockMetadata {
     type Parameters = SizeRange;
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(num_validators_range: Self::Parameters) -> Self::Strategy {
         (
             any::<HashValue>(),
@@ -944,8 +950,6 @@ impl Arbitrary for BlockMetadata {
             )
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 #[derive(Debug)]
@@ -967,13 +971,13 @@ impl ValidatorSetGen {
 
 impl Arbitrary for ValidatorSetGen {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         vec(any::<Index>(), 1..3)
             .prop_map(|validators| Self { validators })
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 #[derive(Debug)]
@@ -1000,7 +1004,7 @@ impl BlockInfoGen {
                     ValidatorInfo::new_with_test_network_keys(
                         signer.author(),
                         signer.public_key(),
-                        1, /* consensus_voting_power */
+                        1, // consensus_voting_power
                         index as u64,
                     )
                 })
@@ -1180,12 +1184,11 @@ pub fn arb_json_value() -> impl Strategy<Value = Value> {
 
 impl Arbitrary for ValidatorVerifier {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         vec(any::<ValidatorConsensusInfo>(), 1..1000)
             .prop_map(ValidatorVerifier::new)
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }

@@ -29,11 +29,12 @@ pub(crate) fn generate_next_execution_hash_blob(
 ) {
     if next_execution_hash == "vector::empty<u8>()" {
         emitln!(
-                writer,
-                "let framework_signer = aptos_governance::resolve_multi_step_proposal(proposal_id, @{}, {});\n",
-                for_address,
-                next_execution_hash,
-            );
+            writer,
+            "let framework_signer = aptos_governance::resolve_multi_step_proposal(proposal_id, \
+             @{}, {});\n",
+            for_address,
+            next_execution_hash,
+        );
     } else {
         let next_execution_hash_bytes = next_execution_hash.as_bytes();
         emitln!(

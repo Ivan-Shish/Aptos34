@@ -38,7 +38,8 @@ pub struct UserTransaction {
     pub epoch: i64,
 }
 
-/// Need a separate struct for queryable because we don't want to define the inserted_at column (letting DB fill)
+/// Need a separate struct for queryable because we don't want to define the
+/// inserted_at column (letting DB fill)
 #[derive(Associations, Clone, Deserialize, Debug, Identifiable, Queryable, Serialize)]
 #[diesel(belongs_to(TransactionQuery, foreign_key = version))]
 #[diesel(primary_key(version))]
@@ -87,7 +88,7 @@ impl UserTransaction {
                 entry_function_id_str: match &txn.request.payload {
                     TransactionPayload::EntryFunctionPayload(payload) => {
                         payload.function.to_string()
-                    }
+                    },
                     _ => String::default(),
                 },
                 epoch,

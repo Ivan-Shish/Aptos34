@@ -1,23 +1,21 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::str::FromStr;
-
 use super::new_test_context;
 use aptos_api_test_context::{current_function_name, find_value};
 use aptos_api_types::{MoveModuleBytecode, MoveResource, StateKeyWrapper};
 use serde_json::json;
+use std::str::FromStr;
 
-/* TODO: reactivate once cause of failure for `"8"` vs `8` in the JSON output is known.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn test_get_account_resources_returns_empty_array_for_account_has_no_resources() {
-    let mut context = new_test_context(current_function_name!());
-    let address = "0x1";
-
-    let resp = context.get(&account_resources(address)).await;
-    context.check_golden_output(resp);
-}
- */
+// TODO: reactivate once cause of failure for `"8"` vs `8` in the JSON output is
+// known. #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+// async fn test_get_account_resources_returns_empty_array_for_account_has_no_resources() {
+// let mut context = new_test_context(current_function_name!());
+// let address = "0x1";
+//
+// let resp = context.get(&account_resources(address)).await;
+// context.check_golden_output(resp);
+// }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_get_account_resources_by_address_0x0() {
@@ -246,7 +244,8 @@ async fn test_get_account_resources_with_pagination() {
     assert_eq!(resources.len(), 5);
     assert_eq!(resources, all_resources[0..5].to_vec());
 
-    // Make a request using the cursor. Assert the 5 results we get back are the next 5.
+    // Make a request using the cursor. Assert the 5 results we get back are the
+    // next 5.
     let req = warp::test::request().method("GET").path(&format!(
         "/v1{}?limit=5&start={}",
         account_resources(address),
@@ -317,7 +316,8 @@ async fn test_get_account_modules_with_pagination() {
     assert_eq!(modules.len(), 5);
     assert_eq!(modules, all_modules[0..5].to_vec());
 
-    // Make a request using the cursor. Assert the 5 results we get back are the next 5.
+    // Make a request using the cursor. Assert the 5 results we get back are the
+    // next 5.
     let req = warp::test::request().method("GET").path(&format!(
         "/v1{}?limit=5&start={}",
         account_modules(address),

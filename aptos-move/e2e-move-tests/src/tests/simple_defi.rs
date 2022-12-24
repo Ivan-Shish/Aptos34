@@ -5,9 +5,9 @@ use crate::{assert_success, tests::common, MoveHarness};
 use aptos_cached_packages::aptos_stdlib;
 use aptos_framework::{BuildOptions, BuiltPackage};
 use aptos_language_e2e_tests::account::Account;
-use aptos_types::account_config::CoinStoreResource;
 use aptos_types::{
     account_address::{create_resource_address, AccountAddress},
+    account_config::CoinStoreResource,
     transaction::{EntryFunction, TransactionPayload},
 };
 use move_core_types::{ident_str, language_storage::ModuleId, parser::parse_struct_tag};
@@ -47,7 +47,8 @@ fn exchange_e2e_test() {
         .extract_metadata()
         .expect("extracting package metadata must succeed");
 
-    // create the resource account and publish the code under the resource account's address
+    // create the resource account and publish the code under the resource account's
+    // address
     let result = h.run_transaction_payload(
         &origin_account,
         aptos_stdlib::resource_account_create_resource_account_and_publish_package(
@@ -103,7 +104,8 @@ fn exchange_e2e_test() {
     assert_coin_store_balance(&h, &resource_address, CHLOE_COIN_STRUCT_STRING, 0);
 }
 
-/// check the coin store balance of `struct_tag_string` CoinType at the given `address` is the same as the `expected_coin_amount`
+/// check the coin store balance of `struct_tag_string` CoinType at the given
+/// `address` is the same as the `expected_coin_amount`
 fn assert_coin_store_balance(
     h: &MoveHarness,
     address: &AccountAddress,

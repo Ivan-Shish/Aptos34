@@ -111,18 +111,18 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             UserTransaction(txn) => {
                 let payload = self.try_into_transaction_payload(txn.payload().clone())?;
                 (&txn, info, payload, events, timestamp).into()
-            }
+            },
             GenesisTransaction(write_set) => {
                 let payload = self.try_into_write_set_payload(write_set)?;
                 (info, payload, events).into()
-            }
+            },
             BlockMetadata(txn) => (&txn, info, events).into(),
             StateCheckpoint(_) => {
                 Transaction::StateCheckpointTransaction(StateCheckpointTransaction {
                     info,
                     timestamp: timestamp.into(),
                 })
-            }
+            },
         })
     }
 
@@ -143,7 +143,8 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             success: info.status().is_success(),
             vm_status: self.explain_vm_status(info.status()),
             accumulator_root_hash: accumulator_root_hash.into(),
-            // TODO: the resource value is interpreted by the type definition at the version of the converter, not the version of the tx: must be fixed before we allow module updates
+            // TODO: the resource value is interpreted by the type definition at the version of the
+            // converter, not the version of the tx: must be fixed before we allow module updates
             changes: write_set
                 .into_iter()
                 .filter_map(|(sk, wo)| self.try_into_write_set_change(sk, wo).ok())
@@ -190,7 +191,7 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     },
                     type_arguments: ty_args.into_iter().map(|arg| arg.into()).collect(),
                 })
-            }
+            },
         };
         Ok(ret)
     }
@@ -211,7 +212,9 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                 let (write_set, events) = d.into_inner();
                 WriteSetPayload {
                     write_set: WriteSet::DirectWriteSet(DirectWriteSet {
-                        // TODO: the resource value is interpreted by the type definition at the version of the converter, not the version of the tx: must be fixed before we allow module updates
+                        // TODO: the resource value is interpreted by the type definition at the
+                        // version of the converter, not the version of the tx: must be fixed before
+                        // we allow module updates
                         changes: write_set
                             .into_iter()
                             .map(|(state_key, op)| self.try_into_write_set_change(state_key, op))
@@ -219,7 +222,7 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                         events: self.try_into_events(&events)?,
                     }),
                 }
-            }
+            },
         };
         Ok(ret)
     }
@@ -234,10 +237,10 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
         match state_key {
             StateKey::AccessPath(access_path) => {
                 self.try_access_path_into_write_set_change(hash, access_path, op)
-            }
+            },
             StateKey::TableItem { handle, key } => {
                 self.try_table_item_into_write_set_change(hash, handle, key, op)
-            }
+            },
             StateKey::Raw(_) => Err(format_err!(
                 "Can't convert account raw key {:?} to WriteSetChange",
                 state_key
@@ -299,7 +302,7 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     key,
                     data,
                 })
-            }
+            },
             WriteOp::Modification(value) | WriteOp::Creation(value) => {
                 let data =
                     self.try_write_table_item_into_decoded_table_data(handle, &key.0, &value)?;
@@ -311,7 +314,7 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     value: value.into(),
                     data,
                 })
-            }
+            },
         };
         Ok(ret)
     }
@@ -404,7 +407,10 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                 submit_transaction_request.user_transaction_request,
                 chain_id,
             )?,
-            submit_transaction_request.signature.try_into().context("Failed to parse transaction when building SignedTransaction from SubmitTransactionRequest")?,
+            submit_transaction_request.signature.try_into().context(
+                "Failed to parse transaction when building SignedTransaction from \
+                 SubmitTransactionRequest",
+            )?,
         ))
     }
 
@@ -499,7 +505,7 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                         .collect::<Result<_>>()?,
                     args,
                 ))
-            }
+            },
             TransactionPayload::ModuleBundlePayload(payload) => {
                 Target::ModuleBundle(ModuleBundle::new(
                     payload
@@ -508,7 +514,7 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                         .map(|m| m.bytecode.into())
                         .collect(),
                 ))
-            }
+            },
             TransactionPayload::ScriptPayload(script) => {
                 let ScriptPayload {
                     code,
@@ -530,10 +536,10 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                                 .map(|arg| arg.try_into())
                                 .collect::<Result<_>>()?,
                         ))
-                    }
+                    },
                     None => return Err(anyhow::anyhow!("invalid transaction script bytecode")),
                 }
-            }
+            },
         };
         Ok(ret)
     }
@@ -578,10 +584,10 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             .collect::<Result<_>>()
     }
 
-    // Converts JSON object to `MoveValue`, which can be bcs serialized into the same
-    // representation in the DB.
-    // Notice that structs are of the `MoveStruct::Runtime` flavor, matching the representation in
-    // DB.
+    // Converts JSON object to `MoveValue`, which can be bcs serialized into the
+    // same representation in the DB.
+    // Notice that structs are of the `MoveStruct::Runtime` flavor, matching the
+    // representation in DB.
     pub fn try_into_vm_value(
         &self,
         type_tag: &TypeTag,
@@ -609,13 +615,13 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             MoveTypeLayout::Address => serde_json::from_value::<crate::Address>(val)?.into(),
             MoveTypeLayout::Vector(item_layout) => {
                 self.try_into_vm_value_vector(item_layout.as_ref(), val)?
-            }
+            },
             MoveTypeLayout::Struct(struct_layout) => {
                 self.try_into_vm_value_struct(struct_layout, val)?
-            }
+            },
             MoveTypeLayout::Signer => {
                 bail!("unexpected move type {:?} for value {:?}", layout, val)
-            }
+            },
         })
     }
 
@@ -767,7 +773,7 @@ fn abort_location_to_str(loc: &AbortLocation) -> String {
     match loc {
         AbortLocation::Module(mid) => {
             format!("{}::{}", mid.address().to_hex_literal(), mid.name())
-        }
+        },
         _ => loc.to_string(),
     }
 }
@@ -777,14 +783,29 @@ pub trait ExplainVMStatus {
 
     fn explain_vm_status(&self, status: &ExecutionStatus) -> String {
         match status {
-            ExecutionStatus::MoveAbort { location, code, info } => match &location {
-                AbortLocation::Module(_) => {
-                    info.as_ref().map(|i| {
-                        format!("Move abort in {}: {}({:#x}): {}", abort_location_to_str(location), i.reason_name, code, i.description)
-                    }).unwrap_or_else(|| {
-                        format!("Move abort in {}: {:#x}", abort_location_to_str(location), code)
+            ExecutionStatus::MoveAbort {
+                location,
+                code,
+                info,
+            } => match &location {
+                AbortLocation::Module(_) => info
+                    .as_ref()
+                    .map(|i| {
+                        format!(
+                            "Move abort in {}: {}({:#x}): {}",
+                            abort_location_to_str(location),
+                            i.reason_name,
+                            code,
+                            i.description
+                        )
                     })
-                }
+                    .unwrap_or_else(|| {
+                        format!(
+                            "Move abort in {}: {:#x}",
+                            abort_location_to_str(location),
+                            code
+                        )
+                    }),
                 AbortLocation::Script => format!("Move abort: code {:#x}", code),
             },
             ExecutionStatus::Success => "Executed successfully".to_owned(),
@@ -795,24 +816,29 @@ pub trait ExplainVMStatus {
                 code_offset,
             } => {
                 let func_name = match location {
-                    AbortLocation::Module(module_id) => self.explain_function_index(module_id, function)
+                    AbortLocation::Module(module_id) => self
+                        .explain_function_index(module_id, function)
                         .map(|name| format!("{}::{}", abort_location_to_str(location), name))
-                        .unwrap_or_else(|_| format!("{}::<#{} function>", abort_location_to_str(location), function)),
+                        .unwrap_or_else(|_| {
+                            format!(
+                                "{}::<#{} function>",
+                                abort_location_to_str(location),
+                                function
+                            )
+                        }),
                     AbortLocation::Script => "script".to_owned(),
                 };
                 format!(
                     "Execution failed in {} at code offset {}",
                     func_name, code_offset
                 )
-            }
-            ExecutionStatus::MiscellaneousError(code) => {
-                code.map_or(
-                    "Move bytecode deserialization / verification failed, including entry function not found or invalid arguments".to_owned(),
-                    |e| format!(
-                        "Transaction Executed and Committed with Error {:#?}", e
-                    ),
-                )
-            }
+            },
+            ExecutionStatus::MiscellaneousError(code) => code.map_or(
+                "Move bytecode deserialization / verification failed, including entry function \
+                 not found or invalid arguments"
+                    .to_owned(),
+                |e| format!("Transaction Executed and Committed with Error {:#?}", e),
+            ),
         }
     }
 

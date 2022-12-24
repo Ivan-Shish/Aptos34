@@ -1,11 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//!
 //! This module exposes two types of sockets useful for tests:
 //! - ReadOnlyTestSocket: a socket that can be read from in different ways.
-//! - ReadWriteTestSocket: a similar wrapper but around MemorySocket to retrieve handshake messages being sent as well.
-//!
+//! - ReadWriteTestSocket: a similar wrapper but around MemorySocket to retrieve
+//!   handshake messages being sent as well.
 
 use aptos_memsocket::MemorySocket;
 use futures::{
@@ -15,7 +14,6 @@ use futures::{
 };
 use std::{io, pin::Pin};
 
-//
 // ReadOnlyTestSocket
 // ==================
 //
@@ -109,8 +107,8 @@ impl<'a> AsyncRead for ReadOnlyTestSocket<'a> {
     }
 }
 
-//
-// ReadOnlyTestSocket but with a static lifetime (useful to really replace a socket)
+// ReadOnlyTestSocket but with a static lifetime (useful to really replace a
+// socket)
 //
 
 #[derive(Debug)]
@@ -203,7 +201,6 @@ impl AsyncRead for ReadOnlyTestSocketVec {
     }
 }
 
-//
 // ReadWriteTestSocket
 // ==================
 //
@@ -303,7 +300,6 @@ impl<'a> AsyncRead for ReadWriteTestSocket<'a> {
     }
 }
 
-//
 // Tests
 // =====
 //

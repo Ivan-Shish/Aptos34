@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/// A collection of constants and default values for configuring various network components.
+/// A collection of constants and default values for configuring various network
+/// components.
 
 // NB: Almost all of these values are educated guesses, and not determined using any empirical
 // data. If you run into a limit and believe that it is unreasonably tight, please submit a PR
@@ -17,7 +18,7 @@ pub const MAX_CONCURRENT_INBOUND_RPCS: u32 = 100;
 // These are only used in tests
 // TODO: Fix this so the tests and the defaults in config are the same
 pub const NETWORK_CHANNEL_SIZE: usize = 1024;
-pub const MAX_FRAME_SIZE: usize = 4 * 1024 * 1024; /* 4 MiB */
-pub const MAX_MESSAGE_SIZE: usize = 64 * 1024 * 1024; /* 64 MiB */
+pub const MAX_FRAME_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
+pub const MAX_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
 pub const MAX_CONCURRENT_NETWORK_REQS: usize = 100;
 pub const MAX_CONCURRENT_NETWORK_NOTIFS: usize = 100;

@@ -72,7 +72,8 @@ fn common_protocols() {
         supported_protocols,
     };
 
-    // Case 1: One intersecting protocol is found for common messaging protocol version.
+    // Case 1: One intersecting protocol is found for common messaging protocol
+    // version.
     let mut supported_protocols = BTreeMap::new();
     supported_protocols.insert(
         MessagingProtocolVersion::V1,
@@ -103,7 +104,8 @@ fn common_protocols() {
         HandshakeError::NoCommonProtocols,
     );
 
-    // Case 3: Intersecting messaging protocol version is present, but no intersecting protocols.
+    // Case 3: Intersecting messaging protocol version is present, but no
+    // intersecting protocols.
     let mut supported_protocols = BTreeMap::new();
     supported_protocols.insert(MessagingProtocolVersion::V1, ProtocolIdSet::empty());
     let h2 = HandshakeMsg {
@@ -137,7 +139,8 @@ fn is_empty() {
     assert!(!ProtocolIdSet::all_known().is_empty());
 }
 
-// Ensure we can handshake with a peer advertising some totally unknown ProtocoId's.
+// Ensure we can handshake with a peer advertising some totally unknown
+// ProtocoId's.
 
 #[test]
 fn ignore_unknown_protocols() {

@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This file defines transaction store APIs that are related to committed signed transactions.
+//! This file defines transaction store APIs that are related to committed
+//! signed transactions.
 
 use crate::{
     errors::AptosDbError,
@@ -37,7 +38,8 @@ impl TransactionStore {
         Self { db }
     }
 
-    /// Gets the version of a transaction by the sender `address` and `sequence_number`.
+    /// Gets the version of a transaction by the sender `address` and
+    /// `sequence_number`.
     pub fn get_account_transaction_version(
         &self,
         address: AccountAddress,
@@ -102,7 +104,8 @@ impl TransactionStore {
             .ok_or_else(|| AptosDbError::NotFound(format!("Txn {}", version)).into())
     }
 
-    /// Gets an iterator that yields at most `num_transactions` transactions starting from `start_version`.
+    /// Gets an iterator that yields at most `num_transactions` transactions
+    /// starting from `start_version`.
     pub fn get_transaction_iter(
         &self,
         start_version: Version,
@@ -113,7 +116,8 @@ impl TransactionStore {
         iter.expect_continuous_versions(start_version, num_transactions)
     }
 
-    /// Gets an iterator that yields `num_transactions` write sets starting from `start_version`.
+    /// Gets an iterator that yields `num_transactions` write sets starting from
+    /// `start_version`.
     pub fn get_write_set_iter(
         &self,
         start_version: Version,
@@ -226,7 +230,8 @@ impl TransactionStore {
         Ok(())
     }
 
-    /// Prune the transaction schema store between a range of version in [begin, end)
+    /// Prune the transaction schema store between a range of version in [begin,
+    /// end)
     pub fn prune_transaction_schema(
         &self,
         begin: Version,
@@ -239,7 +244,8 @@ impl TransactionStore {
         Ok(())
     }
 
-    /// Prune the transaction schema store between a range of version in [begin, end)
+    /// Prune the transaction schema store between a range of version in [begin,
+    /// end)
     pub fn prune_transaction_info_schema(
         &self,
         begin: Version,
@@ -252,16 +258,17 @@ impl TransactionStore {
         Ok(())
     }
 
-    /// Prune the transaction accumulator between a range of version in [begin, end).
+    /// Prune the transaction accumulator between a range of version in [begin,
+    /// end).
     ///
-    /// To avoid always pruning a full left subtree, we uses the following algorithm.
-    /// For each leaf with an odd leaf index.
-    /// 1. From the bottom upwards, find the first ancestor that's a left child of its parent.
-    /// (the position of which can be got by popping "1"s from the right of the leaf address).
-    /// Note that this node DOES NOT become non-useful.
-    /// 2. From the node found from the previous step, delete both its children non-useful, and go
-    /// to the right child to repeat the process until we reach a leaf node.
-    /// More details are in this issue https://github.com/aptos-labs/aptos-core/issues/1288.
+    /// To avoid always pruning a full left subtree, we uses the following
+    /// algorithm. For each leaf with an odd leaf index.
+    /// 1. From the bottom upwards, find the first ancestor that's a left child
+    /// of its parent. (the position of which can be got by popping "1"s
+    /// from the right of the leaf address). Note that this node DOES NOT
+    /// become non-useful. 2. From the node found from the previous step,
+    /// delete both its children non-useful, and go to the right child to
+    /// repeat the process until we reach a leaf node. More details are in this issue https://github.com/aptos-labs/aptos-core/issues/1288.
     pub fn prune_transaction_accumulator(
         &self,
         begin: Version,
@@ -295,23 +302,24 @@ impl TransactionStore {
     fn find_first_ancestor_that_is_a_left_child(&self, version: Version) -> Position {
         // We can get the first ancestor's position based on the two observations:
         // - floor(level position of a node / 2) = level position of its parent.
-        // - if a node is a left child of its parent, its level position should be a multiple of 2.
-        // - level position means the position counted from 0 of a single tree level. For example,
-        //                a (level position = 0)
-        //         /                                \
-        //    b (level position = 0)      c(level position = 1)
+        // - if a node is a left child of its parent, its level position should be a
+        //   multiple of 2.
+        // - level position means the position counted from 0 of a single tree level.
+        //   For example, a (level position = 0) /                                \ b
+        //   (level position = 0)      c(level position = 1)
         //
-        // To find the first ancestor which is a left child of its parent, we can keep diving the
-        // version by 2 (to find the ancestor) until we get a number which is a multiple of 2
-        // (to make sure the ancestor is a left child of its parent). The number of time we
-        // divide the version is the level of the ancestor. The remainder is the level position
-        // of the ancestor.
+        // To find the first ancestor which is a left child of its parent, we can keep
+        // diving the version by 2 (to find the ancestor) until we get a number
+        // which is a multiple of 2 (to make sure the ancestor is a left child
+        // of its parent). The number of time we divide the version is the level
+        // of the ancestor. The remainder is the level position of the ancestor.
         let first_ancestor_that_is_a_left_child_level = version.trailing_ones();
         let index_in_level = version >> first_ancestor_that_is_a_left_child_level;
         Position::from_level_and_pos(first_ancestor_that_is_a_left_child_level, index_in_level)
     }
 
-    /// Prune the transaction schema store between a range of version in [begin, end)
+    /// Prune the transaction schema store between a range of version in [begin,
+    /// end)
     pub fn prune_write_set(
         &self,
         begin: Version,

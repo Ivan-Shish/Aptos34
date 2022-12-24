@@ -1,22 +1,21 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::validatable::Validate;
 use crate::{
     bls12381,
     bls12381::{PrivateKey, ProofOfPossession, PublicKey},
     test_utils::{random_subset, KeyPair, TestAptosCrypto},
-    validatable::Validatable,
+    validatable::{Validatable, Validate},
     Signature, SigningKey, Uniform,
 };
 use rand::{distributions::Alphanumeric, Rng};
 use rand_core::OsRng;
-use std::convert::TryFrom;
-use std::iter::zip;
+use std::{convert::TryFrom, iter::zip};
 
-/// Tests that an individual signature share computed correctly on a message m passes verification on m.
-/// Tests that a signature share computed on a different message m' fails verification on m.
-/// Tests that a signature share fails verification under the wrong public key.
+/// Tests that an individual signature share computed correctly on a message m
+/// passes verification on m. Tests that a signature share computed on a
+/// different message m' fails verification on m. Tests that a signature share
+/// fails verification under the wrong public key.
 #[test]
 fn bls12381_sigshare_verify() {
     let mut rng = OsRng;
@@ -45,7 +44,8 @@ fn bls12381_sigshare_verify() {
         .verify_arbitrary_msg(message, &key_pair_wrong.public_key)
         .is_err());
 
-    // sig on message under keypair should NOT verify on message_wrong under key_pair
+    // sig on message under keypair should NOT verify on message_wrong under
+    // key_pair
     assert!(signature
         .verify_arbitrary_msg(message_wrong, &key_pair.public_key)
         .is_err());
@@ -105,15 +105,16 @@ fn random_message_for_signing(rng: &mut OsRng) -> TestAptosCrypto {
     )
 }
 
-/// Returns several 256-character unique strings that can be aggregate-signed by the BLS API.
+/// Returns several 256-character unique strings that can be aggregate-signed by
+/// the BLS API.
 fn random_messages_for_signing(rng: &mut OsRng, n: usize) -> Vec<TestAptosCrypto> {
     (0..n)
         .map(|_| random_message_for_signing(rng))
         .collect::<Vec<TestAptosCrypto>>()
 }
 
-/// Tests that a multisignature on a message m aggregated from n/2 out of n signers verifies
-/// correctly on m but fails verification on a different m'.
+/// Tests that a multisignature on a message m aggregated from n/2 out of n
+/// signers verifies correctly on m but fails verification on a different m'.
 #[test]
 fn bls12381_multisig_should_verify() {
     let mut rng = OsRng;
@@ -140,7 +141,8 @@ fn bls12381_multisig_should_verify() {
     // multisig should verify on the correct message under the correct aggregate PK
     assert!(multisig.verify(&message, &aggpk).is_ok());
 
-    // multisig should not verify on an incorrect message under the correct aggregate PK
+    // multisig should not verify on an incorrect message under the correct
+    // aggregate PK
     assert!(multisig.verify(&message_wrong, &aggpk).is_err());
 }
 
@@ -159,7 +161,8 @@ fn bls12381_serialize_sig() {
     assert_eq!(signature, signature_deserialized);
 }
 
-/// Tests that an aggregate signature on `n` different messages verifies correctly.
+/// Tests that an aggregate signature on `n` different messages verifies
+/// correctly.
 #[test]
 fn bls12381_aggsig_should_verify() {
     let mut rng = OsRng;
@@ -223,8 +226,8 @@ fn bls12381_aggsig_zero_messages_or_pks_does_not_verify() {
     assert!(aggsig.verify_aggregate(&msgs_refs, &pubkeys).is_err());
 }
 
-/// Tests that a multisignature incorrectly aggregated from signature shares on different messages does
-/// NOT verify.
+/// Tests that a multisignature incorrectly aggregated from signature shares on
+/// different messages does NOT verify.
 #[test]
 fn bls12381_multisig_wrong_messages_aggregated() {
     let mut rng = OsRng;
@@ -252,8 +255,8 @@ fn bls12381_multisig_wrong_messages_aggregated() {
     let multisig = bls12381::Signature::aggregate(signatures).unwrap();
     let aggpk = PublicKey::aggregate(pubkeys).unwrap();
 
-    // multisig should NOT verify on any of the messages, because it is actually not a multisig:
-    // i.e., it is not an aggregate signature on a single message
+    // multisig should NOT verify on any of the messages, because it is actually not
+    // a multisig: i.e., it is not an aggregate signature on a single message
     assert!(multisig.verify(&message, &aggpk).is_err());
     assert!(multisig.verify(&message_wrong, &aggpk).is_err());
 }
@@ -274,8 +277,8 @@ pub fn random_different_signer_sets(
     (signers1, signers2)
 }
 
-/// Tests that a multisig aggregated from a set of signers A does not verify under a public key
-/// aggregated from a different set B of signers.
+/// Tests that a multisig aggregated from a set of signers A does not verify
+/// under a public key aggregated from a different set B of signers.
 #[test]
 fn bls12381_multisig_wrong_pks_aggregated() {
     let mut rng = OsRng;
@@ -309,11 +312,13 @@ fn bls12381_multisig_wrong_pks_aggregated() {
     let aggpk1 = PublicKey::aggregate(pubkeys1).unwrap();
     let aggpk2 = PublicKey::aggregate(pubkeys2).unwrap();
 
-    // first, make sure multisig1 (and multisig2) verify on message1 (and on message2) under aggpk1 (and aggpk2, respectively)
+    // first, make sure multisig1 (and multisig2) verify on message1 (and on
+    // message2) under aggpk1 (and aggpk2, respectively)
     assert!(multisig1.verify(&message1, &aggpk1).is_ok());
     assert!(multisig2.verify(&message2, &aggpk2).is_ok());
 
-    // second, make sure multisig1 doesn't verify against multisig2's signer set (and viceversa)
+    // second, make sure multisig1 doesn't verify against multisig2's signer set
+    // (and viceversa)
     assert!(multisig1.verify(&message1, &aggpk2).is_err());
     assert!(multisig2.verify(&message2, &aggpk1).is_err());
 
@@ -322,7 +327,8 @@ fn bls12381_multisig_wrong_pks_aggregated() {
     assert!(multisig2.verify(&message1, &aggpk1).is_err());
 }
 
-/// Tests that a randomly generated multisig does not verify under a randomly generated PK.
+/// Tests that a randomly generated multisig does not verify under a randomly
+/// generated PK.
 #[test]
 fn bls12381_random_multisig_dont_verify_with_random_pk() {
     let mut rng = OsRng;
@@ -356,8 +362,10 @@ fn bls12381_validatable_pk() {
     // Test that low-order points don't pass the validate() call
     //
     // Low-order points were sampled from bls12_381 crate (https://github.com/zkcrypto/bls12_381/blob/main/src/g1.rs)
-    // - The first point was convereted from projective to affine coordinates and serialized via `point.to_affine().to_compressed()`.
-    // - The second point was in affine coordinates and serialized via `a.to_compressed()`.
+    // - The first point was convereted from projective to affine coordinates and
+    //   serialized via `point.to_affine().to_compressed()`.
+    // - The second point was in affine coordinates and serialized via
+    //   `a.to_compressed()`.
     let low_order_points = [
         "ae3cd9403b69c20a0d455fd860e977fe6ee7140a7f091f26c860f2caccd3e0a7a7365798ac10df776675b3a67db8faa0",
         "928d4862a40439a67fd76a9c7560e2ff159e770dcf688ff7b2dd165792541c88ee76c82eb77dd6e9e72c89cbf1a56a68",
@@ -372,7 +380,8 @@ fn bls12381_validatable_pk() {
         // First, make sure group_check() identifies this point as a low-order point
         assert!(pk.subgroup_check().is_err());
 
-        // Second, make sure our Validatable<PublicKey> implementation agrees with group_check
+        // Second, make sure our Validatable<PublicKey> implementation agrees with
+        // group_check
         let validatable = Validatable::<PublicKey>::from_unvalidated(pk.to_unvalidated());
         assert!(validatable.validate().is_err());
     }
@@ -380,8 +389,8 @@ fn bls12381_validatable_pk() {
 
 #[test]
 #[ignore]
-/// Not an actual test: only used to generate test cases for testing the BLS Move module in
-/// aptos-move/framework/move-stdlib/sources/signer.move
+/// Not an actual test: only used to generate test cases for testing the BLS
+/// Move module in aptos-move/framework/move-stdlib/sources/signer.move
 fn bls12381_sample_pop() {
     let mut rng = OsRng;
 
@@ -408,11 +417,12 @@ fn bls12381_sample_pop() {
 
 #[test]
 #[ignore]
-/// Not an actual test: only used to generate test cases for testing the BLS Move module in
-/// aptos-move/framework/move-stdlib/sources/signer.move
-/// For simplicity, we use `sign_arbitrary_message` to generate a signature directly on a
-/// message `m` rather than on its hash derived using the `CryptoHasher` trait. This makes it easier
-/// to verify the signature in our Move code, which uses `verify_arbitrary_message`.
+/// Not an actual test: only used to generate test cases for testing the BLS
+/// Move module in aptos-move/framework/move-stdlib/sources/signer.move
+/// For simplicity, we use `sign_arbitrary_message` to generate a signature
+/// directly on a message `m` rather than on its hash derived using the
+/// `CryptoHasher` trait. This makes it easier to verify the signature in our
+/// Move code, which uses `verify_arbitrary_message`.
 fn bls12381_sample_signature() {
     let mut rng = OsRng;
 
@@ -430,8 +440,8 @@ fn bls12381_sample_signature() {
 }
 
 #[test]
-/// Tests deserialization and verification of a signature generated for the Move submodule via
-/// `bls12381_sample_signature` above.
+/// Tests deserialization and verification of a signature generated for the Move
+/// submodule via `bls12381_sample_signature` above.
 fn bls12381_sample_signature_verifies() {
     let pk = PublicKey::try_from(
         hex::decode(
@@ -460,7 +470,8 @@ fn bls12381_sample_doc_test_for_normal_sigs() {
     let message = TestAptosCrypto("test".to_owned());
     let sig = kp.private_key.sign(&message).unwrap();
 
-    // Any verifier who has the signer's public key can verify the `(message, sig)` pair as:
+    // Any verifier who has the signer's public key can verify the `(message, sig)`
+    // pair as:
     assert!(sig.verify(&message, &kp.public_key).is_ok());
 
     println!(
@@ -480,8 +491,8 @@ fn bls12381_sample_doc_test_for_normal_sigs() {
 
 #[test]
 #[ignore]
-/// Not an actual test: only used to generate test cases for testing the BLS Move module in
-/// aptos-move/framework/move-stdlib/sources/signer.move
+/// Not an actual test: only used to generate test cases for testing the BLS
+/// Move module in aptos-move/framework/move-stdlib/sources/signer.move
 fn bls12381_sample_aggregate_pk_and_aggsig() {
     let mut rng = OsRng;
 
@@ -524,7 +535,10 @@ fn bls12381_sample_aggregate_pk_and_aggsig() {
     }
     println!("];\n");
 
-    println!("// aggsigs[i] = \\sum_{{j <= i}}  sigs[j], where sigs[j] is a signature on msgs[j] under pks[j]");
+    println!(
+        "// aggsigs[i] = \\sum_{{j <= i}}  sigs[j], where sigs[j] is a signature on msgs[j] under \
+         pks[j]"
+    );
     println!("let aggsigs = vector[");
     for multisig in aggsigs {
         println!("    x\"{}\",", multisig);
@@ -534,8 +548,8 @@ fn bls12381_sample_aggregate_pk_and_aggsig() {
 
 #[test]
 #[ignore]
-/// Not an actual test: only used to generate test cases for testing the BLS Move module in
-/// aptos-move/framework/move-stdlib/sources/signer.move
+/// Not an actual test: only used to generate test cases for testing the BLS
+/// Move module in aptos-move/framework/move-stdlib/sources/signer.move
 fn bls12381_sample_aggregate_pk_and_multisig() {
     let mut rng = OsRng;
 
@@ -566,7 +580,10 @@ fn bls12381_sample_aggregate_pk_and_multisig() {
     }
     println!("];\n");
 
-    println!("// agg_pks[i] = \\sum_{{j <= i}}  pk[j] (i.e., the aggregation of all public keys from 0 to i, inclusive)");
+    println!(
+        "// agg_pks[i] = \\sum_{{j <= i}}  pk[j] (i.e., the aggregation of all public keys from 0 \
+         to i, inclusive)"
+    );
     println!("let agg_pks = vector[");
     for aggpk in agg_pks {
         println!("    x\"{}\",", aggpk);
@@ -583,8 +600,8 @@ fn bls12381_sample_aggregate_pk_and_multisig() {
 
 #[test]
 #[ignore]
-/// Not an actual test: only used to generate test cases for testing the BLS Move module in
-/// aptos-move/framework/move-stdlib/sources/signer.move
+/// Not an actual test: only used to generate test cases for testing the BLS
+/// Move module in aptos-move/framework/move-stdlib/sources/signer.move
 fn bls12381_sample_aggregate_sigs() {
     let mut rng = OsRng;
 
@@ -609,7 +626,10 @@ fn bls12381_sample_aggregate_sigs() {
     }
     println!("];\n");
 
-    println!("// multisigs[i] is a signature on \"Hello, Aptoverse!\" from signers 1 through i (inclusive)");
+    println!(
+        "// multisigs[i] is a signature on \"Hello, Aptoverse!\" from signers 1 through i \
+         (inclusive)"
+    );
     println!("let multisigs = vector[");
     for multisig in multisigs {
         println!("    AggrOrMultiSignature {{ bytes: x\"{}\" }},", multisig);

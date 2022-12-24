@@ -13,22 +13,24 @@ use tokio::{runtime::Handle, time::sleep};
 
 /// Time service is an abstraction for operations that depend on time
 /// It supports implementations that can simulated time or depend on actual time
-/// We can use simulated time in tests so tests can run faster and be more stable.
-/// see SimulatedTime for implementation that tests should use
+/// We can use simulated time in tests so tests can run faster and be more
+/// stable. see SimulatedTime for implementation that tests should use
 /// Time service also supports opportunities for future optimizations
-/// For example instead of scheduling O(N) tasks in TaskExecutor we could have more optimal code
-/// that only keeps single task in TaskExecutor
+/// For example instead of scheduling O(N) tasks in TaskExecutor we could have
+/// more optimal code that only keeps single task in TaskExecutor
 #[async_trait]
 pub trait TimeService: Send + Sync {
-    /// Sends message to given sender after timeout, returns a handle that could use to cancel the task.
+    /// Sends message to given sender after timeout, returns a handle that could
+    /// use to cancel the task.
     fn run_after(&self, timeout: Duration, task: Box<dyn ScheduledTask>) -> AbortHandle;
 
-    /// Retrieve the current time stamp as a Duration (assuming it is on or after the UNIX_EPOCH)
+    /// Retrieve the current time stamp as a Duration (assuming it is on or
+    /// after the UNIX_EPOCH)
     fn get_current_timestamp(&self) -> Duration;
 
     /// Makes a future that will sleep for given Duration
-    /// This function guarantees that get_current_timestamp will increase at least by
-    /// given duration, e.g.
+    /// This function guarantees that get_current_timestamp will increase at
+    /// least by given duration, e.g.
     /// X = time_service::get_current_timestamp();
     /// time_service::sleep(Y).await;
     /// Z = time_service::get_current_timestamp();
@@ -45,10 +47,12 @@ pub trait TimeService: Send + Sync {
     }
 }
 
-/// This trait represents abstract task that can be submitted to TimeService::run_after
+/// This trait represents abstract task that can be submitted to
+/// TimeService::run_after
 pub trait ScheduledTask: Send {
     /// TimeService::run_after will run this method when time expires
-    /// It is expected that this function is lightweight and does not take long time to complete
+    /// It is expected that this function is lightweight and does not take long
+    /// time to complete
     fn run(&mut self) -> Pin<Box<dyn Future<Output = ()> + Send>>;
 }
 

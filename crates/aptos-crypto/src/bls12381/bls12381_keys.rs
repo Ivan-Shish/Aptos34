@@ -1,24 +1,25 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module provides APIs for private keys and public keys used in Boneh-Lynn-Shacham (BLS)
-//! aggregate signatures (including individual signatures and multisignatures) implemented on top of
-//! Barreto-Lynn-Scott BLS12-381 elliptic curves (https://github.com/supranational/blst).
+//! This module provides APIs for private keys and public keys used in
+//! Boneh-Lynn-Shacham (BLS) aggregate signatures (including individual
+//! signatures and multisignatures) implemented on top of Barreto-Lynn-Scott BLS12-381 elliptic curves (https://github.com/supranational/blst).
 //!
-//! The `PublicKey` struct is used to represent both the public key of an individual signer
-//! as well as the aggregate public key of several signers. Before passing this struct as an
-//! argument, the caller should *always* verify its proof-of-possession (PoP) via
-//! `ProofOfPossession::verify`.
+//! The `PublicKey` struct is used to represent both the public key of an
+//! individual signer as well as the aggregate public key of several signers.
+//! Before passing this struct as an argument, the caller should *always* verify
+//! its proof-of-possession (PoP) via `ProofOfPossession::verify`.
 //!
 //! The `PublicKey::aggregate` API assumes the caller has already verified
-//! proofs-of-possession for all the given public keys and therefore all public keys are valid,
-//! prime-order subgroup elements.
+//! proofs-of-possession for all the given public keys and therefore all public
+//! keys are valid, prime-order subgroup elements.
 //!
-//! In general, with the exception of `ProofOfPossession::verify` no library function should
-//! be given a public key as argument without first verifying that public key's PoP. Note that
-//! for aggregate public keys obtained via `PublicKey::aggregate` there is no PoP to verify, but
-//! the security assumption will be that all public keys given as input to this function have had
-//! their PoPs verified.
+//! In general, with the exception of `ProofOfPossession::verify` no library
+//! function should be given a public key as argument without first verifying
+//! that public key's PoP. Note that for aggregate public keys obtained via
+//! `PublicKey::aggregate` there is no PoP to verify, but the security
+//! assumption will be that all public keys given as input to this function have
+//! had their PoPs verified.
 
 use crate::{
     bls12381, bls12381::DST_BLS_SIG_IN_G2_WITH_POP, hash::CryptoHash, signing_message, traits,
@@ -33,9 +34,10 @@ use std::{convert::TryFrom, fmt};
 #[derive(Clone, Eq, SerializeKey, DeserializeKey)]
 /// A BLS12381 public key
 pub struct PublicKey {
-    pub(crate) pubkey: blst::min_pk::PublicKey,
-    // NOTE: In order to minimize the size of this struct, we do not keep the PoP here.
-    // One reason for this is these PKs are stored in the root of the Merkle accumulator.
+    pub(crate) pubkey: blst::min_pk::PublicKey, /* NOTE: In order to minimize the size of this
+                                                 * struct, we do not keep the PoP here.
+                                                 * One reason for this is these PKs are stored
+                                                 * in the root of the Merkle accumulator. */
 }
 
 #[derive(SerializeKey, DeserializeKey, SilentDebug, SilentDisplay)]
@@ -50,7 +52,8 @@ pub struct PrivateKey {
 
 impl PublicKey {
     /// The length of a serialized PublicKey struct.
-    // NOTE: We have to hardcode this here because there is no library-defined constant.
+    // NOTE: We have to hardcode this here because there is no library-defined
+    // constant.
     pub const LENGTH: usize = 48;
 
     /// Serialize a PublicKey.
@@ -58,25 +61,29 @@ impl PublicKey {
         self.pubkey.to_bytes()
     }
 
-    /// Subgroup-checks the public key (i.e., verifies the public key is an element of the prime-order
-    /// subgroup and it is not the identity element).
+    /// Subgroup-checks the public key (i.e., verifies the public key is an
+    /// element of the prime-order subgroup and it is not the identity
+    /// element).
     ///
-    /// WARNING: Subgroup-checking is done implicitly when verifying the proof-of-possession (PoP) for
-    /// this public key  in `ProofOfPossession::verify`, so this function should not be called
+    /// WARNING: Subgroup-checking is done implicitly when verifying the
+    /// proof-of-possession (PoP) for this public key  in
+    /// `ProofOfPossession::verify`, so this function should not be called
     /// separately for most use-cases. We leave it here just in case.
     pub fn subgroup_check(&self) -> Result<()> {
         self.pubkey.validate().map_err(|e| anyhow!("{:?}", e))
     }
 
-    /// Aggregates the public keys of several signers into an aggregate public key, which can be later
-    /// used to verify a multisig aggregated from those signers.
+    /// Aggregates the public keys of several signers into an aggregate public
+    /// key, which can be later used to verify a multisig aggregated from
+    /// those signers.
     ///
-    /// WARNING: This function assumes all public keys have had their proofs-of-possession verified
-    /// and have thus been group-checked.
+    /// WARNING: This function assumes all public keys have had their
+    /// proofs-of-possession verified and have thus been group-checked.
     pub fn aggregate(pubkeys: Vec<&Self>) -> Result<PublicKey> {
         let blst_pubkeys: Vec<_> = pubkeys.iter().map(|pk| &pk.pubkey).collect();
 
-        // CRYPTONOTE(Alin): We assume the PKs have had their PoPs verified and thus have also been subgroup-checked
+        // CRYPTONOTE(Alin): We assume the PKs have had their PoPs verified and thus
+        // have also been subgroup-checked
         let aggpk = blst::min_pk::AggregatePublicKey::aggregate(&blst_pubkeys[..], false)
             .map_err(|e| anyhow!("{:?}", e))?;
 
@@ -88,7 +95,8 @@ impl PublicKey {
 
 impl PrivateKey {
     /// The length of a serialized PrivateKey struct.
-    // NOTE: We have to hardcode this here because there is no library-defined constant
+    // NOTE: We have to hardcode this here because there is no library-defined
+    // constant
     pub const LENGTH: usize = 32;
 
     /// Serialize a PrivateKey.
@@ -106,8 +114,8 @@ impl traits::PrivateKey for PrivateKey {
 }
 
 impl traits::SigningKey for PrivateKey {
-    type VerifyingKeyMaterial = PublicKey;
     type SignatureMaterial = bls12381::Signature;
+    type VerifyingKeyMaterial = PublicKey;
 
     fn sign<T: CryptoHash + Serialize>(
         &self,
@@ -157,9 +165,9 @@ impl Uniform for PrivateKey {
     where
         R: ::rand::RngCore + ::rand::CryptoRng,
     {
-        // CRYPTONOTE(Alin): This "initial key material (IKM)" is the randomness used inside key_gen
-        // below to pseudo-randomly derive the secret key via an HKDF
-        // (see https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature#section-2.3)
+        // CRYPTONOTE(Alin): This "initial key material (IKM)" is the randomness used
+        // inside key_gen below to pseudo-randomly derive the secret key via an
+        // HKDF (see https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature#section-2.3)
         let mut ikm = [0u8; 32];
         rng.fill_bytes(&mut ikm);
         let privkey =
@@ -204,8 +212,8 @@ impl traits::PublicKey for PublicKey {
 }
 
 impl VerifyingKey for PublicKey {
-    type SigningKeyMaterial = PrivateKey;
     type SignatureMaterial = bls12381::Signature;
+    type SigningKeyMaterial = PrivateKey;
 }
 
 impl ValidCryptoMaterial for PublicKey {
@@ -225,9 +233,10 @@ impl TryFrom<&[u8]> for PublicKey {
 
     /// Deserializes a PublicKey from a sequence of bytes.
     ///
-    /// WARNING: Does NOT subgroup-check the public key! Instead, the caller is responsible for
-    /// verifying the public key's proof-of-possession (PoP) via `ProofOfPossession::verify`,
-    /// which implicitly subgroup-checks the public key.
+    /// WARNING: Does NOT subgroup-check the public key! Instead, the caller is
+    /// responsible for verifying the public key's proof-of-possession (PoP)
+    /// via `ProofOfPossession::verify`, which implicitly subgroup-checks
+    /// the public key.
     ///
     /// NOTE: This function will only check that the PK is a point on the curve:
     ///  - `blst::min_pk::PublicKey::from_bytes(bytes)` calls `blst::min_pk::PublicKey::deserialize(bytes)`,
@@ -250,7 +259,8 @@ impl std::hash::Hash for PublicKey {
     }
 }
 
-// PartialEq trait implementation is required by the std::hash::Hash trait implementation above
+// PartialEq trait implementation is required by the std::hash::Hash trait
+// implementation above
 impl PartialEq for PublicKey {
     fn eq(&self, other: &Self) -> bool {
         self.to_bytes()[..] == other.to_bytes()[..]

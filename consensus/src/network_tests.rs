@@ -51,10 +51,11 @@ pub struct TwinId {
     pub author: Author,
 }
 
-/// `NetworkPlayground` mocks the network implementation and provides convenience
-/// methods for testing. Test clients can use `wait_for_messages` or
+/// `NetworkPlayground` mocks the network implementation and provides
+/// convenience methods for testing. Test clients can use `wait_for_messages` or
 /// `deliver_messages` to inspect the direct-send messages sent between peers.
-/// They can also configure network messages to be dropped between specific peers.
+/// They can also configure network messages to be dropped between specific
+/// peers.
 ///
 /// Currently, RPC messages are delivered immediately and are not controlled by
 /// `wait_for_messages` or `deliver_messages` for delivery. They are also not
@@ -63,7 +64,6 @@ pub struct NetworkPlayground {
     /// Maps each Author to a Sender of their inbound network notifications.
     /// These events will usually be handled by the event loop spawned in
     /// `ConsensusNetworkImpl`.
-    ///
     node_consensus_txs: Arc<
         Mutex<
             HashMap<TwinId, aptos_channel::Sender<(PeerId, ProtocolId), PeerManagerNotification>>,
@@ -170,12 +170,12 @@ impl NetworkPlayground {
                             PeerManagerNotification::RecvRpc(src_twin_id.author, inbound_req),
                         )
                         .unwrap();
-                }
+                },
                 // Other PeerManagerRequest get buffered for `deliver_messages` to
                 // synchronously drain.
                 net_req => {
                     let _ = outbound_msgs_tx.send((src_twin_id, net_req)).await;
-                }
+                },
             }
         }
     }
@@ -231,11 +231,13 @@ impl NetworkPlayground {
             PeerManagerNotification::RecvMessage(src, msg) => {
                 let msg: ConsensusMsg = msg.to_message().unwrap();
                 (*src, msg)
-            }
-            msg_notif => panic!(
-                "[network playground] Unexpected PeerManagerNotification: {:?}",
-                msg_notif
-            ),
+            },
+            msg_notif => {
+                panic!(
+                    "[network playground] Unexpected PeerManagerNotification: {:?}",
+                    msg_notif
+                )
+            },
         };
         let _ = node_consensus_tx.push(
             (src_twin_id.author, ProtocolId::ConsensusDirectSendBcs),
@@ -246,8 +248,9 @@ impl NetworkPlayground {
 
     /// Wait for exactly `num_messages` to be enqueued and delivered. Return a
     /// copy of all messages for verification.
-    /// While all the sent messages are delivered (except those configured to be dropped),
-    /// only the messages that satisfy the given msg inspector are counted.
+    /// While all the sent messages are delivered (except those configured to be
+    /// dropped), only the messages that satisfy the given msg inspector are
+    /// counted.
     pub async fn wait_for_messages<F>(
         &mut self,
         num_messages: usize,
@@ -259,19 +262,23 @@ impl NetworkPlayground {
         let mut msg_copies = vec![];
         while msg_copies.len() < num_messages {
             // Take the next queued message
-            let (src_twin_id, net_req) = self.outbound_msgs_rx.next().await
-                .expect("[network playground] waiting for messages, but message queue has shutdown unexpectedly");
+            let (src_twin_id, net_req) = self.outbound_msgs_rx.next().await.expect(
+                "[network playground] waiting for messages, but message queue has shutdown \
+                 unexpectedly",
+            );
 
             // Convert PeerManagerRequest to corresponding PeerManagerNotification,
             // and extract destination peer
             let (dst, msg) = match &net_req {
                 PeerManagerRequest::SendDirectSend(dst_inner, msg_inner) => {
                     (*dst_inner, msg_inner.clone())
-                }
-                msg_inner => panic!(
-                    "[network playground] Unexpected PeerManagerRequest: {:?}",
-                    msg_inner
-                ),
+                },
+                msg_inner => {
+                    panic!(
+                        "[network playground] Unexpected PeerManagerRequest: {:?}",
+                        msg_inner
+                    )
+                },
             };
 
             let dst_twin_ids = self.get_twin_ids(dst);
@@ -350,7 +357,8 @@ impl NetworkPlayground {
             .split_network(&partition_first, &partition_second)
     }
 
-    /// Check if the message from 'src_twin_id' to 'dst_twin_id' should be dropped in the given round
+    /// Check if the message from 'src_twin_id' to 'dst_twin_id' should be
+    /// dropped in the given round
     pub fn is_message_dropped_round(&self, src: &TwinId, dst: &TwinId, round: u64) -> bool {
         self.drop_config_round.is_message_dropped(src, dst, round)
     }
@@ -382,11 +390,13 @@ impl NetworkPlayground {
             let (dst, msg) = match &net_req {
                 PeerManagerRequest::SendDirectSend(dst_inner, msg_inner) => {
                     (*dst_inner, msg_inner.clone())
-                }
-                msg_inner => panic!(
-                    "[network playground] Unexpected PeerManagerRequest: {:?}",
-                    msg_inner
-                ),
+                },
+                msg_inner => {
+                    panic!(
+                        "[network playground] Unexpected PeerManagerRequest: {:?}",
+                        msg_inner
+                    )
+                },
             };
 
             let dst_twin_ids = self.get_twin_ids(dst);
@@ -458,7 +468,8 @@ impl DropConfig {
 struct DropConfigRound(HashMap<u64, DropConfig>);
 
 impl DropConfigRound {
-    /// Check if the message from 'src' to 'dst' should be dropped in the given round
+    /// Check if the message from 'src' to 'dst' should be dropped in the given
+    /// round
     fn is_message_dropped(&self, src: &TwinId, dst: &TwinId, round: u64) -> bool {
         self.0
             .get(&round)
@@ -516,10 +527,9 @@ mod tests {
         // Round 1 partitions: [0], [1,2]
         round_partitions.insert(1, vec![vec![nodes[0]], vec![nodes[1], nodes[2]]]);
         // Round 2 partitions: [1], [2], [3,4]
-        round_partitions.insert(
-            2,
-            vec![vec![nodes[1]], vec![nodes[2]], vec![nodes[3], nodes[4]]],
-        );
+        round_partitions.insert(2, vec![vec![nodes[1]], vec![nodes[2]], vec![
+            nodes[3], nodes[4],
+        ]]);
         assert!(playground.split_network_round(&round_partitions));
 
         // Round 1 checks (partitions: [0], [1,2])
@@ -570,15 +580,11 @@ mod tests {
             let (consensus_tx, consensus_rx) = aptos_channel::new(QueueStyle::FIFO, 8, None);
             let (_conn_mgr_reqs_tx, conn_mgr_reqs_rx) = aptos_channels::new_test(8);
             let (_, conn_status_rx) = conn_notifs_channel::new();
-            add_peer_to_storage(
-                &peer_metadata_storage,
-                peer,
-                &[
-                    ProtocolId::ConsensusDirectSendJson,
-                    ProtocolId::ConsensusDirectSendBcs,
-                    ProtocolId::ConsensusRpcBcs,
-                ],
-            );
+            add_peer_to_storage(&peer_metadata_storage, peer, &[
+                ProtocolId::ConsensusDirectSendJson,
+                ProtocolId::ConsensusDirectSendBcs,
+                ProtocolId::ConsensusRpcBcs,
+            ]);
             let mut network_sender = ConsensusNetworkSender::new(
                 PeerManagerRequestSender::new(network_reqs_tx),
                 ConnectionRequestSender::new(connection_reqs_tx),
@@ -679,15 +685,11 @@ mod tests {
                 ConnectionRequestSender::new(connection_reqs_tx),
             );
 
-            add_peer_to_storage(
-                &peer_metadata_storage,
-                peer,
-                &[
-                    ProtocolId::ConsensusDirectSendJson,
-                    ProtocolId::ConsensusDirectSendBcs,
-                    ProtocolId::ConsensusRpcJson,
-                ],
-            );
+            add_peer_to_storage(&peer_metadata_storage, peer, &[
+                ProtocolId::ConsensusDirectSendJson,
+                ProtocolId::ConsensusDirectSendBcs,
+                ProtocolId::ConsensusRpcJson,
+            ]);
             network_sender.initialize(peer_metadata_storage.clone());
             let network_events = ConsensusNetworkEvents::new(consensus_rx, conn_status_rx);
 
@@ -774,13 +776,10 @@ mod tests {
 
         let peer_id = PeerId::random();
         let protocol_id = ProtocolId::ConsensusDirectSendBcs;
-        let bad_msg = PeerManagerNotification::RecvMessage(
-            peer_id,
-            Message {
-                protocol_id,
-                mdata: Bytes::from_static(b"\xde\xad\xbe\xef"),
-            },
-        );
+        let bad_msg = PeerManagerNotification::RecvMessage(peer_id, Message {
+            protocol_id,
+            mdata: Bytes::from_static(b"\xde\xad\xbe\xef"),
+        });
 
         peer_mgr_notifs_tx
             .push((peer_id, protocol_id), bad_msg)
@@ -792,14 +791,11 @@ mod tests {
 
         let protocol_id = ProtocolId::ConsensusRpcJson;
         let (res_tx, _res_rx) = oneshot::channel();
-        let liveness_check_msg = PeerManagerNotification::RecvRpc(
-            peer_id,
-            InboundRpcRequest {
-                protocol_id,
-                data: Bytes::from(serde_json::to_vec(&liveness_check_msg).unwrap()),
-                res_tx,
-            },
-        );
+        let liveness_check_msg = PeerManagerNotification::RecvRpc(peer_id, InboundRpcRequest {
+            protocol_id,
+            data: Bytes::from(serde_json::to_vec(&liveness_check_msg).unwrap()),
+            res_tx,
+        });
 
         peer_mgr_notifs_tx
             .push((peer_id, protocol_id), liveness_check_msg)

@@ -4,13 +4,14 @@
 //! An abstraction of x25519 elliptic curve keys required for
 //! [Diffie-Hellman key exchange](https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange)
 //!
-//! Ideally, only `x25519::PrivateKey` and `x25519::PublicKey` should be used throughout the
-//! codebase, until the bytes are actually used in cryptographic operations.
+//! Ideally, only `x25519::PrivateKey` and `x25519::PublicKey` should be used
+//! throughout the codebase, until the bytes are actually used in cryptographic
+//! operations.
 //!
 //! # Examples
 //!
 //! ```
-//! use aptos_crypto::{x25519, Uniform, test_utils::TEST_SEED};
+//! use aptos_crypto::{test_utils::TEST_SEED, x25519, Uniform};
 //! use rand::{rngs::StdRng, SeedableRng};
 //!
 //! // Derive an X25519 private key for testing.
@@ -28,30 +29,23 @@
 //! # Ok(())
 //! # }
 //! ```
-//!
 
 use crate::{
     traits::{self, CryptoMaterialError, ValidCryptoMaterial, ValidCryptoMaterialStringExt},
     x25519,
 };
 use aptos_crypto_derive::{DeserializeKey, SerializeKey, SilentDebug, SilentDisplay};
-use rand::{CryptoRng, RngCore};
-use std::convert::{TryFrom, TryInto};
-
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest_derive::Arbitrary;
-
-//
+use rand::{CryptoRng, RngCore};
+use std::convert::{TryFrom, TryInto};
 // Underlying Implementation
 // =========================
 //
 // We re-export the dalek-x25519 library,
 // This makes it easier to uniformalize build dalek-x25519.
-//
-
 pub use x25519_dalek;
 
-//
 // Main types and constants
 // ========================
 //
@@ -77,7 +71,6 @@ pub struct PrivateKey(x25519_dalek::StaticSecret);
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct PublicKey([u8; PUBLIC_KEY_SIZE]);
 
-//
 // Handy implementations
 // =====================
 //
@@ -104,9 +97,9 @@ impl PrivateKey {
     /// non-canonical scalar in the X25519 sense (and thus cannot correspond to
     /// a X25519 valid key without bit-mangling).
     ///
-    /// This is meant to compensate for the poor key storage capabilities of some
-    /// key management solutions, and NOT to promote double usage of keys under
-    /// several schemes, which would lead to BAD vulnerabilities.
+    /// This is meant to compensate for the poor key storage capabilities of
+    /// some key management solutions, and NOT to promote double usage of
+    /// keys under several schemes, which would lead to BAD vulnerabilities.
     pub fn from_ed25519_private_bytes(private_slice: &[u8]) -> Result<Self, CryptoMaterialError> {
         let ed25519_secretkey = ed25519_dalek::SecretKey::from_bytes(private_slice)
             .map_err(|_| CryptoMaterialError::DeserializationError)?;
@@ -148,7 +141,6 @@ impl PublicKey {
     }
 }
 
-//
 // Traits implementations
 // ======================
 //

@@ -97,8 +97,8 @@ impl EpochEndingRestoreController {
             let lis = self.read_chunk(&chunk.ledger_infos).await?;
             ensure!(
                 chunk.first_epoch + lis.len() as u64 == chunk.last_epoch + 1,
-                "Number of items in chunks doesn't match that in manifest. \
-                first_epoch: {}, last_epoch: {}, items in chunk: {}",
+                "Number of items in chunks doesn't match that in manifest. first_epoch: {}, \
+                 last_epoch: {}, items in chunk: {}",
                 chunk.first_epoch,
                 chunk.last_epoch,
                 lis.len(),
@@ -218,8 +218,8 @@ impl PreheatedEpochEndingRestore {
         if let Some(li) = previous_epoch_ending_ledger_info {
             ensure!(
                 li.next_block_epoch() == preheat_data.manifest.first_epoch,
-                "Previous epoch ending LedgerInfo is not the one expected. \
-                My first epoch: {}, previous LedgerInfo next_block_epoch: {}",
+                "Previous epoch ending LedgerInfo is not the one expected. My first epoch: {}, \
+                 previous LedgerInfo next_block_epoch: {}",
                 preheat_data.manifest.first_epoch,
                 li.next_block_epoch(),
             );
@@ -250,11 +250,11 @@ impl PreheatedEpochEndingRestore {
 
                 EPOCH_ENDING_EPOCH.set(last_li.epoch() as i64);
                 EPOCH_ENDING_VERSION.set(last_li.version() as i64);
-            }
+            },
             RestoreRunMode::Verify => {
                 VERIFY_EPOCH_ENDING_EPOCH.set(last_li.epoch() as i64);
                 VERIFY_EPOCH_ENDING_VERSION.set(last_li.version() as i64);
-            }
+            },
         };
 
         Ok(preheat_data
@@ -282,7 +282,7 @@ impl EpochHistory {
                 epoch = epoch,
                 epoch_history_until = self.epoch_endings.len(),
                 "Epoch is too new and can't be verified. Previous chunks are verified and node \
-                won't be able to start if this data is malicious."
+                 won't be able to start if this data is malicious."
             );
             return Ok(());
         }
@@ -368,8 +368,8 @@ impl EpochHistoryRestoreController {
             .preheat()
         });
         let mut futs_stream = futures::stream::iter(futs_iter).buffered_x(
-            self.global_opt.concurrent_downloads * 2, /* buffer size */
-            self.global_opt.concurrent_downloads,     /* concurrency */
+            self.global_opt.concurrent_downloads * 2, // buffer size
+            self.global_opt.concurrent_downloads,     // concurrency
         );
 
         let mut next_epoch = 0u64;

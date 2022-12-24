@@ -28,8 +28,8 @@ pub trait BlockReader: Send + Sync {
 
     fn get_quorum_cert_for_block(&self, block_id: HashValue) -> Option<Arc<QuorumCert>>;
 
-    /// Returns all the blocks between the ordered/commit root and the given block, including the given block
-    /// but excluding the root.
+    /// Returns all the blocks between the ordered/commit root and the given
+    /// block, including the given block but excluding the root.
     /// In case a given block is not the successor of the root, return None.
     /// For example if a tree is b0 <- b1 <- b2 <- b3, then
     /// path_from_root(b2) -> Some([b2, b1])
@@ -45,7 +45,8 @@ pub trait BlockReader: Send + Sync {
     /// Return the quorum certificate with the highest round
     fn highest_quorum_cert(&self) -> Arc<QuorumCert>;
 
-    /// Return the quorum certificate that carries ledger info with the highest round
+    /// Return the quorum certificate that carries ledger info with the highest
+    /// round
     fn highest_ordered_cert(&self) -> Arc<QuorumCert>;
 
     /// Return the highest timeout certificate if available.
@@ -54,6 +55,7 @@ pub trait BlockReader: Send + Sync {
     /// Return the highest commit decision quorum certificate.
     fn highest_commit_cert(&self) -> Arc<QuorumCert>;
 
-    /// Return the combination of highest quorum cert, timeout cert and commit cert.
+    /// Return the combination of highest quorum cert, timeout cert and commit
+    /// cert.
     fn sync_info(&self) -> SyncInfo;
 }

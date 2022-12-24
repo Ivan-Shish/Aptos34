@@ -9,7 +9,10 @@ use super::{
     coin_activities::EventToCoinType,
     coin_utils::{CoinInfoType, CoinResource},
 };
-use crate::{schema::coin_balances, schema::current_coin_balances, util::standardize_address};
+use crate::{
+    schema::{coin_balances, current_coin_balances},
+    util::standardize_address,
+};
 use aptos_api_types::WriteResource as APIWriteResource;
 use bigdecimal::BigDecimal;
 use field_count::FieldCount;
@@ -41,7 +44,9 @@ pub struct CurrentCoinBalance {
 }
 
 impl CoinBalance {
-    /// We can find coin info from resources. If the coin info appears multiple times we will only keep the first transaction because it can't be modified.
+    /// We can find coin info from resources. If the coin info appears multiple
+    /// times we will only keep the first transaction because it can't be
+    /// modified.
     pub fn from_write_resource(
         write_resource: &APIWriteResource,
         txn_version: i64,
@@ -86,7 +91,7 @@ impl CoinBalance {
                     current_coin_balance,
                     event_to_coin_mapping,
                 )))
-            }
+            },
             _ => Ok(None),
         }
     }

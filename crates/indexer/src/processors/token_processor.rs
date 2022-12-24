@@ -290,7 +290,10 @@ fn insert_current_token_ownerships(
                     table_type.eq(excluded(table_type)),
                     inserted_at.eq(excluded(inserted_at)),
                 )),
-            Some(" WHERE current_token_ownerships.last_transaction_version <= excluded.last_transaction_version "),
+            Some(
+                " WHERE current_token_ownerships.last_transaction_version <= \
+                 excluded.last_transaction_version ",
+            ),
         )?;
     }
     Ok(())
@@ -333,7 +336,10 @@ fn insert_current_token_datas(
                     description.eq(excluded(description)),
                     inserted_at.eq(excluded(inserted_at)),
                 )),
-            Some(" WHERE current_token_datas.last_transaction_version <= excluded.last_transaction_version "),
+            Some(
+                " WHERE current_token_datas.last_transaction_version <= \
+                 excluded.last_transaction_version ",
+            ),
         )?;
     }
     Ok(())
@@ -368,7 +374,10 @@ fn insert_current_collection_datas(
                     table_handle.eq(excluded(table_handle)),
                     inserted_at.eq(excluded(inserted_at)),
                 )),
-            Some(" WHERE current_collection_datas.last_transaction_version <= excluded.last_transaction_version "),
+            Some(
+                " WHERE current_collection_datas.last_transaction_version <= \
+                 excluded.last_transaction_version ",
+            ),
         )?;
     }
     Ok(())
@@ -416,7 +425,10 @@ fn insert_current_token_claims(
             diesel::insert_into(schema::current_token_pending_claims::table)
                 .values(&items_to_insert[start_ind..end_ind])
                 .on_conflict((
-                    token_data_id_hash, property_version, from_address, to_address
+                    token_data_id_hash,
+                    property_version,
+                    from_address,
+                    to_address,
                 ))
                 .do_update()
                 .set((
@@ -429,7 +441,10 @@ fn insert_current_token_claims(
                     last_transaction_version.eq(excluded(last_transaction_version)),
                     inserted_at.eq(excluded(inserted_at)),
                 )),
-            Some(" WHERE current_token_pending_claims.last_transaction_version <= excluded.last_transaction_version "),
+            Some(
+                " WHERE current_token_pending_claims.last_transaction_version <= \
+                 excluded.last_transaction_version ",
+            ),
         )?;
     }
     Ok(())
@@ -457,8 +472,11 @@ fn insert_current_ans_lookups(
                     inserted_at.eq(excluded(inserted_at)),
                     token_name.eq(excluded(token_name)),
                 )),
-                Some(" WHERE current_ans_lookup.last_transaction_version <= excluded.last_transaction_version "),
-            )?;
+            Some(
+                " WHERE current_ans_lookup.last_transaction_version <= \
+                 excluded.last_transaction_version ",
+            ),
+        )?;
     }
     Ok(())
 }
@@ -477,8 +495,9 @@ impl TransactionProcessor for TokenTransactionProcessor {
     ) -> Result<ProcessingResult, TransactionProcessingError> {
         let mut conn = self.get_conn();
 
-        // First get all token related table metadata from the batch of transactions. This is in case
-        // an earlier transaction has metadata (in resources) that's missing from a later transaction.
+        // First get all token related table metadata from the batch of transactions.
+        // This is in case an earlier transaction has metadata (in resources)
+        // that's missing from a later transaction.
         let table_handle_to_owner =
             TableMetadataForToken::get_table_handle_to_owner_from_transactions(&transactions);
 
@@ -488,7 +507,8 @@ impl TransactionProcessor for TokenTransactionProcessor {
         let mut all_collection_datas = vec![];
         let mut all_token_activities = vec![];
 
-        // Hashmap key will be the PK of the table, we do not want to send duplicates writes to the db within a batch
+        // Hashmap key will be the PK of the table, we do not want to send duplicates
+        // writes to the db within a batch
         let mut all_current_token_ownerships: HashMap<
             CurrentTokenOwnershipPK,
             CurrentTokenOwnership,
@@ -519,7 +539,8 @@ impl TransactionProcessor for TokenTransactionProcessor {
             all_token_ownerships.append(&mut token_ownerships);
             all_token_datas.append(&mut token_datas);
             all_collection_datas.append(&mut collection_datas);
-            // Given versions will always be increasing here (within a single batch), we can just override current values
+            // Given versions will always be increasing here (within a single batch), we can
+            // just override current values
             all_current_token_ownerships.extend(current_token_ownerships);
             all_current_token_datas.extend(current_token_datas);
             all_current_collection_datas.extend(current_collection_datas);
@@ -537,7 +558,8 @@ impl TransactionProcessor for TokenTransactionProcessor {
             all_current_ans_lookups.extend(current_ans_lookups);
         }
 
-        // Getting list of values and sorting by pk in order to avoid postgres deadlock since we're doing multi threaded db writes
+        // Getting list of values and sorting by pk in order to avoid postgres deadlock
+        // since we're doing multi threaded db writes
         let mut all_current_token_ownerships = all_current_token_ownerships
             .into_values()
             .collect::<Vec<CurrentTokenOwnership>>();

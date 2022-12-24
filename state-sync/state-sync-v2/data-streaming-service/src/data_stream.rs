@@ -1,22 +1,19 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::data_notification::{
-    NewTransactionsOrOutputsWithProofRequest, TransactionsOrOutputsWithProofRequest,
-};
-use crate::metrics::increment_counter_multiple;
 use crate::{
     data_notification,
     data_notification::{
         DataClientRequest, DataNotification, DataPayload, EpochEndingLedgerInfosRequest,
-        NewTransactionOutputsWithProofRequest, NewTransactionsWithProofRequest, NotificationId,
-        NumberOfStatesRequest, StateValuesWithProofRequest, TransactionOutputsWithProofRequest,
-        TransactionsWithProofRequest,
+        NewTransactionOutputsWithProofRequest, NewTransactionsOrOutputsWithProofRequest,
+        NewTransactionsWithProofRequest, NotificationId, NumberOfStatesRequest,
+        StateValuesWithProofRequest, TransactionOutputsWithProofRequest,
+        TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
     },
     error::Error,
     logging::{LogEntry, LogEvent, LogSchema},
     metrics,
-    metrics::{increment_counter, start_timer},
+    metrics::{increment_counter, increment_counter_multiple, start_timer},
     stream_engine::{DataStreamEngine, StreamEngine},
     streaming_client::{NotificationFeedback, StreamRequest},
 };
@@ -28,10 +25,9 @@ use aptos_data_client::{
 use aptos_id_generator::{IdGenerator, U64IdGenerator};
 use aptos_infallible::Mutex;
 use aptos_logger::prelude::*;
-use futures::channel::mpsc;
-use futures::{stream::FusedStream, SinkExt, Stream};
-use std::cmp::min;
+use futures::{channel::mpsc, stream::FusedStream, SinkExt, Stream};
 use std::{
+    cmp::min,
     collections::{BTreeMap, VecDeque},
     pin::Pin,
     sync::Arc,
@@ -49,10 +45,10 @@ pub type DataStreamId = u64;
 /// A pointer to a thread-safe `PendingClientResponse`.
 pub type PendingClientResponse = Arc<Mutex<Box<data_notification::PendingClientResponse>>>;
 
-/// Each data stream holds the original stream request from the client and tracks
-/// the progress of the data stream to satisfy that request (e.g., the data that
-/// has already been sent along the stream to the client and the in-flight Aptos
-/// data client requests that have been sent to the network).
+/// Each data stream holds the original stream request from the client and
+/// tracks the progress of the data stream to satisfy that request (e.g., the
+/// data that has already been sent along the stream to the client and the
+/// in-flight Aptos data client requests that have been sent to the network).
 ///
 /// Note that it is the responsibility of the data stream to send data
 /// notifications along the stream in sequential order (e.g., transactions and
@@ -212,7 +208,7 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
         match self.stream_engine {
             StreamEngine::StateStreamEngine(_) => {
                 self.streaming_service_config.max_concurrent_state_requests
-            }
+            },
             _ => self.streaming_service_config.max_concurrent_requests,
         }
     }
@@ -263,7 +259,8 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
 
     /// Sends a given request to the data client to be forwarded to the network
     /// and returns a pending client response. If `request_retry` is true
-    /// exponential backoff takes affect (i.e., to increase the request timeout).
+    /// exponential backoff takes affect (i.e., to increase the request
+    /// timeout).
     fn send_client_request(
         &mut self,
         request_retry: bool,
@@ -325,8 +322,9 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
         pending_client_response
     }
 
-    // TODO(joshlind): this function shouldn't be blocking when trying to send! If there are
-    // multiple streams, a single blocked stream could cause them all to block.
+    // TODO(joshlind): this function shouldn't be blocking when trying to send! If
+    // there are multiple streams, a single blocked stream could cause them all
+    // to block.
     async fn send_data_notification(
         &mut self,
         data_notification: DataNotification,
@@ -408,7 +406,7 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
                             )?;
                             break;
                         }
-                    }
+                    },
                     Err(error) => {
                         // If the error was a timeout and the request was a subscription request
                         // we need to notify the stream engine and not retry the request.
@@ -423,7 +421,7 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
                             self.handle_data_client_error(client_request, &error)?;
                         };
                         break;
-                    }
+                    },
                 }
             } else {
                 break; // The first response hasn't arrived yet.
@@ -572,9 +570,8 @@ impl<T: AptosDataClient + Send + Clone + 'static> DataStream<T> {
             .insert(notification_id, response_context)
         {
             Err(Error::UnexpectedErrorEncountered(format!(
-                "Duplicate sent notification ID found! \
-                 Notification ID: {:?}, \
-                 previous Response context: {:?}",
+                "Duplicate sent notification ID found! Notification ID: {:?}, previous Response \
+                 context: {:?}",
                 notification_id, response_context
             )))
         } else {
@@ -676,7 +673,8 @@ pub struct DataStreamListener {
     pub data_stream_id: DataStreamId,
     notification_receiver: mpsc::Receiver<DataNotification>,
 
-    /// Stores the number of consecutive timeouts encountered when listening to this stream
+    /// Stores the number of consecutive timeouts encountered when listening to
+    /// this stream
     pub num_consecutive_timeouts: u64,
 }
 
@@ -719,19 +717,19 @@ fn sanity_check_client_response(
                 data_client_response.payload,
                 ResponsePayload::EpochEndingLedgerInfos(_)
             )
-        }
+        },
         DataClientRequest::NewTransactionOutputsWithProof(_) => {
             matches!(
                 data_client_response.payload,
                 ResponsePayload::NewTransactionOutputsWithProof(_)
             )
-        }
+        },
         DataClientRequest::NewTransactionsWithProof(_) => {
             matches!(
                 data_client_response.payload,
                 ResponsePayload::NewTransactionsWithProof(_)
             )
-        }
+        },
         DataClientRequest::NewTransactionsOrOutputsWithProof(_) => {
             matches!(
                 data_client_response.payload,
@@ -740,31 +738,31 @@ fn sanity_check_client_response(
                 data_client_response.payload,
                 ResponsePayload::NewTransactionOutputsWithProof(_)
             )
-        }
+        },
         DataClientRequest::NumberOfStates(_) => {
             matches!(
                 data_client_response.payload,
                 ResponsePayload::NumberOfStates(_)
             )
-        }
+        },
         DataClientRequest::StateValuesWithProof(_) => {
             matches!(
                 data_client_response.payload,
                 ResponsePayload::StateValuesWithProof(_)
             )
-        }
+        },
         DataClientRequest::TransactionsWithProof(_) => {
             matches!(
                 data_client_response.payload,
                 ResponsePayload::TransactionsWithProof(_)
             )
-        }
+        },
         DataClientRequest::TransactionOutputsWithProof(_) => {
             matches!(
                 data_client_response.payload,
                 ResponsePayload::TransactionOutputsWithProof(_)
             )
-        }
+        },
         DataClientRequest::TransactionsOrOutputsWithProof(_) => {
             matches!(
                 data_client_response.payload,
@@ -773,7 +771,7 @@ fn sanity_check_client_response(
                 data_client_response.payload,
                 ResponsePayload::TransactionOutputsWithProof(_)
             )
-        }
+        },
     }
 }
 
@@ -817,11 +815,11 @@ fn spawn_request_task<T: AptosDataClient + Send + Clone + 'static>(
         let client_response = match data_client_request {
             DataClientRequest::EpochEndingLedgerInfos(request) => {
                 get_epoch_ending_ledger_infos(aptos_data_client, request, request_timeout_ms).await
-            }
+            },
             DataClientRequest::NewTransactionsWithProof(request) => {
                 get_new_transactions_with_proof(aptos_data_client, request, request_timeout_ms)
                     .await
-            }
+            },
             DataClientRequest::NewTransactionOutputsWithProof(request) => {
                 get_new_transaction_outputs_with_proof(
                     aptos_data_client,
@@ -829,7 +827,7 @@ fn spawn_request_task<T: AptosDataClient + Send + Clone + 'static>(
                     request_timeout_ms,
                 )
                 .await
-            }
+            },
             DataClientRequest::NewTransactionsOrOutputsWithProof(request) => {
                 get_new_transactions_or_outputs_with_proof(
                     aptos_data_client,
@@ -837,20 +835,20 @@ fn spawn_request_task<T: AptosDataClient + Send + Clone + 'static>(
                     request_timeout_ms,
                 )
                 .await
-            }
+            },
             DataClientRequest::NumberOfStates(request) => {
                 get_number_of_states(aptos_data_client, request, request_timeout_ms).await
-            }
+            },
             DataClientRequest::StateValuesWithProof(request) => {
                 get_states_values_with_proof(aptos_data_client, request, request_timeout_ms).await
-            }
+            },
             DataClientRequest::TransactionOutputsWithProof(request) => {
                 get_transaction_outputs_with_proof(aptos_data_client, request, request_timeout_ms)
                     .await
-            }
+            },
             DataClientRequest::TransactionsWithProof(request) => {
                 get_transactions_with_proof(aptos_data_client, request, request_timeout_ms).await
-            }
+            },
             DataClientRequest::TransactionsOrOutputsWithProof(request) => {
                 get_transactions_or_outputs_with_proof(
                     aptos_data_client,
@@ -858,7 +856,7 @@ fn spawn_request_task<T: AptosDataClient + Send + Clone + 'static>(
                     request_timeout_ms,
                 )
                 .await
-            }
+            },
         };
 
         // Increment the appropriate counter depending on the response
@@ -868,10 +866,10 @@ fn spawn_request_task<T: AptosDataClient + Send + Clone + 'static>(
                     &metrics::RECEIVED_DATA_RESPONSE,
                     response.payload.get_label(),
                 );
-            }
+            },
             Err(error) => {
                 increment_counter(&metrics::RECEIVED_RESPONSE_ERROR, error.get_label());
-            }
+            },
         }
 
         // Save the response

@@ -56,7 +56,6 @@ impl FaucetClientError {
         matches!(self.inner.kind, Kind::NeedSync)
     }
 
-    //
     // Private Constructors
     //
 

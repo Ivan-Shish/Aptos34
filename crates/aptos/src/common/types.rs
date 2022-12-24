@@ -1,27 +1,26 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::init::Network;
-use crate::common::utils::prompt_yes_with_override;
 use crate::{
-    common::utils::{
-        chain_id, check_if_file_exists, create_dir_if_not_exist, dir_default_to_current,
-        get_auth_key, get_sequence_number, read_from_file, start_logger, to_common_result,
-        to_common_success_result, write_to_file, write_to_file_with_opts, write_to_user_only_file,
+    common::{
+        init::Network,
+        utils::{
+            chain_id, check_if_file_exists, create_dir_if_not_exist, dir_default_to_current,
+            get_auth_key, get_sequence_number, prompt_yes_with_override, read_from_file,
+            start_logger, to_common_result, to_common_success_result, write_to_file,
+            write_to_file_with_opts, write_to_user_only_file,
+        },
     },
     config::GlobalConfig,
     genesis::git::from_yaml,
 };
-use aptos_crypto::ed25519::Ed25519Signature;
 use aptos_crypto::{
-    ed25519::{Ed25519PrivateKey, Ed25519PublicKey},
+    ed25519::{Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature},
     x25519, PrivateKey, ValidCryptoMaterial, ValidCryptoMaterialStringExt,
 };
 use aptos_global_constants::adjust_gas_headroom;
 use aptos_keygen::KeyGen;
-use aptos_rest_client::aptos_api_types::HashValue;
-use aptos_rest_client::error::RestError;
-use aptos_rest_client::{Client, Transaction};
+use aptos_rest_client::{aptos_api_types::HashValue, error::RestError, Client, Transaction};
 use aptos_sdk::{transaction_builder::TransactionFactory, types::LocalAccount};
 use aptos_types::transaction::{
     authenticator::AuthenticationKey, SignedTransaction, TransactionPayload,
@@ -31,17 +30,16 @@ use clap::{ArgEnum, Parser};
 use hex::FromHexError;
 use move_core_types::account_address::AccountAddress;
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
-use std::time::Duration;
 use std::{
     collections::BTreeMap,
+    convert::TryFrom,
     fmt::{Debug, Display, Formatter},
     fs::OpenOptions,
     path::{Path, PathBuf},
     str::FromStr,
-    time::Instant,
+    time::{Duration, Instant},
 };
 use thiserror::Error;
 
@@ -253,7 +251,8 @@ impl CliConfig {
         }
     }
 
-    /// Loads the config from the current working directory or one of its parents.
+    /// Loads the config from the current working directory or one of its
+    /// parents.
     pub fn load(mode: ConfigSearchMode) -> CliTypedResult<Self> {
         let folder = Self::aptos_folder(mode)?;
 
@@ -475,7 +474,7 @@ impl EncodingType {
                 let hex_string = String::from_utf8(data)?;
                 Key::from_encoded_string(hex_string.trim())
                     .map_err(|err| CliError::UnableToParse(name, err.to_string()))
-            }
+            },
             EncodingType::Base64 => {
                 let string = String::from_utf8(data)?;
                 let bytes = base64::decode(string.trim())
@@ -483,18 +482,19 @@ impl EncodingType {
                 Key::try_from(bytes.as_slice()).map_err(|err| {
                     CliError::UnableToParse(name, format!("Failed to parse key {:?}", err))
                 })
-            }
+            },
         }
     }
 }
 
 #[derive(Clone, Debug, Parser)]
 pub struct RngArgs {
-    /// The seed used for key generation, should be a 64 character hex string and only used for testing
+    /// The seed used for key generation, should be a 64 character hex string
+    /// and only used for testing
     ///
-    /// If a predictable random seed is used, the key that is produced will be insecure and easy
-    /// to reproduce.  Please do not use this unless sufficient randomness is put into the random
-    /// seed.
+    /// If a predictable random seed is used, the key that is produced will be
+    /// insecure and easy to reproduce.  Please do not use this unless
+    /// sufficient randomness is put into the random seed.
     #[clap(long)]
     random_seed: Option<String>,
 }
@@ -729,7 +729,8 @@ impl PrivateKeyInputOptions {
         // 2. Profile
         // 3. Derived
         if let Some(key) = self.extract_private_key_cli(encoding)? {
-            // If we use the CLI inputs, then we should derive or use the address from the input
+            // If we use the CLI inputs, then we should derive or use the address from the
+            // input
             if let Some(address) = maybe_address {
                 Ok((key, address))
             } else {
@@ -748,7 +749,7 @@ impl PrivateKeyInputOptions {
                 (None, None) => {
                     let address = account_address_from_public_key(&key.public_key());
                     Ok((key, address))
-                }
+                },
             }
         } else {
             Err(CliError::CommandArgumentError(
@@ -855,7 +856,8 @@ pub struct RestOptions {
     #[clap(long)]
     pub(crate) url: Option<reqwest::Url>,
 
-    /// Connection timeout in seconds, used for the REST endpoint of the fullnode
+    /// Connection timeout in seconds, used for the REST endpoint of the
+    /// fullnode
     #[clap(long, default_value = "30", alias = "connection-timeout-s")]
     pub connection_timeout_secs: u64,
 }
@@ -881,7 +883,11 @@ impl RestOptions {
             reqwest::Url::parse(&url)
                 .map_err(|err| CliError::UnableToParse("Rest URL", err.to_string()))
         } else {
-            Err(CliError::CommandArgumentError("No rest url given.  Please add --url or add a rest_url to the .aptos/config.yaml for the current profile".to_string()))
+            Err(CliError::CommandArgumentError(
+                "No rest url given.  Please add --url or add a rest_url to the .aptos/config.yaml \
+                 for the current profile"
+                    .to_string(),
+            ))
         }
     }
 
@@ -908,7 +914,8 @@ pub struct MovePackageDir {
     ///
     /// Example: alice=0x1234, bob=0x5678
     ///
-    /// Note: This will fail if there are duplicates in the Move.toml file remove those first.
+    /// Note: This will fail if there are duplicates in the Move.toml file
+    /// remove those first.
     #[clap(long, parse(try_from_str = crate::common::utils::parse_map), default_value = "")]
     pub(crate) named_addresses: BTreeMap<String, AccountAddressWrapper>,
 
@@ -940,7 +947,8 @@ impl MovePackageDir {
         dir_default_to_current(self.package_dir.clone())
     }
 
-    /// Retrieve the NamedAddresses, resolving all the account addresses accordingly
+    /// Retrieve the NamedAddresses, resolving all the account addresses
+    /// accordingly
     pub fn named_addresses(&self) -> BTreeMap<String, AccountAddress> {
         self.named_addresses
             .clone()
@@ -959,7 +967,8 @@ impl MovePackageDir {
     }
 }
 
-/// A wrapper around `AccountAddress` to be more flexible from strings than AccountAddress
+/// A wrapper around `AccountAddress` to be more flexible from strings than
+/// AccountAddress
 #[derive(Clone, Copy, Debug)]
 pub struct AccountAddressWrapper {
     pub account_address: AccountAddress,
@@ -1210,7 +1219,11 @@ impl FaucetOptions {
             reqwest::Url::parse(&url)
                 .map_err(|err| CliError::UnableToParse("config faucet_url", err.to_string()))
         } else {
-            Err(CliError::CommandArgumentError("No faucet given.  Please add --faucet-url or add a faucet URL to the .aptos/config.yaml for the current profile".to_string()))
+            Err(CliError::CommandArgumentError(
+                "No faucet given.  Please add --faucet-url or add a faucet URL to the \
+                 .aptos/config.yaml for the current profile"
+                    .to_string(),
+            ))
         }
     }
 }
@@ -1226,7 +1239,8 @@ pub struct GasOptions {
     /// to be paid for a transaction.  This will prioritize the
     /// transaction with a higher gas unit price.
     ///
-    /// Without a value, it will determine the price based on the current estimated price
+    /// Without a value, it will determine the price based on the current
+    /// estimated price
     #[clap(long)]
     pub gas_unit_price: Option<u64>,
     /// Maximum amount of gas units to be used to send this transaction
@@ -1239,7 +1253,8 @@ pub struct GasOptions {
     /// gas unit price of 2, the max gas would need to be 50 to still only have
     /// a maximum price of 100 Octas.
     ///
-    /// Without a value, it will determine the price based on simulating the current transaction
+    /// Without a value, it will determine the price based on simulating the
+    /// current transaction
     #[clap(long)]
     pub max_gas: Option<u64>,
 }
@@ -1249,8 +1264,9 @@ pub struct GasOptions {
 pub struct TransactionOptions {
     /// Sender account address
     ///
-    /// This allows you to override the account address from the derived account address
-    /// in the event that the authentication key was rotated or for a resource account
+    /// This allows you to override the account address from the derived account
+    /// address in the event that the authentication key was rotated or for
+    /// a resource account
     #[clap(long, parse(try_from_str=crate::common::types::load_account_arg))]
     pub(crate) sender_account: Option<AccountAddress>,
 
@@ -1288,8 +1304,8 @@ impl TransactionOptions {
         Ok(self.get_key_and_address()?.1)
     }
 
-    /// Gets the auth key by account address. We need to fetch the auth key from Rest API rather than creating an
-    /// auth key out of the public key.
+    /// Gets the auth key by account address. We need to fetch the auth key from
+    /// Rest API rather than creating an auth key out of the public key.
     pub(crate) async fn auth_key(
         &self,
         sender_address: AccountAddress,
@@ -1314,8 +1330,8 @@ impl TransactionOptions {
         // Get sequence number for account
         let sequence_number = self.sequence_number(sender_address).await?;
 
-        // Ask to confirm price if the gas unit price is estimated above the lowest value when
-        // it is automatically estimated
+        // Ask to confirm price if the gas unit price is estimated above the lowest
+        // value when it is automatically estimated
         let ask_to_confirm_price;
         let gas_unit_price = if let Some(gas_unit_price) = self.gas_options.gas_unit_price {
             ask_to_confirm_price = false;
@@ -1328,9 +1344,15 @@ impl TransactionOptions {
         };
 
         let max_gas = if let Some(max_gas) = self.gas_options.max_gas {
-            // If the gas unit price was estimated ask, but otherwise you've chosen hwo much you want to spend
+            // If the gas unit price was estimated ask, but otherwise you've chosen hwo much
+            // you want to spend
             if ask_to_confirm_price {
-                let message = format!("Do you want to submit transaction for a maximum of {} Octas at a gas unit price of {} Octas?",  max_gas * gas_unit_price, gas_unit_price);
+                let message = format!(
+                    "Do you want to submit transaction for a maximum of {} Octas at a gas unit \
+                     price of {} Octas?",
+                    max_gas * gas_unit_price,
+                    gas_unit_price
+                );
                 prompt_yes_with_override(&message, self.prompt_options)?;
             }
             max_gas
@@ -1372,10 +1394,10 @@ impl TransactionOptions {
             let upper_cost_bound = adjusted_max_gas * gas_unit_price;
             let lower_cost_bound = gas_used * gas_unit_price;
             let message = format!(
-                    "Do you want to submit a transaction for a range of [{} - {}] Octas at a gas unit price of {} Octas?",
-                    lower_cost_bound,
-                    upper_cost_bound,
-                    gas_unit_price);
+                "Do you want to submit a transaction for a range of [{} - {}] Octas at a gas unit \
+                 price of {} Octas?",
+                lower_cost_bound, upper_cost_bound, gas_unit_price
+            );
             prompt_yes_with_override(&message, self.prompt_options)?;
             adjusted_max_gas
         };
@@ -1427,10 +1449,12 @@ pub struct PoolAddressArgs {
 }
 
 // This struct includes TypeInfo (account_address, module_name, and struct_name)
-// and RotationProofChallenge-specific information (sequence_number, originator, current_auth_key, and new_public_key)
-// Since the struct RotationProofChallenge is defined in "0x1::account::RotationProofChallenge",
-// we will be passing in "0x1" to `account_address`, "account" to `module_name`, and "RotationProofChallenge" to `struct_name`
-// Originator refers to the user's address
+// and RotationProofChallenge-specific information (sequence_number, originator,
+// current_auth_key, and new_public_key) Since the struct RotationProofChallenge
+// is defined in "0x1::account::RotationProofChallenge", we will be passing in
+// "0x1" to `account_address`, "account" to `module_name`, and
+// "RotationProofChallenge" to `struct_name` Originator refers to the user's
+// address
 #[derive(Serialize, Deserialize)]
 pub struct RotationProofChallenge {
     // Should be `CORE_CODE_ADDRESS`

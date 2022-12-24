@@ -40,18 +40,17 @@ mod module;
 mod script;
 mod transaction_argument;
 
+use crate::state_store::{state_key::StateKey, state_value::StateValue};
 #[cfg(any(test, feature = "fuzzing"))]
 pub use change_set::NoOpChangeSetChecker;
 pub use change_set::{ChangeSet, CheckChangeSet};
 pub use module::{Module, ModuleBundle};
+use move_core_types::vm_status::AbortLocation;
+use once_cell::sync::OnceCell;
 pub use script::{
     ArgumentABI, EntryABI, EntryFunction, EntryFunctionABI, Script, TransactionScriptABI,
     TypeArgumentABI,
 };
-
-use crate::state_store::{state_key::StateKey, state_value::StateValue};
-use move_core_types::vm_status::AbortLocation;
-use once_cell::sync::OnceCell;
 use std::{collections::BTreeSet, hash::Hash, ops::Deref, sync::atomic::AtomicU64};
 pub use transaction_argument::{parse_transaction_argument, TransactionArgument};
 
@@ -93,8 +92,8 @@ pub struct RawTransaction {
 impl RawTransaction {
     /// Create a new `RawTransaction` with a payload.
     ///
-    /// It can be either to publish a module, to execute a script, or to issue a writeset
-    /// transaction.
+    /// It can be either to publish a module, to execute a script, or to issue a
+    /// writeset transaction.
     pub fn new(
         sender: AccountAddress,
         sequence_number: u64,
@@ -117,7 +116,8 @@ impl RawTransaction {
 
     /// Create a new `RawTransaction` with a script.
     ///
-    /// A script transaction contains only code to execute. No publishing is allowed in scripts.
+    /// A script transaction contains only code to execute. No publishing is
+    /// allowed in scripts.
     pub fn new_script(
         sender: AccountAddress,
         sequence_number: u64,
@@ -140,7 +140,8 @@ impl RawTransaction {
 
     /// Create a new `RawTransaction` with a entry function.
     ///
-    /// A script transaction contains only code to execute. No publishing is allowed in scripts.
+    /// A script transaction contains only code to execute. No publishing is
+    /// allowed in scripts.
     pub fn new_entry_function(
         sender: AccountAddress,
         sequence_number: u64,
@@ -163,8 +164,8 @@ impl RawTransaction {
 
     /// Create a new `RawTransaction` with a module to publish.
     ///
-    /// A module transaction is the only way to publish code. Only one module per transaction
-    /// can be published.
+    /// A module transaction is the only way to publish code. Only one module
+    /// per transaction can be published.
     pub fn new_module(
         sender: AccountAddress,
         sequence_number: u64,
@@ -187,8 +188,8 @@ impl RawTransaction {
 
     /// Create a new `RawTransaction` with a list of modules to publish.
     ///
-    /// A module transaction is the only way to publish code. Multiple modules per transaction
-    /// can be published.
+    /// A module transaction is the only way to publish code. Multiple modules
+    /// per transaction can be published.
     pub fn new_module_bundle(
         sender: AccountAddress,
         sequence_number: u64,
@@ -209,10 +210,11 @@ impl RawTransaction {
         }
     }
 
-    /// Signs the given `RawTransaction`. Note that this consumes the `RawTransaction` and turns it
-    /// into a `SignatureCheckedTransaction`.
+    /// Signs the given `RawTransaction`. Note that this consumes the
+    /// `RawTransaction` and turns it into a `SignatureCheckedTransaction`.
     ///
-    /// For a transaction that has just been signed, its signature is expected to be valid.
+    /// For a transaction that has just been signed, its signature is expected
+    /// to be valid.
     pub fn sign(
         self,
         private_key: &Ed25519PrivateKey,
@@ -224,12 +226,13 @@ impl RawTransaction {
         )))
     }
 
-    /// Signs the given multi-agent `RawTransaction`, which is a transaction with secondary
-    /// signers in addition to a sender. The private keys of the sender and the
-    /// secondary signers are used to sign the transaction.
+    /// Signs the given multi-agent `RawTransaction`, which is a transaction
+    /// with secondary signers in addition to a sender. The private keys of
+    /// the sender and the secondary signers are used to sign the
+    /// transaction.
     ///
-    /// The order and length of the secondary keys provided here have to match the order and
-    /// length of the `secondary_signers`.
+    /// The order and length of the secondary keys provided here have to match
+    /// the order and length of the `secondary_signers`.
     pub fn sign_multi_agent(
         self,
         sender_private_key: &Ed25519PrivateKey,
@@ -301,18 +304,9 @@ impl RawTransaction {
             f_args = format!("{}\n\t\t\t{:02X?},", f_args, arg);
         }
         format!(
-            "RawTransaction {{ \n\
-             \tsender: {}, \n\
-             \tsequence_number: {}, \n\
-             \tpayload: {{, \n\
-             \t\ttransaction: {}, \n\
-             \t\targs: [ {} \n\
-             \t\t]\n\
-             \t}}, \n\
-             \tmax_gas_amount: {}, \n\
-             \tgas_unit_price: {}, \n\
-             \texpiration_timestamp_secs: {:#?}, \n\
-             \tchain_id: {},
+            "RawTransaction {{ \n\tsender: {}, \n\tsequence_number: {}, \n\tpayload: {{, \
+             \n\t\ttransaction: {}, \n\t\targs: [ {} \n\t\t]\n\t}}, \n\tmax_gas_amount: {}, \
+             \n\tgas_unit_price: {}, \n\texpiration_timestamp_secs: {:#?}, \n\tchain_id: {},
              }}",
             self.sender,
             self.sequence_number,
@@ -324,6 +318,7 @@ impl RawTransaction {
             self.chain_id,
         )
     }
+
     /// Return the sender of this transaction.
     pub fn sender(&self) -> AccountAddress {
         self.sender
@@ -364,7 +359,8 @@ pub enum TransactionPayload {
     Script(Script),
     /// A transaction that publishes multiple modules at the same time.
     ModuleBundle(ModuleBundle),
-    /// A transaction that executes an existing entry function published on-chain.
+    /// A transaction that executes an existing entry function published
+    /// on-chain.
     EntryFunction(EntryFunction),
 }
 
@@ -402,12 +398,13 @@ impl WriteSetPayload {
 
 /// A transaction that has been signed.
 ///
-/// A `SignedTransaction` is a single transaction that can be atomically executed. Clients submit
-/// these to validator nodes, and the validator and executor submits these to the VM.
+/// A `SignedTransaction` is a single transaction that can be atomically
+/// executed. Clients submit these to validator nodes, and the validator and
+/// executor submits these to the VM.
 ///
-/// **IMPORTANT:** The signature of a `SignedTransaction` is not guaranteed to be verified. For a
-/// transaction whose signature is statically guaranteed to be verified, see
-/// [`SignatureCheckedTransaction`].
+/// **IMPORTANT:** The signature of a `SignedTransaction` is not guaranteed to
+/// be verified. For a transaction whose signature is statically guaranteed to
+/// be verified, see [`SignatureCheckedTransaction`].
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct SignedTransaction {
     /// The raw transaction
@@ -417,7 +414,8 @@ pub struct SignedTransaction {
     authenticator: TransactionAuthenticator,
 
     /// A cached size of the raw transaction bytes.
-    /// Prevents serializing the same transaction multiple times to determine size.
+    /// Prevents serializing the same transaction multiple times to determine
+    /// size.
     #[serde(skip)]
     size: OnceCell<usize>,
 }
@@ -459,11 +457,7 @@ impl fmt::Debug for SignedTransaction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "SignedTransaction {{ \n \
-             {{ raw_txn: {:#?}, \n \
-             authenticator: {:#?}, \n \
-             }} \n \
-             }}",
+            "SignedTransaction {{ \n {{ raw_txn: {:#?}, \n authenticator: {:#?}, \n }} \n }}",
             self.raw_txn, self.authenticator
         )
     }
@@ -568,15 +562,15 @@ impl SignedTransaction {
         })
     }
 
-    /// Checks that the signature of given transaction. Returns `Ok(SignatureCheckedTransaction)` if
-    /// the signature is valid.
+    /// Checks that the signature of given transaction. Returns
+    /// `Ok(SignatureCheckedTransaction)` if the signature is valid.
     pub fn check_signature(self) -> Result<SignatureCheckedTransaction> {
         self.authenticator.verify(&self.raw_txn)?;
         Ok(SignatureCheckedTransaction(self))
     }
 
-    /// Checks that the signature of given transaction inplace. Returns `Ok(())` if
-    /// the signature is valid.
+    /// Checks that the signature of given transaction inplace. Returns `Ok(())`
+    /// if the signature is valid.
     pub fn signature_is_valid(&self) -> bool {
         self.authenticator.verify(&self.raw_txn).is_ok()
     }
@@ -590,10 +584,7 @@ impl SignedTransaction {
 
     pub fn format_for_client(&self, get_transaction_name: impl Fn(&[u8]) -> String) -> String {
         format!(
-            "SignedTransaction {{ \n \
-             raw_txn: {}, \n \
-             authenticator: {:#?}, \n \
-             }}",
+            "SignedTransaction {{ \n raw_txn: {}, \n authenticator: {:#?}, \n }}",
             self.raw_txn.format_for_client(get_transaction_name),
             self.authenticator
         )
@@ -635,14 +626,16 @@ impl TransactionWithProof {
             proof,
         }
     }
+
     /// Verifies the transaction with the proof, both carried by `self`.
     ///
     /// A few things are ensured if no error is raised:
     ///   1. This transaction exists in the ledger represented by `ledger_info`.
     ///   2. This transaction is a `UserTransaction`.
-    ///   3. And this user transaction has the same `version`, `sender`, and `sequence_number` as
-    ///      indicated by the parameter list. If any of these parameter is unknown to the call site
-    ///      that is supposed to be informed via this struct, get it from the struct itself, such
+    ///   3. And this user transaction has the same `version`, `sender`, and
+    /// `sequence_number` as      indicated by the parameter list. If any of
+    /// these parameter is unknown to the call site      that is supposed to
+    /// be informed via this struct, get it from the struct itself, such
     ///      as version and sender.
     pub fn verify_user_txn(
         &self,
@@ -755,9 +748,10 @@ impl ExecutionStatus {
     }
 }
 
-/// The status of executing a transaction. The VM decides whether or not we should `Keep` the
-/// transaction output or `Discard` it based upon the execution of the transaction. We wrap these
-/// decisions around a `VMStatus` that provides more detail on the final execution state of the VM.
+/// The status of executing a transaction. The VM decides whether or not we
+/// should `Keep` the transaction output or `Discard` it based upon the
+/// execution of the transaction. We wrap these decisions around a `VMStatus`
+/// that provides more detail on the final execution state of the VM.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TransactionStatus {
     /// Discard the transaction output
@@ -802,7 +796,7 @@ impl From<VMStatus> for TransactionStatus {
             Ok(recorded) => match recorded {
                 KeptVMStatus::MiscellaneousError => {
                     TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(status_code)))
-                }
+                },
                 _ => TransactionStatus::Keep(recorded.into()),
             },
             Err(code) => TransactionStatus::Discard(code),
@@ -819,12 +813,14 @@ impl From<ExecutionStatus> for TransactionStatus {
 /// The result of running the transaction through the VM validator.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VMValidatorResult {
-    /// Result of the validation: `None` if the transaction was successfully validated
-    /// or `Some(DiscardedVMStatus)` if the transaction should be discarded.
+    /// Result of the validation: `None` if the transaction was successfully
+    /// validated or `Some(DiscardedVMStatus)` if the transaction should be
+    /// discarded.
     status: Option<DiscardedVMStatus>,
 
-    /// Score for ranking the transaction priority (e.g., based on the gas price).
-    /// Only used when the status is `None`. Higher values indicate a higher priority.
+    /// Score for ranking the transaction priority (e.g., based on the gas
+    /// price). Only used when the status is `None`. Higher values indicate
+    /// a higher priority.
     score: u64,
 }
 
@@ -925,8 +921,9 @@ impl TransactionOutput {
     }
 }
 
-/// `TransactionInfo` is the object we store in the transaction accumulator. It consists of the
-/// transaction as well as the execution result of this transaction.
+/// `TransactionInfo` is the object we store in the transaction accumulator. It
+/// consists of the transaction as well as the execution result of this
+/// transaction.
 #[derive(Clone, CryptoHasher, BCSCryptoHash, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub enum TransactionInfo {
@@ -985,27 +982,31 @@ pub struct TransactionInfoV0 {
     /// The amount of gas used.
     gas_used: u64,
 
-    /// The vm status. If it is not `Executed`, this will provide the general error class. Execution
-    /// failures and Move abort's receive more detailed information. But other errors are generally
-    /// categorized with no status code or other information
+    /// The vm status. If it is not `Executed`, this will provide the general
+    /// error class. Execution failures and Move abort's receive more
+    /// detailed information. But other errors are generally categorized
+    /// with no status code or other information
     status: ExecutionStatus,
 
     /// The hash of this transaction.
     transaction_hash: HashValue,
 
-    /// The root hash of Merkle Accumulator storing all events emitted during this transaction.
+    /// The root hash of Merkle Accumulator storing all events emitted during
+    /// this transaction.
     event_root_hash: HashValue,
 
-    /// The hash value summarizing all changes caused to the world state by this transaction.
-    /// i.e. hash of the output write set.
+    /// The hash value summarizing all changes caused to the world state by this
+    /// transaction. i.e. hash of the output write set.
     state_change_hash: HashValue,
 
-    /// The root hash of the Sparse Merkle Tree describing the world state at the end of this
-    /// transaction. Depending on the protocol configuration, this can be generated periodical
-    /// only, like per block.
+    /// The root hash of the Sparse Merkle Tree describing the world state at
+    /// the end of this transaction. Depending on the protocol
+    /// configuration, this can be generated periodical only, like per
+    /// block.
     state_checkpoint_hash: Option<HashValue>,
 
-    /// Potentially summarizes all evicted items from state. Always `None` for now.
+    /// Potentially summarizes all evicted items from state. Always `None` for
+    /// now.
     state_cemetery_hash: Option<HashValue>,
 }
 
@@ -1067,8 +1068,14 @@ impl Display for TransactionInfo {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "TransactionInfo: [txn_hash: {}, state_change_hash: {}, event_root_hash: {}, state_checkpoint_hash: {:?}, gas_used: {}, recorded_status: {:?}]",
-            self.transaction_hash(), self.state_change_hash(), self.event_root_hash(), self.state_checkpoint_hash(), self.gas_used(), self.status(),
+            "TransactionInfo: [txn_hash: {}, state_change_hash: {}, event_root_hash: {}, \
+             state_checkpoint_hash: {:?}, gas_used: {}, recorded_status: {:?}]",
+            self.transaction_hash(),
+            self.state_change_hash(),
+            self.event_root_hash(),
+            self.state_checkpoint_hash(),
+            self.gas_used(),
+            self.status(),
         )
     }
 }
@@ -1182,9 +1189,10 @@ impl TransactionListWithProof {
     /// This method will ensure:
     /// 1. All transactions exist on the given `ledger_info`.
     /// 2. All transactions in the list have consecutive versions.
-    /// 3. If `first_transaction_version` is None, the transaction list is empty.
-    ///    Otherwise, the transaction list starts at `first_transaction_version`.
-    /// 4. If events exist, they match the expected event root hashes in the proof.
+    /// 3. If `first_transaction_version` is None, the transaction list is
+    /// empty.    Otherwise, the transaction list starts at
+    /// `first_transaction_version`. 4. If events exist, they match the
+    /// expected event root hashes in the proof.
     pub fn verify(
         &self,
         ledger_info: &LedgerInfo,
@@ -1201,8 +1209,8 @@ impl TransactionListWithProof {
         // Verify the lengths of the transactions and transaction infos match
         ensure!(
             self.proof.transaction_infos.len() == self.transactions.len(),
-            "The number of TransactionInfo objects ({}) does not match the number of \
-             transactions ({}).",
+            "The number of TransactionInfo objects ({}) does not match the number of transactions \
+             ({}).",
             self.proof.transaction_infos.len(),
             self.transactions.len(),
         );
@@ -1274,18 +1282,20 @@ impl TransactionOutputListWithProof {
         Self::new(vec![], None, TransactionInfoListWithProof::new_empty())
     }
 
-    /// Verifies the transaction output list with proof using the given `ledger_info`.
-    /// This method will ensure:
+    /// Verifies the transaction output list with proof using the given
+    /// `ledger_info`. This method will ensure:
     /// 1. All transaction infos exist on the given `ledger_info`.
-    /// 2. If `first_transaction_output_version` is None, the transaction output list is empty.
-    ///    Otherwise, the list starts at `first_transaction_output_version`.
-    /// 3. Events, gas, status in each transaction output match the expected event root hashes,
-    ///    the gas used and the transaction execution status in the proof, respectively.
+    /// 2. If `first_transaction_output_version` is None, the transaction output
+    /// list is empty.    Otherwise, the list starts at
+    /// `first_transaction_output_version`. 3. Events, gas, status in each
+    /// transaction output match the expected event root hashes,    the gas
+    /// used and the transaction execution status in the proof, respectively.
     /// 4. The transaction hashes match those of the transaction infos.
     ///
     /// Note: the proof cannot verify the TransactionOutputs themselves. This
-    /// requires speculative execution of each TransactionOutput to verify that the
-    /// resulting state matches the expected state in the proof (for each version).
+    /// requires speculative execution of each TransactionOutput to verify that
+    /// the resulting state matches the expected state in the proof (for
+    /// each version).
     pub fn verify(
         &self,
         ledger_info: &LedgerInfo,
@@ -1302,8 +1312,8 @@ impl TransactionOutputListWithProof {
         // Verify the lengths of the transaction(output)s and transaction infos match
         ensure!(
             self.proof.transaction_infos.len() == self.transactions_and_outputs.len(),
-            "The number of TransactionInfo objects ({}) does not match the number of \
-             transactions and outputs ({}).",
+            "The number of TransactionInfo objects ({}) does not match the number of transactions \
+             and outputs ({}).",
             self.proof.transaction_infos.len(),
             self.transactions_and_outputs.len(),
         );
@@ -1321,8 +1331,9 @@ impl TransactionOutputListWithProof {
             let write_set_hash = CryptoHash::hash(&txn_output.write_set);
             ensure!(
                 txn_info.state_change_hash == write_set_hash,
-                "The write set in transaction output does not match the transaction info \
-                     in proof. Hash of write set in transaction output: {}. Write set hash in txn_info: {}.",
+                "The write set in transaction output does not match the transaction info in \
+                 proof. Hash of write set in transaction output: {}. Write set hash in txn_info: \
+                 {}.",
                 write_set_hash,
                 txn_info.state_change_hash,
             );
@@ -1330,8 +1341,8 @@ impl TransactionOutputListWithProof {
             // Verify the gas matches for both the transaction info and output
             ensure!(
                 txn_output.gas_used() == txn_info.gas_used(),
-                "The gas used in transaction output does not match the transaction info \
-                     in proof. Gas used in transaction output: {}. Gas used in txn_info: {}.",
+                "The gas used in transaction output does not match the transaction info in proof. \
+                 Gas used in transaction output: {}. Gas used in txn_info: {}.",
                 txn_output.gas_used(),
                 txn_info.gas_used(),
             );
@@ -1339,8 +1350,8 @@ impl TransactionOutputListWithProof {
             // Verify the execution status matches for both the transaction info and output.
             ensure!(
                 *txn_output.status() == TransactionStatus::Keep(txn_info.status().clone()),
-                "The execution status of transaction output does not match the transaction \
-                     info in proof. Status in transaction output: {:?}. Status in txn_info: {:?}.",
+                "The execution status of transaction output does not match the transaction info \
+                 in proof. Status in transaction output: {:?}. Status in txn_info: {:?}.",
                 txn_output.status(),
                 txn_info.status(),
             );
@@ -1349,8 +1360,8 @@ impl TransactionOutputListWithProof {
             let txn_hash = txn.hash();
             ensure!(
                 txn_hash == txn_info.transaction_hash(),
-                "The transaction hash does not match the hash in transaction info. \
-                     Transaction hash: {:x}. Transaction hash in txn_info: {:x}.",
+                "The transaction hash does not match the hash in transaction info. Transaction \
+                 hash: {:x}. Transaction hash in txn_info: {:x}.",
                 txn_hash,
                 txn_info.transaction_hash(),
             );
@@ -1377,16 +1388,16 @@ fn verify_events_against_root_hash(
         InMemoryAccumulator::<EventAccumulatorHasher>::from_leaves(&event_hashes).root_hash();
     ensure!(
         event_root_hash == transaction_info.event_root_hash(),
-        "The event root hash calculated doesn't match that carried on the \
-                         transaction info! Calculated hash {:?}, transaction info hash {:?}",
+        "The event root hash calculated doesn't match that carried on the transaction info! \
+         Calculated hash {:?}, transaction info hash {:?}",
         event_root_hash,
         transaction_info.event_root_hash()
     );
     Ok(())
 }
 
-/// A list of transactions under an account that are contiguous by sequence number
-/// and include proofs.
+/// A list of transactions under an account that are contiguous by sequence
+/// number and include proofs.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct AccountTransactionsWithProof(pub Vec<TransactionWithProof>);
@@ -1418,10 +1429,11 @@ impl AccountTransactionsWithProof {
 
     /// 1. Verify all transactions are consistent with the given ledger info.
     /// 2. All transactions were sent by `account`.
-    /// 3. The transactions are contiguous by sequence number, starting at `start_seq_num`.
-    /// 4. No more transactions than limit.
-    /// 5. Events are present when requested (and not present when not requested).
-    /// 6. Transactions are not newer than requested ledger version.
+    /// 3. The transactions are contiguous by sequence number, starting at
+    /// `start_seq_num`. 4. No more transactions than limit.
+    /// 5. Events are present when requested (and not present when not
+    /// requested). 6. Transactions are not newer than requested ledger
+    /// version.
     pub fn verify(
         &self,
         ledger_info: &LedgerInfo,
@@ -1461,30 +1473,34 @@ impl AccountTransactionsWithProof {
     }
 }
 
-/// `Transaction` will be the transaction type used internally in the aptos node to represent the
-/// transaction to be processed and persisted.
+/// `Transaction` will be the transaction type used internally in the aptos node
+/// to represent the transaction to be processed and persisted.
 ///
-/// We suppress the clippy warning here as we would expect most of the transaction to be user
-/// transaction.
+/// We suppress the clippy warning here as we would expect most of the
+/// transaction to be user transaction.
 #[allow(clippy::large_enum_variant)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, CryptoHasher, BCSCryptoHash)]
 pub enum Transaction {
-    /// Transaction submitted by the user. e.g: P2P payment transaction, publishing module
-    /// transaction, etc.
-    /// TODO: We need to rename SignedTransaction to SignedUserTransaction, as well as all the other
-    ///       transaction types we had in our codebase.
+    /// Transaction submitted by the user. e.g: P2P payment transaction,
+    /// publishing module transaction, etc.
+    /// TODO: We need to rename SignedTransaction to SignedUserTransaction, as
+    /// well as all the other       transaction types we had in our
+    /// codebase.
     UserTransaction(SignedTransaction),
 
-    /// Transaction that applies a WriteSet to the current storage, it's applied manually via aptos-db-bootstrapper.
+    /// Transaction that applies a WriteSet to the current storage, it's applied
+    /// manually via aptos-db-bootstrapper.
     GenesisTransaction(WriteSetPayload),
 
-    /// Transaction to update the block metadata resource at the beginning of a block.
+    /// Transaction to update the block metadata resource at the beginning of a
+    /// block.
     BlockMetadata(BlockMetadata),
 
-    /// Transaction to let the executor update the global state tree and record the root hash
-    /// in the TransactionInfo
-    /// The hash value inside is unique block id which can generate unique hash of state checkpoint transaction
+    /// Transaction to let the executor update the global state tree and record
+    /// the root hash in the TransactionInfo
+    /// The hash value inside is unique block id which can generate unique hash
+    /// of state checkpoint transaction
     StateCheckpoint(HashValue),
 }
 
@@ -1500,7 +1516,7 @@ impl Transaction {
         match self {
             Transaction::UserTransaction(user_txn) => {
                 user_txn.format_for_client(get_transaction_name)
-            }
+            },
             // TODO: display proper information for client
             Transaction::GenesisTransaction(_write_set) => String::from("genesis"),
             // TODO: display proper information for client

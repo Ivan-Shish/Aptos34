@@ -1,19 +1,24 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::types::{
-    AccountIdentifier, Allow, Amount, Block, BlockIdentifier, Currency, InternalOperation,
-    NetworkIdentifier, Operation, PartialBlockIdentifier, Peer, PublicKey, Signature,
-    SigningPayload, SyncStatus, Transaction, TransactionIdentifier, Version,
+use crate::{
+    types::{
+        AccountIdentifier, Allow, Amount, Block, BlockIdentifier, Currency, InternalOperation,
+        NetworkIdentifier, Operation, PartialBlockIdentifier, Peer, PublicKey, Signature,
+        SigningPayload, SyncStatus, Transaction, TransactionIdentifier, Version,
+    },
+    AccountAddress, ApiError,
 };
-use crate::{AccountAddress, ApiError};
 use aptos_rest_client::aptos_api_types::U64;
-use aptos_types::chain_id::ChainId;
-use aptos_types::transaction::{RawTransaction, SignedTransaction};
-use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::{Display, Formatter};
-use std::str::FromStr;
+use aptos_types::{
+    chain_id::ChainId,
+    transaction::{RawTransaction, SignedTransaction},
+};
+use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 /// Request for an account's currency balance either now, or historically
 ///
@@ -108,12 +113,13 @@ impl BlockRequest {
 /// [API Spec](https://www.rosetta-api.org/docs/models/BlockResponse.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct BlockResponse {
-    /// The block requested.  This should always be populated for a given valid version
+    /// The block requested.  This should always be populated for a given valid
+    /// version
     pub block: Block,
 }
 
-/// Request to combine signatures and an unsigned transaction for submission as a
-/// [`aptos_types::transaction::SignedTransaction`]
+/// Request to combine signatures and an unsigned transaction for submission as
+/// a [`aptos_types::transaction::SignedTransaction`]
 ///
 /// This should be able to run without a running full node connection
 ///
@@ -133,22 +139,24 @@ pub struct ConstructionCombineRequest {
 /// [API Spec](https://www.rosetta-api.org/docs/models/ConstructionCombineResponse.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ConstructionCombineResponse {
-    /// A hex encoded, BCS encoded, [`aptos_types::transaction::SignedTransaction`]
+    /// A hex encoded, BCS encoded,
+    /// [`aptos_types::transaction::SignedTransaction`]
     pub signed_transaction: String,
 }
 
 /// Request to derive an account from a public key
 ///
-/// This should be able to run without a running full node connection, but note that
-/// this will not work with accounts that have rotated their public key.  It should
-/// only be used when an account is being created.
+/// This should be able to run without a running full node connection, but note
+/// that this will not work with accounts that have rotated their public key.
+/// It should only be used when an account is being created.
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/ConstructionDeriveRequest.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ConstructionDeriveRequest {
     /// Network identifier describing the blockchain and the chain id
     pub network_identifier: NetworkIdentifier,
-    /// Public key to derive an [`aptos_types::account_address::AccountAddress`] from
+    /// Public key to derive an [`aptos_types::account_address::AccountAddress`]
+    /// from
     pub public_key: PublicKey,
 }
 
@@ -157,9 +165,11 @@ pub struct ConstructionDeriveRequest {
 /// [API Spec](https://www.rosetta-api.org/docs/models/ConstructionDeriveResponse.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ConstructionDeriveResponse {
-    /// The account identifier of the account if the [`aptos_types::account_address::AccountAddress`] can be derived.
+    /// The account identifier of the account if the
+    /// [`aptos_types::account_address::AccountAddress`] can be derived.
     ///
-    /// This will always return a value, though it might not match onchain information.
+    /// This will always return a value, though it might not match onchain
+    /// information.
     pub account_identifier: AccountIdentifier,
 }
 
@@ -170,11 +180,13 @@ pub struct ConstructionDeriveResponse {
 pub struct ConstructionHashRequest {
     /// Network identifier describing the blockchain and the chain id
     pub network_identifier: NetworkIdentifier,
-    /// A hex encoded, BCS encoded, [`aptos_types::transaction::SignedTransaction`]
+    /// A hex encoded, BCS encoded,
+    /// [`aptos_types::transaction::SignedTransaction`]
     pub signed_transaction: String,
 }
 
-/// Request to retrieve all information needed for constructing a transaction from the blockchain
+/// Request to retrieve all information needed for constructing a transaction
+/// from the blockchain
 ///
 /// A running full node is required for this API
 ///
@@ -191,7 +203,8 @@ pub struct ConstructionMetadataRequest {
 
 /// A set of operations to tell us which metadata to lookup onchain
 ///
-/// This is built from Preprocess, and is copied verbatim to the metadata request
+/// This is built from Preprocess, and is copied verbatim to the metadata
+/// request
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MetadataOptions {
     /// The operation to run at a high level (e.g. CreateAccount/Transfer)
@@ -208,7 +221,8 @@ pub struct MetadataOptions {
     /// Sequence number of the request
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sequence_number: Option<U64>,
-    /// Public keys to sign simulated transaction.  Must be present if max_gas_amount is not provided
+    /// Public keys to sign simulated transaction.  Must be present if
+    /// max_gas_amount is not provided
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public_keys: Option<Vec<PublicKey>>,
     /// Taking the estimated gas price, and multiplying it
@@ -245,7 +259,8 @@ pub struct ConstructionMetadata {
     pub max_gas_amount: U64,
     /// Multiplier e.g. how much each unit of gas is worth in the native coin
     pub gas_price_per_unit: U64,
-    /// Unix timestamp of expiry time, defaults to 30 seconds from the payload request
+    /// Unix timestamp of expiry time, defaults to 30 seconds from the payload
+    /// request
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiry_time_secs: Option<U64>,
     /// Because we need information from metadata to have the real operation
@@ -262,10 +277,12 @@ pub struct ConstructionMetadata {
 pub struct ConstructionParseRequest {
     /// Network identifier describing the blockchain and the chain id
     pub network_identifier: NetworkIdentifier,
-    /// Whether the transaction is a [`aptos_types::transaction::SignedTransaction`]
+    /// Whether the transaction is a
+    /// [`aptos_types::transaction::SignedTransaction`]
     /// or a [`aptos_types::transaction::RawTransaction`]
     pub signed: bool,
-    /// A hex encoded, BCS encoded [`aptos_types::transaction::SignedTransaction`]
+    /// A hex encoded, BCS encoded
+    /// [`aptos_types::transaction::SignedTransaction`]
     /// or a [`aptos_types::transaction::RawTransaction`]
     pub transaction: String,
 }
@@ -277,7 +294,8 @@ pub struct ConstructionParseRequest {
 pub struct ConstructionParseResponse {
     /// The set of [`Operation`] that happened during the transaction
     pub operations: Vec<Operation>,
-    /// The signers of the transaction, if it was a [`aptos_types::transaction::SignedTransaction`]
+    /// The signers of the transaction, if it was a
+    /// [`aptos_types::transaction::SignedTransaction`]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account_identifier_signers: Option<Vec<AccountIdentifier>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -301,12 +319,15 @@ pub struct ConstructionParseMetadata {
 pub struct ConstructionPayloadsRequest {
     /// Network identifier describing the blockchain and the chain id
     pub network_identifier: NetworkIdentifier,
-    /// The set of [`Operation`] that describes the [`InternalOperation`] to execute
+    /// The set of [`Operation`] that describes the [`InternalOperation`] to
+    /// execute
     pub operations: Vec<Operation>,
-    /// Required information for building a [`aptos_types::transaction::RawTransaction`]
+    /// Required information for building a
+    /// [`aptos_types::transaction::RawTransaction`]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<ConstructionMetadata>,
-    /// Public keys of those who will sign the eventual [`aptos_types::transaction::SignedTransaction`]
+    /// Public keys of those who will sign the eventual
+    /// [`aptos_types::transaction::SignedTransaction`]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub public_keys: Option<Vec<PublicKey>>,
 }
@@ -453,7 +474,8 @@ pub struct ConstructionPreprocessResponse {
 pub struct ConstructionSubmitRequest {
     /// Network identifier describing the blockchain and the chain id
     pub network_identifier: NetworkIdentifier,
-    /// A hex encoded, BCS encoded [`aptos_types::transaction::SignedTransaction`]
+    /// A hex encoded, BCS encoded
+    /// [`aptos_types::transaction::SignedTransaction`]
     pub signed_transaction: String,
 }
 
@@ -549,7 +571,8 @@ pub struct NetworkStatusResponse {
     pub current_block_timestamp: u64,
     /// Genesis block
     pub genesis_block_identifier: BlockIdentifier,
-    /// Oldest version that is available after pruning.  Assumed to be genesis block if not present
+    /// Oldest version that is available after pruning.  Assumed to be genesis
+    /// block if not present
     pub oldest_block_identifier: BlockIdentifier,
     /// Sync status if a node needs to catch up
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,15 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::smoke_test_environment::new_local_swarm_with_aptos;
 use aptos_cached_packages::aptos_stdlib;
 use aptos_forge::Swarm;
 use std::time::Duration;
 
-use crate::smoke_test_environment::new_local_swarm_with_aptos;
-
-// TODO: This test should be moved to e2e-move-tests as only 0x1 can make changes to gas schedule
-// and there's no easy way to do this in a smoke test without going through the full governance
-// flow.
+// TODO: This test should be moved to e2e-move-tests as only 0x1 can make
+// changes to gas schedule and there's no easy way to do this in a smoke test
+// without going through the full governance flow.
 #[ignore]
 #[tokio::test]
 async fn test_gas_check() {
@@ -57,25 +56,23 @@ async fn test_gas_check() {
     // succeed with enough gas
     info.client().submit_and_wait(&transfer_txn).await.unwrap();
 
-    /*
     // update to allow 0 gas unit price
-    let mut gas_params = AptosGasParameters::initial();
-    gas_params.txn.min_price_per_gas_unit = 0.into();
-    let gas_schedule_blob = bcs::to_bytes(&gas_params.to_on_chain_gas_schedule())
-        .expect("failed to serialize gas parameters");
-
-    let txn_factory = info.transaction_factory();
-
-    // This is disabled as set_gas_schedule is no longer an entry function and thus not accessible
-    // via aptos_stdlib.
-
-    let update_txn = info
-        .root_account()
-        .sign_with_transaction_builder(txn_factory.payload(
-            aptos_stdlib::gas_schedule_set_gas_schedule(gas_schedule_blob),
-        ));
-    info.client().submit_and_wait(&update_txn).await.unwrap();
-    */
+    // let mut gas_params = AptosGasParameters::initial();
+    // gas_params.txn.min_price_per_gas_unit = 0.into();
+    // let gas_schedule_blob = bcs::to_bytes(&gas_params.to_on_chain_gas_schedule())
+    // .expect("failed to serialize gas parameters");
+    //
+    // let txn_factory = info.transaction_factory();
+    //
+    // This is disabled as set_gas_schedule is no longer an entry function and thus
+    // not accessible via aptos_stdlib.
+    //
+    // let update_txn = info
+    // .root_account()
+    // .sign_with_transaction_builder(txn_factory.payload(
+    // aptos_stdlib::gas_schedule_set_gas_schedule(gas_schedule_blob),
+    // ));
+    // info.client().submit_and_wait(&update_txn).await.unwrap();
 
     let zero_gas_txn = account1.sign_with_transaction_builder(
         info.transaction_factory()

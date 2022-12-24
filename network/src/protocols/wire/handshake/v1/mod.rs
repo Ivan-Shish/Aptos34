@@ -1,21 +1,26 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines the structs transported during the network handshake protocol v1.
-//! These should serialize as per the [AptosNet Handshake v1 Specification].
+//! This module defines the structs transported during the network handshake
+//! protocol v1. These should serialize as per the [AptosNet Handshake v1
+//! Specification].
 //!
-//! During the v1 Handshake protocol, both end-points of a connection send a serialized and
-//! length-prefixed [`HandshakeMsg`] to each other. The handshake message contains a map from
-//! supported messaging protocol versions to a bit vector representing application protocols
-//! supported over that messaging protocol. On receipt, both ends will determine the highest
-//! intersecting messaging protocol version and use that for the remainder of the session.
+//! During the v1 Handshake protocol, both end-points of a connection send a
+//! serialized and length-prefixed [`HandshakeMsg`] to each other. The handshake
+//! message contains a map from supported messaging protocol versions to a bit
+//! vector representing application protocols supported over that messaging
+//! protocol. On receipt, both ends will determine the highest intersecting
+//! messaging protocol version and use that for the remainder of the session.
 //!
 //! [AptosNet Handshake v1 Specification]: https://github.com/aptos-labs/aptos-core/blob/main/specifications/network/handshake-v1.md
 
 use anyhow::anyhow;
-use aptos_config::network_id::NetworkId;
+use aptos_compression::metrics::CompressionClient;
+use aptos_config::{config::MAX_APPLICATION_MESSAGE_SIZE, network_id::NetworkId};
 use aptos_types::chain_id::ChainId;
-use serde::{Deserialize, Serialize};
+#[cfg(any(test, feature = "fuzzing"))]
+use proptest_derive::Arbitrary;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fmt,
@@ -24,16 +29,9 @@ use std::{
 };
 use thiserror::Error;
 
-use aptos_compression::metrics::CompressionClient;
-use aptos_config::config::MAX_APPLICATION_MESSAGE_SIZE;
-#[cfg(any(test, feature = "fuzzing"))]
-use proptest_derive::Arbitrary;
-use serde::de::DeserializeOwned;
-
 #[cfg(test)]
 mod test;
 
-//
 // ProtocolId
 //
 
@@ -113,7 +111,7 @@ impl ProtocolId {
             ProtocolId::ConsensusDirectSendJson | ProtocolId::ConsensusRpcJson => Encoding::Json,
             ProtocolId::ConsensusDirectSendCompressed | ProtocolId::ConsensusRpcCompressed => {
                 Encoding::CompressedBcs(RECURSION_LIMIT)
-            }
+            },
             ProtocolId::MempoolDirectSend => Encoding::CompressedBcs(USER_INPUT_RECURSION_LIMIT),
             ProtocolId::MempoolRpc => Encoding::Bcs(USER_INPUT_RECURSION_LIMIT),
             _ => Encoding::Bcs(RECURSION_LIMIT),
@@ -125,12 +123,14 @@ impl ProtocolId {
         match self {
             ProtocolId::ConsensusDirectSendCompressed | ProtocolId::ConsensusRpcCompressed => {
                 CompressionClient::Consensus
-            }
+            },
             ProtocolId::MempoolDirectSend => CompressionClient::Mempool,
-            protocol_id => unreachable!(
-                "The given protocol ({:?}) should not be using compression!",
-                protocol_id
-            ),
+            protocol_id => {
+                unreachable!(
+                    "The given protocol ({:?}) should not be using compression!",
+                    protocol_id
+                )
+            },
         }
     }
 
@@ -151,7 +151,7 @@ impl ProtocolId {
                     MAX_APPLICATION_MESSAGE_SIZE,
                 )
                 .map_err(|e| anyhow!("{:?}", e))
-            }
+            },
             Encoding::Json => serde_json::to_vec(value).map_err(|e| anyhow!("{:?}", e)),
         }
     }
@@ -168,7 +168,7 @@ impl ProtocolId {
                 )
                 .map_err(|e| anyhow! {"{:?}", e})?;
                 self.bcs_decode(&raw_bytes, limit)
-            }
+            },
             Encoding::Json => serde_json::from_slice(bytes).map_err(|e| anyhow!("{:?}", e)),
         }
     }
@@ -194,7 +194,6 @@ impl fmt::Display for ProtocolId {
     }
 }
 
-//
 // ProtocolIdSet
 //
 
@@ -202,8 +201,8 @@ impl fmt::Display for ProtocolId {
 /// bitvec which supports at most 256 bits.
 ///
 /// These sets are sent over-the-wire in the initial [`HandshakeMsg`] to other
-/// AptosNet peers in order to negotiate the set of common supported protocols for
-/// use on a new AptosNet connection.
+/// AptosNet peers in order to negotiate the set of common supported protocols
+/// for use on a new AptosNet connection.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct ProtocolIdSet(aptos_bitvec::BitVec);
@@ -267,13 +266,13 @@ impl<'a> FromIterator<&'a ProtocolId> for ProtocolIdSet {
     }
 }
 
-//
 // MessageProtocolVersion
 //
 
 /// Enum representing different versions of the Aptos network protocol. These
 /// should be listed from old to new, old having the smallest value.  We derive
-/// [`PartialOrd`] since nodes need to find highest intersecting protocol version.
+/// [`PartialOrd`] since nodes need to find highest intersecting protocol
+/// version.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Copy, Hash, Deserialize, Serialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub enum MessagingProtocolVersion {
@@ -300,7 +299,6 @@ impl fmt::Display for MessagingProtocolVersion {
     }
 }
 
-//
 // HandshakeMsg
 //
 
@@ -318,8 +316,8 @@ pub enum HandshakeError {
 }
 
 /// The HandshakeMsg contains a mapping from [`MessagingProtocolVersion`]
-/// suppported by the node to a bit-vector specifying application-level protocols
-/// supported over that version.
+/// suppported by the node to a bit-vector specifying application-level
+/// protocols supported over that version.
 #[derive(Clone, Deserialize, Serialize, Default)]
 pub struct HandshakeMsg {
     pub supported_protocols: BTreeMap<MessagingProtocolVersion, ProtocolIdSet>,

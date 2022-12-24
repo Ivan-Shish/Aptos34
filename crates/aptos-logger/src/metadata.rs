@@ -4,7 +4,8 @@
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
-/// Associated metadata with every log to identify what kind of log and where it came from
+/// Associated metadata with every log to identify what kind of log and where it
+/// came from
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Metadata {
     /// The level of verbosity of the event
@@ -61,7 +62,8 @@ impl Metadata {
 
 static LOG_LEVEL_NAMES: &[&str] = &["ERROR", "WARN", "INFO", "DEBUG", "TRACE"];
 
-/// Logging levels, used for stratifying logs, and disabling less important ones for performance reasons
+/// Logging levels, used for stratifying logs, and disabling less important ones
+/// for performance reasons
 #[repr(usize)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -109,6 +111,7 @@ pub struct LevelParseError;
 
 impl FromStr for Level {
     type Err = LevelParseError;
+
     fn from_str(level: &str) -> Result<Level, Self::Err> {
         LOG_LEVEL_NAMES
             .iter()

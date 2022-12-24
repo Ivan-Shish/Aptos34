@@ -10,17 +10,19 @@ use aptos_data_client::{
 };
 use aptos_infallible::Mutex;
 use aptos_logger::Level;
-use aptos_storage_service_types::requests::{
-    DataRequest, EpochEndingLedgerInfoRequest, NewTransactionOutputsWithProofRequest,
-    NewTransactionsOrOutputsWithProofRequest, NewTransactionsWithProofRequest,
-    StateValuesWithProofRequest, TransactionOutputsWithProofRequest,
-    TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
+use aptos_storage_service_types::{
+    requests::{
+        DataRequest, EpochEndingLedgerInfoRequest, NewTransactionOutputsWithProofRequest,
+        NewTransactionsOrOutputsWithProofRequest, NewTransactionsWithProofRequest,
+        StateValuesWithProofRequest, TransactionOutputsWithProofRequest,
+        TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
+    },
+    responses::{CompleteDataRange, TransactionOrOutputListWithProof},
+    Epoch,
 };
-use aptos_storage_service_types::responses::{CompleteDataRange, TransactionOrOutputListWithProof};
-use aptos_storage_service_types::Epoch;
-use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::{
     account_address::AccountAddress,
+    aggregate_signature::AggregateSignature,
     block_info::BlockInfo,
     chain_id::ChainId,
     epoch_state::EpochState,
@@ -40,10 +42,7 @@ use aptos_types::{
 use async_trait::async_trait;
 use futures::StreamExt;
 use rand::{rngs::OsRng, Rng};
-use std::cmp::min;
-use std::ops::DerefMut;
-use std::sync::Arc;
-use std::{collections::HashMap, thread, time::Duration};
+use std::{cmp::min, collections::HashMap, ops::DerefMut, sync::Arc, thread, time::Duration};
 use tokio::time::timeout;
 
 // TODO(joshlind): provide a better way to mock the data client.
@@ -76,11 +75,15 @@ pub struct MockAptosDataClient {
     pub advertised_epoch_ending_ledger_infos: HashMap<Epoch, LedgerInfoWithSignatures>,
     pub advertised_synced_ledger_infos: Vec<LedgerInfoWithSignatures>,
     pub data_beyond_highest_advertised: bool, // If true, data exists beyond the highest advertised
-    pub data_request_counter: Arc<Mutex<HashMap<DataRequest, u64>>>, // Tracks the number of times the same data request was made
+    pub data_request_counter: Arc<Mutex<HashMap<DataRequest, u64>>>, /* Tracks the number of
+                                               * times the same data
+                                               * request was made */
     pub highest_epoch_ending_ledger_infos: HashMap<Epoch, LedgerInfoWithSignatures>,
-    pub limit_chunk_sizes: bool, // If true, responses will be truncated to emulate chunk and network limits
+    pub limit_chunk_sizes: bool, /* If true, responses will be truncated to emulate chunk and
+                                  * network limits */
     pub skip_emulate_network_latencies: bool, // If true, skips network latency emulation
-    pub skip_timeout_verification: bool, // If true, skips timeout verification for incoming requests
+    pub skip_timeout_verification: bool,      /* If true, skips timeout verification for
+                                               * incoming requests */
 }
 
 impl MockAptosDataClient {
@@ -152,7 +155,9 @@ impl MockAptosDataClient {
             if num_reduced_items_requested <= 1 {
                 start_index // Limit the chunk to a single item
             } else {
-                start_index + num_reduced_items_requested - 1 // Limit the chunk by the reduction factor
+                start_index + num_reduced_items_requested - 1 // Limit the chunk
+                                                              // by the reduction
+                                                              // factor
             }
         } else {
             end_index // No need to limit the chunk
@@ -334,7 +339,8 @@ impl AptosDataClient for MockAptosDataClient {
 
         // Attempt to fetch the new data
         if self.data_beyond_highest_advertised && known_version < MAX_REAL_TRANSACTION_OUTPUT {
-            // Create a mock data client without timeout verification (to handle the internal requests)
+            // Create a mock data client without timeout verification (to handle the
+            // internal requests)
             let mut aptos_data_client = self.clone();
             aptos_data_client.skip_timeout_verification = true;
 
@@ -396,7 +402,8 @@ impl AptosDataClient for MockAptosDataClient {
 
         // Attempt to fetch the new data
         if self.data_beyond_highest_advertised && known_version < MAX_REAL_TRANSACTION {
-            // Create a mock data client without timeout verification (to handle the internal requests)
+            // Create a mock data client without timeout verification (to handle the
+            // internal requests)
             let mut aptos_data_client = self.clone();
             aptos_data_client.skip_timeout_verification = true;
 
@@ -459,7 +466,8 @@ impl AptosDataClient for MockAptosDataClient {
         );
         self.emulate_network_latencies();
 
-        // Create a mock data client without timeout verification (to handle the internal requests)
+        // Create a mock data client without timeout verification (to handle the
+        // internal requests)
         let mut aptos_data_client = self.clone();
         aptos_data_client.skip_timeout_verification = true;
 
@@ -581,7 +589,8 @@ impl AptosDataClient for MockAptosDataClient {
         );
         self.emulate_network_latencies();
 
-        // Create a mock data client without timeout verification (to handle the internal requests)
+        // Create a mock data client without timeout verification (to handle the
+        // internal requests)
         let mut aptos_data_client = self.clone();
         aptos_data_client.skip_timeout_verification = true;
 
@@ -766,7 +775,8 @@ pub fn create_random_u64(max_value: u64) -> u64 {
     create_range_random_u64(0, max_value)
 }
 
-/// Returns a random (but non-zero) u64 with a value between 1 and `max_value` - 1 (inclusive).
+/// Returns a random (but non-zero) u64 with a value between 1 and `max_value` -
+/// 1 (inclusive).
 fn create_non_zero_random_u64(max_value: u64) -> u64 {
     create_range_random_u64(1, max_value)
 }

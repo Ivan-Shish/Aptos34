@@ -1,25 +1,25 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module implements an in-memory Sparse Merkle Tree that is similar to what we use in
-//! storage to represent world state. This tree will store only a small portion of the state -- the
-//! part of accounts that have been modified by uncommitted transactions. For example, if we
-//! execute a transaction T_i on top of committed state and it modified account A, we will end up
-//! having the following tree:
-//! ```text
+//! This module implements an in-memory Sparse Merkle Tree that is similar to
+//! what we use in storage to represent world state. This tree will store only a
+//! small portion of the state -- the part of accounts that have been modified
+//! by uncommitted transactions. For example, if we execute a transaction T_i on
+//! top of committed state and it modified account A, we will end up having the
+//! following tree: ```text
 //!              S_i
 //!             /   \
 //!            o     y
 //!           / \
 //!          x   A
 //! ```
-//! where A has the new state of the account, and y and x are the siblings on the path from root to
-//! A in the tree.
+//! where A has the new state of the account, and y and x are the siblings on
+//! the path from root to A in the tree.
 //!
-//! This Sparse Merkle Tree is immutable once constructed. If the next transaction T_{i+1} modified
-//! another account B that lives in the subtree at y, a new tree will be constructed and the
-//! structure will look like the following:
-//! ```text
+//! This Sparse Merkle Tree is immutable once constructed. If the next
+//! transaction T_{i+1} modified another account B that lives in the subtree at
+//! y, a new tree will be constructed and the structure will look like the
+//! following: ```text
 //!                 S_i        S_{i+1}
 //!                /   \      /       \
 //!               /     y   /          \
@@ -30,39 +30,44 @@
 //!          x   A                      z   B
 //! ```
 //!
-//! Using this structure, we are able to query the global state, taking into account the output of
-//! uncommitted transactions. For example, if we want to execute another transaction T_{i+1}', we
-//! can use the tree S_i. If we look for account A, we can find its new value in the tree.
-//! Otherwise, we know the account does not exist in the tree, and we can fall back to storage. As
-//! another example, if we want to execute transaction T_{i+2}, we can use the tree S_{i+1} that
-//! has updated values for both account A and B.
+//! Using this structure, we are able to query the global state, taking into
+//! account the output of uncommitted transactions. For example, if we want to
+//! execute another transaction T_{i+1}', we can use the tree S_i. If we look
+//! for account A, we can find its new value in the tree. Otherwise, we know the
+//! account does not exist in the tree, and we can fall back to storage. As
+//! another example, if we want to execute transaction T_{i+2}, we can use the
+//! tree S_{i+1} that has updated values for both account A and B.
 //!
-//! Each version of the tree holds a strong reference (an Arc<Node>) to its root as well as one to
-//! its base tree (S_i is the base tree of S_{i+1} in the above example). The root node in turn,
-//! recursively holds all descendant nodes created in the same version, and weak references
-//! (a Weak<Node>) to all descendant nodes that was created from previous versions.
+//! Each version of the tree holds a strong reference (an Arc<Node>) to its root
+//! as well as one to its base tree (S_i is the base tree of S_{i+1} in the
+//! above example). The root node in turn, recursively holds all descendant
+//! nodes created in the same version, and weak references (a Weak<Node>) to all
+//! descendant nodes that was created from previous versions.
 //! With this construction:
-//!     1. Even if a reference to a specific tree is dropped, the nodes belonging to it won't be
-//! dropped as long as trees depending on it still hold strong references to it via the chain of
-//! "base trees".
-//!     2. Even if a tree is not dropped, when nodes it created are persisted to DB, all of them
-//! and those created by its previous versions can be dropped, which we express by calling "prune()"
-//! on it which replaces the strong references to its root and its base tree with weak references.
-//!     3. We can hold strong references to recently accessed nodes that have already been persisted
-//! in an LRU flavor cache for less DB reads.
+//!     1. Even if a reference to a specific tree is dropped, the nodes
+//! belonging to it won't be dropped as long as trees depending on it still hold
+//! strong references to it via the chain of "base trees".
+//!     2. Even if a tree is not dropped, when nodes it created are persisted to
+//! DB, all of them and those created by its previous versions can be dropped,
+//! which we express by calling "prune()" on it which replaces the strong
+//! references to its root and its base tree with weak references.     3. We can
+//! hold strong references to recently accessed nodes that have already been
+//! persisted in an LRU flavor cache for less DB reads.
 //!
-//! This Sparse Merkle Tree serves a dual purpose. First, to support a leader based consensus
-//! algorithm, we need to build a tree of transactions like the following:
-//! ```text
+//! This Sparse Merkle Tree serves a dual purpose. First, to support a leader
+//! based consensus algorithm, we need to build a tree of transactions like the
+//! following: ```text
 //! Committed -> T5 -> T6  -> T7
 //!              └---> T6' -> T7'
 //!                    └----> T7"
 //! ```
-//! Once T5 is executed, we will have a tree that stores the modified portion of the state. Later
-//! when we execute T6 on top of T5, the output of T5 can be visible to T6.
+//! Once T5 is executed, we will have a tree that stores the modified portion of
+//! the state. Later when we execute T6 on top of T5, the output of T5 can be
+//! visible to T6.
 //!
-//! Second, given this tree representation it is straightforward to compute the root hash of S_i
-//! once T_i is executed. This allows us to verify the proofs we need when executing T_{i+1}.
+//! Second, given this tree representation it is straightforward to compute the
+//! root hash of S_i once T_i is executed. This allows us to verify the proofs
+//! we need when executing T_{i+1}.
 
 // See https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=e9c4c53eb80b30d09112fcfb07d481e7
 #![allow(clippy::let_and_return)]
@@ -89,13 +94,14 @@ use aptos_crypto::{
     HashValue,
 };
 use aptos_infallible::Mutex;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::{nibble::nibble_path::NibblePath, proof::SparseMerkleProofExt};
-use std::sync::MutexGuard;
+use aptos_types::{
+    nibble::nibble_path::NibblePath, proof::SparseMerkleProofExt,
+    state_store::state_storage_usage::StateStorageUsage,
+};
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, HashMap},
-    sync::{Arc, Weak},
+    sync::{Arc, MutexGuard, Weak},
 };
 use thiserror::Error;
 
@@ -103,15 +109,16 @@ type NodePosition = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
 const BITS_IN_NIBBLE: usize = 4;
 const BITS_IN_BYTE: usize = 8;
 
-/// To help finding the oldest ancestor of any SMT, a branch tracker is created each time
-/// the chain of SMTs forked (two or more SMTs updating the same parent).
+/// To help finding the oldest ancestor of any SMT, a branch tracker is created
+/// each time the chain of SMTs forked (two or more SMTs updating the same
+/// parent).
 #[derive(Debug)]
 struct BranchTracker<V> {
-    /// Current branch head, n.b. when the head just started dropping, this weak link becomes
-    /// invalid, we fall back to the `next`
+    /// Current branch head, n.b. when the head just started dropping, this weak
+    /// link becomes invalid, we fall back to the `next`
     head: Weak<Inner<V>>,
-    /// Dealing with the edge case where the branch head just started dropping, but the branch
-    /// tracker hasn't been locked and updated yet.
+    /// Dealing with the edge case where the branch head just started dropping,
+    /// but the branch tracker hasn't been locked and updated yet.
     next: Weak<Inner<V>>,
     /// Parent branch, if any.
     parent: Option<Arc<Mutex<BranchTracker<V>>>>,
@@ -136,8 +143,8 @@ impl<V> BranchTracker<V> {
         _locked_family: &MutexGuard<()>,
     ) {
         // Detach from parent
-        // n.b. the parent branch might not be dropped after this, because whenever a fork
-        //      happens, the first branch shares the parent branch tracker.
+        // n.b. the parent branch might not be dropped after this, because whenever a
+        // fork      happens, the first branch shares the parent branch tracker.
         self.parent = None;
 
         self.head = Arc::downgrade(head);
@@ -151,15 +158,16 @@ impl<V> BranchTracker<V> {
     fn head(&self, _locked_family: &MutexGuard<()>) -> Option<Arc<Inner<V>>> {
         // if `head.upgrade()` failed, it's that the head is being dropped.
         //
-        // Notice the starting of the drop a SMT is not protected by the family lock -- but
-        // change of the links between the branch trackers and SMTs are always protected by the
-        // family lock.
+        // Notice the starting of the drop a SMT is not protected by the family lock --
+        // but change of the links between the branch trackers and SMTs are
+        // always protected by the family lock.
         // see `impl<V> Drop for Inner<V>`
         self.head.upgrade().or_else(|| self.next.upgrade())
     }
 }
 
-/// Keeps track of references of children and the branch tracker of the current branch.
+/// Keeps track of references of children and the branch tracker of the current
+/// branch.
 #[derive(Debug)]
 struct InnerLinks<V> {
     children: Vec<Arc<Inner<V>>>,
@@ -175,8 +183,9 @@ impl<V> InnerLinks<V> {
     }
 }
 
-/// The inner content of a sparse merkle tree, we have this so that even if a tree is dropped, the
-/// INNER of it can still live if referenced by a previous version.
+/// The inner content of a sparse merkle tree, we have this so that even if a
+/// tree is dropped, the INNER of it can still live if referenced by a previous
+/// version.
 #[derive(Debug)]
 struct Inner<V> {
     root: SubTree<V>,
@@ -206,19 +215,20 @@ impl<V> Drop for Inner<V> {
                     // overflow. To prevent that we follow the chain further to disconnect things
                     // beforehand.
                     stack.extend(descendant.drain_children_for_drop(&locked_family));
-                    // Note: After the above call, there is not even weak refs to `descendant`
-                    // because all relevant `BranchTrackers` now point their heads to one of the
+                    // Note: After the above call, there is not even weak refs
+                    // to `descendant` because all relevant
+                    // `BranchTrackers` now point their heads to one of the
                     // children.
                 }
-                // All descendants process must be pushed, because they can become droppable after
-                // the ref count check above, since the family lock doesn't protect de-refs to the
-                // SMTs. -- all drops must NOT be recursive because we will be trying to lock the
-                // family again.
+                // All descendants process must be pushed, because they can become droppable
+                // after the ref count check above, since the family lock
+                // doesn't protect de-refs to the SMTs. -- all drops must NOT be
+                // recursive because we will be trying to lock the family again.
                 processed_descendants.push(descendant);
             }
         };
-        // Now that the lock is released, those in `processed_descendants` will be dropped in turn
-        // if applicable.
+        // Now that the lock is released, those in `processed_descendants` will
+        // be dropped in turn if applicable.
     }
 }
 
@@ -243,8 +253,8 @@ impl<V> Inner<V> {
             let links_locked = self.links.lock();
             let mut branch_tracker_locked = links_locked.branch_tracker.lock();
             branch_tracker_locked.set_head(
-                &self,                         /* head */
-                links_locked.children.first(), /* next */
+                &self,                         // head
+                links_locked.children.first(), // next
                 locked_family,
             );
         }
@@ -357,9 +367,9 @@ impl<V> SparseMerkleTree<V>
 where
     V: Clone + CryptoHash + Send + Sync,
 {
-    /// Constructs a Sparse Merkle Tree with a root hash. This is often used when we restart and
-    /// the scratch pad and the storage have identical state, so we use a single root hash to
-    /// represent the entire state.
+    /// Constructs a Sparse Merkle Tree with a root hash. This is often used
+    /// when we restart and the scratch pad and the storage have identical
+    /// state, so we use a single root hash to represent the entire state.
     pub fn new(root_hash: HashValue, usage: StateStorageUsage) -> Self {
         let root = if root_hash != *SPARSE_MERKLE_PLACEHOLDER_HASH {
             SubTree::new_unknown(root_hash)
@@ -465,30 +475,33 @@ where
     }
 }
 
-/// `AccountStatus` describes the result of querying an account from this SparseMerkleTree.
+/// `AccountStatus` describes the result of querying an account from this
+/// SparseMerkleTree.
 #[derive(Debug, Eq, PartialEq)]
 pub enum StateStoreStatus<V> {
     /// The entry exists in the tree, therefore we can give its value.
     ExistsInScratchPad(V),
 
-    /// The entry does not exist in the tree, but exists in DB. This happens when the search
-    /// reaches a leaf node that has the requested account, but the node has only the value hash
-    /// because it was loaded into memory as part of a non-inclusion proof. When we go to DB we
-    /// don't need to traverse the tree to find the same leaf, instead we can use the value hash to
-    /// look up the entry content directly.
+    /// The entry does not exist in the tree, but exists in DB. This happens
+    /// when the search reaches a leaf node that has the requested account,
+    /// but the node has only the value hash because it was loaded into
+    /// memory as part of a non-inclusion proof. When we go to DB we
+    /// don't need to traverse the tree to find the same leaf, instead we can
+    /// use the value hash to look up the entry content directly.
     ExistsInDB,
 
-    /// The entry does not exist in either the tree or DB. This happens when the search reaches
-    /// an empty node, or a leaf node that has a different account.
+    /// The entry does not exist in either the tree or DB. This happens when the
+    /// search reaches an empty node, or a leaf node that has a different
+    /// account.
     DoesNotExist,
 
-    /// We do not know if this entry exists or not and need to go to DB to find out. This happens
-    /// when the search reaches a subtree node.
+    /// We do not know if this entry exists or not and need to go to DB to find
+    /// out. This happens when the search reaches a subtree node.
     Unknown,
 }
 
-/// In the entire lifetime of this, in-mem nodes won't be dropped because a reference to the oldest
-/// SMT is held inside.
+/// In the entire lifetime of this, in-mem nodes won't be dropped because a
+/// reference to the oldest SMT is held inside.
 #[derive(Clone, Debug)]
 pub struct FrozenSparseMerkleTree<V> {
     base_smt: SparseMerkleTree<V>,
@@ -518,7 +531,8 @@ where
         self.smt.root_hash()
     }
 
-    /// Compares an old and a new SMTs and return the newly created node hashes in between.
+    /// Compares an old and a new SMTs and return the newly created node hashes
+    /// in between.
     pub fn new_node_hashes_since(&self, since_smt: &Self) -> HashMap<NibblePath, HashValue> {
         let _timer = TIMER
             .with_label_values(&["new_node_hashes_since"])
@@ -567,14 +581,14 @@ where
                         node_hashes,
                     );
                     pos.pop();
-                }
+                },
                 NodeInner::Leaf(leaf_node) => {
                     let mut path = NibblePath::new_even(leaf_node.key.to_vec());
                     if !is_nibble {
                         path.truncate(pos.len() as usize / BITS_IN_NIBBLE + 1);
                     }
                     node_hashes.insert(path, subtree.hash());
-                }
+                },
             }
         }
     }
@@ -589,7 +603,7 @@ where
             } else {
                 // Unused bits in `BitVec` is uninitialized, setting to 0 to make sure.
                 if let Some(b) = bytes.last_mut() {
-                    *b &= 0xf0
+                    *b &= 0xF0
                 }
 
                 Some(NibblePath::new_odd(bytes))
@@ -599,18 +613,19 @@ where
         }
     }
 
-    /// Constructs a new Sparse Merkle Tree by applying `updates`, which are considered to happen
-    /// all at once.
-    /// Since the tree is immutable, existing tree remains the same and may share parts with the
-    /// new, returned tree.
+    /// Constructs a new Sparse Merkle Tree by applying `updates`, which are
+    /// considered to happen all at once.
+    /// Since the tree is immutable, existing tree remains the same and may
+    /// share parts with the new, returned tree.
     pub fn batch_update(
         &self,
         updates: Vec<(HashValue, Option<&V>)>,
         usage: StateStorageUsage,
         proof_reader: &impl ProofRead,
     ) -> Result<Self, UpdateError> {
-        // Flatten, dedup and sort the updates with a btree map since the updates between different
-        // versions may overlap on the same address in which case the latter always overwrites.
+        // Flatten, dedup and sort the updates with a btree map since the updates
+        // between different versions may overlap on the same address in which
+        // case the latter always overwrites.
         let kvs = updates
             .into_iter()
             .collect::<BTreeMap<_, _>>()
@@ -643,30 +658,32 @@ where
                 SubTree::NonEmpty { .. } => {
                     match subtree.get_node_if_in_mem(self.base_generation) {
                         None => return StateStoreStatus::Unknown,
-                        Some(node) => match node.inner() {
-                            NodeInner::Internal(internal_node) => {
-                                subtree = if bits.next().expect("Tree is too deep.") {
-                                    internal_node.right.weak()
-                                } else {
-                                    internal_node.left.weak()
-                                };
-                                continue;
-                            } // end NodeInner::Internal
-                            NodeInner::Leaf(leaf_node) => {
-                                return if leaf_node.key == key {
-                                    match &leaf_node.value.data.get_if_in_mem() {
-                                        Some(value) => StateStoreStatus::ExistsInScratchPad(
-                                            value.as_ref().clone(),
-                                        ),
-                                        None => StateStoreStatus::ExistsInDB,
-                                    }
-                                } else {
-                                    StateStoreStatus::DoesNotExist
-                                };
-                            } // end NodeInner::Leaf
+                        Some(node) => {
+                            match node.inner() {
+                                NodeInner::Internal(internal_node) => {
+                                    subtree = if bits.next().expect("Tree is too deep.") {
+                                        internal_node.right.weak()
+                                    } else {
+                                        internal_node.left.weak()
+                                    };
+                                    continue;
+                                }, // end NodeInner::Internal
+                                NodeInner::Leaf(leaf_node) => {
+                                    return if leaf_node.key == key {
+                                        match &leaf_node.value.data.get_if_in_mem() {
+                                            Some(value) => StateStoreStatus::ExistsInScratchPad(
+                                                value.as_ref().clone(),
+                                            ),
+                                            None => StateStoreStatus::ExistsInDB,
+                                        }
+                                    } else {
+                                        StateStoreStatus::DoesNotExist
+                                    };
+                                }, // end NodeInner::Leaf
+                            }
                         }, // end Some(node) got from mem
                     }
-                } // end SubTree::NonEmpty
+                }, // end SubTree::NonEmpty
             }
         } // end loop
     }
@@ -676,7 +693,8 @@ where
     }
 }
 
-/// A type that implements `ProofRead` can provide proof for keys in persistent storage.
+/// A type that implements `ProofRead` can provide proof for keys in persistent
+/// storage.
 pub trait ProofRead: Sync {
     /// Gets verified proof for this key in persistent storage.
     fn get_proof(&self, key: HashValue) -> Option<&SparseMerkleProofExt>;
@@ -685,12 +703,14 @@ pub trait ProofRead: Sync {
 /// All errors `update` can possibly return.
 #[derive(Debug, Error, Eq, PartialEq)]
 pub enum UpdateError {
-    /// The update intends to insert a key that does not exist in the tree, so the operation needs
-    /// proof to get more information about the tree, but no proof is provided.
+    /// The update intends to insert a key that does not exist in the tree, so
+    /// the operation needs proof to get more information about the tree,
+    /// but no proof is provided.
     #[error("Missing Proof")]
     MissingProof,
-    /// At `depth` a persisted subtree was encountered and a proof was requested to assist finding
-    /// details about the subtree, but the result proof indicates the subtree is empty.
+    /// At `depth` a persisted subtree was encountered and a proof was requested
+    /// to assist finding details about the subtree, but the result proof
+    /// indicates the subtree is empty.
     #[error(
         "Short proof: key: {}, num_siblings: {}, depth: {}",
         key,

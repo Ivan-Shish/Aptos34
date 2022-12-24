@@ -1,9 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines all the gas parameters and formulae for instructions, along with their
-//! initial values in the genesis and a mapping between the Rust representation and the on-chain
-//! gas schedule.
+//! This module defines all the gas parameters and formulae for instructions,
+//! along with their initial values in the genesis and a mapping between the
+//! Rust representation and the on-chain gas schedule.
 
 use crate::{algebra::InternalGasPerAbstractValueUnit, gas_meter::EXECUTION_GAS_MULTIPLIER as MUL};
 use move_binary_format::errors::PartialVMResult;

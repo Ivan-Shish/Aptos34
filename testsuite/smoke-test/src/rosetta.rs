@@ -3,44 +3,50 @@
 
 use crate::smoke_test_environment::SwarmBuilder;
 use anyhow::anyhow;
-use aptos::common::types::GasOptions;
-use aptos::test::INVALID_ACCOUNT;
-use aptos::{account::create::DEFAULT_FUNDED_COINS, test::CliTestFramework};
+use aptos::{
+    account::create::DEFAULT_FUNDED_COINS,
+    common::types::GasOptions,
+    test::{CliTestFramework, INVALID_ACCOUNT},
+};
 use aptos_cached_packages::aptos_stdlib;
-use aptos_config::config::PersistableConfig;
-use aptos_config::{config::ApiConfig, utils::get_available_port};
-use aptos_crypto::ed25519::{Ed25519PrivateKey, Ed25519Signature};
-use aptos_crypto::{HashValue, PrivateKey};
+use aptos_config::{
+    config::{ApiConfig, PersistableConfig},
+    utils::get_available_port,
+};
+use aptos_crypto::{
+    ed25519::{Ed25519PrivateKey, Ed25519Signature},
+    HashValue, PrivateKey,
+};
 use aptos_forge::{AptosPublicInfo, LocalSwarm, Node, NodeExt, Swarm};
 use aptos_gas::{AptosGasParameters, FromOnChainGasSchedule};
-use aptos_rest_client::aptos_api_types::{TransactionOnChainData, UserTransaction};
-use aptos_rest_client::{Response, Transaction};
-use aptos_rosetta::common::BlockHash;
-use aptos_rosetta::types::{
-    AccountIdentifier, BlockResponse, Operation, OperationStatusType, OperationType,
-    TransactionType, STAKING_CONTRACT_MODULE, SWITCH_OPERATOR_WITH_SAME_COMMISSION_FUNCTION,
+use aptos_rest_client::{
+    aptos_api_types::{TransactionOnChainData, UserTransaction},
+    Response, Transaction,
 };
 use aptos_rosetta::{
     client::RosettaClient,
-    common::{native_coin, BLOCKCHAIN, Y2K_MS},
+    common::{native_coin, BlockHash, BLOCKCHAIN, Y2K_MS},
     types::{
-        AccountBalanceRequest, AccountBalanceResponse, BlockIdentifier, BlockRequest,
-        NetworkIdentifier, NetworkRequest, PartialBlockIdentifier,
+        AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, BlockIdentifier,
+        BlockRequest, BlockResponse, NetworkIdentifier, NetworkRequest, Operation,
+        OperationStatusType, OperationType, PartialBlockIdentifier, TransactionType,
+        STAKING_CONTRACT_MODULE, SWITCH_OPERATOR_WITH_SAME_COMMISSION_FUNCTION,
     },
     ROSETTA_VERSION,
 };
-use aptos_sdk::transaction_builder::TransactionFactory;
-use aptos_sdk::types::LocalAccount;
-use aptos_types::account_config::CORE_CODE_ADDRESS;
-use aptos_types::on_chain_config::GasScheduleV2;
-use aptos_types::transaction::SignedTransaction;
-use aptos_types::{account_address::AccountAddress, chain_id::ChainId};
-use std::collections::{BTreeMap, HashSet};
-use std::convert::TryFrom;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{future::Future, time::Duration};
+use aptos_sdk::{transaction_builder::TransactionFactory, types::LocalAccount};
+use aptos_types::{
+    account_address::AccountAddress, account_config::CORE_CODE_ADDRESS, chain_id::ChainId,
+    on_chain_config::GasScheduleV2, transaction::SignedTransaction,
+};
+use std::{
+    collections::{BTreeMap, HashSet},
+    convert::TryFrom,
+    future::Future,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tokio::{task::JoinHandle, time::Instant};
 
 const DEFAULT_MAX_WAIT_MS: u64 = 5000;
@@ -157,13 +163,10 @@ async fn test_block_transactions() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        response.block_identifier,
-        BlockIdentifier {
-            index: 0,
-            hash: BlockHash::new(chain_id, 0).to_string()
-        }
-    );
+    assert_eq!(response.block_identifier, BlockIdentifier {
+        index: 0,
+        hash: BlockHash::new(chain_id, 0).to_string()
+    });
 
     // First fund account 1 with lots more gas
     cli.fund_account(0, Some(DEFAULT_FUNDED_COINS * 10))
@@ -289,13 +292,10 @@ async fn test_account_balance() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        response.block_identifier,
-        BlockIdentifier {
-            index: 0,
-            hash: BlockHash::new(chain_id, 0).to_string()
-        }
-    );
+    assert_eq!(response.block_identifier, BlockIdentifier {
+        index: 0,
+        hash: BlockHash::new(chain_id, 0).to_string()
+    });
 
     // First fund account 1 with lots more gas
     cli.fund_account(0, Some(DEFAULT_FUNDED_COINS * 2))
@@ -390,7 +390,8 @@ async fn test_account_balance() {
         .unwrap();
     }
 
-    // Check that the balance hasn't changed (and should be 0) in the invalid account
+    // Check that the balance hasn't changed (and should be 0) in the invalid
+    // account
     account_has_balance(
         &rosetta_client,
         chain_id,
@@ -401,7 +402,8 @@ async fn test_account_balance() {
     .await
     .unwrap();
 
-    // Let's now check the staking balance with the original staking contract, it should not be supported
+    // Let's now check the staking balance with the original staking contract, it
+    // should not be supported
     cli.fund_account(2, Some(10_000_000)).await.unwrap();
     cli.initialize_stake_owner(2, 1_000_000, None, None)
         .await
@@ -435,16 +437,16 @@ async fn test_account_balance() {
     )
     .await
     .unwrap();
-    /* TODO: Support operator stake account in the future
-    account_has_balance(
-        &rosetta_client,
-        chain_id,
-        AccountIdentifier::operator_stake_account(account_4.address(), account_1),
-        1_000_000,
-        1,
-    )
-    .await
-    .unwrap();*/
+    // TODO: Support operator stake account in the future
+    // account_has_balance(
+    // &rosetta_client,
+    // chain_id,
+    // AccountIdentifier::operator_stake_account(account_4.address(),
+    // account_1), 1_000_000,
+    // 1,
+    // )
+    // .await
+    // .unwrap();
 }
 
 async fn create_staking_contract(
@@ -615,53 +617,52 @@ async fn test_transfer() {
         .expect_err("Should fail simulation since we can't transfer more than balance + gas coins");
 
     // TODO(greg): Re-enable after fixing gas estimation.
-    /*
     // Attempt to transfer more than balance - gas to another user (should fail)
-    let transfer = transfer_and_wait(
-        &rosetta_client,
-        client,
-        &network,
-        sender_private_key,
-        receiver,
-        sender_balance - gas_usage,
-        Duration::from_secs(5),
-        None,
-        None,
-        None,
-    )
-    .await
-    .expect("Should succeed transfer");
-    assert_eq!(transfer.info.gas_used.0, gas_usage);
-
+    // let transfer = transfer_and_wait(
+    // &rosetta_client,
+    // client,
+    // &network,
+    // sender_private_key,
+    // receiver,
+    // sender_balance - gas_usage,
+    // Duration::from_secs(5),
+    // None,
+    // None,
+    // None,
+    // )
+    // .await
+    // .expect("Should succeed transfer");
+    // assert_eq!(transfer.info.gas_used.0, gas_usage);
+    //
     // Sender balance should be 0
-    assert_eq!(
-        client
-            .get_account_balance(sender)
-            .await
-            .unwrap()
-            .into_inner()
-            .coin
-            .value
-            .0,
-        0
-    );
+    // assert_eq!(
+    // client
+    // .get_account_balance(sender)
+    // .await
+    // .unwrap()
+    // .into_inner()
+    // .coin
+    // .value
+    // .0,
+    // 0
+    // );
     // Receiver should be sent coins
-    assert_eq!(
-        client
-            .get_account_balance(receiver)
-            .await
-            .unwrap()
-            .into_inner()
-            .coin
-            .value
-            .0,
-        sender_balance - gas_usage
-    );
-    */
+    // assert_eq!(
+    // client
+    // .get_account_balance(receiver)
+    // .await
+    // .unwrap()
+    // .into_inner()
+    // .coin
+    // .value
+    // .0,
+    // sender_balance - gas_usage
+    // );
 }
 
-/// This test tests all of Rosetta's functionality from the read side in one go.  Since
-/// it's block based and it needs time to run, we do all the checks in a single test.
+/// This test tests all of Rosetta's functionality from the read side in one go.
+/// Since it's block based and it needs time to run, we do all the checks in a
+/// single test.
 #[tokio::test]
 async fn test_block() {
     let (swarm, cli, _faucet, rosetta_client) = setup_test(1, 5).await;
@@ -1058,8 +1059,8 @@ async fn test_block() {
             "Block timestamp should match actual timestamp but in ms"
         );
 
-        // TODO: double check that all transactions do show with the flag, and that all expected txns
-        // are shown without the flag
+        // TODO: double check that all transactions do show with the flag, and that all
+        // expected txns are shown without the flag
 
         let actual_txns = actual_block
             .transactions
@@ -1130,7 +1131,7 @@ async fn parse_block_transactions(
                     actual_txn.transaction,
                     aptos_types::transaction::Transaction::GenesisTransaction(_)
                 ));
-            }
+            },
             TransactionType::User => {
                 assert!(matches!(
                     actual_txn.transaction,
@@ -1138,21 +1139,21 @@ async fn parse_block_transactions(
                 ));
                 // Must have a gas fee
                 assert!(!transaction.operations.is_empty());
-            }
+            },
             TransactionType::BlockMetadata => {
                 assert!(matches!(
                     actual_txn.transaction,
                     aptos_types::transaction::Transaction::BlockMetadata(_)
                 ));
                 assert!(transaction.operations.is_empty());
-            }
+            },
             TransactionType::StateCheckpoint => {
                 assert!(matches!(
                     actual_txn.transaction,
                     aptos_types::transaction::Transaction::StateCheckpoint(_)
                 ));
                 assert!(transaction.operations.is_empty());
-            }
+            },
         }
 
         parse_operations(
@@ -1225,7 +1226,7 @@ async fn parse_operations(
                         "Failed transaction should have failed create account operation"
                     );
                 }
-            }
+            },
             OperationType::Deposit => {
                 let account = operation
                     .account
@@ -1264,7 +1265,7 @@ async fn parse_operations(
                         "Failed transaction should have failed deposit operation"
                     );
                 }
-            }
+            },
             OperationType::Withdraw => {
                 // Gas is always successful
                 if actual_successful {
@@ -1309,7 +1310,7 @@ async fn parse_operations(
                         "Failed transaction should have failed withdraw operation"
                     );
                 }
-            }
+            },
             OperationType::StakingReward => {
                 let account = operation
                     .account
@@ -1348,7 +1349,7 @@ async fn parse_operations(
                         "Failed transaction should have failed stake reward operation"
                     );
                 }
-            }
+            },
             OperationType::SetOperator => {
                 if actual_successful {
                     assert_eq!(
@@ -1406,7 +1407,7 @@ async fn parse_operations(
                 } else {
                     panic!("Not a user transaction");
                 }
-            }
+            },
             OperationType::SetVoter => {
                 if actual_successful {
                     assert_eq!(
@@ -1448,7 +1449,7 @@ async fn parse_operations(
                 } else {
                     panic!("Not a user transaction");
                 }
-            }
+            },
             OperationType::Fee => {
                 has_gas_op = true;
                 assert_eq!(OperationStatusType::Success, status);
@@ -1495,12 +1496,12 @@ async fn parse_operations(
                             delta,
                             "Gas operation should always match gas used * gas unit price"
                         )
-                    }
+                    },
                     _ => {
                         panic!("Gas transactions should be user transactions!")
-                    }
+                    },
                 };
-            }
+            },
             OperationType::ResetLockup => {
                 if actual_successful {
                     assert_eq!(
@@ -1542,13 +1543,14 @@ async fn parse_operations(
                 } else {
                     panic!("Not a user transaction");
                 }
-            }
+            },
             OperationType::InitializeStakePool => {
                 if actual_successful {
                     assert_eq!(
                         OperationStatusType::Success,
                         status,
-                        "Successful transaction should have successful initialize stake pool operation"
+                        "Successful transaction should have successful initialize stake pool \
+                         operation"
                     );
                 } else {
                     assert_eq!(
@@ -1609,7 +1611,7 @@ async fn parse_operations(
                 } else {
                     panic!("Not a user transaction");
                 }
-            }
+            },
         }
     }
 
@@ -1621,7 +1623,8 @@ async fn parse_operations(
     );
 }
 
-/// Check that all balances are correct with the account balance command from the blocks
+/// Check that all balances are correct with the account balance command from
+/// the blocks
 async fn check_balances(
     rosetta_client: &RosettaClient,
     chain_id: ChainId,
@@ -1770,11 +1773,11 @@ fn assert_failed_transfer_transaction(
                         receiver,
                         actual_txn.info.success,
                     );
-                }
+                },
                 OperationType::Withdraw => {
                     seen_withdraw = true;
                     assert_withdraw(operation, transfer_amount, sender, actual_txn.info.success);
-                }
+                },
                 _ => panic!("Shouldn't get any other operations"),
             }
         } else if !seen_deposit {
@@ -1864,7 +1867,8 @@ fn assert_transfer(
     assert_eq!(&expected_status, operation.status.as_ref().unwrap());
 }
 
-/// Try for 2 seconds to get a response.  This handles the fact that it's starting async
+/// Try for 2 seconds to get a response.  This handles the fact that it's
+/// starting async
 async fn try_until_ok_default<F, Fut, T>(function: F) -> anyhow::Result<T>
 where
     F: Fn() -> Fut,
@@ -2109,7 +2113,7 @@ async fn wait_for_transaction(
             } else {
                 panic!("Transaction is supposed to be a UserTransaction!")
             }
-        }
+        },
         Err(_) => {
             if let Transaction::UserTransaction(txn) = rest_client
                 .get_transaction_by_hash(hash_value)
@@ -2121,7 +2125,7 @@ async fn wait_for_transaction(
             } else {
                 panic!("Failed transaction is supposed to be a UserTransaction!");
             }
-        }
+        },
     }
 }
 

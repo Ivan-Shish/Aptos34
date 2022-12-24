@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos::test::CliTestFramework;
-use aptos_config::config::NodeConfig;
-use aptos_config::{keys::ConfigKey, utils::get_available_port};
+use aptos_config::{config::NodeConfig, keys::ConfigKey, utils::get_available_port};
 use aptos_crypto::ed25519::Ed25519PrivateKey;
 use aptos_faucet::FaucetArgs;
-use aptos_forge::{ActiveNodesGuard, Node};
-use aptos_forge::{Factory, LocalFactory, LocalSwarm};
+use aptos_forge::{ActiveNodesGuard, Factory, LocalFactory, LocalSwarm, Node};
 use aptos_framework::ReleaseBundle;
 use aptos_genesis::builder::{InitConfigFn, InitGenesisConfigFn};
 use aptos_infallible::Mutex;
@@ -116,7 +114,8 @@ impl SwarmBuilder {
     }
 
     // Gas is not enabled with this setup, it's enabled via forge instance.
-    // Local swarm spin-up can fail due to port issues. So we retry SWARM_BUILD_NUM_RETRIES times.
+    // Local swarm spin-up can fail due to port issues. So we retry
+    // SWARM_BUILD_NUM_RETRIES times.
     pub async fn build(&mut self) -> LocalSwarm {
         let num_retries = SWARM_BUILD_NUM_RETRIES;
         let mut attempt = 0;
@@ -127,7 +126,7 @@ impl SwarmBuilder {
             match self.build_inner().await {
                 Ok(swarm) => {
                     return swarm;
-                }
+                },
                 Err(err) => warn!("Attempt {} / {} failed with: {}", attempt, num_retries, err),
             }
             attempt += 1;

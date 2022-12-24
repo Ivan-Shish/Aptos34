@@ -37,7 +37,8 @@ fn test_aggregators_e2e() {
         .collect();
     h.run_block(failed_txns);
 
-    // Now test all operations. To do that, make sure aggregator have values large enough.
+    // Now test all operations. To do that, make sure aggregator have values large
+    // enough.
     let txns: Vec<SignedTransaction> = (0..block_size)
         .map(|i| add(&mut h, &acc, i, (i as u128) * 1000))
         .collect();

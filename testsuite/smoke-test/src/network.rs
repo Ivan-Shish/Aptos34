@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::smoke_test_environment::{new_local_swarm_with_aptos, SwarmBuilder};
-use aptos::common::types::EncodingType;
-use aptos::test::CliTestFramework;
-use aptos_config::config::{FileDiscovery, Peer, RestDiscovery};
+use aptos::{common::types::EncodingType, test::CliTestFramework};
 use aptos_config::{
-    config::{DiscoveryMethod, Identity, NetworkConfig, NodeConfig, PeerSet},
+    config::{
+        DiscoveryMethod, FileDiscovery, Identity, NetworkConfig, NodeConfig, Peer, PeerSet,
+        RestDiscovery,
+    },
     network_id::NetworkId,
 };
 use aptos_crypto::{x25519, x25519::PrivateKey};
@@ -95,7 +96,8 @@ async fn test_connection_limiting() {
     );
 
     // And not be able to connect with an arbitrary one, limit is 0
-    // TODO: Improve network checker to keep connection alive so we can test connection limits without nodes
+    // TODO: Improve network checker to keep connection alive so we can test
+    // connection limits without nodes
     let cli = CliTestFramework::local_new(0);
     let (private_key, peer_set) =
         generate_private_key_and_peer(&cli, host.clone(), [2u8; 32]).await;

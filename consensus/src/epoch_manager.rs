@@ -82,7 +82,8 @@ use std::{
 };
 
 /// Range of rounds (window) that we might be calling proposer election
-/// functions with at any given time, in addition to the proposer history length.
+/// functions with at any given time, in addition to the proposer history
+/// length.
 const PROPSER_ELECTION_CACHING_WINDOW_ADDITION: usize = 3;
 /// Number of rounds we expect storage to be ahead of the proposer round,
 /// used for fetching data from DB.
@@ -94,8 +95,8 @@ pub enum LivenessStorageData {
     PartialRecoveryData(LedgerRecoveryData),
 }
 
-// Manager the components that shared across epoch and spawn per-epoch RoundManager with
-// epoch-specific input.
+// Manager the components that shared across epoch and spawn per-epoch
+// RoundManager with epoch-specific input.
 pub struct EpochManager {
     author: Author,
     config: ConsensusConfig,
@@ -197,12 +198,12 @@ impl EpochManager {
         match &onchain_config.proposer_election_type() {
             ProposerElectionType::RotatingProposer(contiguous_rounds) => {
                 Box::new(RotatingProposer::new(proposers, *contiguous_rounds))
-            }
+            },
             // We don't really have a fixed proposer!
             ProposerElectionType::FixedProposer(contiguous_rounds) => {
                 let proposer = choose_leader(proposers);
                 Box::new(RotatingProposer::new(vec![proposer], *contiguous_rounds))
-            }
+            },
             ProposerElectionType::LeaderReputation(leader_reputation_type) => {
                 let (
                     heuristic,
@@ -233,7 +234,7 @@ impl EpochManager {
                             proposer_and_voter_config.weight_by_voting_power,
                             proposer_and_voter_config.use_history_from_previous_epoch_max_count,
                         )
-                    }
+                    },
                 };
 
                 let seek_len = onchain_config.leader_reputation_exclude_round() as usize
@@ -264,17 +265,33 @@ impl EpochManager {
                         .epoch
                         .saturating_sub(use_history_from_previous_epoch_max_count as u64),
                 );
-                // If we are considering beyond the current epoch, we need to fetch validators for those epochs
+                // If we are considering beyond the current epoch, we need to fetch validators
+                // for those epochs
                 let epoch_to_proposers = if epoch_state.epoch > first_epoch_to_consider {
                     self.storage
                         .aptos_db()
-                        .get_epoch_ending_ledger_infos(first_epoch_to_consider - 1, epoch_state.epoch)
+                        .get_epoch_ending_ledger_infos(
+                            first_epoch_to_consider - 1,
+                            epoch_state.epoch,
+                        )
                         .and_then(|proof| {
-                            ensure!(proof.ledger_info_with_sigs.len() as u64 == (epoch_state.epoch - (first_epoch_to_consider - 1)));
-                            extract_epoch_to_proposers(proof, epoch_state.epoch, &proposers, (window_size + seek_len) as u64)
+                            ensure!(
+                                proof.ledger_info_with_sigs.len() as u64
+                                    == (epoch_state.epoch - (first_epoch_to_consider - 1))
+                            );
+                            extract_epoch_to_proposers(
+                                proof,
+                                epoch_state.epoch,
+                                &proposers,
+                                (window_size + seek_len) as u64,
+                            )
                         })
                         .unwrap_or_else(|err| {
-                            error!("Couldn't create leader reputation with history across epochs, {:?}", err);
+                            error!(
+                                "Couldn't create leader reputation with history across epochs, \
+                                 {:?}",
+                                err
+                            );
                             HashMap::from([(epoch_state.epoch, proposers)])
                         })
                 } else {
@@ -301,14 +318,15 @@ impl EpochManager {
                     leader_reputation_type.use_root_hash_for_seed(),
                     self.config.window_for_chain_health,
                 ));
-                // LeaderReputation is not cheap, so we can cache the amount of rounds round_manager needs.
+                // LeaderReputation is not cheap, so we can cache the amount of rounds
+                // round_manager needs.
                 Box::new(CachedProposerElection::new(
                     epoch_state.epoch,
                     proposer_election,
                     onchain_config.max_failed_authors_to_store()
                         + PROPSER_ELECTION_CACHING_WINDOW_ADDITION,
                 ))
-            }
+            },
             ProposerElectionType::RoundProposer(round_proposers) => {
                 // Hardcoded to the first proposer
                 let default_proposer = proposers.first().unwrap();
@@ -316,7 +334,7 @@ impl EpochManager {
                     round_proposers.clone(),
                     *default_proposer,
                 ))
-            }
+            },
         }
     }
 
@@ -363,28 +381,29 @@ impl EpochManager {
                     .get_voting_power(&self.author)
                     .is_some()
                 {
-                    // Ignore message from lower epoch if we're part of the validator set, the node would eventually see messages from
-                    // higher epoch and request a proof
+                    // Ignore message from lower epoch if we're part of the validator set, the node
+                    // would eventually see messages from higher epoch and
+                    // request a proof
                     sample!(
                         SampleRate::Duration(Duration::from_secs(1)),
                         debug!("Discard message from lower epoch {} from {}", different_epoch, peer_id);
                     );
                     Ok(())
                 } else {
-                    // reply back the epoch change proof if we're not part of the validator set since we won't broadcast
-                    // timeout in this epoch
+                    // reply back the epoch change proof if we're not part of the validator set
+                    // since we won't broadcast timeout in this epoch
                     monitor!(
                         "process_epoch_retrieval",
                         self.process_epoch_retrieval(
                             EpochRetrievalRequest {
                                 start_epoch: different_epoch,
-                                end_epoch: self.epoch(),
+                                end_epoch: self.epoch()
                             },
                             peer_id
                         )
                     )
                 }
-            }
+            },
             // We request proof to join higher epoch
             Ordering::Greater => {
                 let request = EpochRetrievalRequest {
@@ -396,10 +415,10 @@ impl EpochManager {
                     "[EpochManager] Failed to send epoch retrieval to {}",
                     peer_id
                 ))
-            }
+            },
             Ordering::Equal => {
                 bail!("[EpochManager] Same epoch should not come to process_different_epoch");
-            }
+            },
         }
     }
 
@@ -414,8 +433,9 @@ impl EpochManager {
 
         // shutdown existing processor first to avoid race condition with state sync.
         self.shutdown_current_processor().await;
-        // make sure storage is on this ledger_info too, it should be no-op if it's already committed
-        // panic if this doesn't succeed since the current processors are already shutdown.
+        // make sure storage is on this ledger_info too, it should be no-op if it's
+        // already committed panic if this doesn't succeed since the current
+        // processors are already shutdown.
         self.commit_state_computer
             .sync_to(ledger_info.clone())
             .await
@@ -464,7 +484,8 @@ impl EpochManager {
     }
 
     /// this function spawns the phases and a buffer manager
-    /// it sets `self.commit_msg_tx` to a new aptos_channel::Sender and returns an OrderingStateComputer
+    /// it sets `self.commit_msg_tx` to a new aptos_channel::Sender and returns
+    /// an OrderingStateComputer
     fn spawn_decoupled_execution(
         &mut self,
         safety_rules_container: Arc<Mutex<MetricsSafetyRules>>,
@@ -647,7 +668,8 @@ impl EpochManager {
 
         let payload_client = QuorumStoreClient::new(
             consensus_to_quorum_store_tx,
-            self.config.quorum_store_poll_count, // TODO: consider moving it to a quorum store config in later PRs.
+            self.config.quorum_store_poll_count, /* TODO: consider moving it to a quorum store
+                                                  * config in later PRs. */
             self.config.quorum_store_pull_timeout_ms,
         );
 
@@ -727,10 +749,10 @@ impl EpochManager {
                 self.quorum_store_enabled = onchain_config.quorum_store_enabled();
                 self.start_round_manager(initial_data, epoch_state, onchain_config)
                     .await
-            }
+            },
             LivenessStorageData::PartialRecoveryData(ledger_data) => {
                 self.start_recovery_manager(ledger_data, epoch_state).await
-            }
+            },
         }
     }
 
@@ -807,7 +829,7 @@ impl EpochManager {
                         self.process_different_epoch(event.epoch(), peer_id)
                     )?;
                 }
-            }
+            },
             ConsensusMsg::EpochChangeProof(proof) => {
                 let msg_epoch = proof.epoch()?;
                 debug!(
@@ -825,7 +847,7 @@ impl EpochManager {
                         self.epoch()
                     );
                 }
-            }
+            },
             ConsensusMsg::EpochRetrievalRequest(request) => {
                 ensure!(
                     request.end_epoch <= self.epoch(),
@@ -835,10 +857,10 @@ impl EpochManager {
                     "process_epoch_retrieval",
                     self.process_epoch_retrieval(*request, peer_id)
                 )?;
-            }
+            },
             _ => {
                 bail!("[EpochManager] Unexpected messages: {:?}", msg);
-            }
+            },
         }
         Ok(None)
     }
@@ -862,7 +884,7 @@ impl EpochManager {
                         peer_id,
                     ))
                 }
-            }
+            },
             _ => Ok(()),
         }
     }
@@ -884,12 +906,15 @@ impl EpochManager {
                 if let Some(sender) = &mut self.buffer_manager_msg_tx {
                     sender.push(peer_id, buffer_manager_event)?;
                 } else {
-                    bail!("Commit Phase not started but received Commit Message (CommitVote/CommitDecision)");
+                    bail!(
+                        "Commit Phase not started but received Commit Message \
+                         (CommitVote/CommitDecision)"
+                    );
                 }
-            }
+            },
             round_manager_event => {
                 self.forward_to_round_manager(peer_id, round_manager_event);
-            }
+            },
         }
         Ok(())
     }
@@ -956,8 +981,9 @@ impl EpochManager {
                     self.process_local_timeout(round);
                 },
             }
-            // Continually capture the time of consensus process to ensure that clock skew between
-            // validators is reasonable and to find any unusual (possibly byzantine) clock behavior.
+            // Continually capture the time of consensus process to ensure that clock skew
+            // between validators is reasonable and to find any unusual
+            // (possibly byzantine) clock behavior.
             counters::OP_COUNTERS
                 .gauge("time_since_epoch_ms")
                 .set(duration_since_epoch().as_millis() as i64);

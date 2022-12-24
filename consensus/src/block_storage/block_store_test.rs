@@ -66,8 +66,8 @@ async fn test_highest_block_and_quorum_cert() {
             .quorum_cert()
     );
 
-    // block_round_1 block and quorum certificate is still the highest, since block_round_4
-    // also builds on block_round_1
+    // block_round_1 block and quorum certificate is still the highest, since
+    // block_round_4 also builds on block_round_1
     let block_round_4 = inserter.insert_block(&block_round_1, 4, None).await;
     assert_eq!(block_store.highest_certified_block(), block_round_1);
     assert_eq!(
@@ -271,7 +271,8 @@ async fn test_path_from_root() {
 #[tokio::test]
 async fn test_insert_vote() {
     ::aptos_logger::Logger::init_for_testing();
-    // Set up enough different authors to support different votes for the same block.
+    // Set up enough different authors to support different votes for the same
+    // block.
     let (signers, validator_verifier) = random_validator_verifier(11, Some(10), false);
     let my_signer = signers[10].clone();
     let mut inserter = TreeInserter::new(my_signer);
@@ -333,10 +334,10 @@ async fn test_insert_vote() {
             block_store
                 .insert_single_quorum_cert(qc.as_ref().clone())
                 .unwrap();
-        }
+        },
         _ => {
             panic!("QC not formed!");
-        }
+        },
     }
 
     let block_qc = block_store.get_quorum_cert_for_block(block.id()).unwrap();

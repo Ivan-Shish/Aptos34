@@ -1,23 +1,26 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::types::OptionalPoolAddressArgs;
-use crate::common::utils::{create_dir_if_not_exist, current_dir, dir_default_to_current};
-use crate::genesis::git::{LAYOUT_FILE, OPERATOR_FILE, OWNER_FILE};
-use crate::governance::CompileScriptFunction;
 use crate::{
     common::{
-        types::{CliError, CliTypedResult, PromptOptions, RngArgs},
-        utils::{check_if_file_exists, read_from_file, write_to_user_only_file},
+        types::{CliError, CliTypedResult, OptionalPoolAddressArgs, PromptOptions, RngArgs},
+        utils::{
+            check_if_file_exists, create_dir_if_not_exist, current_dir, dir_default_to_current,
+            read_from_file, write_to_user_only_file,
+        },
     },
-    genesis::git::{from_yaml, to_yaml, GitOptions},
+    genesis::git::{from_yaml, to_yaml, GitOptions, LAYOUT_FILE, OPERATOR_FILE, OWNER_FILE},
+    governance::CompileScriptFunction,
     CliCommand,
 };
-use aptos_genesis::config::{Layout, OperatorConfiguration, OwnerConfiguration};
-use aptos_genesis::keys::PublicIdentity;
-use aptos_genesis::{config::HostAndPort, keys::generate_key_objects};
-use aptos_types::account_address::AccountAddress;
-use aptos_types::transaction::{Script, Transaction, WriteSetPayload};
+use aptos_genesis::{
+    config::{HostAndPort, Layout, OperatorConfiguration, OwnerConfiguration},
+    keys::{generate_key_objects, PublicIdentity},
+};
+use aptos_types::{
+    account_address::AccountAddress,
+    transaction::{Script, Transaction, WriteSetPayload},
+};
 use async_trait::async_trait;
 use clap::Parser;
 use std::path::{Path, PathBuf};
@@ -107,11 +110,13 @@ pub struct SetValidatorConfiguration {
     #[clap(long)]
     pub(crate) username: String,
 
-    /// Host and port pair for the validator e.g. 127.0.0.1:6180 or aptoslabs.com:6180
+    /// Host and port pair for the validator e.g. 127.0.0.1:6180 or
+    /// aptoslabs.com:6180
     #[clap(long)]
     pub(crate) validator_host: HostAndPort,
 
-    /// Host and port pair for the fullnode e.g. 127.0.0.1:6180 or aptoslabs.com:6180
+    /// Host and port pair for the fullnode e.g. 127.0.0.1:6180 or
+    /// aptoslabs.com:6180
     #[clap(long)]
     pub(crate) full_node_host: Option<HostAndPort>,
 
@@ -261,8 +266,9 @@ pub fn read_public_identity_file(public_identity_file: &Path) -> CliTypedResult<
 
 /// Generate a Layout template file with empty values
 ///
-/// This will generate a layout template file for genesis with some default values.  To start a
-/// new chain, these defaults should be carefully thought through and chosen.
+/// This will generate a layout template file for genesis with some default
+/// values.  To start a new chain, these defaults should be carefully thought
+/// through and chosen.
 #[derive(Parser)]
 pub struct GenerateLayoutTemplate {
     /// Path of the output layout template

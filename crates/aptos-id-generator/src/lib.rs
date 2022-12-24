@@ -6,14 +6,15 @@ use std::{
     sync::atomic::{AtomicU32, AtomicU64, Ordering},
 };
 
-/// A generic [`IdGenerator`] trait, it's intentionally generic to allow for different
-/// orders and types of `Id`
+/// A generic [`IdGenerator`] trait, it's intentionally generic to allow for
+/// different orders and types of `Id`
 pub trait IdGenerator<Id: Copy + Debug> {
     /// Retrieves a new `Id`
     fn next(&self) -> Id;
 }
 
-/// A generic in order [`IdGenerator`] using an [`AtomicU32`] to guarantee uniqueness
+/// A generic in order [`IdGenerator`] using an [`AtomicU32`] to guarantee
+/// uniqueness
 #[derive(Debug)]
 pub struct U32IdGenerator {
     inner: AtomicU32,
@@ -40,7 +41,8 @@ impl IdGenerator<u32> for U32IdGenerator {
     }
 }
 
-/// A generic in order [`IdGenerator`] using an [`AtomicU64`] to guarantee uniqueness
+/// A generic in order [`IdGenerator`] using an [`AtomicU64`] to guarantee
+/// uniqueness
 #[derive(Debug)]
 pub struct U64IdGenerator {
     inner: AtomicU64,

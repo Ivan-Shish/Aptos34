@@ -5,14 +5,16 @@ use crate::pruner::db_pruner::DBPruner;
 use aptos_types::transaction::Version;
 use std::fmt::Debug;
 
-/// This module provides `Pruner` which manages a thread pruning old data in the background and is
-/// meant to be triggered by other threads as they commit new data to the DB.
+/// This module provides `Pruner` which manages a thread pruning old data in the
+/// background and is meant to be triggered by other threads as they commit new
+/// data to the DB.
 
-/// The `PrunerManager` is meant to be part of a `AptosDB` instance and runs in the background to
-/// prune old data.
+/// The `PrunerManager` is meant to be part of a `AptosDB` instance and runs in
+/// the background to prune old data.
 ///
-/// It creates a worker thread on construction and joins it on destruction. When destructed, it
-/// quits the worker thread eagerly without waiting for all pending work to be done.
+/// It creates a worker thread on construction and joins it on destruction. When
+/// destructed, it quits the worker thread eagerly without waiting for all
+/// pending work to be done.
 pub trait PrunerManager: Debug + Sync {
     type Pruner: DBPruner;
 
@@ -31,8 +33,8 @@ pub trait PrunerManager: Debug + Sync {
 
     fn pruner(&self) -> &Self::Pruner;
 
-    /// (For tests only.) Notifies the worker thread and waits for it to finish its job by polling
-    /// an internal counter.
+    /// (For tests only.) Notifies the worker thread and waits for it to finish
+    /// its job by polling an internal counter.
     #[cfg(test)]
     fn wake_and_wait_pruner(&self, latest_version: Version) -> anyhow::Result<()> {
         self.maybe_set_pruner_target_db_version(latest_version);

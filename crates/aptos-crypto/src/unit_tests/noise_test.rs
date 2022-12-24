@@ -1,16 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fs::File, io::BufReader, path::PathBuf};
-
 use crate::{
     noise::{handshake_init_msg_len, handshake_resp_msg_len, NoiseConfig, MAX_SIZE_NOISE_MSG},
     test_utils::TEST_SEED,
     x25519, Uniform as _,
 };
-
 use rand::SeedableRng;
 use serde::*;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 #[test]
 fn simple_handshake() {
@@ -133,7 +131,8 @@ fn test_vectors() {
         ciphertext: String,
     }
 
-    // EphemeralRng is used to get deterministic ephemeral keys based on test vectors
+    // EphemeralRng is used to get deterministic ephemeral keys based on test
+    // vectors
     struct EphemeralRng {
         ephemeral: Vec<u8>,
     }
@@ -141,12 +140,15 @@ fn test_vectors() {
         fn next_u32(&mut self) -> u32 {
             unreachable!()
         }
+
         fn next_u64(&mut self) -> u64 {
             unreachable!()
         }
+
         fn fill_bytes(&mut self, dest: &mut [u8]) {
             dest.copy_from_slice(&self.ephemeral);
         }
+
         fn try_fill_bytes(&mut self, _dest: &mut [u8]) -> Result<(), rand::Error> {
             unreachable!()
         }
@@ -162,7 +164,8 @@ fn test_vectors() {
     let test_vectors: TestVectors =
         serde_json::from_reader(BufReader::new(test_vectors_file)).unwrap();
 
-    // only go through Noise_IK_25519_AESGCM_SHA256 test vectors (don't exist for SHA-3)
+    // only go through Noise_IK_25519_AESGCM_SHA256 test vectors (don't exist for
+    // SHA-3)
     let test_vector = test_vectors
         .vectors
         .iter()

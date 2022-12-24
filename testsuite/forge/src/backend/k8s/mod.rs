@@ -16,14 +16,13 @@ pub mod prometheus;
 mod stateful_set;
 mod swarm;
 
+use aptos_sdk::crypto::ed25519::ED25519_PRIVATE_KEY_LENGTH;
 pub use cluster_helper::*;
 pub use constants::*;
 pub use kube_api::*;
 pub use node::K8sNode;
 pub use stateful_set::*;
 pub use swarm::*;
-
-use aptos_sdk::crypto::ed25519::ED25519_PRIVATE_KEY_LENGTH;
 
 pub struct K8sFactory {
     root_key: [u8; ED25519_PRIVATE_KEY_LENGTH],
@@ -52,16 +51,16 @@ impl K8sFactory {
         match kube_namespace.as_str() {
             "default" => {
                 info!("Using the default kubernetes namespace");
-            }
+            },
             s if s.starts_with("forge") => {
                 info!("Using forge namespace: {}", s);
-            }
+            },
             _ => {
                 bail!(
                     "Invalid kubernetes namespace provided: {}. Use forge-*",
                     kube_namespace
                 );
-            }
+            },
         }
 
         Ok(Self {
@@ -103,8 +102,11 @@ impl Factory for K8sFactory {
         let genesis_modules_path = match genesis_config {
             Some(config) => match config {
                 GenesisConfig::Bundle(_) => {
-                    bail!("k8s forge backend does not support raw bytes as genesis modules. please specify a path instead")
-                }
+                    bail!(
+                        "k8s forge backend does not support raw bytes as genesis modules. please \
+                         specify a path instead"
+                    )
+                },
                 GenesisConfig::Path(path) => Some(path.clone()),
             },
             None => None,
@@ -123,7 +125,7 @@ impl Factory for K8sFactory {
                 Ok(res) => res,
                 Err(e) => {
                     bail!(e);
-                }
+                },
             }
         } else {
             // clear the cluster of resources
@@ -132,11 +134,13 @@ impl Factory for K8sFactory {
             create_management_configmap(self.kube_namespace.clone(), self.keep, cleanup_duration)
                 .await?;
             if let Some(existing_db_tag) = existing_db_tag {
-                // TODO(prod-eng): For now we are managing PVs out of forge, and bind them manually
-                // with the volume. Going forward we should consider automate this process.
+                // TODO(prod-eng): For now we are managing PVs out of forge, and bind them
+                // manually with the volume. Going forward we should consider
+                // automate this process.
 
-                // The previously claimed PVs are in Released stage once the corresponding PVC is
-                // gone. We reset its status to Available so they can be reused later.
+                // The previously claimed PVs are in Released stage once the corresponding PVC
+                // is gone. We reset its status to Available so they can be
+                // reused later.
                 reset_persistent_volumes(&kube_client).await?;
 
                 // We return early here if there are not enough PVs to claim.
@@ -166,7 +170,7 @@ impl Factory for K8sFactory {
                 Err(e) => {
                     uninstall_testnet_resources(self.kube_namespace.clone()).await?;
                     bail!(e);
-                }
+                },
             }
         };
 

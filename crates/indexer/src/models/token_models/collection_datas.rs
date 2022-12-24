@@ -61,7 +61,8 @@ pub struct CurrentCollectionData {
     pub last_transaction_timestamp: chrono::NaiveDateTime,
 }
 
-/// Need a separate struct for queryable because we don't want to define the inserted_at column (letting DB fill)
+/// Need a separate struct for queryable because we don't want to define the
+/// inserted_at column (letting DB fill)
 #[derive(Debug, Identifiable, Queryable)]
 #[diesel(primary_key(collection_data_id_hash))]
 #[diesel(table_name = current_collection_datas)]
@@ -156,9 +157,11 @@ impl CollectionData {
         }
     }
 
-    /// If collection data is not in resources of the same transaction, then try looking for it in the database. Since collection owner
+    /// If collection data is not in resources of the same transaction, then try
+    /// looking for it in the database. Since collection owner
     /// cannot change, we can just look in the current_collection_datas table.
-    /// Retrying a few times since this collection could've been written in a separate thread.
+    /// Retrying a few times since this collection could've been written in a
+    /// separate thread.
     pub fn get_collection_creator(
         conn: &mut PgPoolConnection,
         table_handle: &str,
@@ -170,7 +173,7 @@ impl CollectionData {
                 Ok(current_collection_data) => return Ok(current_collection_data.creator_address),
                 Err(_) => {
                     std::thread::sleep(std::time::Duration::from_millis(QUERY_RETRY_DELAY_MS));
-                }
+                },
             }
         }
         Err(anyhow::anyhow!("Failed to get collection creator"))

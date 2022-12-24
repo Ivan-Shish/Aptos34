@@ -127,7 +127,8 @@ fn get_aptos_coin_mint_transaction(
 ) -> Transaction {
     get_test_signed_transaction(
         aptos_test_root_address(),
-        /* sequence_number = */ aptos_root_seq_num,
+        // sequence_number =
+        aptos_root_seq_num,
         aptos_root_key.clone(),
         aptos_root_key.public_key(),
         Some(aptos_stdlib::aptos_coin_mint(*account, amount)),
@@ -142,7 +143,8 @@ fn get_account_transaction(
 ) -> Transaction {
     get_test_signed_transaction(
         aptos_test_root_address(),
-        /* sequence_number = */ aptos_root_seq_num,
+        // sequence_number =
+        aptos_root_seq_num,
         aptos_root_key.clone(),
         aptos_root_key.public_key(),
         Some(aptos_stdlib::aptos_account_create_account(*account)),
@@ -214,7 +216,8 @@ fn test_new_genesis() {
     let trusted_state_change = trusted_state.verify_and_ratchet(&state_proof).unwrap();
     assert!(trusted_state_change.is_epoch_change());
 
-    // New genesis transaction: set validator set, bump epoch and overwrite account1 balance.
+    // New genesis transaction: set validator set, bump epoch and overwrite account1
+    // balance.
     let configuration = get_configuration(&db);
     let genesis_txn = Transaction::GenesisTransaction(WriteSetPayload::Direct(
         ChangeSet::new(

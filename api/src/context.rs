@@ -1,11 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::accept_type::AcceptType;
-use crate::response::{
-    bcs_api_disabled, block_not_found_by_height, block_not_found_by_version,
-    block_pruned_by_height, json_api_disabled, version_not_found, version_pruned, ForbiddenError,
-    InternalError, NotFoundError, ServiceUnavailableError, StdApiError,
+use crate::{
+    accept_type::AcceptType,
+    response::{
+        bcs_api_disabled, block_not_found_by_height, block_not_found_by_version,
+        block_pruned_by_height, json_api_disabled, version_not_found, version_pruned,
+        ForbiddenError, InternalError, NotFoundError, ServiceUnavailableError, StdApiError,
+    },
 };
 use anyhow::{bail, ensure, format_err, Context as AnyhowContext, Result};
 use aptos_api_types::{
@@ -39,8 +41,10 @@ use aptos_vm::data_cache::{IntoMoveResolver, StorageAdapter, StorageAdapterOwned
 use futures::{channel::oneshot, SinkExt};
 use itertools::Itertools;
 use move_core_types::language_storage::{ModuleId, StructTag};
-use std::sync::RwLock;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
 // Context holds application scope context
 #[derive(Clone)]
@@ -280,15 +284,23 @@ impl Context {
                         match Path::try_from(path.as_slice()) {
                             Ok(Path::Resource(struct_tag)) => {
                                 Some(Ok((struct_tag, v.into_bytes())))
-                            }
+                            },
                             Ok(Path::Code(_)) => None,
                             Err(e) => Some(Err(anyhow::Error::from(e))),
                         }
-                    }
+                    },
                     _ => {
-                        error!("storage prefix scan return inconsistent key ({:?}) with expected key prefix ({:?}).", k, StateKeyPrefix::from(address));
-                        Some(Err(format_err!( "storage prefix scan return inconsistent key ({:?})", k )))
-                    }
+                        error!(
+                            "storage prefix scan return inconsistent key ({:?}) with expected key \
+                             prefix ({:?}).",
+                            k,
+                            StateKeyPrefix::from(address)
+                        );
+                        Some(Err(format_err!(
+                            "storage prefix scan return inconsistent key ({:?})",
+                            k
+                        )))
+                    },
                 },
                 Err(e) => Some(Err(e)),
             })
@@ -327,11 +339,19 @@ impl Context {
                             Ok(Path::Resource(_)) => None,
                             Err(e) => Some(Err(anyhow::Error::from(e))),
                         }
-                    }
+                    },
                     _ => {
-                        error!("storage prefix scan return inconsistent key ({:?}) with expected key prefix ({:?}).", k, StateKeyPrefix::from(address));
-                        Some(Err(format_err!( "storage prefix scan return inconsistent key ({:?})", k )))
-                    }
+                        error!(
+                            "storage prefix scan return inconsistent key ({:?}) with expected key \
+                             prefix ({:?}).",
+                            k,
+                            StateKeyPrefix::from(address)
+                        );
+                        Some(Err(format_err!(
+                            "storage prefix scan return inconsistent key ({:?})",
+                            k
+                        )))
+                    },
                 },
                 Err(e) => Some(Err(e)),
             })
@@ -350,7 +370,8 @@ impl Context {
     }
 
     // This function should be deprecated. DO NOT USE it.
-    // Instead, call either `get_modules_by_pagination` or `get_modules_by_pagination`.
+    // Instead, call either `get_modules_by_pagination` or
+    // `get_modules_by_pagination`.
     pub fn get_account_state<E: InternalError>(
         &self,
         address: AccountAddress,
@@ -601,8 +622,8 @@ impl Context {
         let start_seq_number = if let Some(start_seq_number) = start_seq_number {
             start_seq_number
         } else {
-            // Get the current account state, and get the sequence number to get the limit most
-            // recent transactions
+            // Get the current account state, and get the sequence number to get the limit
+            // most recent transactions
             let account_state = self
                 .get_account_state(address, ledger_info.version(), ledger_info)?
                 .ok_or_else(|| {
@@ -699,7 +720,8 @@ impl Context {
         &self,
         txn: TransactionWithProof,
     ) -> Result<TransactionOnChainData> {
-        // the type is Vec<(Transaction, TransactionOutput)> - given we have one transaction here, there should only ever be one value in this array
+        // the type is Vec<(Transaction, TransactionOutput)> - given we have one
+        // transaction here, there should only ever be one value in this array
         let (_, txn_output) = &self
             .db
             .get_transaction_outputs(txn.version, 1, txn.version)?
@@ -755,7 +777,8 @@ impl Context {
             let gas_estimation = self.gas_estimation.read().unwrap();
             let (last_updated_epoch, _) = self.get_gas_schedule(ledger_info)?;
 
-            // Cache includes if there was an update on the gas schedule due to epoch changes
+            // Cache includes if there was an update on the gas schedule due to epoch
+            // changes
             if gas_estimation.last_updated_version.is_some()
                 && gas_estimation.last_updated_version.unwrap() > oldest_search_version
                 && last_updated_epoch == gas_estimation.last_updated_epoch.unwrap_or_default()
@@ -787,8 +810,9 @@ impl Context {
                     E::internal_with_code(err, AptosErrorCode::InternalError, ledger_info)
                 })?;
 
-            // When there's no gas prices in the last 100k transactions, we're going to set it to
-            // the lowest gas price because the transaction should get through with any amount
+            // When there's no gas prices in the last 100k transactions, we're going to set
+            // it to the lowest gas price because the transaction should get
+            // through with any amount
             gas_estimation.last_updated_version = Some(ledger_info.ledger_version.0);
             gas_estimation.last_updated_epoch = Some(last_updated_epoch);
             let min_gas_price = gas_schedule.txn.min_price_per_gas_unit.into();
@@ -849,7 +873,8 @@ impl Context {
                 .get(bucket_index.saturating_sub(1))
                 .copied()
                 .unwrap_or(min_gas_price);
-            // Next bucket could be the same as the current gas price, but we increase by 1 for the estimation
+            // Next bucket could be the same as the current gas price, but we increase by 1
+            // for the estimation
             let next_bucket_price = self
                 .node_config
                 .mempool
@@ -950,12 +975,12 @@ impl Context {
                 if !self.node_config.api.json_output_enabled {
                     return Err(json_api_disabled(api_name));
                 }
-            }
+            },
             AcceptType::Bcs => {
                 if !self.node_config.api.bcs_output_enabled {
                     return Err(bcs_api_disabled(api_name));
                 }
-            }
+            },
         }
         Ok(())
     }

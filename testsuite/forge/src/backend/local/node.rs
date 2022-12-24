@@ -29,13 +29,13 @@ impl Drop for Process {
         // check if the process has already been terminated
         match self.0.try_wait() {
             // The child process has already terminated, perhaps due to a crash
-            Ok(Some(_)) => {}
+            Ok(Some(_)) => {},
 
             // The process is still running so we need to attempt to kill it
             _ => {
                 self.0.kill().expect("Process wasn't running");
                 self.0.wait().unwrap();
-            }
+            },
         }
     }
 }
@@ -195,15 +195,15 @@ impl LocalNode {
                 Ok(Some(status)) => {
                     let error = format!("Node '{}' crashed with: {}", self.name, status);
                     return Err(HealthCheckError::NotRunning(error));
-                }
+                },
 
                 // This is the case where the node is still running
-                Ok(None) => {}
+                Ok(None) => {},
 
                 // Some other unknown error
                 Err(e) => {
                     return Err(HealthCheckError::Unknown(e.into()));
-                }
+                },
             }
         } else {
             let error = format!("Node '{}' is stopped", self.name);
@@ -278,7 +278,8 @@ impl Node for LocalNode {
     }
 
     async fn clear_storage(&mut self) -> Result<()> {
-        // Remove all storage files (i.e., blockchain data, consensus data and state sync data)
+        // Remove all storage files (i.e., blockchain data, consensus data and state
+        // sync data)
         let node_config = self.config();
         let ledger_db_path = node_config.storage.dir().join(LEDGER_DB_NAME);
         let state_db_path = node_config.storage.dir().join(STATE_MERKLE_DB_NAME);
@@ -286,7 +287,8 @@ impl Node for LocalNode {
         let state_sync_db_path = node_config.storage.dir().join(STATE_SYNC_DB_NAME);
 
         debug!(
-            "Deleting ledger, state, secure and state sync db paths ({:?}, {:?}, {:?}, {:?}) for node {:?}",
+            "Deleting ledger, state, secure and state sync db paths ({:?}, {:?}, {:?}, {:?}) for \
+             node {:?}",
             ledger_db_path.as_path(),
             state_db_path.as_path(),
             secure_storage_path.as_path(),

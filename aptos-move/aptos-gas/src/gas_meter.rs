@@ -1,15 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module contains the official gas meter implementation, along with some top-level gas
-//! parameters and traits to help manipulate them.
+//! This module contains the official gas meter implementation, along with some
+//! top-level gas parameters and traits to help manipulate them.
 
-use crate::transaction::ChangeSetConfigs;
 use crate::{
     algebra::{AbstractValueSize, Gas},
     instr::InstructionGasParameters,
     misc::MiscGasParameters,
-    transaction::TransactionGasParameters,
+    transaction::{ChangeSetConfigs, TransactionGasParameters},
     StorageGasParameters,
 };
 use aptos_types::{
@@ -40,22 +39,25 @@ use std::collections::BTreeMap;
 //   - Storage charges:
 //     - Distinguish between new and existing resources
 //     - One item write comes with 1K free bytes
-//     - abort with STORATGE_WRITE_LIMIT_REACHED if WriteOps or Events are too large
+//     - abort with STORATGE_WRITE_LIMIT_REACHED if WriteOps or Events are too
+//       large
 // - V2
 //   - Table
-//     - Fix the gas formula for loading resources so that they are consistent with other
-//       global operations.
+//     - Fix the gas formula for loading resources so that they are consistent
+//       with other global operations.
 // - V1
 //   - TBA
 pub const LATEST_GAS_FEATURE_VERSION: u64 = 5;
 
 pub(crate) const EXECUTION_GAS_MULTIPLIER: u64 = 20;
 
-/// A trait for converting from a map representation of the on-chain gas schedule.
+/// A trait for converting from a map representation of the on-chain gas
+/// schedule.
 pub trait FromOnChainGasSchedule: Sized {
-    /// Constructs a value of this type from a map representation of the on-chain gas schedule.
-    /// `None` should be returned when the gas schedule is missing some required entries.
-    /// Unused entries should be safely ignored.
+    /// Constructs a value of this type from a map representation of the
+    /// on-chain gas schedule. `None` should be returned when the gas
+    /// schedule is missing some required entries. Unused entries should be
+    /// safely ignored.
     fn from_on_chain_gas_schedule(
         gas_schedule: &BTreeMap<String, u64>,
         feature_version: u64,
@@ -65,8 +67,9 @@ pub trait FromOnChainGasSchedule: Sized {
 /// A trait for converting to a list of entries of the on-chain gas schedule.
 pub trait ToOnChainGasSchedule {
     /// Converts `self` into a list of entries of the on-chain gas schedule.
-    /// Each entry is a key-value pair where the key is a string representing the name of the
-    /// parameter, where the value is the gas parameter itself.
+    /// Each entry is a key-value pair where the key is a string representing
+    /// the name of the parameter, where the value is the gas parameter
+    /// itself.
     fn to_on_chain_gas_schedule(&self, feature_version: u64) -> Vec<(String, u64)>;
 }
 
@@ -138,8 +141,9 @@ impl InitialGasSchedule for NativeGasParameters {
     }
 }
 
-/// Gas parameters for everything that is needed to run the Aptos blockchain, including
-/// instructions, transactions and native functions from various packages.
+/// Gas parameters for everything that is needed to run the Aptos blockchain,
+/// including instructions, transactions and native functions from various
+/// packages.
 #[derive(Debug, Clone)]
 pub struct AptosGasParameters {
     pub misc: MiscGasParameters,
@@ -204,8 +208,9 @@ impl InitialGasSchedule for AptosGasParameters {
 }
 
 /// The official gas meter used inside the Aptos VM.
-/// It maintains an internal gas counter, measured in internal gas units, and carries an environment
-/// consisting all the gas parameters, which it can lookup when performing gas calculations.
+/// It maintains an internal gas counter, measured in internal gas units, and
+/// carries an environment consisting all the gas parameters, which it can
+/// lookup when performing gas calculations.
 pub struct AptosGasMeter {
     feature_version: u64,
     gas_params: AptosGasParameters,
@@ -247,11 +252,11 @@ impl AptosGasMeter {
             Some(new_balance) => {
                 self.balance = new_balance;
                 Ok(())
-            }
+            },
             None => {
                 self.balance = 0.into();
                 Err(PartialVMError::new(StatusCode::OUT_OF_GAS))
-            }
+            },
         }
     }
 
@@ -262,11 +267,11 @@ impl AptosGasMeter {
                 Some(remaining_quota) => {
                     self.memory_quota = remaining_quota;
                     Ok(())
-                }
+                },
                 None => {
                     self.memory_quota = 0.into();
                     Err(PartialVMError::new(StatusCode::MEMORY_LIMIT_EXCEEDED))
-                }
+                },
             }
         } else {
             Ok(())
@@ -448,7 +453,8 @@ impl GasMeter for AptosGasMeter {
 
         self.use_heap_memory(heap_size)?;
 
-        // Note(Gas): this makes a deep copy so we need to charge for the full value size
+        // Note(Gas): this makes a deep copy so we need to charge for the full value
+        // size
         let instr_params = &self.gas_params.instr;
         let cost = instr_params.copy_loc_base
             + instr_params.copy_loc_per_abs_val_unit * (stack_size + heap_size);
@@ -524,7 +530,8 @@ impl GasMeter for AptosGasMeter {
 
         self.use_heap_memory(heap_size)?;
 
-        // Note(Gas): this makes a deep copy so we need to charge for the full value size
+        // Note(Gas): this makes a deep copy so we need to charge for the full value
+        // size
         let instr_params = &self.gas_params.instr;
         let cost = instr_params.read_ref_base
             + instr_params.read_ref_per_abs_val_unit * (stack_size + heap_size);

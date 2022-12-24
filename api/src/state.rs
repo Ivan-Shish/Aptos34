@@ -1,16 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::response::{
-    api_disabled, build_not_found, module_not_found, resource_not_found, table_item_not_found,
-    StdApiError,
-};
 use crate::{
     accept_type::AcceptType,
     failpoint::fail_point_poem,
     response::{
+        api_disabled, build_not_found, module_not_found, resource_not_found, table_item_not_found,
         BadRequestError, BasicErrorWith404, BasicResponse, BasicResponseStatus, BasicResultWith404,
-        InternalError,
+        InternalError, StdApiError,
     },
     ApiTags, Context,
 };
@@ -44,11 +41,13 @@ pub struct StateApi {
 impl StateApi {
     /// Get account resource
     ///
-    /// Retrieves an individual resource from a given account and at a specific ledger version. If the
-    /// ledger version is not specified in the request, the latest ledger version is used.
+    /// Retrieves an individual resource from a given account and at a specific
+    /// ledger version. If the ledger version is not specified in the
+    /// request, the latest ledger version is used.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/accounts/:address/resource/:resource_type",
         method = "get",
@@ -87,11 +86,13 @@ impl StateApi {
 
     /// Get account module
     ///
-    /// Retrieves an individual module from a given account and at a specific ledger version. If the
-    /// ledger version is not specified in the request, the latest ledger version is used.
+    /// Retrieves an individual module from a given account and at a specific
+    /// ledger version. If the ledger version is not specified in the
+    /// request, the latest ledger version is used.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/accounts/:address/module/:module_name",
         method = "get",
@@ -123,16 +124,18 @@ impl StateApi {
 
     /// Get table item
     ///
-    /// Get a table item at a specific ledger version from the table identified by {table_handle}
-    /// in the path and the "key" (TableItemRequest) provided in the request body.
+    /// Get a table item at a specific ledger version from the table identified
+    /// by {table_handle} in the path and the "key" (TableItemRequest)
+    /// provided in the request body.
     ///
     /// This is a POST endpoint because the "key" for requesting a specific
     /// table item (TableItemRequest) could be quite complex, as each of its
     /// fields could themselves be composed of other structs. This makes it
     /// impractical to express using query params, meaning GET isn't an option.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/tables/:table_handle/item",
         method = "post",
@@ -171,14 +174,17 @@ impl StateApi {
 
     /// Get raw table item
     ///
-    /// Get a table item at a specific ledger version from the table identified by {table_handle}
-    /// in the path and the "key" (RawTableItemRequest) provided in the request body.
+    /// Get a table item at a specific ledger version from the table identified
+    /// by {table_handle} in the path and the "key" (RawTableItemRequest)
+    /// provided in the request body.
     ///
-    /// The `get_raw_table_item` requires only a serialized key comparing to the full move type information
-    /// comparing to the `get_table_item` api, and can only return the query in the bcs format.
+    /// The `get_raw_table_item` requires only a serialized key comparing to the
+    /// full move type information comparing to the `get_table_item` api,
+    /// and can only return the query in the bcs format.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/tables/:table_handle/raw_item",
         method = "post",
@@ -280,10 +286,10 @@ impl StateApi {
                     })?;
 
                 BasicResponse::try_from_json((resource, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
             AcceptType::Bcs => {
                 BasicResponse::try_from_encoded((bytes, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 
@@ -331,10 +337,10 @@ impl StateApi {
                     })?;
 
                 BasicResponse::try_from_json((module, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
             AcceptType::Bcs => {
                 BasicResponse::try_from_encoded((bytes, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 
@@ -421,10 +427,10 @@ impl StateApi {
                     })?;
 
                 BasicResponse::try_from_json((move_value, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
             AcceptType::Bcs => {
                 BasicResponse::try_from_encoded((bytes, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 
@@ -473,7 +479,7 @@ impl StateApi {
             AcceptType::Json => Err(api_disabled("Get raw table item by json")),
             AcceptType::Bcs => {
                 BasicResponse::try_from_encoded((bytes, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 }

@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! Logic for account universes. This is not in the parent module to enforce privacy.
+//! Logic for account universes. This is not in the parent module to enforce
+//! privacy.
 
 use crate::{
     account::AccountData,
@@ -24,18 +25,21 @@ pub struct AccountUniverseGen {
     pick_style: AccountPickStyle,
 }
 
-/// A set of accounts that has been set up and can now be used to conduct transactions on.
+/// A set of accounts that has been set up and can now be used to conduct
+/// transactions on.
 ///
 /// For more, see the [`account_universe` module documentation][self].
 #[derive(Clone, Debug)]
 pub struct AccountUniverse {
     accounts: Vec<AccountCurrent>,
     picker: AccountPicker,
-    /// Whether to ignore any new accounts that transactions add to the universe.
+    /// Whether to ignore any new accounts that transactions add to the
+    /// universe.
     ignore_new_accounts: bool,
 }
 
-/// Allows pairs of accounts to be uniformly randomly selected from an account universe.
+/// Allows pairs of accounts to be uniformly randomly selected from an account
+/// universe.
 #[derive(Arbitrary, Clone, Debug)]
 pub struct AccountPairGen {
     pair: [Index; 2],
@@ -50,32 +54,33 @@ pub enum AccountPickStyle {
     /// An account may be picked as many times as possible.
     Unlimited,
     /// An account may only be picked these many times.
-    Limited(usize),
-    // TODO: Scaled(usize)
+    Limited(usize), // TODO: Scaled(usize)
 }
 
 impl AccountUniverseGen {
-    /// Returns a [`Strategy`] that generates a universe of accounts with pre-populated initial
-    /// balances.
+    /// Returns a [`Strategy`] that generates a universe of accounts with
+    /// pre-populated initial balances.
     pub fn strategy(
         num_accounts: impl Into<SizeRange>,
         balance_strategy: impl Strategy<Value = u64>,
     ) -> impl Strategy<Value = Self> {
-        // Pick a sequence number in a smaller range so that valid transactions can be generated.
-        // XXX should we also test edge cases around large sequence numbers?
-        // Note that using a function as a strategy directly means that shrinking will not occur,
-        // but that should be fine because there's nothing to really shrink within accounts anyway.
+        // Pick a sequence number in a smaller range so that valid transactions can be
+        // generated. XXX should we also test edge cases around large sequence
+        // numbers? Note that using a function as a strategy directly means that
+        // shrinking will not occur, but that should be fine because there's
+        // nothing to really shrink within accounts anyway.
         vec(AccountData::strategy(balance_strategy), num_accounts).prop_map(|accounts| Self {
             accounts,
             pick_style: AccountPickStyle::Unlimited,
         })
     }
 
-    /// Returns a [`Strategy`] that generates a universe of accounts that's guaranteed to succeed,
-    /// assuming that any transfers out of accounts will be 100_000 or below.
+    /// Returns a [`Strategy`] that generates a universe of accounts that's
+    /// guaranteed to succeed, assuming that any transfers out of accounts
+    /// will be 100_000 or below.
     pub fn success_strategy(min_accounts: usize) -> impl Strategy<Value = Self> {
-        // Set the minimum balance to be 5x possible transfers out to handle potential gas cost
-        // issues.
+        // Set the minimum balance to be 5x possible transfers out to handle potential
+        // gas cost issues.
         let min_balance = (100_000 * (default_num_transactions()) * 5) as u64;
         let max_balance = min_balance * 10;
         Self::strategy(
@@ -95,7 +100,8 @@ impl AccountUniverseGen {
         self.accounts.len()
     }
 
-    /// Returns an [`AccountUniverse`] with the initial state generated in this universe.
+    /// Returns an [`AccountUniverse`] with the initial state generated in this
+    /// universe.
     pub fn setup(self, executor: &mut FakeExecutor) -> AccountUniverse {
         for account_data in &self.accounts {
             executor.add_account_data(account_data);
@@ -104,11 +110,12 @@ impl AccountUniverseGen {
         AccountUniverse::new(self.accounts, self.pick_style, false)
     }
 
-    /// Returns an [`AccountUniverse`] with the initial state generated in this universe, and
-    /// configures the universe to run tests in gas-cost-stability mode.
+    /// Returns an [`AccountUniverse`] with the initial state generated in this
+    /// universe, and configures the universe to run tests in
+    /// gas-cost-stability mode.
     ///
-    /// The stability mode causes new accounts to be dropped, since those accounts will usually
-    /// not be funded enough.
+    /// The stability mode causes new accounts to be dropped, since those
+    /// accounts will usually not be funded enough.
     pub fn setup_gas_cost_stability(self, executor: &mut FakeExecutor) -> AccountUniverse {
         for account_data in &self.accounts {
             executor.add_account_data(account_data);
@@ -136,23 +143,25 @@ impl AccountUniverse {
 
     /// Returns the number of accounts currently in this universe.
     ///
-    /// Some transactions might cause new accounts to be created. The return value of this method
-    /// will include those new accounts.
+    /// Some transactions might cause new accounts to be created. The return
+    /// value of this method will include those new accounts.
     pub fn num_accounts(&self) -> usize {
         self.accounts.len()
     }
 
     /// Returns the accounts currently in this universe.
     ///
-    /// Some transactions might cause new accounts to be created. The return value of this method
-    /// will include those new accounts.
+    /// Some transactions might cause new accounts to be created. The return
+    /// value of this method will include those new accounts.
     pub fn accounts(&self) -> &[AccountCurrent] {
         &self.accounts
     }
 
-    /// Adds an account to the universe so that future transactions can be made out of this account.
+    /// Adds an account to the universe so that future transactions can be made
+    /// out of this account.
     ///
-    /// This is ignored if the universe was configured to be in gas-cost-stability mode.
+    /// This is ignored if the universe was configured to be in
+    /// gas-cost-stability mode.
     pub fn add_account(&mut self, account_data: AccountData) {
         if !self.ignore_new_accounts {
             self.accounts.push(AccountCurrent::new(account_data));
@@ -170,8 +179,7 @@ impl AccountUniverse {
 enum AccountPicker {
     Unlimited(usize),
     // Vector of (index, times remaining).
-    Limited(Vec<(usize, usize)>),
-    // TODO: Scaled(RepeatVec<usize>)
+    Limited(Vec<(usize, usize)>), // TODO: Scaled(RepeatVec<usize>)
 }
 
 impl AccountPicker {
@@ -181,7 +189,7 @@ impl AccountPicker {
             AccountPickStyle::Limited(limit) => {
                 let remaining = (0..num_accounts).map(|idx| (idx, limit)).collect();
                 AccountPicker::Limited(remaining)
-            }
+            },
         }
     }
 
@@ -191,7 +199,7 @@ impl AccountPicker {
             AccountPicker::Limited(remaining) => {
                 let remaining_idx = index.index(remaining.len());
                 Self::pick_limited(remaining, remaining_idx)
-            }
+            },
         }
     }
 
@@ -206,7 +214,7 @@ impl AccountPicker {
                 let account_idx_1 = Self::pick_limited(remaining, remaining_idx_1);
 
                 [account_idx_1, account_idx_2]
-            }
+            },
         }
     }
 
@@ -238,12 +246,12 @@ impl AccountPicker {
 }
 
 impl AccountPairGen {
-    /// Picks two accounts uniformly randomly from this universe and returns mutable references to
-    /// them.
+    /// Picks two accounts uniformly randomly from this universe and returns
+    /// mutable references to them.
     pub fn pick<'a>(&self, universe: &'a mut AccountUniverse) -> AccountPair<'a> {
         let [low_idx, high_idx] = universe.picker.pick_pair(&self.pair);
-        // Need to use `split_at_mut` because you can't have multiple mutable references to items
-        // from a single slice at any given time.
+        // Need to use `split_at_mut` because you can't have multiple mutable references
+        // to items from a single slice at any given time.
         let (head, tail) = universe.accounts.split_at_mut(low_idx + 1);
         let (low_account, high_account) = (&mut head[low_idx], &mut tail[high_idx - low_idx - 1]);
 

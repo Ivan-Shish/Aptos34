@@ -107,7 +107,8 @@ fn insert_current_stake_pool_voter(
                     inserted_at.eq(excluded(inserted_at)),
                 )),
             Some(
-                " WHERE current_staking_pool_voter.last_transaction_version <= EXCLUDED.last_transaction_version ",
+                " WHERE current_staking_pool_voter.last_transaction_version <= \
+                 EXCLUDED.last_transaction_version ",
             ),
         )?;
     }

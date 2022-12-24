@@ -1,10 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::counters::{
-    BROADCAST_BATCHED_LABEL, BROADCAST_READY_LABEL, CONSENSUS_READY_LABEL, E2E_LABEL, LOCAL_LABEL,
-};
-use crate::shared_mempool::types::MultiBucketTimelineIndexIds;
 use crate::{
     core_mempool::{
         index::{
@@ -14,7 +10,12 @@ use crate::{
         transaction::{MempoolTransaction, TimelineState},
     },
     counters,
+    counters::{
+        BROADCAST_BATCHED_LABEL, BROADCAST_READY_LABEL, CONSENSUS_READY_LABEL, E2E_LABEL,
+        LOCAL_LABEL,
+    },
     logging::{LogEntry, LogEvent, LogSchema, TxnsLog},
+    shared_mempool::types::MultiBucketTimelineIndexIds,
 };
 use aptos_config::config::MempoolConfig;
 use aptos_crypto::HashValue;
@@ -25,15 +26,16 @@ use aptos_types::{
     mempool_status::{MempoolStatus, MempoolStatusCode},
     transaction::SignedTransaction,
 };
-use std::cmp::max;
-use std::mem::size_of;
 use std::{
+    cmp::max,
     collections::HashMap,
+    mem::size_of,
     ops::Bound,
     time::{Duration, SystemTime},
 };
 
-/// Estimated per-txn overhead of indexes. Needs to be updated if additional indexes are added.
+/// Estimated per-txn overhead of indexes. Needs to be updated if additional
+/// indexes are added.
 pub const TXN_INDEX_ESTIMATED_BYTES: usize = size_of::<crate::core_mempool::index::OrderedQueueKey>() // priority_index
     + size_of::<crate::core_mempool::index::TTLOrderingKey>() * 2 // expiration_time_index + system_ttl_index
     + (size_of::<u64>() * 3 + size_of::<AccountAddress>()) // timeline_index
@@ -61,9 +63,9 @@ pub struct TransactionStore {
 
     // Index for looking up transaction by hash.
     // Transactions are stored by AccountAddress + sequence number.
-    // This index stores map of transaction committed hash to (AccountAddress, sequence number) pair.
-    // Using transaction commited hash because from end user's point view, a transaction should only have
-    // one valid hash.
+    // This index stores map of transaction committed hash to (AccountAddress, sequence number)
+    // pair. Using transaction commited hash because from end user's point view, a transaction
+    // should only have one valid hash.
     hash_index: HashMap<HashValue, (AccountAddress, u64)>,
 
     // estimated size in bytes
@@ -128,7 +130,8 @@ impl TransactionStore {
         None
     }
 
-    /// Fetch transaction by account address + sequence_number, including ranking score
+    /// Fetch transaction by account address + sequence_number, including
+    /// ranking score
     pub(crate) fn get_with_ranking_score(
         &self,
         address: &AccountAddress,
@@ -183,7 +186,8 @@ impl TransactionStore {
         self.sequence_numbers.get(address)
     }
 
-    /// Insert transaction into TransactionStore. Performs validation checks and updates indexes.
+    /// Insert transaction into TransactionStore. Performs validation checks and
+    /// updates indexes.
     pub(crate) fn insert(&mut self, txn: MempoolTransaction) -> MempoolStatus {
         let address = txn.get_sender();
         let sequence_number = txn.sequence_info;
@@ -191,8 +195,8 @@ impl TransactionStore {
         // If the transaction is already in Mempool, we only allow the user to
         // increase the gas unit price to speed up a transaction, but not the max gas.
         //
-        // Transactions with all the same inputs (but possibly signed differently) are idempotent
-        // since the raw transaction is the same
+        // Transactions with all the same inputs (but possibly signed differently) are
+        // idempotent since the raw transaction is the same
         if let Some(txns) = self.transactions.get_mut(&address) {
             if let Some(current_version) =
                 txns.get_mut(&sequence_number.transaction_sequence_number)
@@ -256,7 +260,8 @@ impl TransactionStore {
             if txns.len() >= self.capacity_per_user {
                 return MempoolStatus::new(MempoolStatusCode::TooManyTransactions).with_message(
                     format!(
-                        "Mempool over capacity for account. Number of transactions from account: {} Capacity per account: {}",
+                        "Mempool over capacity for account. Number of transactions from account: \
+                         {} Capacity per account: {}",
                         txns.len(),
                         self.capacity_per_user,
                     ),
@@ -314,8 +319,9 @@ impl TransactionStore {
     }
 
     /// Checks if Mempool is full.
-    /// If it's full, tries to free some space by evicting transactions from the ParkingLot.
-    /// We only evict on attempt to insert a transaction that would be ready for broadcast upon insertion.
+    /// If it's full, tries to free some space by evicting transactions from the
+    /// ParkingLot. We only evict on attempt to insert a transaction that
+    /// would be ready for broadcast upon insertion.
     fn check_is_full_after_eviction(
         &mut self,
         txn: &MempoolTransaction,
@@ -346,19 +352,23 @@ impl TransactionStore {
         self.system_ttl_index.size() >= self.capacity || self.size_bytes >= self.capacity_bytes
     }
 
-    /// Check if a transaction would be ready for broadcast in mempool upon insertion (without inserting it).
-    /// Two ways this can happen:
+    /// Check if a transaction would be ready for broadcast in mempool upon
+    /// insertion (without inserting it). Two ways this can happen:
     /// 1. txn sequence number == curr_sequence_number
-    /// (this handles both cases where, (1) txn is first possible txn for an account and (2) the
-    /// previous txn is committed).
+    /// (this handles both cases where, (1) txn is first possible txn for an
+    /// account and (2) the previous txn is committed).
     /// 2. The txn before this is ready for broadcast but not yet committed.
     fn check_txn_ready(&self, txn: &MempoolTransaction, curr_sequence_number: u64) -> bool {
         let tx_sequence_number = txn.sequence_info.transaction_sequence_number;
         if tx_sequence_number == curr_sequence_number {
             return true;
         } else if tx_sequence_number == 0 {
-            // shouldn't really get here because filtering out old txn sequence numbers happens earlier in workflow
-            unreachable!("[mempool] already committed txn detected, cannot be checked for readiness upon insertion");
+            // shouldn't really get here because filtering out old txn sequence numbers
+            // happens earlier in workflow
+            unreachable!(
+                "[mempool] already committed txn detected, cannot be checked for readiness upon \
+                 insertion"
+            );
         }
 
         // check previous txn in sequence is ready
@@ -373,10 +383,11 @@ impl TransactionStore {
     }
 
     /// Maintains the following invariants:
-    /// - All transactions of a given account that are sequential to the current sequence number
-    ///   should be included in both the PriorityIndex (ordering for Consensus) and
-    ///   TimelineIndex (txns for SharedMempool).
-    /// - Other txns are considered to be "non-ready" and should be added to ParkingLotIndex.
+    /// - All transactions of a given account that are sequential to the current
+    ///   sequence number should be included in both the PriorityIndex (ordering
+    ///   for Consensus) and TimelineIndex (txns for SharedMempool).
+    /// - Other txns are considered to be "non-ready" and should be added to
+    ///   ParkingLotIndex.
     fn process_ready_transactions(
         &mut self,
         address: &AccountAddress,
@@ -438,17 +449,17 @@ impl TransactionStore {
                         self.parking_lot_index.remove(txn);
                         min_seq += 1;
                     }
-                }
+                },
             }
 
             let mut parking_lot_txns = 0;
             for (_, txn) in txns.range_mut((Bound::Excluded(min_seq), Bound::Unbounded)) {
                 match txn.timeline_state {
-                    TimelineState::Ready(_) => {}
+                    TimelineState::Ready(_) => {},
                     _ => {
                         self.parking_lot_index.insert(txn);
                         parking_lot_txns += 1;
-                    }
+                    },
                 }
             }
             trace!(
@@ -493,8 +504,9 @@ impl TransactionStore {
     }
 
     /// Handles transaction commit.
-    /// It includes deletion of all transactions with sequence number <= `account_sequence_number`
-    /// and potential promotion of sequential txns to PriorityIndex/TimelineIndex.
+    /// It includes deletion of all transactions with sequence number <=
+    /// `account_sequence_number` and potential promotion of sequential txns
+    /// to PriorityIndex/TimelineIndex.
     pub fn commit_transaction(&mut self, account: &AccountAddress, sequence_number: u64) {
         let current_seq_number = self.get_sequence_number(account).map_or(0, |v| *v);
         let new_seq_number =
@@ -534,7 +546,8 @@ impl TransactionStore {
         }
     }
 
-    /// Removes transaction from all indexes. Only call after removing from main transactions DS.
+    /// Removes transaction from all indexes. Only call after removing from main
+    /// transactions DS.
     fn index_remove(&mut self, txn: &MempoolTransaction) {
         counters::CORE_MEMPOOL_REMOVED_TXNS.inc();
         self.system_ttl_index.remove(txn);
@@ -545,7 +558,8 @@ impl TransactionStore {
         self.hash_index.remove(&txn.get_committed_hash());
         self.size_bytes -= txn.get_estimated_bytes();
 
-        // Remove account datastructures if there are no more transactions for the account.
+        // Remove account datastructures if there are no more transactions for the
+        // account.
         let address = &txn.get_sender();
         if let Some(txns) = self.transactions.get(address) {
             if txns.is_empty() {
@@ -558,8 +572,8 @@ impl TransactionStore {
     }
 
     /// Read at most `count` transactions from timeline since `timeline_id`.
-    /// This method takes into account the max number of bytes per transaction batch.
-    /// Returns block of transactions and new last_timeline_id.
+    /// This method takes into account the max number of bytes per transaction
+    /// batch. Returns block of transactions and new last_timeline_id.
     pub(crate) fn read_timeline(
         &self,
         timeline_id: &MultiBucketTimelineIndexIds,
@@ -633,7 +647,8 @@ impl TransactionStore {
         self.gc(gc_time, true);
     }
 
-    /// Garbage collect old transactions based on client-specified expiration time.
+    /// Garbage collect old transactions based on client-specified expiration
+    /// time.
     pub(crate) fn gc_by_expiration_time(&mut self, block_time: Duration) {
         self.gc(block_time, false);
     }

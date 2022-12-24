@@ -1,9 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::built_package::{BuildOptions, BuiltPackage};
-use crate::path_relative_to_crate;
-use crate::release_bundle::{ReleaseBundle, ReleasePackage};
+use crate::{
+    built_package::{BuildOptions, BuiltPackage},
+    path_relative_to_crate,
+    release_bundle::{ReleaseBundle, ReleasePackage},
+};
 use anyhow::anyhow;
 use aptos_sdk_builder::rust;
 use aptos_types::transaction::EntryABI;
@@ -21,9 +23,9 @@ pub struct ReleaseOptions {
     /// The path to the Move packages for which to create a release.
     #[clap(long, parse(from_os_str), multiple_values = true)]
     pub packages: Vec<PathBuf>,
-    /// The path where to place generated Rust bindings for this module, in order for
-    /// each package. If the value is empty (`""`) for a particular package, no bindings are
-    /// generated.
+    /// The path where to place generated Rust bindings for this module, in
+    /// order for each package. If the value is empty (`""`) for a
+    /// particular package, no bindings are generated.
     #[clap(long)]
     pub rust_bindings: Vec<String>,
     /// The path to the file where to place the release bundle.
@@ -32,8 +34,8 @@ pub struct ReleaseOptions {
 }
 
 impl ReleaseOptions {
-    /// Creates a release bundle from the specified options and saves it to disk. As a side
-    /// effect, also generates rust bindings.
+    /// Creates a release bundle from the specified options and saves it to
+    /// disk. As a side effect, also generates rust bindings.
     pub fn create_release(self) -> anyhow::Result<()> {
         let ReleaseOptions {
             build_options,

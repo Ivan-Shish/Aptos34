@@ -1,23 +1,24 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{account_address::AccountAddress, on_chain_config::ValidatorSet};
-use aptos_crypto::{bls12381, hash::CryptoHash, Signature, VerifyingKey};
+#[cfg(any(test, feature = "fuzzing"))]
+use crate::validator_signer::ValidatorSigner;
+use crate::{
+    account_address::AccountAddress,
+    aggregate_signature::{AggregateSignature, PartialSignatures},
+    on_chain_config::ValidatorSet,
+};
+use anyhow::{ensure, Result};
+use aptos_bitvec::BitVec;
+use aptos_crypto::{bls12381, bls12381::PublicKey, hash::CryptoHash, Signature, VerifyingKey};
+#[cfg(any(test, feature = "fuzzing"))]
+use proptest_derive::Arbitrary;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt,
 };
 use thiserror::Error;
-
-use crate::aggregate_signature::{AggregateSignature, PartialSignatures};
-#[cfg(any(test, feature = "fuzzing"))]
-use crate::validator_signer::ValidatorSigner;
-use anyhow::{ensure, Result};
-use aptos_bitvec::BitVec;
-use aptos_crypto::bls12381::PublicKey;
-#[cfg(any(test, feature = "fuzzing"))]
-use proptest_derive::Arbitrary;
 
 /// Errors possible during signature verification.
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -80,20 +81,23 @@ impl ValidatorConsensusInfo {
     }
 }
 
-/// Supports validation of signatures for known authors with individual voting powers. This struct
-/// can be used for all signature verification operations including block and network signature
-/// verification, respectively.
+/// Supports validation of signatures for known authors with individual voting
+/// powers. This struct can be used for all signature verification operations
+/// including block and network signature verification, respectively.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ValidatorVerifier {
-    /// A vector of each validator's on-chain account address to its pubkeys and voting power.
+    /// A vector of each validator's on-chain account address to its pubkeys and
+    /// voting power.
     validator_infos: Vec<ValidatorConsensusInfo>,
     /// The minimum voting power required to achieve a quorum
     #[serde(skip)]
     quorum_voting_power: u128,
-    /// Total voting power of all validators (cached from address_to_validator_info)
+    /// Total voting power of all validators (cached from
+    /// address_to_validator_info)
     #[serde(skip)]
     total_voting_power: u128,
-    /// In-memory index of account address to its index in the vector, does not go through serde.
+    /// In-memory index of account address to its index in the vector, does not
+    /// go through serde.
     #[serde(skip)]
     address_to_validator_index: HashMap<AccountAddress, usize>,
 }
@@ -137,8 +141,9 @@ impl ValidatorVerifier {
         }
     }
 
-    /// Initialize with a map of account address to validator info and set quorum size to
-    /// default (`2f + 1`) or zero if `address_to_validator_info` is empty.
+    /// Initialize with a map of account address to validator info and set
+    /// quorum size to default (`2f + 1`) or zero if
+    /// `address_to_validator_info` is empty.
     pub fn new(validator_infos: Vec<ValidatorConsensusInfo>) -> Self {
         let total_voting_power = sum_voting_power(&validator_infos);
         let quorum_voting_power = if validator_infos.is_empty() {
@@ -169,7 +174,8 @@ impl ValidatorVerifier {
         ))
     }
 
-    /// Helper method to initialize with a single author and public key with quorum voting power 1.
+    /// Helper method to initialize with a single author and public key with
+    /// quorum voting power 1.
     pub fn new_single(author: AccountAddress, public_key: PublicKey) -> Self {
         let validator_infos = vec![ValidatorConsensusInfo::new(author, public_key, 1)];
         Self::new(validator_infos)
@@ -214,10 +220,11 @@ impl ValidatorVerifier {
         Ok(AggregateSignature::new(masks, Some(aggregated_sig)))
     }
 
-    /// This function will successfully return when at least quorum_size signatures of known authors
-    /// are successfully verified. It creates an aggregated public key using the voter bitmask passed
-    /// in the multi-signature and verifies the message passed in the multi-signature using the aggregated
-    /// public key.
+    /// This function will successfully return when at least quorum_size
+    /// signatures of known authors are successfully verified. It creates an
+    /// aggregated public key using the voter bitmask passed
+    /// in the multi-signature and verifies the message passed in the
+    /// multi-signature using the aggregated public key.
     pub fn verify_multi_signatures<T: CryptoHash + Serialize>(
         &self,
         message: &T,
@@ -292,7 +299,8 @@ impl ValidatorVerifier {
         Ok(())
     }
 
-    /// Ensure there are not more than the maximum expected voters (all possible signatures).
+    /// Ensure there are not more than the maximum expected voters (all possible
+    /// signatures).
     fn check_num_of_voters(
         num_validators: u16,
         bitvec: &BitVec,
@@ -308,9 +316,9 @@ impl ValidatorVerifier {
         Ok(())
     }
 
-    /// Ensure there is at least quorum_voting_power in the provided signatures and there
-    /// are only known authors. According to the threshold verification policy,
-    /// invalid public keys are not allowed.
+    /// Ensure there is at least quorum_voting_power in the provided signatures
+    /// and there are only known authors. According to the threshold
+    /// verification policy, invalid public keys are not allowed.
     pub fn check_voting_power<'a>(
         &self,
         authors: impl Iterator<Item = &'a AccountAddress>,
@@ -377,7 +385,8 @@ impl ValidatorVerifier {
     }
 }
 
-/// Returns sum of voting power from Map of validator account addresses, validator consensus info
+/// Returns sum of voting power from Map of validator account addresses,
+/// validator consensus info
 fn sum_voting_power(address_to_validator_info: &[ValidatorConsensusInfo]) -> u128 {
     address_to_validator_info.iter().fold(0, |sum, x| {
         sum.checked_add(x.voting_power as u128)
@@ -447,7 +456,8 @@ impl From<&ValidatorVerifier> for ValidatorSet {
     }
 }
 
-/// Helper function to generate LedgerInfoWithSignature from a set of validator signers used for testing
+/// Helper function to generate LedgerInfoWithSignature from a set of validator
+/// signers used for testing
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn generate_validator_verifier(validators: &[ValidatorSigner]) -> ValidatorVerifier {
     let validator_consensus_info = validators
@@ -462,9 +472,10 @@ pub fn generate_validator_verifier(validators: &[ValidatorSigner]) -> ValidatorV
     .expect("Incorrect quorum size.")
 }
 
-/// Helper function to get random validator signers and a corresponding validator verifier for
-/// testing.  If custom_voting_power_quorum is not None, set a custom voting power quorum amount.
-/// With pseudo_random_account_address enabled, logs show 0 -> [0000], 1 -> [1000]
+/// Helper function to get random validator signers and a corresponding
+/// validator verifier for testing.  If custom_voting_power_quorum is not None,
+/// set a custom voting power quorum amount. With pseudo_random_account_address
+/// enabled, logs show 0 -> [0000], 1 -> [1000]
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn random_validator_verifier(
     count: usize,
@@ -486,17 +497,14 @@ pub fn random_validator_verifier(
         ));
         signers.push(random_signer);
     }
-    (
-        signers,
-        match custom_voting_power_quorum {
-            Some(custom_voting_power_quorum) => ValidatorVerifier::new_with_quorum_voting_power(
-                validator_infos,
-                custom_voting_power_quorum,
-            )
-            .expect("Unable to create testing validator verifier"),
-            None => ValidatorVerifier::new(validator_infos),
-        },
-    )
+    (signers, match custom_voting_power_quorum {
+        Some(custom_voting_power_quorum) => ValidatorVerifier::new_with_quorum_voting_power(
+            validator_infos,
+            custom_voting_power_quorum,
+        )
+        .expect("Unable to create testing validator verifier"),
+        None => ValidatorVerifier::new(validator_infos),
+    })
 }
 
 #[cfg(test)]
@@ -518,7 +526,7 @@ mod tests {
                 .unwrap_err(),
             VerifyError::TooLittleVotingPower {
                 voting_power: 0,
-                expected_voting_power: 2,
+                expected_voting_power: 2
             }
         );
 
@@ -583,7 +591,8 @@ mod tests {
         let validator =
             ValidatorVerifier::new_single(validator_signer.author(), validator_signer.public_key());
 
-        // Generate a multi-sig from invalid signer and ensure verify_mutli_signatures fails.
+        // Generate a multi-sig from invalid signer and ensure verify_mutli_signatures
+        // fails.
         let unknown_validator_signer = ValidatorSigner::random([1; 32]);
         let unknown_signature = unknown_validator_signer.sign(&dummy_struct).unwrap();
         let unknown_validator = ValidatorVerifier::new_single(
@@ -665,8 +674,8 @@ mod tests {
                 .add_signature(validator.author(), validator.sign(&dummy_struct).unwrap());
         }
 
-        // Let's assume our verifier needs to satisfy at least 5 signatures from the original
-        // NUM_SIGNERS.
+        // Let's assume our verifier needs to satisfy at least 5 signatures from the
+        // original NUM_SIGNERS.
         let validator_verifier =
             ValidatorVerifier::new_with_quorum_voting_power(validator_infos, 5)
                 .expect("Incorrect quorum size.");
@@ -713,8 +722,8 @@ mod tests {
             Ok(())
         );
 
-        // Add an unknown signer, but quorum is satisfied and signatures <= N; this will fail as we
-        // don't tolerate invalid signatures.
+        // Add an unknown signer, but quorum is satisfied and signatures <= N; this will
+        // fail as we don't tolerate invalid signatures.
         partial_signature
             .add_signature(unknown_validator_signer.author(), unknown_signature.clone());
 
@@ -744,7 +753,8 @@ mod tests {
             })
         );
 
-        // Add an unknown signer, we have 5 signers, but one of them is invalid; this will fail.
+        // Add an unknown signer, we have 5 signers, but one of them is invalid; this
+        // will fail.
         partial_signature.add_signature(unknown_validator_signer.author(), unknown_signature);
         assert_eq!(
             validator_verifier.aggregate_signatures(&partial_signature),
@@ -761,8 +771,8 @@ mod tests {
             .collect();
         let dummy_struct = TestAptosCrypto("Hello, World".to_string());
 
-        // Create a map from authors to public keys with increasing weights (0, 1, 2, 3) and
-        // a map of author to signature.
+        // Create a map from authors to public keys with increasing weights (0, 1, 2, 3)
+        // and a map of author to signature.
         let mut validator_infos = vec![];
         let mut partial_signature = PartialSignatures::empty();
         for (i, validator_signer) in validator_signers.iter().enumerate() {
@@ -803,7 +813,8 @@ mod tests {
             Err(VerifyError::UnknownAuthor)
         );
 
-        // Add 5 voting power signers only (quorum threshold is met) with (2, 3) ; this will pass.
+        // Add 5 voting power signers only (quorum threshold is met) with (2, 3) ; this
+        // will pass.
         let mut partial_signature = PartialSignatures::empty();
         for validator in validator_signers.iter().skip(2) {
             partial_signature
@@ -819,8 +830,8 @@ mod tests {
             Ok(())
         );
 
-        // Add an unknown signer, but quorum is satisfied and signatures <= N; this will fail as we
-        // don't tolerate invalid signatures.
+        // Add an unknown signer, but quorum is satisfied and signatures <= N; this will
+        // fail as we don't tolerate invalid signatures.
         partial_signature
             .add_signature(unknown_validator_signer.author(), unknown_signature.clone());
         assert_eq!(
@@ -845,7 +856,8 @@ mod tests {
             })
         );
 
-        // Add an unknown signer, we have 5 signers, but one of them is invalid; this will fail.
+        // Add an unknown signer, we have 5 signers, but one of them is invalid; this
+        // will fail.
         partial_signature.add_signature(unknown_validator_signer.author(), unknown_signature);
         assert_eq!(
             validator_verifier.aggregate_signatures(&partial_signature),

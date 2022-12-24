@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::natives::util::make_native_from_func;
-
 use move_binary_format::errors::PartialVMResult;
 use move_core_types::gas_algebra::{InternalGas, InternalGasPerByte, NumBytes};
 use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
@@ -15,12 +14,13 @@ use smallvec::smallvec;
 use std::{collections::VecDeque, hash::Hasher};
 use tiny_keccak::{Hasher as KeccakHasher, Keccak};
 
-/***************************************************************************************************
- * native fun sip_hash
- *
- *   gas cost: base_cost + unit_cost * data_length
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun sip_hash
+///
+///   gas cost: base_cost + unit_cost * data_length
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct SipHashGasParameters {
     pub base: InternalGas,
@@ -180,10 +180,11 @@ fn native_ripemd160(
     Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(output)]))
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub sip_hash: SipHashGasParameters,

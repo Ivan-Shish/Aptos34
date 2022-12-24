@@ -1,9 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/// This is a copy of `futures::stream::futures_ordered` from `futures 0.3.6`, except that it uses
-/// `FuturesUnorderedX` which provides concurrency control. So we can manage more futures without
-/// too many activated at the same time.
+/// This is a copy of `futures::stream::futures_ordered` from `futures 0.3.6`,
+/// except that it uses `FuturesUnorderedX` which provides concurrency control.
+/// So we can manage more futures without too many activated at the same time.
 use crate::utils::stream::futures_unordered_x::FuturesUnorderedX;
 use futures::{
     ready,
@@ -141,7 +141,7 @@ impl<Fut: Future> Stream for FuturesOrderedX<Fut> {
                     } else {
                         this.queued_outputs.push(output)
                     }
-                }
+                },
                 None => return Poll::Ready(None),
             }
         }

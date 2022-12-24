@@ -9,9 +9,10 @@ use aptos_network::{
     protocols::network::{AppConfig, Event, NetworkEvents, NewNetworkEvents, RpcError},
     ProtocolId,
 };
-use aptos_storage_service_types::requests::StorageServiceRequest;
-use aptos_storage_service_types::responses::StorageServiceResponse;
-use aptos_storage_service_types::{Result, StorageServiceMessage};
+use aptos_storage_service_types::{
+    requests::StorageServiceRequest, responses::StorageServiceResponse, Result,
+    StorageServiceMessage,
+};
 use aptos_types::PeerId;
 use bytes::Bytes;
 use futures::{
@@ -36,8 +37,8 @@ pub fn network_endpoint_config(storage_config: StorageServiceConfig) -> AppConfi
 
 pub type NetworkRequest = (PeerId, ProtocolId, StorageServiceRequest, ResponseSender);
 
-/// A stream of requests from network. Each request also comes with a callback to
-/// send the response.
+/// A stream of requests from network. Each request also comes with a callback
+/// to send the response.
 pub struct StorageServiceNetworkEvents(BoxStream<'static, NetworkRequest>);
 
 impl NewNetworkEvents for StorageServiceNetworkEvents {
@@ -66,7 +67,7 @@ impl StorageServiceNetworkEvents {
             ) => {
                 let response_tx = ResponseSender::new(response_tx);
                 Some((peer_id, protocol_id, request, response_tx))
-            }
+            },
             // We don't use DirectSend and don't care about connection events.
             _ => None,
         }
@@ -82,7 +83,8 @@ impl Stream for StorageServiceNetworkEvents {
 }
 
 /// A channel for fulfilling a pending StorageService RPC request.
-/// Provides a more strongly typed interface around the raw RPC response channel.
+/// Provides a more strongly typed interface around the raw RPC response
+/// channel.
 pub struct ResponseSender {
     response_tx: oneshot::Sender<Result<Bytes, RpcError>>,
 }

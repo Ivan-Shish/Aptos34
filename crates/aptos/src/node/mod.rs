@@ -3,61 +3,63 @@
 
 pub mod analyze;
 
-use crate::common::types::{
-    ConfigSearchMode, OptionalPoolAddressArgs, PoolAddressArgs, PromptOptions, TransactionSummary,
-};
-use crate::common::utils::prompt_yes_with_override;
-use crate::config::GlobalConfig;
-use crate::node::analyze::analyze_validators::{AnalyzeValidators, ValidatorStats};
-use crate::node::analyze::fetch_metadata::FetchMetadata;
 use crate::{
     common::{
         types::{
-            CliCommand, CliError, CliResult, CliTypedResult, ProfileOptions, RestOptions,
-            TransactionOptions,
+            CliCommand, CliError, CliResult, CliTypedResult, ConfigSearchMode,
+            OptionalPoolAddressArgs, PoolAddressArgs, ProfileOptions, PromptOptions, RestOptions,
+            TransactionOptions, TransactionSummary,
         },
-        utils::read_from_file,
+        utils::{prompt_yes_with_override, read_from_file},
     },
+    config::GlobalConfig,
     genesis::git::from_yaml,
+    node::analyze::{
+        analyze_validators::{AnalyzeValidators, ValidatorStats},
+        fetch_metadata::FetchMetadata,
+    },
 };
-use aptos_backup_cli::coordinators::restore::{RestoreCoordinator, RestoreCoordinatorOpt};
-use aptos_backup_cli::metadata::cache::MetadataCacheOpt;
-use aptos_backup_cli::storage::command_adapter::{config::CommandAdapterConfig, CommandAdapter};
-use aptos_backup_cli::utils::{
-    ConcurrentDownloadsOpt, GlobalRestoreOpt, ReplayConcurrencyLevelOpt, RocksdbOpt,
+use aptos_backup_cli::{
+    coordinators::restore::{RestoreCoordinator, RestoreCoordinatorOpt},
+    metadata::cache::MetadataCacheOpt,
+    storage::command_adapter::{config::CommandAdapterConfig, CommandAdapter},
+    utils::{ConcurrentDownloadsOpt, GlobalRestoreOpt, ReplayConcurrencyLevelOpt, RocksdbOpt},
 };
 use aptos_cached_packages::aptos_stdlib;
 use aptos_config::config::NodeConfig;
-use aptos_crypto::bls12381::PublicKey;
-use aptos_crypto::{bls12381, x25519, ValidCryptoMaterialStringExt};
+use aptos_crypto::{bls12381, bls12381::PublicKey, x25519, ValidCryptoMaterialStringExt};
 use aptos_faucet::FaucetArgs;
 use aptos_genesis::config::{HostAndPort, OperatorConfiguration};
-use aptos_rest_client::aptos_api_types::VersionedEvent;
-use aptos_rest_client::{Client, State};
-use aptos_types::account_config::BlockResource;
-use aptos_types::chain_id::ChainId;
-use aptos_types::network_address::NetworkAddress;
-use aptos_types::on_chain_config::{ConfigurationResource, ConsensusScheme, ValidatorSet};
-use aptos_types::stake_pool::StakePool;
-use aptos_types::staking_contract::StakingContractStore;
-use aptos_types::validator_info::ValidatorInfo;
-use aptos_types::validator_performances::ValidatorPerformances;
-use aptos_types::vesting::VestingAdminStore;
-use aptos_types::{account_address::AccountAddress, account_config::CORE_CODE_ADDRESS};
+use aptos_rest_client::{aptos_api_types::VersionedEvent, Client, State};
+use aptos_types::{
+    account_address::AccountAddress,
+    account_config::{BlockResource, CORE_CODE_ADDRESS},
+    chain_id::ChainId,
+    network_address::NetworkAddress,
+    on_chain_config::{ConfigurationResource, ConsensusScheme, ValidatorSet},
+    stake_pool::StakePool,
+    staking_contract::StakingContractStore,
+    validator_info::ValidatorInfo,
+    validator_performances::ValidatorPerformances,
+    vesting::VestingAdminStore,
+};
 use async_trait::async_trait;
 use bcs::Result;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use clap::Parser;
 use hex::FromHex;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
+use rand::{rngs::StdRng, SeedableRng};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::{path::PathBuf, thread, time::Duration};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    path::PathBuf,
+    pin::Pin,
+    sync::Arc,
+    thread,
+    time::Duration,
+};
 use tokio::time::Instant;
 
 const SECS_TO_MICROSECS: u64 = 1_000_000;
@@ -108,7 +110,8 @@ impl NodeTool {
 
 #[derive(Parser)]
 pub struct OperatorConfigFileArgs {
-    /// Operator Configuration file, created from the `genesis set-validator-configuration` command
+    /// Operator Configuration file, created from the `genesis
+    /// set-validator-configuration` command
     #[clap(long, parse(from_os_str))]
     pub(crate) operator_config_file: Option<PathBuf>,
 }
@@ -288,7 +291,8 @@ pub struct StakePoolResult {
 
 /// Show the stake pool
 ///
-/// Retrieves the associated stake pool from the multiple types for the given owner address
+/// Retrieves the associated stake pool from the multiple types for the given
+/// owner address
 #[derive(Parser)]
 pub struct GetStakePool {
     /// The owner address of the stake pool
@@ -577,8 +581,8 @@ fn get_stake_pool_state(
 
 /// Register the current account as a validator node operator
 ///
-/// This will create a new stake pool for the given account.  The voter and operator fields will be
-/// defaulted to the stake pool account if not provided.
+/// This will create a new stake pool for the given account.  The voter and
+/// operator fields will be defaulted to the stake pool account if not provided.
 #[derive(Parser)]
 pub struct InitializeValidator {
     #[clap(flatten)]
@@ -624,7 +628,7 @@ impl CliCommand<TransactionSummary> for InitializeValidator {
                         "If specifying fullnode addresses, both host and public key are required."
                             .to_string(),
                     ))
-                }
+                },
             };
 
         self.txn_options
@@ -703,8 +707,9 @@ impl CliCommand<TransactionSummary> for JoinValidatorSet {
 
 /// Leave the validator set
 ///
-/// Leaving the validator set will require you to have unlocked and withdrawn all stake.  After this
-/// transaction is successful, you will leave the validator set in the next epoch.
+/// Leaving the validator set will require you to have unlocked and withdrawn
+/// all stake.  After this transaction is successful, you will leave the
+/// validator set in the next epoch.
 #[derive(Parser)]
 pub struct LeaveValidatorSet {
     #[clap(flatten)]
@@ -800,8 +805,8 @@ impl CliCommand<ValidatorConfigSummary> for ShowValidatorConfig {
 
 /// Show validator details of the validator set
 ///
-/// This will show information about the validators including their voting power, addresses, and
-/// public keys.
+/// This will show information about the validators including their voting
+/// power, addresses, and public keys.
 #[derive(Parser)]
 pub struct ShowValidatorSet {
     #[clap(flatten)]
@@ -1030,8 +1035,8 @@ const TESTNET_FOLDER: &str = "testnet";
 pub struct RunLocalTestnet {
     /// An overridable config template for the test node
     ///
-    /// If provided, the config will be used, and any needed configuration for the local testnet
-    /// will override the config's values
+    /// If provided, the config will be used, and any needed configuration for
+    /// the local testnet will override the config's values
     #[clap(long, parse(from_os_str))]
     config_path: Option<PathBuf>,
 
@@ -1049,15 +1054,17 @@ pub struct RunLocalTestnet {
 
     /// Clean the state and start with a new chain at genesis
     ///
-    /// This will wipe the aptosdb in `test-dir` to remove any incompatible changes, and start
-    /// the chain fresh.  Note, that you will need to publish the module again and distribute funds
-    /// from the faucet accordingly
+    /// This will wipe the aptosdb in `test-dir` to remove any incompatible
+    /// changes, and start the chain fresh.  Note, that you will need to
+    /// publish the module again and distribute funds from the faucet
+    /// accordingly
     #[clap(long)]
     force_restart: bool,
 
     /// Run a faucet alongside the node
     ///
-    /// Allows you to run a faucet alongside the node to create and fund accounts for testing
+    /// Allows you to run a faucet alongside the node to create and fund
+    /// accounts for testing
     #[clap(long)]
     with_faucet: bool,
 
@@ -1301,7 +1308,7 @@ impl CliCommand<TransactionSummary> for UpdateValidatorNetworkAddresses {
                         "If specifying fullnode addresses, both host and public key are required."
                             .to_string(),
                     ))
-                }
+                },
             };
 
         self.txn_options
@@ -1331,7 +1338,8 @@ pub struct AnalyzeValidatorPerformance {
     #[clap(long)]
     pub end_epoch: Option<i64>,
 
-    /// Analyze mode for the validator: [All, DetailedEpochTable, ValidatorHealthOverTime, NetworkHealthOverTime]
+    /// Analyze mode for the validator: [All, DetailedEpochTable,
+    /// ValidatorHealthOverTime, NetworkHealthOverTime]
     #[clap(arg_enum, long)]
     pub(crate) analyze_mode: AnalyzeMode,
 
@@ -1460,20 +1468,22 @@ impl CliCommand<()> for AnalyzeValidatorPerformance {
 
 /// Bootstrap AptosDB from a backup
 ///
-/// Enables users to load from a backup to catch their node's DB up to a known state.
+/// Enables users to load from a backup to catch their node's DB up to a known
+/// state.
 #[derive(Parser)]
 pub struct BootstrapDbFromBackup {
     /// Config file for the source backup
     ///
-    /// This file configures if we should use local files or cloud storage, and how to access
-    /// the backup.
+    /// This file configures if we should use local files or cloud storage, and
+    /// how to access the backup.
     #[clap(long, parse(from_os_str))]
     config_path: PathBuf,
 
     /// Target database directory
     ///
-    /// The directory to create the AptosDB with snapshots and transactions from the backup.
-    /// The data folder can later be used to start an Aptos node. e.g. /opt/aptos/data/db
+    /// The directory to create the AptosDB with snapshots and transactions from
+    /// the backup. The data folder can later be used to start an Aptos
+    /// node. e.g. /opt/aptos/data/db
     #[clap(long = "target-db-dir", parse(from_os_str))]
     pub db_dir: PathBuf,
 
@@ -1517,7 +1527,10 @@ impl CliCommand<()> for BootstrapDbFromBackup {
         // hack: get around this error, related to use of `async_trait`:
         //   error: higher-ranked lifetime error
         //   ...
-        //   = note: could not prove for<'r, 's> Pin<Box<impl futures::Future<Output = std::result::Result<(), CliError>>>>: CoerceUnsized<Pin<Box<(dyn futures::Future<Output = std::result::Result<(), CliError>> + std::marker::Send + 's)>>>
+        //   = note: could not prove for<'r, 's> Pin<Box<impl futures::Future<Output =
+        // std::result::Result<(), CliError>>>>: CoerceUnsized<Pin<Box<(dyn
+        // futures::Future<Output = std::result::Result<(), CliError>> +
+        // std::marker::Send + 's)>>>
         tokio::task::spawn_blocking(|| {
             let runtime = tokio::runtime::Runtime::new().unwrap();
             runtime.block_on(RestoreCoordinator::new(opt, global_opt, storage).run())
@@ -1530,7 +1543,8 @@ impl CliCommand<()> for BootstrapDbFromBackup {
 
 /// Show Epoch information
 ///
-/// Displays the current epoch, the epoch length, and the estimated time of the next epoch
+/// Displays the current epoch, the epoch length, and the estimated time of the
+/// next epoch
 #[derive(Parser)]
 pub struct ShowEpochInfo {
     #[clap(flatten)]

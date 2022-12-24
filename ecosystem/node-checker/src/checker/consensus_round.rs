@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{
@@ -11,8 +12,6 @@ use crate::{
 use anyhow::Result;
 use prometheus_parse::Scrape;
 use serde::{Deserialize, Serialize};
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 // TODO: When we have it, switch to using a crate that unifies metric names.
 // As it is now, this metric name could change and we'd never catch it here
@@ -56,19 +55,29 @@ impl ConsensusRoundChecker {
             Self::build_result(
                 "Consensus round went backwards!".to_string(),
                 0,
-                format!("Successfully pulled metrics from target node twice, but the second time the consensus round went backwards (from {} to {}", previous_round, latest_round),
+                format!(
+                    "Successfully pulled metrics from target node twice, but the second time the \
+                     consensus round went backwards (from {} to {}",
+                    previous_round, latest_round
+                ),
             )
         } else if latest_round == previous_round {
             Self::build_result(
                 "Consensus round is not progressing".to_string(),
                 50,
-                "Successfully pulled metrics from target node twice, but the consensus round isn't progressing.".to_string(),
+                "Successfully pulled metrics from target node twice, but the consensus round \
+                 isn't progressing."
+                    .to_string(),
             )
         } else {
             Self::build_result(
                 "Consensus round is increasing".to_string(),
                 100,
-                format!("Successfully pulled metrics from target node twice and saw that consensus round increased (from {} to {})", previous_round, latest_round),
+                format!(
+                    "Successfully pulled metrics from target node twice and saw that consensus \
+                     round increased (from {} to {})",
+                    previous_round, latest_round
+                ),
             )
         }
     }
@@ -98,7 +107,7 @@ impl Checker for ConsensusRoundChecker {
                         e
                     ),
                 )])
-            }
+            },
         };
 
         tokio::time::sleep(target_metrics_provider.config.common.check_delay()).await;
@@ -114,7 +123,7 @@ impl Checker for ConsensusRoundChecker {
                         e
                     ),
                 )])
-            }
+            },
         };
 
         let mut check_results = vec![];

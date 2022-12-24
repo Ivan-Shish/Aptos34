@@ -26,8 +26,9 @@ const MAX_DNS_NAME_SIZE: usize = 255;
 /// ## Overview
 ///
 /// Aptos `NetworkAddress` is a compact, efficient, self-describing and
-/// future-proof network address represented as a stack of protocols. Essentially
-/// libp2p's [multiaddr] but using [`bcs`] to describe the binary format.
+/// future-proof network address represented as a stack of protocols.
+/// Essentially libp2p's [multiaddr] but using [`bcs`] to describe the binary
+/// format.
 ///
 /// Most validators will advertise a network address like:
 ///
@@ -54,19 +55,19 @@ const MAX_DNS_NAME_SIZE: usize = 255;
 /// transport protocol to use; in this sense, the secure transport protocol is
 /// "pre-negotiated" by the dialier selecting which advertised protocol to use.
 ///
-/// Each network address is encoded with the length of the encoded `NetworkAddress`
-/// and then the serialized protocol slices to allow for transparent upgradeability.
-/// For example, if the current software cannot decode a `NetworkAddress` within
-/// a `Vec<NetworkAddress>` it can still decode the underlying `Vec<u8>` and
-/// retrieve the remaining `Vec<NetworkAddress>`.
+/// Each network address is encoded with the length of the encoded
+/// `NetworkAddress` and then the serialized protocol slices to allow for
+/// transparent upgradeability. For example, if the current software cannot
+/// decode a `NetworkAddress` within a `Vec<NetworkAddress>` it can still decode
+/// the underlying `Vec<u8>` and retrieve the remaining `Vec<NetworkAddress>`.
 ///
 /// ## Transport
 ///
 /// In addition, `NetworkAddress` is integrated with the AptosNet concept of a
 /// [`Transport`], which takes a `NetworkAddress` when dialing and peels off
 /// [`Protocol`]s to establish a connection and perform initial handshakes.
-/// Similarly, the [`Transport`] takes `NetworkAddress` to listen on, which tells
-/// it what protocols to expect on the socket.
+/// Similarly, the [`Transport`] takes `NetworkAddress` to listen on, which
+/// tells it what protocols to expect on the socket.
 ///
 /// ## Example
 ///
@@ -90,7 +91,7 @@ const MAX_DNS_NAME_SIZE: usize = 255;
 ///
 /// use aptos_types::network_address::NetworkAddress;
 /// use bcs;
-/// use std::{str::FromStr, convert::TryFrom};
+/// use std::{convert::TryFrom, str::FromStr};
 ///
 /// let addr = NetworkAddress::from_str("/ip4/10.0.0.16/tcp/80").unwrap();
 /// let actual_ser_addr = bcs::to_bytes(&addr).unwrap();
@@ -130,7 +131,8 @@ pub enum Protocol {
 /// 1. it is not an empty string
 /// 2. it is not larger than 255 bytes
 /// 3. it does not contain any forward slash '/' characters
-/// 4. it is valid ASCII (Unicode characters are not allowed to prevent phishing attacks)
+/// 4. it is valid ASCII (Unicode characters are not allowed to prevent phishing
+/// attacks)
 ///
 /// From the [DNS name syntax RFC](https://tools.ietf.org/html/rfc2181#page-13),
 /// the standard rules are:
@@ -332,7 +334,8 @@ impl NetworkAddress {
     /// let addr = addr.append_prod_protos(pubkey, 0);
     /// assert_eq!(
     ///     addr.to_string(),
-    ///     "/dns/example.com/tcp/6180/noise-ik/0x080e287879c918794170e258bfaddd75acac5b3e350419044655e4983a487120/handshake/0",
+    ///     "/dns/example.com/tcp/6180/noise-ik/\
+    ///      0x080e287879c918794170e258bfaddd75acac5b3e350419044655e4983a487120/handshake/0",
     /// );
     /// ```
     // TODO(philiphayes): use handshake version enum
@@ -367,7 +370,8 @@ impl NetworkAddress {
     /// use aptos_types::network_address::NetworkAddress;
     /// use std::str::FromStr;
     ///
-    /// let addr_str = "/ip4/1.2.3.4/tcp/6180/noise-ik/080e287879c918794170e258bfaddd75acac5b3e350419044655e4983a487120/handshake/0";
+    /// let addr_str = "/ip4/1.2.3.4/tcp/6180/noise-ik/\
+    ///                 080e287879c918794170e258bfaddd75acac5b3e350419044655e4983a487120/handshake/0";
     /// let addr = NetworkAddress::from_str(addr_str).unwrap();
     /// assert!(addr.is_aptosnet_addr());
     /// ```
@@ -392,9 +396,9 @@ impl NetworkAddress {
         })
     }
 
-    /// A temporary, hacky function to parse out the first `/noise-ik/<pubkey>` from
-    /// a `NetworkAddress`. We can remove this soon, when we move to the interim
-    /// "monolithic" transport model.
+    /// A temporary, hacky function to parse out the first `/noise-ik/<pubkey>`
+    /// from a `NetworkAddress`. We can remove this soon, when we move to
+    /// the interim "monolithic" transport model.
     pub fn find_noise_proto(&self) -> Option<x25519::PublicKey> {
         self.0.iter().find_map(|proto| match proto {
             Protocol::NoiseIK(pubkey) => Some(*pubkey),
@@ -425,8 +429,8 @@ impl NetworkAddress {
 }
 
 impl IntoIterator for NetworkAddress {
-    type Item = Protocol;
     type IntoIter = std::vec::IntoIter<Self::Item>;
+    type Item = Protocol;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -604,13 +608,15 @@ impl fmt::Display for Protocol {
             Dns6(domain) => write!(f, "/dns6/{}", domain),
             Tcp(port) => write!(f, "/tcp/{}", port),
             Memory(port) => write!(f, "/memory/{}", port),
-            NoiseIK(pubkey) => write!(
-                f,
-                "/noise-ik/{}",
-                pubkey
-                    .to_encoded_string()
-                    .expect("ValidCryptoMaterialStringExt::to_encoded_string is infallible")
-            ),
+            NoiseIK(pubkey) => {
+                write!(
+                    f,
+                    "/noise-ik/{}",
+                    pubkey
+                        .to_encoded_string()
+                        .expect("ValidCryptoMaterialStringExt::to_encoded_string is infallible")
+                )
+            },
             Handshake(version) => write!(f, "/handshake/{}", version),
         }
     }
@@ -946,30 +952,24 @@ mod test {
                     Handshake(123),
                 ],
             ),
-            (
-                "/ip6/::1/tcp/0",
-                vec![Ip6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), Tcp(0)],
-            ),
-            (
-                "/ip6/dead:beef::c0de/tcp/8080",
-                vec![
-                    Ip6(Ipv6Addr::new(0xdead, 0xbeef, 0, 0, 0, 0, 0, 0xc0de)),
-                    Tcp(8080),
-                ],
-            ),
-            (
-                "/dns/example.com/tcp/80",
-                vec![Dns(DnsName("example.com".to_owned())), Tcp(80)],
-            ),
-            (
-                &noise_addr_str,
-                vec![
-                    Dns(DnsName("example.com".to_owned())),
-                    Tcp(1234),
-                    NoiseIK(pubkey),
-                    Handshake(5),
-                ],
-            ),
+            ("/ip6/::1/tcp/0", vec![
+                Ip6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                Tcp(0),
+            ]),
+            ("/ip6/dead:beef::c0de/tcp/8080", vec![
+                Ip6(Ipv6Addr::new(0xDEAD, 0xBEEF, 0, 0, 0, 0, 0, 0xC0DE)),
+                Tcp(8080),
+            ]),
+            ("/dns/example.com/tcp/80", vec![
+                Dns(DnsName("example.com".to_owned())),
+                Tcp(80),
+            ]),
+            (&noise_addr_str, vec![
+                Dns(DnsName("example.com".to_owned())),
+                Tcp(1234),
+                NoiseIK(pubkey),
+                Handshake(5),
+            ]),
         ];
 
         for (addr_str, expected_address) in &test_cases {

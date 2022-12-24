@@ -4,28 +4,29 @@
 use crate::{assert_success, AptosPackageHooks};
 use aptos::move_tool::MemberId;
 use aptos_cached_packages::aptos_stdlib;
-use aptos_crypto::ed25519::Ed25519PrivateKey;
-use aptos_crypto::{PrivateKey, Uniform};
-use aptos_framework::natives::code::PackageMetadata;
-use aptos_framework::{BuildOptions, BuiltPackage};
+use aptos_crypto::{ed25519::Ed25519PrivateKey, PrivateKey, Uniform};
+use aptos_framework::{natives::code::PackageMetadata, BuildOptions, BuiltPackage};
 use aptos_gas::{AptosGasParameters, InitialGasSchedule, ToOnChainGasSchedule};
 use aptos_language_e2e_tests::{
     account::{Account, AccountData},
     executor::FakeExecutor,
 };
-use aptos_types::contract_event::ContractEvent;
-use aptos_types::on_chain_config::{FeatureFlag, GasScheduleV2};
-use aptos_types::transaction::TransactionOutput;
 use aptos_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
     account_config::AccountResource,
+    contract_event::ContractEvent,
+    on_chain_config::{FeatureFlag, GasScheduleV2},
     state_store::state_key::StateKey,
-    transaction::{EntryFunction, SignedTransaction, TransactionPayload, TransactionStatus},
+    transaction::{
+        EntryFunction, SignedTransaction, TransactionOutput, TransactionPayload, TransactionStatus,
+    },
 };
-use move_core_types::language_storage::{ResourceKey, StructTag, TypeTag};
-use move_core_types::move_resource::MoveStructType;
-use move_core_types::value::MoveValue;
+use move_core_types::{
+    language_storage::{ResourceKey, StructTag, TypeTag},
+    move_resource::MoveStructType,
+    value::MoveValue,
+};
 use move_package::package_hooks::register_package_hooks;
 use project_root::get_project_root;
 use rand::{
@@ -33,24 +34,26 @@ use rand::{
     Rng, SeedableRng,
 };
 use serde::{de::DeserializeOwned, Serialize};
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 /// A simple test harness for defining Move e2e tests.
 ///
-/// Tests defined via this harness typically live in the `<crate>/tests` directory, the standard
-/// Rust place for defining integration tests.
+/// Tests defined via this harness typically live in the `<crate>/tests`
+/// directory, the standard Rust place for defining integration tests.
 ///
-/// For defining a set of new tests around a specific area, you add a new Rust source
-/// `tested_area.rs` to the `tests` directory of your crate. You also will create a directory
-/// `tested_area.data` which lives side-by-side with the Rust source. In this directory, you
-/// place any number of Move packages you need for running the tests. In addition, the test
-/// infrastructure will place baseline (golden) files in the `tested_area.data` using the `.exp`
-/// (expected) ending.  For examples, see e.g. the `tests/code_publishing.rs` test in this crate.
+/// For defining a set of new tests around a specific area, you add a new Rust
+/// source `tested_area.rs` to the `tests` directory of your crate. You also
+/// will create a directory `tested_area.data` which lives side-by-side with the
+/// Rust source. In this directory, you place any number of Move packages you
+/// need for running the tests. In addition, the test infrastructure will place
+/// baseline (golden) files in the `tested_area.data` using the `.exp`
+/// (expected) ending.  For examples, see e.g. the `tests/code_publishing.rs`
+/// test in this crate.
 ///
-/// NOTE: This harness currently is a wrapper around existing legacy e2e testing infra. We
-/// eventually plan to retire the legacy code, and are rather keen to know what of the legacy
-/// test infra we want to maintain and also which existing tests to preserve.
+/// NOTE: This harness currently is a wrapper around existing legacy e2e testing
+/// infra. We eventually plan to retire the legacy code, and are rather keen to
+/// know what of the legacy test infra we want to maintain and also which
+/// existing tests to preserve.
 pub struct MoveHarness {
     /// The executor being used.
     pub executor: FakeExecutor,
@@ -101,8 +104,9 @@ impl MoveHarness {
         }
     }
 
-    /// Creates an account for the given static address. This address needs to be static so
-    /// we can load regular Move code to there without need to rewrite code addresses.
+    /// Creates an account for the given static address. This address needs to
+    /// be static so we can load regular Move code to there without need to
+    /// rewrite code addresses.
     pub fn new_account_at(&mut self, addr: AccountAddress) -> Account {
         // The below will use the genesis keypair but that should be fine.
         let acc = Account::new_genesis_account(addr);
@@ -161,7 +165,8 @@ impl MoveHarness {
         self.run_raw(txn).status().to_owned()
     }
 
-    /// Runs a signed transaction. On success, applies the write set and return events
+    /// Runs a signed transaction. On success, applies the write set and return
+    /// events
     pub fn run_with_events(
         &mut self,
         txn: SignedTransaction,
@@ -204,8 +209,8 @@ impl MoveHarness {
             .sign()
     }
 
-    /// Runs a transaction, based on provided payload. If the transaction succeeds, any generated
-    /// writeset will be applied to storage.
+    /// Runs a transaction, based on provided payload. If the transaction
+    /// succeeds, any generated writeset will be applied to storage.
     pub fn run_transaction_payload(
         &mut self,
         account: &Account,
@@ -223,8 +228,8 @@ impl MoveHarness {
         output.gas_used()
     }
 
-    /// Creates a transaction which runs the specified entry point `fun`. Arguments need to be
-    /// provided in bcs-serialized form.
+    /// Creates a transaction which runs the specified entry point `fun`.
+    /// Arguments need to be provided in bcs-serialized form.
     pub fn create_entry_function(
         &mut self,
         account: &Account,
@@ -247,7 +252,8 @@ impl MoveHarness {
         )
     }
 
-    /// Run the specified entry point `fun`. Arguments need to be provided in bcs-serialized form.
+    /// Run the specified entry point `fun`. Arguments need to be provided in
+    /// bcs-serialized form.
     pub fn run_entry_function(
         &mut self,
         account: &Account,
@@ -259,10 +265,11 @@ impl MoveHarness {
         self.run(txn)
     }
 
-    /// Creates a transaction which publishes the Move Package found at the given path on behalf
-    /// of the given account.
+    /// Creates a transaction which publishes the Move Package found at the
+    /// given path on behalf of the given account.
     ///
-    /// The passed function allows to manipulate the generated metadata for testing purposes.
+    /// The passed function allows to manipulate the generated metadata for
+    /// testing purposes.
     pub fn create_publish_package(
         &mut self,
         account: &Account,
@@ -310,7 +317,8 @@ impl MoveHarness {
         self.run(txn)
     }
 
-    /// Runs transaction which publishes the Move Package, and alllows to patch the metadata
+    /// Runs transaction which publishes the Move Package, and alllows to patch
+    /// the metadata
     pub fn publish_package_with_patcher(
         &mut self,
         account: &Account,
@@ -398,18 +406,14 @@ impl MoveHarness {
         let acc = self.aptos_framework_account();
         let enabled = enabled.into_iter().map(|f| f as u64).collect::<Vec<_>>();
         let disabled = disabled.into_iter().map(|f| f as u64).collect::<Vec<_>>();
-        self.executor.exec(
-            "features",
-            "change_feature_flags",
-            vec![],
-            vec![
+        self.executor
+            .exec("features", "change_feature_flags", vec![], vec![
                 MoveValue::Signer(*acc.address())
                     .simple_serialize()
                     .unwrap(),
                 bcs::to_bytes(&enabled).unwrap(),
                 bcs::to_bytes(&disabled).unwrap(),
-            ],
-        );
+            ]);
     }
 
     /// Increase maximal transaction size.
@@ -434,19 +438,15 @@ impl MoveHarness {
             entries,
         };
         let schedule_bytes = bcs::to_bytes(&gas_schedule).expect("bcs");
-        self.executor.exec(
-            "gas_schedule",
-            "set_gas_schedule",
-            vec![],
-            vec![
+        self.executor
+            .exec("gas_schedule", "set_gas_schedule", vec![], vec![
                 MoveValue::Signer(AccountAddress::ONE)
                     .simple_serialize()
                     .unwrap(),
                 MoveValue::vector_u8(schedule_bytes)
                     .simple_serialize()
                     .unwrap(),
-            ],
-        );
+            ]);
     }
 
     pub fn sequence_number(&self, addr: &AccountAddress) -> u64 {
@@ -456,8 +456,9 @@ impl MoveHarness {
     }
 }
 
-/// Enables golden files for the given harness. The golden file will be stored side-by-side
-/// with the data directory of a Rust source, named after the test function.
+/// Enables golden files for the given harness. The golden file will be stored
+/// side-by-side with the data directory of a Rust source, named after the test
+/// function.
 #[macro_export]
 macro_rules! enable_golden {
     ($h:expr) => {
@@ -472,7 +473,8 @@ impl MoveHarness {
     /// Internal function to support the `enable_golden` macro.
     pub fn internal_set_golden(&mut self, file_macro_value: &str, function_macro_value: &str) {
         // The result of `std::file!` gives us a name relative to the project root,
-        // so we need to add that to it. We also want to replace the extension `.rs` with `.data`.
+        // so we need to add that to it. We also want to replace the extension `.rs`
+        // with `.data`.
         let mut path = get_project_root().unwrap().join(file_macro_value);
         path.set_extension("data");
         // The result of the `current_function` macro gives us the fully qualified

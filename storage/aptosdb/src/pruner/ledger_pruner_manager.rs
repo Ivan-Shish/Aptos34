@@ -1,16 +1,16 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::metrics::{PRUNER_BATCH_SIZE, PRUNER_WINDOW};
-
+use crate::{
+    metrics::{PRUNER_BATCH_SIZE, PRUNER_WINDOW},
+    pruner::{
+        db_pruner::DBPruner, ledger_pruner_worker::LedgerPrunerWorker,
+        ledger_store::ledger_store_pruner::LedgerPruner, pruner_manager::PrunerManager,
+    },
+    pruner_utils, StateStore,
+};
 use aptos_config::config::LedgerPrunerConfig;
 use aptos_infallible::Mutex;
-
-use crate::pruner::db_pruner::DBPruner;
-use crate::pruner::ledger_pruner_worker::LedgerPrunerWorker;
-use crate::pruner::ledger_store::ledger_store_pruner::LedgerPruner;
-use crate::pruner::pruner_manager::PrunerManager;
-use crate::{pruner_utils, StateStore};
 use aptos_schemadb::DB;
 use aptos_types::transaction::Version;
 use std::{sync::Arc, thread::JoinHandle};
@@ -19,20 +19,22 @@ use std::{sync::Arc, thread::JoinHandle};
 #[derive(Debug)]
 pub(crate) struct LedgerPrunerManager {
     pruner_enabled: bool,
-    /// DB version window, which dictates how many version of other stores like transaction, ledger
-    /// info, events etc to keep.
+    /// DB version window, which dictates how many version of other stores like
+    /// transaction, ledger info, events etc to keep.
     prune_window: Version,
-    /// Ledger pruner. Is always initialized regardless if the pruner is enabled to keep tracks
-    /// of the min_readable_version.
+    /// Ledger pruner. Is always initialized regardless if the pruner is enabled
+    /// to keep tracks of the min_readable_version.
     pruner: Arc<LedgerPruner>,
     /// Wrapper class of the ledger pruner.
     pruner_worker: Arc<LedgerPrunerWorker>,
-    /// The worker thread handle for ledger_pruner, created upon Pruner instance construction and
-    /// joined upon its destruction. It is `None` when the ledger pruner is not enabled or it only
-    /// becomes `None` after joined in `drop()`.
+    /// The worker thread handle for ledger_pruner, created upon Pruner instance
+    /// construction and joined upon its destruction. It is `None` when the
+    /// ledger pruner is not enabled or it only becomes `None` after joined
+    /// in `drop()`.
     worker_thread: Option<JoinHandle<()>>,
-    /// We send a batch of version to the underlying pruners for performance reason. This tracks the
-    /// last version we sent to the pruners. Will only be set if the pruner is enabled.
+    /// We send a batch of version to the underlying pruners for performance
+    /// reason. This tracks the last version we sent to the pruners. Will
+    /// only be set if the pruner is enabled.
     pub(crate) last_version_sent_to_pruner: Arc<Mutex<Version>>,
     /// Ideal batch size of the versions to be sent to the ledger pruner
     pruning_batch_size: usize,
@@ -78,8 +80,8 @@ impl PrunerManager for LedgerPrunerManager {
     fn maybe_set_pruner_target_db_version(&self, latest_version: Version) {
         *self.latest_version.lock() = latest_version;
 
-        // Only wake up the ledger pruner if there are `ledger_pruner_pruning_batch_size` pending
-        // versions.
+        // Only wake up the ledger pruner if there are
+        // `ledger_pruner_pruning_batch_size` pending versions.
         if self.pruner_enabled
             && latest_version
                 >= *self.last_version_sent_to_pruner.as_ref().lock()

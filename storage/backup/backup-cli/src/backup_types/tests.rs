@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::ReplayConcurrencyLevelOpt;
 use crate::{
     backup_types::{
         state_snapshot::{
@@ -17,7 +16,7 @@ use crate::{
     utils::{
         backup_service_client::BackupServiceClient, test_utils::start_local_backup_service,
         ConcurrentDownloadsOpt, GlobalBackupOpt, GlobalRestoreOpt, GlobalRestoreOptions,
-        RocksdbOpt, TrustedWaypointOpt,
+        ReplayConcurrencyLevelOpt, RocksdbOpt, TrustedWaypointOpt,
     },
 };
 use aptos_db::AptosDB;
@@ -137,7 +136,7 @@ fn test_end_to_end_impl(d: TestData) {
                 },
                 global_restore_opt.clone(),
                 Arc::clone(&store),
-                None, /* epoch_history */
+                None, // epoch_history
             )
             .run(),
         )
@@ -153,7 +152,7 @@ fn test_end_to_end_impl(d: TestData) {
             },
             global_restore_opt,
             store,
-            None, /* epoch_history */
+            None, // epoch_history
             vec![],
         )
         .run(),
@@ -167,7 +166,7 @@ fn test_end_to_end_impl(d: TestData) {
             d.txn_start_ver,
             num_txns_to_backup,
             d.target_ver,
-            true /* fetch_events */
+            true // fetch_events
         )
         .unwrap(),
         tgt_db
@@ -175,7 +174,7 @@ fn test_end_to_end_impl(d: TestData) {
                 d.txn_start_ver,
                 num_txns_to_backup,
                 d.target_ver,
-                true /* fetch_events */
+                true // fetch_events
             )
             .unwrap()
     );

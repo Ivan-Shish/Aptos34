@@ -40,7 +40,8 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// Returns a flattened list of signatures. If signature is a Ed25519Signature, then return a vector of 1 signature
+    /// Returns a flattened list of signatures. If signature is a
+    /// Ed25519Signature, then return a vector of 1 signature
     pub fn from_user_transaction(
         s: &APITransactionSignature,
         sender: &String,
@@ -58,7 +59,7 @@ impl Signature {
                     0,
                     None,
                 )])
-            }
+            },
             APITransactionSignature::MultiEd25519Signature(sig) => Ok(Self::parse_multi_signature(
                 sig,
                 sender,
@@ -82,10 +83,10 @@ impl Signature {
             APITransactionSignature::Ed25519Signature(_) => String::from("ed25519_signature"),
             APITransactionSignature::MultiEd25519Signature(_) => {
                 String::from("multi_ed25519_signature")
-            }
+            },
             APITransactionSignature::MultiAgentSignature(_) => {
                 String::from("multi_agent_signature")
-            }
+            },
         }
     }
 
@@ -202,15 +203,17 @@ impl Signature {
         override_address: Option<&String>,
     ) -> Vec<Self> {
         match s {
-            APIAccountSignature::Ed25519Signature(sig) => vec![Self::parse_single_signature(
-                sig,
-                sender,
-                transaction_version,
-                transaction_block_height,
-                is_sender_primary,
-                multi_agent_index,
-                override_address,
-            )],
+            APIAccountSignature::Ed25519Signature(sig) => {
+                vec![Self::parse_single_signature(
+                    sig,
+                    sender,
+                    transaction_version,
+                    transaction_block_height,
+                    is_sender_primary,
+                    multi_agent_index,
+                    override_address,
+                )]
+            },
             APIAccountSignature::MultiEd25519Signature(sig) => Self::parse_multi_signature(
                 sig,
                 sender,

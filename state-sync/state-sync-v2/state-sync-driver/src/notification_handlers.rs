@@ -203,7 +203,8 @@ impl ConsensusNotificationHandler {
         let sync_target_version = sync_notification.target.ledger_info().version();
         let latest_committed_version = latest_synced_ledger_info.ledger_info().version();
 
-        // If the target version is old, return an error to consensus (something is wrong!)
+        // If the target version is old, return an error to consensus (something is
+        // wrong!)
         if sync_target_version < latest_committed_version {
             let error = Err(Error::OldSyncRequest(
                 sync_target_version,
@@ -400,6 +401,7 @@ impl<M: MempoolNotificationSender> MempoolNotificationHandler<M> {
             mempool_notification_sender,
         }
     }
+
     /// Notifies mempool that transactions have been committed.
     pub async fn notify_mempool_of_committed_transactions(
         &mut self,

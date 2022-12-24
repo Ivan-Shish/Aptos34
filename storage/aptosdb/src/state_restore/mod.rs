@@ -6,16 +6,15 @@ use anyhow::Result;
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_infallible::Mutex;
 use aptos_jellyfish_merkle::{
-    restore::JellyfishMerkleRestore,
-    IO_POOL, {Key, TreeReader, TreeWriter, Value},
+    restore::JellyfishMerkleRestore, Key, TreeReader, TreeWriter, Value, IO_POOL,
 };
 use aptos_storage_interface::StateSnapshotReceiver;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
-use aptos_types::{proof::SparseMerkleRangeProof, transaction::Version};
+use aptos_types::{
+    proof::SparseMerkleRangeProof, state_store::state_storage_usage::StateStorageUsage,
+    transaction::Version,
+};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::hash::Hash;
-use std::sync::Arc;
+use std::{collections::HashMap, hash::Hash, sync::Arc};
 
 #[cfg(test)]
 mod restore_test;
@@ -195,8 +194,8 @@ impl<K: Key + CryptoHash + Hash + Eq, V: Value> StateSnapshotReceiver<K, V>
         let _timer = OTHER_TIMERS_SECONDS
             .with_label_values(&["state_snapshot_add_chunk"])
             .start_timer();
-        // Write KV out first because we are likely to resume according to the rightmost key in the
-        // tree after crashing.
+        // Write KV out first because we are likely to resume according to the rightmost
+        // key in the tree after crashing.
         let (r1, r2) = IO_POOL.join(
             || {
                 let _timer = OTHER_TIMERS_SECONDS

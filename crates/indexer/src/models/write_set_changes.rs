@@ -27,7 +27,8 @@ pub struct WriteSetChange {
     pub address: String,
 }
 
-/// Need a separate struct for queryable because we don't want to define the inserted_at column (letting DB fill)
+/// Need a separate struct for queryable because we don't want to define the
+/// inserted_at column (letting DB fill)
 #[derive(Associations, Debug, Deserialize, Identifiable, Queryable, Serialize)]
 #[diesel(belongs_to(TransactionQuery, foreign_key = transaction_version))]
 #[diesel(primary_key(transaction_version, index))]

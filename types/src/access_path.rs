@@ -19,9 +19,10 @@
 //! A a;
 //! C c;
 //!
-//! and the data belongs to Alice. Then an access to `a.b.mymap` would be translated to an access
-//! to an entry in key-value store whose key is `<Alice>/a/b/mymap`. In the same way, the access to
-//! `c.mylist` would need to query `<Alice>/c/mylist`.
+//! and the data belongs to Alice. Then an access to `a.b.mymap` would be
+//! translated to an access to an entry in key-value store whose key is
+//! `<Alice>/a/b/mymap`. In the same way, the access to `c.mylist` would need to
+//! query `<Alice>/c/mylist`.
 //!
 //! So an account stores its data in a directory structure, for example:
 //!   <Alice>/balance:   10
@@ -29,11 +30,13 @@
 //!   <Alice>/a/myint:   20
 //!   <Alice>/c/mylist:  [3, 5, 7, 9]
 //!
-//! If someone needs to query the map above and find out what value associated with "Bob" is,
-//! `address` will be set to Alice and `path` will be set to "/a/b/mymap/Bob".
+//! If someone needs to query the map above and find out what value associated
+//! with "Bob" is, `address` will be set to Alice and `path` will be set to
+//! "/a/b/mymap/Bob".
 //!
-//! On the other hand, if you want to query only <Alice>/a/*, `address` will be set to Alice and
-//! `path` will be set to "/a" and use the `get_prefix()` method from statedb
+//! On the other hand, if you want to query only <Alice>/a/*, `address` will be
+//! set to Alice and `path` will be set to "/a" and use the `get_prefix()`
+//! method from statedb
 
 use crate::{account_address::AccountAddress, state_store::state_key::StateKey};
 use anyhow::{Error, Result};
@@ -67,8 +70,8 @@ impl AccessPath {
         bcs::to_bytes(&Path::Resource(tag)).expect("Unexpected serialization error")
     }
 
-    /// Convert Accesses into a byte offset which would be used by the storage layer to resolve
-    /// where fields are stored.
+    /// Convert Accesses into a byte offset which would be used by the storage
+    /// layer to resolve where fields are stored.
     pub fn resource_access_path(key: ResourceKey) -> AccessPath {
         let path = AccessPath::resource_path_vec(key.type_);
         AccessPath {
@@ -92,8 +95,8 @@ impl AccessPath {
         bcs::from_bytes::<Path>(&self.path).expect("Unexpected serialization error")
     }
 
-    /// Extract a StructTag from `self`. Returns Some if this is a resource access
-    /// path and None otherwise
+    /// Extract a StructTag from `self`. Returns Some if this is a resource
+    /// access path and None otherwise
     pub fn get_struct_tag(&self) -> Option<StructTag> {
         match self.get_path() {
             Path::Resource(s) => Some(s),
@@ -157,6 +160,7 @@ impl From<&ModuleId> for AccessPath {
 
 impl TryFrom<StateKey> for AccessPath {
     type Error = Error;
+
     fn try_from(state_key: StateKey) -> Result<Self> {
         match state_key {
             StateKey::AccessPath(access_path) => Ok(access_path),

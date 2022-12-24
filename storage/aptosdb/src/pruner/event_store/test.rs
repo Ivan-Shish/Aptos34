@@ -77,7 +77,8 @@ fn verify_event_store_pruner(events: Vec<Vec<ContractEvent>>) {
             user_pruning_window_offset: 0,
         },
     );
-    // start pruning events batches of size 2 and verify transactions have been pruned from DB
+    // start pruning events batches of size 2 and verify transactions have been
+    // pruned from DB
     for i in (0..=num_versions).step_by(2) {
         pruner
             .wake_and_wait_pruner(i as u64 /* latest_version */)

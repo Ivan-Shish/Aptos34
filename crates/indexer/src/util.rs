@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // use crate::models::property_map::PropertyMap;
+use crate::models::property_map::PropertyMap;
 use aptos_api_types::Address;
 use bigdecimal::{BigDecimal, Signed, ToPrimitive, Zero};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use sha2::Digest;
 
-use crate::models::property_map::PropertyMap;
-
 // 9999-12-31 23:59:59, this is the max supported by Google BigQuery
 pub const MAX_TIMESTAMP_SECS: i64 = 253_402_300_799;
 
-/// Standardizes all addresses and table handles to be length 66 (0x-64 length hash)
+/// Standardizes all addresses and table handles to be length 66 (0x-64 length
+/// hash)
 pub fn standardize_address(handle: &str) -> String {
     format!("0x{:0>64}", &handle[2..])
 }
@@ -69,19 +69,19 @@ fn recurse_remove_null_bytes_from_json(sub_json: &mut Value) {
             for item in array {
                 recurse_remove_null_bytes_from_json(item);
             }
-        }
+        },
         Value::Object(object) => {
             for (_key, value) in object {
                 recurse_remove_null_bytes_from_json(value);
             }
-        }
+        },
         Value::String(str) => {
             if !str.is_empty() {
                 let replacement = string_null_byte_replacement(str);
                 *str = replacement;
             }
-        }
-        _ => {}
+        },
+        _ => {},
     }
 }
 
@@ -89,7 +89,8 @@ fn string_null_byte_replacement(value: &mut str) -> String {
     value.replace('\u{0000}', "").replace("\\u0000", "")
 }
 
-/// convert the bcs encoded inner value of property_map to its original value in string format
+/// convert the bcs encoded inner value of property_map to its original value in
+/// string format
 pub fn deserialize_property_map_from_bcs_hexstring<'de, D>(
     deserializer: D,
 ) -> core::result::Result<Value, D::Error>
@@ -98,8 +99,10 @@ where
 {
     let s = serde_json::Value::deserialize(deserializer)?;
     // iterate the json string to convert key-value pair
-    // assume the format of {“map”: {“data”: [{“key”: “Yuri”, “value”: {“type”: “String”, “value”: “0x42656e”}}, {“key”: “Tarded”, “value”: {“type”: “String”, “value”: “0x446f766572"}}]}}
-    // if successfully parsing we return the decoded property_map string otherwise return the original string
+    // assume the format of {“map”: {“data”: [{“key”: “Yuri”, “value”: {“type”:
+    // “String”, “value”: “0x42656e”}}, {“key”: “Tarded”, “value”: {“type”:
+    // “String”, “value”: “0x446f766572"}}]}} if successfully parsing we return
+    // the decoded property_map string otherwise return the original string
     Ok(convert_bcs_propertymap(s.clone()).unwrap_or(s))
 }
 
@@ -129,7 +132,8 @@ pub fn convert_bcs_hex(typ: String, value: String) -> Option<String> {
     .ok()
 }
 
-/// Convert the json serialized PropertyMap's inner BCS fields to their original value in string format
+/// Convert the json serialized PropertyMap's inner BCS fields to their original
+/// value in string format
 pub fn convert_bcs_propertymap(s: Value) -> Option<Value> {
     match PropertyMap::from_bcs_encode_str(s) {
         Some(e) => match serde_json::to_value(&e) {

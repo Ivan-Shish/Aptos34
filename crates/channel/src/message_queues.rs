@@ -18,7 +18,8 @@ const POPS_PER_GC: u32 = 50;
 ///
 /// With LIFO, oldest messages are dropped.
 /// With FIFO, newest messages are dropped.
-/// With KLAST, oldest messages are dropped, but remaining are retrieved in FIFO order
+/// With KLAST, oldest messages are dropped, but remaining are retrieved in FIFO
+/// order
 #[derive(Clone, Copy, Debug)]
 pub enum QueueStyle {
     FIFO,
@@ -108,7 +109,8 @@ impl<K: Eq + Hash + Clone, T> PerKeyQueue<K, T> {
 
     /// push a message to the appropriate queue in per_key_queue
     /// add the key to round_robin_queue if it didnt already exist.
-    /// Returns Some(T) if the new or an existing element was dropped. Returns None otherwise.
+    /// Returns Some(T) if the new or an existing element was dropped. Returns
+    /// None otherwise.
     pub(crate) fn push(&mut self, key: K, message: T) -> Option<T> {
         if let Some(c) = self.counters.as_ref() {
             c.with_label_values(&["enqueued"]).inc();
@@ -143,7 +145,7 @@ impl<K: Eq + Hash + Clone, T> PerKeyQueue<K, T> {
                     let oldest = key_message_queue.pop_front();
                     key_message_queue.push_back(message);
                     oldest
-                }
+                },
             }
         } else {
             key_message_queue.push_back(message);
@@ -158,7 +160,7 @@ impl<K: Eq + Hash + Clone, T> PerKeyQueue<K, T> {
             Some(v) => v,
             _ => {
                 return None;
-            }
+            },
         };
 
         let (message, is_q_empty) = self.pop_from_key_queue(&key);
@@ -205,7 +207,8 @@ impl<K: Eq + Hash + Clone, T> PerKeyQueue<K, T> {
         self.per_key_queue.retain(|_key, queue| !queue.is_empty());
     }
 
-    /// Clears all the pending messages and cleans up the queue from the previous metadata.
+    /// Clears all the pending messages and cleans up the queue from the
+    /// previous metadata.
     pub(crate) fn clear(&mut self) {
         self.per_key_queue.clear();
         self.round_robin_queue.clear();

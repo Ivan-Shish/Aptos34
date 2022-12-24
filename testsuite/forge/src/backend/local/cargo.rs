@@ -47,13 +47,14 @@ pub fn get_aptos_node_binary_from_worktree() -> Result<(String, PathBuf)> {
     Ok((revision, bin_path))
 }
 
-/// This function will attempt to build the aptos-node binary at an arbitrary revision.
-/// Using the `target/forge` as a working directory it will do the following:
-///     1. Look for a binary named `aptos-node--<revision>`, if it already exists return it
-///     2. If the binary doesn't exist check out the revision to `target/forge/revision` by doing
-///        `git archive --format=tar <revision> | tar x`
-///     3. Using the `target/forge/target` directory as a cargo artifact directory, build the
-///        binary and then move it to `target/forge/aptos-node--<revision>`
+/// This function will attempt to build the aptos-node binary at an arbitrary
+/// revision. Using the `target/forge` as a working directory it will do the
+/// following:     1. Look for a binary named `aptos-node--<revision>`, if it
+/// already exists return it     2. If the binary doesn't exist check out the
+/// revision to `target/forge/revision` by doing        `git archive
+/// --format=tar <revision> | tar x`     3. Using the `target/forge/target`
+/// directory as a cargo artifact directory, build the        binary and then
+/// move it to `target/forge/aptos-node--<revision>`
 pub fn get_aptos_node_binary_at_revision(revision: &str) -> Result<(String, PathBuf)> {
     let metadata = metadata()?;
     let forge_directory = metadata.target_directory.join("forge");
@@ -110,8 +111,9 @@ fn git_is_worktree_dirty() -> Result<bool> {
         .map(|output| !output.stdout.is_empty())
 }
 
-/// Attempt to query the local git repository's remotes for the one that points to the upstream
-/// aptos-labs/aptos-core repository, falling back to "origin" if unable to locate the remote
+/// Attempt to query the local git repository's remotes for the one that points
+/// to the upstream aptos-labs/aptos-core repository, falling back to "origin"
+/// if unable to locate the remote
 pub fn git_get_upstream_remote() -> Result<String> {
     let output = Command::new("sh")
         .arg("-c")
@@ -199,7 +201,8 @@ where
         io::stderr().write_all(&output.stderr)?;
 
         bail!(
-            "Failed to build aptos-node: 'cd {} && CARGO_TARGET_DIR={} cargo build --bin=aptos-node",
+            "Failed to build aptos-node: 'cd {} && CARGO_TARGET_DIR={} cargo build \
+             --bin=aptos-node",
             directory.display(),
             target_directory.display(),
         );

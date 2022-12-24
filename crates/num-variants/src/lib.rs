@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! Add an associated constant to an enum describing the number of variants it has.
+//! Add an associated constant to an enum describing the number of variants it
+//! has.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
@@ -17,8 +18,8 @@ use syn::{
 
 /// Derives an associated constant with the number of variants this enum has.
 ///
-/// The default constant name is `NUM_VARIANTS`. This can be customized with `#[num_variants =
-/// "FOO")]`.
+/// The default constant name is `NUM_VARIANTS`. This can be customized with
+/// `#[num_variants = "FOO")]`.
 #[proc_macro_derive(NumVariants, attributes(num_variants))]
 pub fn derive_num_variants(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

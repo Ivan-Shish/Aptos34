@@ -1,23 +1,21 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::metrics::ExecutingComponent;
-use crate::utils::OutputFallbackHandler;
 use crate::{
     driver::DriverConfiguration,
     error::Error,
     metrics,
+    metrics::ExecutingComponent,
     notification_handlers::ConsensusSyncRequest,
     storage_synchronizer::StorageSynchronizerInterface,
     utils,
-    utils::{SpeculativeStreamState, PENDING_DATA_LOG_FREQ_SECS},
+    utils::{OutputFallbackHandler, SpeculativeStreamState, PENDING_DATA_LOG_FREQ_SECS},
 };
 use aptos_config::config::ContinuousSyncingMode;
-use aptos_data_streaming_service::streaming_client::NotificationAndFeedback;
 use aptos_data_streaming_service::{
     data_notification::{DataNotification, DataPayload, NotificationId},
     data_stream::DataStreamListener,
-    streaming_client::{DataStreamingClient, Epoch, NotificationFeedback},
+    streaming_client::{DataStreamingClient, Epoch, NotificationAndFeedback, NotificationFeedback},
 };
 use aptos_infallible::Mutex;
 use aptos_logger::{prelude::*, sample, sample::SampleRate};
@@ -98,7 +96,8 @@ impl<
         }
     }
 
-    /// Initializes an active data stream so that we can begin to process notifications
+    /// Initializes an active data stream so that we can begin to process
+    /// notifications
     async fn initialize_active_data_stream(
         &mut self,
         consensus_sync_request: Arc<Mutex<Option<ConsensusSyncRequest>>>,
@@ -129,7 +128,7 @@ impl<
                         sync_request_target,
                     )
                     .await?
-            }
+            },
             ContinuousSyncingMode::ExecuteTransactions => {
                 self.streaming_client
                     .continuously_stream_transactions(
@@ -139,7 +138,7 @@ impl<
                         sync_request_target,
                     )
                     .await?
-            }
+            },
             ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs => {
                 if self.output_fallback_handler.in_fallback_mode() {
                     metrics::set_gauge(
@@ -169,7 +168,7 @@ impl<
                         )
                         .await?
                 }
-            }
+            },
         };
         self.speculative_stream_state = Some(SpeculativeStreamState::new(
             highest_epoch_state,
@@ -227,7 +226,7 @@ impl<
                         payload_start_version,
                     )
                     .await?;
-                }
+                },
                 DataPayload::ContinuousTransactionsWithProof(
                     ledger_info_with_sigs,
                     transactions_with_proof,
@@ -242,12 +241,12 @@ impl<
                         payload_start_version,
                     )
                     .await?;
-                }
+                },
                 _ => {
                     return self
                         .handle_end_of_stream_or_invalid_payload(data_notification)
                         .await;
-                }
+                },
             }
         }
 
@@ -312,7 +311,7 @@ impl<
                         "Did not receive transaction outputs with proof!".into(),
                     ));
                 }
-            }
+            },
             ContinuousSyncingMode::ExecuteTransactions => {
                 if let Some(transaction_list_with_proof) = transaction_list_with_proof {
                     utils::execute_transactions(
@@ -333,7 +332,7 @@ impl<
                         "Did not receive transactions with proof!".into(),
                     ));
                 }
-            }
+            },
             ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs => {
                 if let Some(transaction_list_with_proof) = transaction_list_with_proof {
                     utils::execute_transactions(
@@ -364,7 +363,7 @@ impl<
                         "No transactions or output with proof was provided!".into(),
                     ));
                 }
-            }
+            },
         };
         let synced_version = payload_start_version
             .checked_add(num_transactions_or_outputs as u64)
@@ -395,7 +394,8 @@ impl<
                 )))
                 .await?;
                 Err(Error::VerificationError(format!(
-                    "The payload start version does not match the expected version! Start: {:?}, expected: {:?}",
+                    "The payload start version does not match the expected version! Start: {:?}, \
+                     expected: {:?}",
                     payload_start_version, expected_version
                 )))
             } else {
@@ -413,8 +413,9 @@ impl<
         }
     }
 
-    /// Verifies the given ledger info to be used as a transaction or transaction
-    /// output chunk proof. If verification fails, the active stream is terminated.
+    /// Verifies the given ledger info to be used as a transaction or
+    /// transaction output chunk proof. If verification fails, the active
+    /// stream is terminated.
     async fn verify_proof_ledger_info(
         &mut self,
         consensus_sync_request: Arc<Mutex<Option<ConsensusSyncRequest>>>,
@@ -436,7 +437,8 @@ impl<
                 )))
                 .await?;
                 return Err(Error::VerificationError(format!(
-                    "Proof version is higher than the sync target. Proof version: {:?}, sync version: {:?}.",
+                    "Proof version is higher than the sync target. Proof version: {:?}, sync \
+                     version: {:?}.",
                     proof_version, sync_request_version
                 )));
             }

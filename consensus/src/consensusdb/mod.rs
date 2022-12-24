@@ -24,7 +24,8 @@ use std::{collections::HashMap, iter::Iterator, path::Path, time::Instant};
 /// The name of the consensus db file
 pub const CONSENSUS_DB_NAME: &str = "consensus_db";
 
-/// Creates new physical DB checkpoint in directory specified by `checkpoint_path`.
+/// Creates new physical DB checkpoint in directory specified by
+/// `checkpoint_path`.
 pub fn create_checkpoint<P: AsRef<Path> + Clone>(db_path: P, checkpoint_path: P) -> Result<()> {
     let start = Instant::now();
     let consensus_db_checkpoint_path = checkpoint_path.as_ref().join(CONSENSUS_DB_NAME);
@@ -47,7 +48,8 @@ pub struct ConsensusDB {
 impl ConsensusDB {
     pub fn new<P: AsRef<Path> + Clone>(db_root_path: P) -> Self {
         let column_families = vec![
-            /* UNUSED CF = */ DEFAULT_COLUMN_FAMILY_NAME,
+            // UNUSED CF =
+            DEFAULT_COLUMN_FAMILY_NAME,
             BLOCK_CF_NAME,
             QC_CF_NAME,
             SINGLE_ENTRY_CF_NAME,
@@ -144,14 +146,16 @@ impl ConsensusDB {
         self.commit(batch)
     }
 
-    /// Write the whole schema batch including all data necessary to mutate the ledger
-    /// state of some transaction by leveraging rocksdb atomicity support.
+    /// Write the whole schema batch including all data necessary to mutate the
+    /// ledger state of some transaction by leveraging rocksdb atomicity
+    /// support.
     fn commit(&self, batch: SchemaBatch) -> Result<(), DbError> {
         self.db.write_schemas(batch)?;
         Ok(())
     }
 
-    /// Get latest timeout certificates (we only store the latest highest timeout certificates).
+    /// Get latest timeout certificates (we only store the latest highest
+    /// timeout certificates).
     fn get_highest_2chain_timeout_certificate(&self) -> Result<Option<Vec<u8>>, DbError> {
         Ok(self
             .db
@@ -163,6 +167,7 @@ impl ConsensusDB {
         batch.delete::<SingleEntrySchema>(&SingleEntryKey::Highest2ChainTimeoutCert)?;
         self.commit(batch)
     }
+
     /// Get serialized latest vote (if available)
     fn get_last_vote(&self) -> Result<Option<Vec<u8>>, DbError> {
         Ok(self

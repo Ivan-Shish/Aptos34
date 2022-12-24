@@ -104,8 +104,8 @@ where
     Pub: Serialize + for<'a> From<&'a Priv>,
     Priv: Serialize + Uniform,
 {
-    // The no_shrink is because keypairs should be fixed -- shrinking would cause a different
-    // keypair to be generated, which appears to not be very useful.
+    // The no_shrink is because keypairs should be fixed -- shrinking would cause a
+    // different keypair to be generated, which appears to not be very useful.
     any::<[u8; 32]>()
         .prop_map(|seed| {
             let mut rng = StdRng::from_seed(seed);
@@ -125,8 +125,8 @@ pub fn small_order_strategy() -> impl Strategy<Value = EdwardsPoint> {
         .no_shrink()
 }
 
-/// Produces a small order R, public key A and a hash h = H(R, A, m) such that sB - hA = R when s is
-/// zero.
+/// Produces a small order R, public key A and a hash h = H(R, A, m) such that
+/// sB - hA = R when s is zero.
 #[allow(non_snake_case)]
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn small_order_pk_with_adversarial_message(
@@ -155,9 +155,9 @@ pub fn small_order_pk_with_adversarial_message(
         )
 }
 
-/// Produces a uniformly random keypair from a seed and the user can alter this sleed slightly.
-/// Useful for circumstances where you want two disjoint keypair generations that may interact with
-/// each other.
+/// Produces a uniformly random keypair from a seed and the user can alter this
+/// sleed slightly. Useful for circumstances where you want two disjoint keypair
+/// generations that may interact with each other.
 #[cfg(any(test, feature = "fuzzing"))]
 pub fn uniform_keypair_strategy_with_perturbation<Priv, Pub>(
     perturbation: u8,
@@ -166,8 +166,8 @@ where
     Pub: Serialize + for<'a> From<&'a Priv>,
     Priv: Serialize + Uniform,
 {
-    // The no_shrink is because keypairs should be fixed -- shrinking would cause a different
-    // keypair to be generated, which appears to not be very useful.
+    // The no_shrink is because keypairs should be fixed -- shrinking would cause a
+    // different keypair to be generated, which appears to not be very useful.
     any::<[u8; 32]>()
         .prop_map(move |mut seed| {
             for elem in seed.iter_mut() {
@@ -179,7 +179,8 @@ where
         .no_shrink()
 }
 
-/// Returns `subset_size` numbers picked uniformly at random from 0 to `max_set_size - 1` (inclusive).
+/// Returns `subset_size` numbers picked uniformly at random from 0 to
+/// `max_set_size - 1` (inclusive).
 pub fn random_subset<R>(mut rng: &mut R, max_set_size: usize, subset_size: usize) -> Vec<usize>
 where
     R: ::rand::Rng + ?Sized,
@@ -226,7 +227,8 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TestAptosCrypto(pub String);
 
-// the following block is macro expanded from derive(CryptoHasher, BCSCryptoHash)
+// the following block is macro expanded from derive(CryptoHasher,
+// BCSCryptoHash)
 
 /// Cryptographic hasher for an BCS-serializable #item
 // #[cfg(any(test, feature = "fuzzing"))]
@@ -238,7 +240,7 @@ impl ::core::clone::Clone for TestAptosCryptoHasher {
         match *self {
             TestAptosCryptoHasher(ref __self_0_0) => {
                 TestAptosCryptoHasher(::core::clone::Clone::clone(__self_0_0))
-            }
+            },
         }
     }
 }
@@ -272,9 +274,11 @@ impl crate::hash::CryptoHasher for TestAptosCryptoHasher {
             crate::hash::DefaultHasher::prefixed_hash(name)
         })
     }
+
     fn update(&mut self, bytes: &[u8]) {
         self.0.update(bytes);
     }
+
     fn finish(self) -> crate::hash::HashValue {
         self.0.finish()
     }
@@ -285,6 +289,7 @@ impl std::io::Write for TestAptosCryptoHasher {
         self.0.update(bytes);
         Ok(bytes.len())
     }
+
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
@@ -292,6 +297,7 @@ impl std::io::Write for TestAptosCryptoHasher {
 // #[cfg(any(test, feature = "fuzzing"))]
 impl crate::hash::CryptoHash for TestAptosCrypto {
     type Hasher = TestAptosCryptoHasher;
+
     fn hash(&self) -> crate::hash::HashValue {
         use crate::hash::CryptoHasher;
         let mut state = Self::Hasher::default();

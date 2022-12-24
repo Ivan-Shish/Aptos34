@@ -5,7 +5,8 @@
 
 use thiserror::Error;
 
-/// This enum defines errors commonly used among [`AptosDB`](crate::AptosDB) APIs.
+/// This enum defines errors commonly used among [`AptosDB`](crate::AptosDB)
+/// APIs.
 #[derive(Debug, Error)]
 pub enum AptosDbError {
     /// A requested item is not found.

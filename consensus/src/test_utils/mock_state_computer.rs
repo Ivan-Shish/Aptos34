@@ -163,8 +163,9 @@ impl StateComputer for EmptyStateComputer {
 }
 
 /// Random Compute Result State Computer
-/// When compute(), if parent id is random_compute_result_root_hash, it returns Err(Error::BlockNotFound(parent_block_id))
-/// Otherwise, it returns a dummy StateComputeResult with root hash as random_compute_result_root_hash.
+/// When compute(), if parent id is random_compute_result_root_hash, it returns
+/// Err(Error::BlockNotFound(parent_block_id)) Otherwise, it returns a dummy
+/// StateComputeResult with root hash as random_compute_result_root_hash.
 pub struct RandomComputeResultStateComputer {
     random_compute_result_root_hash: HashValue,
 }
@@ -175,6 +176,7 @@ impl RandomComputeResultStateComputer {
             random_compute_result_root_hash: HashValue::random(),
         }
     }
+
     pub fn get_root_hash(&self) -> HashValue {
         self.random_compute_result_root_hash
     }

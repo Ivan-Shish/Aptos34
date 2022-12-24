@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::ReplayConcurrencyLevelOpt;
 use crate::{
     backup_types::state_snapshot::{
         backup::{StateSnapshotBackupController, StateSnapshotBackupOpt},
@@ -11,7 +10,8 @@ use crate::{
     utils::{
         backup_service_client::BackupServiceClient,
         test_utils::{start_local_backup_service, tmp_db_with_random_content},
-        ConcurrentDownloadsOpt, GlobalBackupOpt, GlobalRestoreOpt, RocksdbOpt, TrustedWaypointOpt,
+        ConcurrentDownloadsOpt, GlobalBackupOpt, GlobalRestoreOpt, ReplayConcurrencyLevelOpt,
+        RocksdbOpt, TrustedWaypointOpt,
     },
 };
 use aptos_db::AptosDB;
@@ -90,7 +90,7 @@ fn end_to_end() {
             .try_into()
             .unwrap(),
             store,
-            None, /* epoch_history */
+            None, // epoch_history
         )
         .run(),
     )
@@ -99,7 +99,8 @@ fn end_to_end() {
     let tgt_db = AptosDB::new_readonly_for_test(&tgt_db_dir);
     assert_eq!(
         tgt_db
-            .get_state_snapshot_before(version + 1) // We cannot use get_latest_snapshot() because it searches backward from the latest txn_info version
+            .get_state_snapshot_before(version + 1) // We cannot use get_latest_snapshot() because it searches backward from the latest
+            // txn_info version
             .unwrap()
             .unwrap(),
         (version, state_root_hash)

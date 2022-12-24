@@ -15,8 +15,8 @@ use aptos_safety_rules::{
 #[derive(Clone, Debug, Default)]
 pub struct SafetyRulesHandleMessage;
 
-/// This implementation will fuzz the handle_message() method of the safety rules serializer
-/// service.
+/// This implementation will fuzz the handle_message() method of the safety
+/// rules serializer service.
 impl FuzzTargetImpl for SafetyRulesHandleMessage {
     fn description(&self) -> &'static str {
         "Safety rules: handle_message()"
@@ -54,7 +54,8 @@ impl FuzzTargetImpl for SafetyRulesInitialize {
 #[derive(Clone, Debug, Default)]
 pub struct SafetyRulesConstructAndSignVote;
 
-/// This implementation will fuzz the construct_and_sign_vote() method of safety rules.
+/// This implementation will fuzz the construct_and_sign_vote() method of safety
+/// rules.
 impl FuzzTargetImpl for SafetyRulesConstructAndSignVote {
     fn description(&self) -> &'static str {
         "Safety rules: construct_and_sign_vote()"

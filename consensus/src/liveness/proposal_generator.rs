@@ -1,6 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::{
+    proposer_election::ProposerElection, unequivocal_proposer_election::UnequivocalProposerElection,
+};
 use crate::{
     block_storage::BlockReader, counters::CHAIN_HEALTH_BACKOFF_TRIGGERED,
     state_replication::PayloadClient, util::time_service::TimeService,
@@ -10,18 +13,12 @@ use aptos_config::config::ChainHealthBackoffValues;
 use aptos_consensus_types::{
     block::Block,
     block_data::BlockData,
-    common::{Author, Round},
+    common::{Author, Payload, PayloadFilter, Round},
     quorum_cert::QuorumCert,
 };
 use aptos_logger::{error, sample, sample::SampleRate, warn};
-
-use aptos_consensus_types::common::{Payload, PayloadFilter};
 use futures::future::BoxFuture;
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
-
-use super::{
-    proposer_election::ProposerElection, unequivocal_proposer_election::UnequivocalProposerElection,
-};
 
 #[cfg(test)]
 #[path = "proposal_generator_test.rs"]
@@ -86,15 +83,16 @@ impl ChainHealthBackoffConfig {
     }
 }
 
-/// ProposalGenerator is responsible for generating the proposed block on demand: it's typically
-/// used by a validator that believes it's a valid candidate for serving as a proposer at a given
-/// round.
+/// ProposalGenerator is responsible for generating the proposed block on
+/// demand: it's typically used by a validator that believes it's a valid
+/// candidate for serving as a proposer at a given round.
 /// ProposalGenerator is the one choosing the branch to extend:
 /// - round is given by the caller (typically determined by RoundState).
 /// The transactions for the proposed block are delivered by TxnManager.
 ///
-/// TxnManager should be aware of the pending transactions in the branch that it is extending,
-/// such that it will filter them out to avoid transaction duplication.
+/// TxnManager should be aware of the pending transactions in the branch that it
+/// is extending, such that it will filter them out to avoid transaction
+/// duplication.
 pub struct ProposalGenerator {
     // The account address of this validator
     author: Author,
@@ -150,7 +148,8 @@ impl ProposalGenerator {
         self.author
     }
 
-    /// Creates a NIL block proposal extending the highest certified block from the block store.
+    /// Creates a NIL block proposal extending the highest certified block from
+    /// the block store.
     pub fn generate_nil_block(
         &self,
         round: Round,
@@ -167,16 +166,16 @@ impl ProposalGenerator {
         Ok(Block::new_nil(round, quorum_cert, failed_authors))
     }
 
-    /// The function generates a new proposal block: the returned future is fulfilled when the
-    /// payload is delivered by the TxnManager implementation.  At most one proposal can be
-    /// generated per round (no proposal equivocation allowed).
-    /// Errors returned by the TxnManager implementation are propagated to the caller.
-    /// The logic for choosing the branch to extend is as follows:
-    /// 1. The function gets the highest head of a one-chain from block tree.
-    /// The new proposal must extend hqc to ensure optimistic responsiveness.
-    /// 2. The round is provided by the caller.
-    /// 3. In case a given round is not greater than the calculated parent, return an OldRound
-    /// error.
+    /// The function generates a new proposal block: the returned future is
+    /// fulfilled when the payload is delivered by the TxnManager
+    /// implementation.  At most one proposal can be generated per round (no
+    /// proposal equivocation allowed). Errors returned by the TxnManager
+    /// implementation are propagated to the caller. The logic for choosing
+    /// the branch to extend is as follows: 1. The function gets the highest
+    /// head of a one-chain from block tree. The new proposal must extend
+    /// hqc to ensure optimistic responsiveness. 2. The round is provided by
+    /// the caller. 3. In case a given round is not greater than the
+    /// calculated parent, return an OldRound error.
     pub async fn generate_proposal(
         &mut self,
         round: Round,
@@ -203,14 +202,15 @@ impl ProposalGenerator {
                 hqc.certified_block().timestamp_usecs(),
             )
         } else {
-            // One needs to hold the blocks with the references to the payloads while get_block is
-            // being executed: pending blocks vector keeps all the pending ancestors of the extended branch.
+            // One needs to hold the blocks with the references to the payloads while
+            // get_block is being executed: pending blocks vector keeps all the
+            // pending ancestors of the extended branch.
             let mut pending_blocks = self
                 .block_store
                 .path_from_commit_root(hqc.certified_block().id())
                 .ok_or_else(|| format_err!("HQC {} already pruned", hqc.certified_block().id()))?;
-            // Avoid txn manager long poll if the root block has txns, so that the leader can
-            // deliver the commit proof to others without delay.
+            // Avoid txn manager long poll if the root block has txns, so that the leader
+            // can deliver the commit proof to others without delay.
             pending_blocks.push(self.block_store.commit_root());
 
             // Exclude all the pending transactions: these are all the ancestors of
@@ -243,9 +243,9 @@ impl ProposalGenerator {
 
                 CHAIN_HEALTH_BACKOFF_TRIGGERED.inc();
                 warn!(
-                    "Generating proposal reducing limits to {} txns and {} bytes, due to chain health backoff",
-                    max_block_txns,
-                    max_block_bytes,
+                    "Generating proposal reducing limits to {} txns and {} bytes, due to chain \
+                     health backoff",
+                    max_block_txns, max_block_bytes,
                 );
                 (max_block_txns, max_block_bytes)
             } else {

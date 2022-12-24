@@ -11,8 +11,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Construction commands
 ///
-/// At a high level, this provides the full E2E commands provided by the construction API for
-/// Rosetta.  This can be used for testing to ensure everything works properly
+/// At a high level, this provides the full E2E commands provided by the
+/// construction API for Rosetta.  This can be used for testing to ensure
+/// everything works properly
 #[derive(Debug, Subcommand)]
 pub enum ConstructionCommand {
     CreateAccount(CreateAccountCommand),
@@ -181,8 +182,6 @@ impl TransferCommand {
 }
 
 /// Set operator
-///
-///
 #[derive(Debug, Parser)]
 pub struct SetOperatorCommand {
     #[clap(flatten)]
@@ -234,8 +233,6 @@ impl SetOperatorCommand {
 }
 
 /// Set voter
-///
-///
 #[derive(Debug, Parser)]
 pub struct SetVoterCommand {
     #[clap(flatten)]
@@ -287,8 +284,6 @@ impl SetVoterCommand {
 }
 
 /// Initialize stake amount
-///
-///
 #[derive(Debug, Parser)]
 pub struct CreateStakePoolCommand {
     #[clap(flatten)]

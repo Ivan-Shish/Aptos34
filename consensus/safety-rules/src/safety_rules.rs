@@ -43,8 +43,8 @@ pub struct SafetyRules {
 }
 
 impl SafetyRules {
-    /// Constructs a new instance of SafetyRules with the given persistent storage and the
-    /// consensus private keys
+    /// Constructs a new instance of SafetyRules with the given persistent
+    /// storage and the consensus private keys
     pub fn new(persistent_storage: PersistentSafetyStorage) -> Self {
         Self {
             persistent_storage,
@@ -152,7 +152,8 @@ impl SafetyRules {
         Ok(())
     }
 
-    /// This verifies the epoch given against storage for consistent verification
+    /// This verifies the epoch given against storage for consistent
+    /// verification
     pub(crate) fn verify_epoch(&self, epoch: u64, safety_data: &SafetyData) -> Result<(), Error> {
         if epoch != safety_data.epoch {
             return Err(Error::IncorrectEpoch(epoch, safety_data.epoch));
@@ -192,7 +193,8 @@ impl SafetyRules {
         Ok(())
     }
 
-    // Internal functions mapped to the public interface to enable exhaustive logging and metrics
+    // Internal functions mapped to the public interface to enable exhaustive
+    // logging and metrics
 
     fn guarded_consensus_state(&mut self) -> Result<ConsensusState, Error> {
         let waypoint = self.persistent_storage.waypoint()?;
@@ -223,7 +225,8 @@ impl SafetyRules {
             .cloned()
             .ok_or(Error::InvalidLedgerInfo)?;
 
-        // Update the waypoint to a newer value, this might still be older than the current epoch.
+        // Update the waypoint to a newer value, this might still be older than the
+        // current epoch.
         let new_waypoint = &Waypoint::new_epoch_boundary(ledger_info)
             .map_err(|error| Error::InternalError(error.to_string()))?;
         if new_waypoint.version() > waypoint.version() {
@@ -240,7 +243,7 @@ impl SafetyRules {
                     current_epoch,
                     epoch_state.epoch,
                 ));
-            }
+            },
             Ordering::Less => {
                 // start new epoch
                 self.persistent_storage.set_safety_data(SafetyData::new(
@@ -253,7 +256,7 @@ impl SafetyRules {
 
                 info!(SafetyLogSchema::new(LogEntry::Epoch, LogEvent::Update)
                     .epoch(epoch_state.epoch));
-            }
+            },
             Ordering::Equal => (),
         };
         self.epoch_state = Some(epoch_state.clone());
@@ -280,14 +283,14 @@ impl SafetyRules {
                             self.validator_signer =
                                 Some(ValidatorSigner::new(author, consensus_key));
                             Ok(())
-                        }
+                        },
                         Err(Error::SecureStorageMissingDataError(error)) => {
                             Err(Error::ValidatorKeyNotFound(error))
-                        }
+                        },
                         Err(error) => Err(error),
                     }
                 }
-            }
+            },
         };
         initialize_result.map_err(|error| {
             info!(
@@ -318,7 +321,8 @@ impl SafetyRules {
 
         self.verify_qc(block_data.quorum_cert())?;
         self.verify_and_update_preferred_round(block_data.quorum_cert(), &mut safety_data)?;
-        // we don't persist the updated preferred round to save latency (it'd be updated upon voting)
+        // we don't persist the updated preferred round to save latency (it'd be updated
+        // upon voting)
 
         let signature = self.sign(block_data)?;
         Ok(signature)

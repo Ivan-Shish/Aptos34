@@ -17,8 +17,8 @@ async fn test_create_mint_transfer_block_metadata() {
     // This script does 4 transactions
     check_create_mint_transfer(&mut swarm).await;
 
-    // Test if we commit not only user transactions but also block metadata transactions,
-    // assert committed version > # of user transactions
+    // Test if we commit not only user transactions but also block metadata
+    // transactions, assert committed version > # of user transactions
     let client = swarm.validators().next().unwrap().rest_client();
     let version = client
         .get_ledger_information()

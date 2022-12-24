@@ -9,9 +9,9 @@ const REPOSITORY: &str = "REPOSITORY";
 const BRANCH: &str = "BRANCH";
 const TOKEN: &str = "TOKEN";
 
-// These tests must be run in series via: `cargo xtest -- --ignored --test-threads=1`
-// Also the constants above must be defined with proper values -- never commit these values to the
-// repository.
+// These tests must be run in series via: `cargo xtest -- --ignored
+// --test-threads=1` Also the constants above must be defined with proper values
+// -- never commit these values to the repository.
 #[ignore]
 #[test]
 fn github_storage() {

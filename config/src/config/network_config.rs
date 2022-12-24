@@ -27,10 +27,12 @@ use std::{
     string::ToString,
 };
 
-// TODO: We could possibly move these constants somewhere else, but since they are defaults for the
-//   configurations of the system, we'll leave it here for now.
+// TODO: We could possibly move these constants somewhere else, but since they
+// are defaults for the   configurations of the system, we'll leave it here for
+// now.
 /// Current supported protocol negotiation handshake version. See
-/// [`aptos_network::protocols::wire::v1`](../../network/protocols/wire/handshake/v1/index.html).
+/// [`aptos_network::protocols::wire::v1`](../../network/protocols/wire/
+/// handshake/v1/index.html).
 pub const HANDSHAKE_VERSION: u8 = 0;
 pub const NETWORK_CHANNEL_SIZE: usize = 1024;
 pub const PING_INTERVAL_MS: u64 = 10_000;
@@ -38,15 +40,15 @@ pub const PING_TIMEOUT_MS: u64 = 20_000;
 pub const PING_FAILURES_TOLERATED: u64 = 3;
 pub const CONNECTIVITY_CHECK_INTERVAL_MS: u64 = 5000;
 pub const MAX_CONCURRENT_NETWORK_REQS: usize = 100;
-pub const MAX_CONNECTION_DELAY_MS: u64 = 60_000; /* 1 minute */
+pub const MAX_CONNECTION_DELAY_MS: u64 = 60_000; // 1 minute
 pub const MAX_FULLNODE_OUTBOUND_CONNECTIONS: usize = 4;
-pub const MAX_INBOUND_CONNECTIONS: usize = 30; /* At 5k TPS this could easily hit ~50MiB a second */
-pub const MAX_MESSAGE_METADATA_SIZE: usize = 128 * 1024; /* 128 KiB: a buffer for metadata that might be added to messages by networking */
-pub const MESSAGE_PADDING_SIZE: usize = 2 * 1024 * 1024; /* 2 MiB: a safety buffer to allow messages to get larger during serialization */
+pub const MAX_INBOUND_CONNECTIONS: usize = 30; // At 5k TPS this could easily hit ~50MiB a second
+pub const MAX_MESSAGE_METADATA_SIZE: usize = 128 * 1024; // 128 KiB: a buffer for metadata that might be added to messages by networking
+pub const MESSAGE_PADDING_SIZE: usize = 2 * 1024 * 1024; // 2 MiB: a safety buffer to allow messages to get larger during serialization
 pub const MAX_APPLICATION_MESSAGE_SIZE: usize =
-    (MAX_MESSAGE_SIZE - MAX_MESSAGE_METADATA_SIZE) - MESSAGE_PADDING_SIZE; /* The message size that applications should check against */
-pub const MAX_FRAME_SIZE: usize = 4 * 1024 * 1024; /* 4 MiB large messages will be chunked into multiple frames and streamed */
-pub const MAX_MESSAGE_SIZE: usize = 64 * 1024 * 1024; /* 64 MiB */
+    (MAX_MESSAGE_SIZE - MAX_MESSAGE_METADATA_SIZE) - MESSAGE_PADDING_SIZE; // The message size that applications should check against
+pub const MAX_FRAME_SIZE: usize = 4 * 1024 * 1024; // 4 MiB large messages will be chunked into multiple frames and streamed
+pub const MAX_MESSAGE_SIZE: usize = 64 * 1024 * 1024; // 64 MiB
 pub const CONNECTION_BACKOFF_BASE: u64 = 2;
 pub const IP_BYTE_BUCKET_RATE: usize = 102400 /* 100 KiB */;
 pub const IP_BYTE_BUCKET_SIZE: usize = IP_BYTE_BUCKET_RATE;
@@ -88,7 +90,8 @@ pub struct NetworkConfig {
     pub outbound_tx_buffer_size_bytes: Option<u32>,
     // Addresses of initial peers to connect to. In a mutual_authentication network,
     // we will extract the public keys from these addresses to set our initial
-    // trusted peers set.  TODO: Replace usage in configs with `seeds` this is for backwards compatibility
+    // trusted peers set.  TODO: Replace usage in configs with `seeds` this is for backwards
+    // compatibility
     pub seed_addrs: HashMap<PeerId, Vec<NetworkAddress>>,
     // The initial peers to connect to prior to onchain discovery
     pub seeds: PeerSet,
@@ -170,11 +173,11 @@ impl NetworkConfig {
                 let key = x25519::PrivateKey::from_ed25519_private_bytes(&key.to_bytes())
                     .expect("Unable to convert key");
                 Some(key)
-            }
+            },
             Identity::FromFile(config) => {
                 let identity_blob: IdentityBlob = IdentityBlob::from_file(&config.path).unwrap();
                 Some(identity_blob.network_private_key)
-            }
+            },
             Identity::None => None,
         };
         key.expect("identity key should be present")
@@ -202,7 +205,8 @@ impl NetworkConfig {
         }
     }
 
-    /// Per convenience, so that NetworkId isn't needed to be specified for `validator_networks`
+    /// Per convenience, so that NetworkId isn't needed to be specified for
+    /// `validator_networks`
     pub fn load_validator_network(&mut self) -> Result<(), Error> {
         self.network_id = NetworkId::Validator;
         self.load()
@@ -238,7 +242,7 @@ impl NetworkConfig {
                     .expect("Unable to read peer id")
                     .value;
                 Some(peer_id)
-            }
+            },
             Identity::FromFile(config) => {
                 let identity_blob: IdentityBlob = IdentityBlob::from_file(&config.path).unwrap();
 
@@ -250,7 +254,7 @@ impl NetworkConfig {
                         identity_blob.network_private_key.public_key(),
                     ))
                 }
-            }
+            },
             Identity::None => None,
         }
         .expect("peer id should be present")
@@ -265,14 +269,14 @@ impl NetworkConfig {
                 let peer_id =
                     aptos_types::account_address::from_identity_public_key(key.public_key());
                 self.identity = Identity::from_config(key, peer_id);
-            }
+            },
             Identity::FromConfig(config) => {
                 let peer_id =
                     aptos_types::account_address::from_identity_public_key(config.key.public_key());
                 if config.peer_id == PeerId::ZERO {
                     config.peer_id = peer_id;
                 }
-            }
+            },
             Identity::FromFile(_) => (),
         };
     }
@@ -317,7 +321,8 @@ impl NetworkConfig {
                 Self::verify_address(peer_id, addr)?;
             }
 
-            // Require there to be a pubkey somewhere, either in the address (assumed by `is_aptosnet_addr`)
+            // Require there to be a pubkey somewhere, either in the address (assumed by
+            // `is_aptosnet_addr`)
             crate::config::invariant(
                 !seed.keys.is_empty() || !seed.addresses.is_empty(),
                 format!("Seed peer {} has no pubkeys", peer_id.short_str()),
@@ -403,7 +408,8 @@ pub struct IdentityFromConfig {
     pub peer_id: PeerId,
 }
 
-/// This represents an identity in a secure-storage as defined in NodeConfig::secure.
+/// This represents an identity in a secure-storage as defined in
+/// NodeConfig::secure.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityFromStorage {
@@ -445,18 +451,21 @@ impl Default for RateLimitConfig {
 pub type PeerSet = HashMap<PeerId, Peer>;
 
 // TODO: Combine with RoleType?
-/// Represents the Role that a peer plays in the network ecosystem rather than the type of node.
-/// Determines how nodes are connected to other nodes, and how discovery views them.
+/// Represents the Role that a peer plays in the network ecosystem rather than
+/// the type of node. Determines how nodes are connected to other nodes, and how
+/// discovery views them.
 ///
 /// Rules for upstream nodes via Peer Role:
 ///
 /// Validator -> Always upstream if not Validator else P2P
 /// PreferredUpstream -> Always upstream, overriding any other discovery
-/// ValidatorFullNode -> Always upstream for incoming connections (including other ValidatorFullNodes)
-/// Upstream -> Upstream, if no ValidatorFullNode or PreferredUpstream.  Useful for initial seed discovery
-/// Downstream -> Downstream, defining a controlled downstream that I always want to connect
+/// ValidatorFullNode -> Always upstream for incoming connections (including
+/// other ValidatorFullNodes) Upstream -> Upstream, if no ValidatorFullNode or
+/// PreferredUpstream.  Useful for initial seed discovery Downstream ->
+/// Downstream, defining a controlled downstream that I always want to connect
 /// Known -> A known peer, but it has no particular role assigned to it
-/// Unknown -> Undiscovered peer, likely due to a non-mutually authenticated connection always downstream
+/// Unknown -> Undiscovered peer, likely due to a non-mutually authenticated
+/// connection always downstream
 #[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum PeerRole {
     Validator = 0,

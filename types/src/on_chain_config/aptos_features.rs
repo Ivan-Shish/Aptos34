@@ -4,7 +4,8 @@
 use crate::on_chain_config::OnChainConfig;
 use serde::{Deserialize, Serialize};
 
-/// The feature flags define in the Move source. This must stay aligned with the constants there.
+/// The feature flags define in the Move source. This must stay aligned with the
+/// constants there.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(non_camel_case_types)]
 pub enum FeatureFlag {

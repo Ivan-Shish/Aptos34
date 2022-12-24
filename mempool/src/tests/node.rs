@@ -29,8 +29,9 @@ use aptos_network::{
     ProtocolId,
 };
 use aptos_storage_interface::mock::MockDbReaderWriter;
-use aptos_types::on_chain_config::OnChainConfigPayload;
-use aptos_types::{account_config::AccountSequenceInfo, PeerId};
+use aptos_types::{
+    account_config::AccountSequenceInfo, on_chain_config::OnChainConfigPayload, PeerId,
+};
 use aptos_vm_validator::mocks::mock_vm_validator::MockVMValidator;
 use enum_dispatch::enum_dispatch;
 use futures::{
@@ -308,7 +309,8 @@ pub fn public_full_node_config(
     (FullNodeInfo::new(peer_id, peer_role), fn_config)
 }
 
-/// A struct representing a node, it's network interfaces, mempool, and a mempool event subscriber
+/// A struct representing a node, it's network interfaces, mempool, and a
+/// mempool event subscriber
 pub struct Node {
     /// The identifying Node
     node_info: NodeInfo,
@@ -366,7 +368,8 @@ impl Node {
         self.mempool.lock()
     }
 
-    /// Queues transactions for sending on a node.  Must use `broadcast_txns` to send to other nodes
+    /// Queues transactions for sending on a node.  Must use `broadcast_txns` to
+    /// send to other nodes
     pub fn add_txns(&self, txns: Vec<TestTransaction>) {
         let mut mempool = self.mempool();
         for txn in txns {
@@ -430,7 +433,8 @@ impl Node {
             .is_none())
     }
 
-    /// Retrieves a network interface for a specific `NetworkId` based on whether it's the primary network
+    /// Retrieves a network interface for a specific `NetworkId` based on
+    /// whether it's the primary network
     fn get_network_interface(&mut self, network_id: NetworkId) -> &mut NodeNetworkInterface {
         self.network_interfaces.get_mut(&network_id).unwrap()
     }
@@ -442,7 +446,8 @@ impl Node {
             .get_next_network_req(runtime)
     }
 
-    /// Send network request `PeerManagerNotification` from a remote peer to the local node
+    /// Send network request `PeerManagerNotification` from a remote peer to the
+    /// local node
     pub fn send_network_req(
         &mut self,
         network_id: NetworkId,
@@ -488,7 +493,8 @@ impl NodeNetworkInterface {
             .unwrap()
     }
 
-    /// Send a notification specifying, where a remote peer has it's state changed
+    /// Send a notification specifying, where a remote peer has it's state
+    /// changed
     fn send_connection_notif(&mut self, notif: ConnectionNotification) {
         let peer_id = match &notif {
             ConnectionNotification::NewPeer(metadata, _) => metadata.remote_peer_id,
@@ -529,7 +535,8 @@ fn setup_node_network_interfaces(
     (network_interfaces, network_handles, peer_metadata_storage)
 }
 
-/// Builds a single network interface with associated queues, and attaches it to the top level network
+/// Builds a single network interface with associated queues, and attaches it to
+/// the top level network
 fn setup_node_network_interface(
     peer_network_id: PeerNetworkId,
 ) -> (NodeNetworkInterface, MempoolNetworkHandle) {
@@ -577,13 +584,10 @@ fn start_node_mempool(
         notification_receiver: reconfig_events,
     };
     reconfig_sender
-        .push(
-            (),
-            ReconfigNotification {
-                version: 1,
-                on_chain_configs: OnChainConfigPayload::new(1, Arc::new(HashMap::new())),
-            },
-        )
+        .push((), ReconfigNotification {
+            version: 1,
+            on_chain_configs: OnChainConfigPayload::new(1, Arc::new(HashMap::new())),
+        })
         .unwrap();
     let runtime = Builder::new_multi_thread()
         .thread_name("shared-mem")

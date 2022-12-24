@@ -3,16 +3,20 @@
 
 //! Node types of [`JellyfishMerkleTree`](crate::JellyfishMerkleTree)
 //!
-//! This module defines two types of Jellyfish Merkle tree nodes: [`InternalNode`]
-//! and [`LeafNode`] as building blocks of a 256-bit
-//! [`JellyfishMerkleTree`](crate::JellyfishMerkleTree). [`InternalNode`] represents a 4-level
-//! binary tree to optimize for IOPS: it compresses a tree with 31 nodes into one node with 16
-//! children at the lowest level. [`LeafNode`] stores the full key and the value associated.
+//! This module defines two types of Jellyfish Merkle tree nodes:
+//! [`InternalNode`] and [`LeafNode`] as building blocks of a 256-bit
+//! [`JellyfishMerkleTree`](crate::JellyfishMerkleTree). [`InternalNode`]
+//! represents a 4-level binary tree to optimize for IOPS: it compresses a tree
+//! with 31 nodes into one node with 16 children at the lowest level.
+//! [`LeafNode`] stores the full key and the value associated.
 
 #[cfg(test)]
 mod node_type_test;
 
-use crate::metrics::{APTOS_JELLYFISH_INTERNAL_ENCODED_BYTES, APTOS_JELLYFISH_LEAF_ENCODED_BYTES};
+use crate::{
+    metrics::{APTOS_JELLYFISH_INTERNAL_ENCODED_BYTES, APTOS_JELLYFISH_LEAF_ENCODED_BYTES},
+    TreeReader,
+};
 use anyhow::{ensure, Context, Result};
 use aptos_crypto::{
     hash::{CryptoHash, SPARSE_MERKLE_PLACEHOLDER_HASH},
@@ -20,7 +24,7 @@ use aptos_crypto::{
 };
 use aptos_types::{
     nibble::{nibble_path::NibblePath, Nibble, ROOT_NIBBLE_HEIGHT},
-    proof::{SparseMerkleInternalNode, SparseMerkleLeafNode},
+    proof::{definition::NodeInProof, SparseMerkleInternalNode, SparseMerkleLeafNode},
     transaction::Version,
 };
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -31,9 +35,6 @@ use num_traits::cast::FromPrimitive;
 use proptest::{collection::hash_map, prelude::*};
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest_derive::Arbitrary;
-
-use crate::TreeReader;
-use aptos_types::proof::definition::NodeInProof;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::hash_map::HashMap,
@@ -61,7 +62,8 @@ impl NodeKey {
         }
     }
 
-    /// A shortcut to generate a node key consisting of a version and an empty nibble path.
+    /// A shortcut to generate a node key consisting of a version and an empty
+    /// nibble path.
     pub fn new_empty_path(version: Version) -> Self {
         Self::new(version, NibblePath::new_even(vec![]))
     }
@@ -98,7 +100,8 @@ impl NodeKey {
         self.version = version;
     }
 
-    /// Serializes to bytes for physical storage enforcing the same order as that in memory.
+    /// Serializes to bytes for physical storage enforcing the same order as
+    /// that in memory.
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut out = vec![];
         out.write_u64::<BigEndian>(self.version())?;
@@ -128,7 +131,7 @@ impl NodeKey {
         let nibble_path = if num_nibbles % 2 == 0 {
             NibblePath::new_even(nibble_bytes)
         } else {
-            let padding = nibble_bytes.last().unwrap() & 0x0f;
+            let padding = nibble_bytes.last().unwrap() & 0x0F;
             ensure!(
                 padding == 0,
                 "Padding nibble expected to be 0, got: {}",
@@ -148,8 +151,8 @@ impl NodeKey {
 pub enum NodeType {
     Leaf,
     Null,
-    /// A internal node that haven't been finished the leaf count migration, i.e. None or not all
-    /// of the children leaf counts are known.
+    /// A internal node that haven't been finished the leaf count migration,
+    /// i.e. None or not all of the children leaf counts are known.
     Internal {
         leaf_count: usize,
     },
@@ -175,12 +178,14 @@ impl Arbitrary for NodeType {
 pub struct Child {
     /// The hash value of this child node.
     pub hash: HashValue,
-    /// `version`, the `nibble_path` of the [`NodeKey`] of this [`InternalNode`] the child belongs
-    /// to and the child's index constitute the [`NodeKey`] to uniquely identify this child node
-    /// from the storage. Used by `[`NodeKey::gen_child_node_key`].
+    /// `version`, the `nibble_path` of the [`NodeKey`] of this [`InternalNode`]
+    /// the child belongs to and the child's index constitute the
+    /// [`NodeKey`] to uniquely identify this child node from the storage.
+    /// Used by `[`NodeKey::gen_child_node_key`].
     pub version: Version,
-    /// Indicates if the child is a leaf, or if it's an internal node, the total number of leaves
-    /// under it (though it can be unknown during migration).
+    /// Indicates if the child is a leaf, or if it's an internal node, the total
+    /// number of leaves under it (though it can be unknown during
+    /// migration).
     pub node_type: NodeType,
 }
 
@@ -206,15 +211,16 @@ impl Child {
     }
 }
 
-/// [`Children`] is just a collection of children belonging to a [`InternalNode`], indexed from 0 to
-/// 15, inclusive.
+/// [`Children`] is just a collection of children belonging to a
+/// [`InternalNode`], indexed from 0 to 15, inclusive.
 pub(crate) type Children = HashMap<Nibble, Child>;
 
-/// Represents a 4-level subtree with 16 children at the bottom level. Theoretically, this reduces
-/// IOPS to query a tree by 4x since we compress 4 levels in a standard Merkle tree into 1 node.
-/// Though we choose the same internal node structure as that of Patricia Merkle tree, the root hash
-/// computation logic is similar to a 4-level sparse Merkle tree except for some customizations. See
-/// the `CryptoHash` trait implementation below for details.
+/// Represents a 4-level subtree with 16 children at the bottom level.
+/// Theoretically, this reduces IOPS to query a tree by 4x since we compress 4
+/// levels in a standard Merkle tree into 1 node. Though we choose the same
+/// internal node structure as that of Patricia Merkle tree, the root hash
+/// computation logic is similar to a 4-level sparse Merkle tree except for some
+/// customizations. See the `CryptoHash` trait implementation below for details.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InternalNode {
     /// Up to 16 children.
@@ -223,9 +229,10 @@ pub struct InternalNode {
     leaf_count: usize,
 }
 
-/// Computes the hash of internal node according to [`JellyfishTree`](crate::JellyfishTree)
-/// data structure in the logical view. `start` and `nibble_height` determine a subtree whose
-/// root hash we want to get. For an internal node with 16 children at the bottom level, we compute
+/// Computes the hash of internal node according to
+/// [`JellyfishTree`](crate::JellyfishTree) data structure in the logical view.
+/// `start` and `nibble_height` determine a subtree whose root hash we want to
+/// get. For an internal node with 16 children at the bottom level, we compute
 /// the root hash of it as if a full binary Merkle tree with 16 leaves as below:
 ///
 /// ```text
@@ -242,17 +249,19 @@ pub struct InternalNode {
 /// height
 /// ```
 ///
-/// As illustrated above, at nibble height 0, `0..F` in hex denote 16 children hashes.  Each `#`
-/// means the hash of its two direct children, which will be used to generate the hash of its
-/// parent with the hash of its sibling. Finally, we can get the hash of this internal node.
+/// As illustrated above, at nibble height 0, `0..F` in hex denote 16 children
+/// hashes.  Each `#` means the hash of its two direct children, which will be
+/// used to generate the hash of its parent with the hash of its sibling.
+/// Finally, we can get the hash of this internal node.
 ///
-/// However, if an internal node doesn't have all 16 children exist at height 0 but just a few of
-/// them, we have a modified hashing rule on top of what is stated above:
-/// 1. From top to bottom, a node will be replaced by a leaf child if the subtree rooted at this
-/// node has only one child at height 0 and it is a leaf child.
-/// 2. From top to bottom, a node will be replaced by the placeholder node if the subtree rooted at
-/// this node doesn't have any child at height 0. For example, if an internal node has 3 leaf
-/// children at index 0, 3, 8, respectively, and 1 internal node at index C, then the computation
+/// However, if an internal node doesn't have all 16 children exist at height 0
+/// but just a few of them, we have a modified hashing rule on top of what is
+/// stated above: 1. From top to bottom, a node will be replaced by a leaf child
+/// if the subtree rooted at this node has only one child at height 0 and it is
+/// a leaf child. 2. From top to bottom, a node will be replaced by the
+/// placeholder node if the subtree rooted at this node doesn't have any child
+/// at height 0. For example, if an internal node has 3 leaf children at index
+/// 0, 3, 8, respectively, and 1 internal node at index C, then the computation
 /// graph will be like:
 ///
 /// ```text
@@ -295,8 +304,9 @@ impl InternalNode {
     }
 
     pub fn new_impl(children: Children) -> Result<Self> {
-        // Assert the internal node must have >= 1 children. If it only has one child, it cannot be
-        // a leaf node. Otherwise, the leaf node should be a child of this internal node's parent.
+        // Assert the internal node must have >= 1 children. If it only has one child,
+        // it cannot be a leaf node. Otherwise, the leaf node should be a child
+        // of this internal node's parent.
         ensure!(!children.is_empty(), "Children must not be empty");
         if children.len() == 1 {
             ensure!(
@@ -328,8 +338,8 @@ impl InternalNode {
 
     pub fn hash(&self) -> HashValue {
         self.merkle_hash(
-            0,  /* start index */
-            16, /* the number of leaves in the subtree of which we want the hash of root */
+            0,  // start index
+            16, // the number of leaves in the subtree of which we want the hash of root
             self.generate_bitmaps(),
         )
     }
@@ -351,7 +361,7 @@ impl InternalNode {
                 NodeType::Leaf => (),
                 NodeType::Internal { leaf_count } => {
                     serialize_u64_varint(leaf_count as u64, binary);
-                }
+                },
                 NodeType::Null => unreachable!("Child cannot be Null"),
             };
             existence_bitmap &= !(1 << next_child);
@@ -374,7 +384,7 @@ impl InternalNode {
                     leaves: leaf_bitmap,
                 }
                 .into())
-            }
+            },
             _ => (),
         }
 
@@ -419,9 +429,9 @@ impl InternalNode {
         self.children.get(&n)
     }
 
-    /// Generates `existence_bitmap` and `leaf_bitmap` as a pair of `u16`s: child at index `i`
-    /// exists if `existence_bitmap[i]` is set; child at index `i` is leaf node if
-    /// `leaf_bitmap[i]` is set.
+    /// Generates `existence_bitmap` and `leaf_bitmap` as a pair of `u16`s:
+    /// child at index `i` exists if `existence_bitmap[i]` is set; child at
+    /// index `i` is leaf node if `leaf_bitmap[i]` is set.
     pub fn generate_bitmaps(&self) -> (u16, u16) {
         let mut existence_bitmap = 0;
         let mut leaf_bitmap = 0;
@@ -437,12 +447,14 @@ impl InternalNode {
         (existence_bitmap, leaf_bitmap)
     }
 
-    /// Given a range [start, start + width), returns the sub-bitmap of that range.
+    /// Given a range [start, start + width), returns the sub-bitmap of that
+    /// range.
     fn range_bitmaps(start: u8, width: u8, bitmaps: (u16, u16)) -> (u16, u16) {
         assert!(start < 16 && width.count_ones() == 1 && start % width == 0);
         assert!(width <= 16 && (start + width) <= 16);
-        // A range with `start == 8` and `width == 4` will generate a mask 0b0000111100000000.
-        // use as converting to smaller integer types when 'width == 16'
+        // A range with `start == 8` and `width == 4` will generate a mask
+        // 0b0000111100000000. use as converting to smaller integer types when
+        // 'width == 16'
         let mask = (((1u32 << width) - 1) << start) as u16;
         (bitmaps.0 & mask, bitmaps.1 & mask)
     }
@@ -466,8 +478,8 @@ impl InternalNode {
             self.child(only_child_index)
                 .with_context(|| {
                     format!(
-                        "Corrupted internal node: existence_bitmap indicates \
-                         the existence of a non-exist child at index {:x}",
+                        "Corrupted internal node: existence_bitmap indicates the existence of a \
+                         non-exist child at index {:x}",
                         only_child_index
                     )
                 })
@@ -509,8 +521,8 @@ impl InternalNode {
                 .child(only_child_index)
                 .with_context(|| {
                     format!(
-                        "Corrupted internal node: existence_bitmap indicates \
-                         the existence of a non-exist child at index {:x}",
+                        "Corrupted internal node: existence_bitmap indicates the existence of a \
+                         non-exist child at index {:x}",
                         only_child_index
                     )
                 })
@@ -519,12 +531,15 @@ impl InternalNode {
                 let only_child_node_key =
                     node_key.gen_child_node_key(only_child.version, only_child_index);
                 match tree_reader.get_node(&only_child_node_key)? {
-                    Node::Internal(_) => unreachable!(
-                        "Corrupted internal node: in-memory leaf child is internal node on disk"
-                    ),
+                    Node::Internal(_) => {
+                        unreachable!(
+                            "Corrupted internal node: in-memory leaf child is internal node on \
+                             disk"
+                        )
+                    },
                     Node::Leaf(leaf_node) => {
                         NodeInProof::Leaf(SparseMerkleLeafNode::from(leaf_node))
-                    }
+                    },
                     Node::Null => unreachable!("Child cannot be Null"),
                 }
             } else {
@@ -545,11 +560,13 @@ impl InternalNode {
         })
     }
 
-    /// Gets the child and its corresponding siblings that are necessary to generate the proof for
-    /// the `n`-th child. If it is an existence proof, the returned child must be the `n`-th
-    /// child; otherwise, the returned child may be another child. See inline explanation for
-    /// details. When calling this function with n = 11 (node `b` in the following graph), the
-    /// range at each level is illustrated as a pair of square brackets:
+    /// Gets the child and its corresponding siblings that are necessary to
+    /// generate the proof for the `n`-th child. If it is an existence
+    /// proof, the returned child must be the `n`-th child; otherwise, the
+    /// returned child may be another child. See inline explanation for
+    /// details. When calling this function with n = 11 (node `b` in the
+    /// following graph), the range at each level is illustrated as a pair
+    /// of square brackets:
     ///
     /// ```text
     ///     4      [f   e   d   c   b   a   9   8   7   6   5   4   3   2   1   0] -> root level
@@ -576,8 +593,8 @@ impl InternalNode {
 
         // Nibble height from 3 to 0.
         for h in (0..4).rev() {
-            // Get the number of children of the internal node that each subtree at this height
-            // covers.
+            // Get the number of children of the internal node that each subtree at this
+            // height covers.
             let width = 1 << h;
             let (child_half_start, sibling_half_start) = get_child_and_sibling_half_start(n, h);
             // Compute the root hash of the subtree rooted at the sibling of `r`.
@@ -613,11 +630,12 @@ impl InternalNode {
                     {
                         let only_child_version = self
                             .child(only_child_index)
-                            // Should be guaranteed by the self invariants, but these are not easy to express at the moment
+                            // Should be guaranteed by the self invariants, but these are not easy
+                            // to express at the moment
                             .with_context(|| {
                                 format!(
-                                    "Corrupted internal node: child_bitmap indicates \
-                                     the existence of a non-exist child at index {:x}",
+                                    "Corrupted internal node: child_bitmap indicates the \
+                                     existence of a non-exist child at index {:x}",
                                     only_child_index
                                 )
                             })
@@ -633,16 +651,16 @@ impl InternalNode {
     }
 }
 
-/// Given a nibble, computes the start position of its `child_half_start` and `sibling_half_start`
-/// at `height` level.
+/// Given a nibble, computes the start position of its `child_half_start` and
+/// `sibling_half_start` at `height` level.
 pub(crate) fn get_child_and_sibling_half_start(n: Nibble, height: u8) -> (u8, u8) {
-    // Get the index of the first child belonging to the same subtree whose root, let's say `r` is
-    // at `height` that the n-th child belongs to.
+    // Get the index of the first child belonging to the same subtree whose root,
+    // let's say `r` is at `height` that the n-th child belongs to.
     // Note: `child_half_start` will be always equal to `n` at height 0.
-    let child_half_start = (0xff << height) & u8::from(n);
+    let child_half_start = (0xFF << height) & u8::from(n);
 
-    // Get the index of the first child belonging to the subtree whose root is the sibling of `r`
-    // at `height`.
+    // Get the index of the first child belonging to the subtree whose root is the
+    // sibling of `r` at `height`.
     let sibling_half_start = child_half_start ^ (1 << height);
 
     (child_half_start, sibling_half_start)
@@ -706,7 +724,8 @@ enum NodeTag {
     Null = 3,
 }
 
-/// The concrete node type of [`JellyfishMerkleTree`](crate::JellyfishMerkleTree).
+/// The concrete node type of
+/// [`JellyfishMerkleTree`](crate::JellyfishMerkleTree).
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Node<K> {
     /// A wrapper of [`InternalNode`].
@@ -788,15 +807,15 @@ where
                 out.push(NodeTag::Internal as u8);
                 internal_node.serialize(&mut out)?;
                 APTOS_JELLYFISH_INTERNAL_ENCODED_BYTES.inc_by(out.len() as u64);
-            }
+            },
             Node::Leaf(leaf_node) => {
                 out.push(NodeTag::Leaf as u8);
                 out.extend(bcs::to_bytes(&leaf_node)?);
                 APTOS_JELLYFISH_LEAF_ENCODED_BYTES.inc_by(out.len() as u64);
-            }
+            },
             Node::Null => {
                 out.push(NodeTag::Null as u8);
-            }
+            },
         }
         Ok(out)
     }
@@ -826,15 +845,16 @@ where
     }
 }
 
-/// Error thrown when a [`Node`] fails to be deserialized out of a byte sequence stored in physical
-/// storage, via [`Node::decode`].
+/// Error thrown when a [`Node`] fails to be deserialized out of a byte sequence
+/// stored in physical storage, via [`Node::decode`].
 #[derive(Debug, Error, Eq, PartialEq)]
 pub enum NodeDecodeError {
     /// Input is empty.
     #[error("Missing tag due to empty input")]
     EmptyInput,
 
-    /// The first byte of the input is not a known tag representing one of the variants.
+    /// The first byte of the input is not a known tag representing one of the
+    /// variants.
     #[error("lead tag byte is unknown: {}", unknown_tag)]
     UnknownTag { unknown_tag: u8 },
 
@@ -855,7 +875,7 @@ pub enum NodeDecodeError {
 /// We use a super simple encoding - the high bit is set if more bytes follow.
 fn serialize_u64_varint(mut num: u64, binary: &mut Vec<u8>) {
     for _ in 0..8 {
-        let low_bits = num as u8 & 0x7f;
+        let low_bits = num as u8 & 0x7F;
         num >>= 7;
         let more = match num {
             0 => 0u8,
@@ -868,7 +888,7 @@ fn serialize_u64_varint(mut num: u64, binary: &mut Vec<u8>) {
     }
     // Last byte is encoded raw; this means there are no bad encodings.
     assert_ne!(num, 0);
-    assert!(num <= 0xff);
+    assert!(num <= 0xFF);
     binary.push(num as u8);
 }
 
@@ -880,7 +900,7 @@ where
     let mut num = 0u64;
     for i in 0..8 {
         let byte = reader.read_u8()?;
-        num |= u64::from(byte & 0x7f) << (i * 7);
+        num |= u64::from(byte & 0x7F) << (i * 7);
         if (byte & 0x80) == 0 {
             return Ok(num);
         }

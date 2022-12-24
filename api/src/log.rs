@@ -1,8 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Duration;
-
 use crate::metrics::{HISTOGRAM, RESPONSE_STATUS};
 use aptos_logger::{
     debug, info,
@@ -11,10 +9,12 @@ use aptos_logger::{
 };
 use poem::{http::header, Endpoint, Request, Response, Result};
 use poem_openapi::OperationId;
+use std::time::Duration;
 
 /// Logs information about the request and response if the response status code
 /// is >= 500, to help us debug since this will be an error on our side.
-/// We also do general logging of the status code alone regardless of what it is.
+/// We also do general logging of the status code alone regardless of what it
+/// is.
 pub async fn middleware_log<E: Endpoint>(next: E, request: Request) -> Result<Response> {
     let start = std::time::Instant::now();
 

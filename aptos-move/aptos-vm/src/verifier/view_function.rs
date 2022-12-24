@@ -1,17 +1,18 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::move_vm_ext::{MoveResolverExt, SessionExt};
-use crate::verifier::transaction_arg_validation;
+use crate::{
+    move_vm_ext::{MoveResolverExt, SessionExt},
+    verifier::transaction_arg_validation,
+};
 use aptos_framework::{KnownAttribute, RuntimeModuleMetadataV1};
 use move_binary_format::errors::{PartialVMError, PartialVMResult};
-use move_core_types::identifier::IdentStr;
-use move_core_types::vm_status::StatusCode;
+use move_core_types::{identifier::IdentStr, vm_status::StatusCode};
 use move_vm_runtime::session::LoadedFunctionInstantiation;
 use move_vm_types::loaded_data::runtime_types::Type;
 
-/// Validate view function call. This checks whether the function is marked as a view
-/// function, and validates the arguments.
+/// Validate view function call. This checks whether the function is marked as a
+/// view function, and validates the arguments.
 pub(crate) fn validate_view_function<S: MoveResolverExt>(
     session: &SessionExt<S>,
     args: Vec<Vec<u8>>,
@@ -43,8 +44,9 @@ pub(crate) fn validate_view_function<S: MoveResolverExt>(
         );
     }
 
-    // Validate arguments. We allow all what transaction allows, in addition, signers can
-    // be passed. Some arguments (e.g. utf8 strings) need validation which happens here.
+    // Validate arguments. We allow all what transaction allows, in addition,
+    // signers can be passed. Some arguments (e.g. utf8 strings) need validation
+    // which happens here.
     let mut needs_validation = vec![];
     for (idx, ty) in fun_inst.parameters.iter().enumerate() {
         match ty {
@@ -61,7 +63,7 @@ pub(crate) fn validate_view_function<S: MoveResolverExt>(
                 if validation {
                     needs_validation.push(idx);
                 }
-            }
+            },
         }
     }
     if !needs_validation.is_empty()

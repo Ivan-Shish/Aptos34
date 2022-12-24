@@ -8,10 +8,11 @@ use aptos_language_e2e_tests::{
 use aptos_types::transaction::{ExecutionStatus, TransactionStatus};
 use move_core_types::vm_status::StatusCode;
 
-// TODO: ignoring most tests for now as bundle publishing is no longer available. Want to resurrect
-// or rewrite for new publishin approach
+// TODO: ignoring most tests for now as bundle publishing is no longer
+// available. Want to resurrect or rewrite for new publishin approach
 
-// A module with an address different from the sender's address should be rejected
+// A module with an address different from the sender's address should be
+// rejected
 #[test]
 fn bad_module_address() {
     let mut executor = FakeExecutor::from_head_genesis();
@@ -47,7 +48,8 @@ fn bad_module_address() {
     // verify and fail because the addresses don't match
     // let vm_status = executor.verify_transaction(txn.clone()).status().unwrap();
     // assert!(vm_status.is(StatusType::Verification));
-    // assert!(vm_status.major_status == StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER);
+    // assert!(vm_status.major_status ==
+    // StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER);
 
     // execute and fail for the same reason
     let output = executor.execute_transaction(txn);
@@ -59,8 +61,9 @@ fn bad_module_address() {
                         StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER
                     ))
             );
-            // assert!(status.status_code() == StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER);
-        }
+            // assert!(status.status_code() ==
+            // StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER);
+        },
         vm_status => panic!("Unexpected verification status: {:?}", vm_status),
     };
 }
@@ -117,7 +120,8 @@ macro_rules! module_republish_test {
     };
 }
 
-// Publishing a module named M under the same address twice is OK (a module is self-compatible)
+// Publishing a module named M under the same address twice is OK (a module is
+// self-compatible)
 module_republish_test!(
     duplicate_module,
     "
@@ -134,7 +138,8 @@ module_republish_test!(
     " // ExecutionStatus::Success
 );
 
-// Republishing a module named M under the same address with a superset of the structs is OK
+// Republishing a module named M under the same address with a superset of the
+// structs is OK
 module_republish_test!(
     layout_compatible_module,
     "
@@ -148,7 +153,8 @@ module_republish_test!(
     " // ExecutionStatus::Success
 );
 
-// Republishing a module named M under the same address with a superset of public functions is OK
+// Republishing a module named M under the same address with a superset of
+// public functions is OK
 module_republish_test!(
     linking_compatible_module,
     "
@@ -162,7 +168,8 @@ module_republish_test!(
     " // ExecutionStatus::Success
 );
 
-// Republishing a module named M under the same address that breaks data layout should be rejected
+// Republishing a module named M under the same address that breaks data layout
+// should be rejected
 module_republish_test!(
     layout_incompatible_module_with_new_field,
     "
@@ -218,7 +225,8 @@ module_republish_test!(
     " // ExecutionStatus::MiscellaneousError(Some(StatusCode::BACKWARD_INCOMPATIBLE_MODULE_UPDATE))
 );
 
-// Republishing a module named M under the same address that breaks linking should be rejected
+// Republishing a module named M under the same address that breaks linking
+// should be rejected
 module_republish_test!(
     linking_incompatible_module_with_added_param,
     "
@@ -316,7 +324,8 @@ pub fn test_publishing_modules_invalid_sender() {
         .sign();
     assert_eq!(
         executor.execute_transaction(txn).status(),
-        // this should be MODULE_ADDRESS_DOES_NOT_MATCH_SENDER but we don't do this check in prologue now
+        // this should be MODULE_ADDRESS_DOES_NOT_MATCH_SENDER but we don't do this check in
+        // prologue now
         &TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(
             StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER
         ))),

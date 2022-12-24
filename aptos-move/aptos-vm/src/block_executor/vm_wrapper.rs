@@ -24,10 +24,10 @@ pub(crate) struct AptosExecutorTask<'a, S> {
 }
 
 impl<'a, S: 'a + StateView> ExecutorTask for AptosExecutorTask<'a, S> {
-    type Txn = PreprocessedTransaction;
-    type Output = AptosTransactionOutput;
-    type Error = VMStatus;
     type Argument = &'a S;
+    type Error = VMStatus;
+    type Output = AptosTransactionOutput;
+    type Txn = PreprocessedTransaction;
 
     fn init(argument: &'a S) -> Self {
         let vm = AptosVM::new(argument);
@@ -35,10 +35,11 @@ impl<'a, S: 'a + StateView> ExecutorTask for AptosExecutorTask<'a, S> {
         // Loading `0x1::account` and its transitive dependency into the code cache.
         //
         // This should give us a warm VM to avoid the overhead of VM cold start.
-        // Result of this load could be omitted as this is a best effort approach and won't hurt if that fails.
+        // Result of this load could be omitted as this is a best effort approach and
+        // won't hurt if that fails.
         //
-        // Loading up `0x1::account` should be sufficient as this is the most common module
-        // used for prologue, epilogue and transfer functionality.
+        // Loading up `0x1::account` should be sufficient as this is the most common
+        // module used for prologue, epilogue and transfer functionality.
 
         let _ = vm.load_module(
             &ModuleId::new(CORE_CODE_ADDRESS, ident_str!("account").to_owned()),
@@ -78,15 +79,17 @@ impl<'a, S: 'a + StateView> ExecutorTask for AptosExecutorTask<'a, S> {
 
                 if output_ext.txn_output().status().is_discarded() {
                     match sender {
-                        Some(s) => trace!(
-                            log_context,
-                            "Transaction discarded, sender: {}, error: {:?}",
-                            s,
-                            vm_status,
-                        ),
+                        Some(s) => {
+                            trace!(
+                                log_context,
+                                "Transaction discarded, sender: {}, error: {:?}",
+                                s,
+                                vm_status,
+                            )
+                        },
                         None => {
                             trace!(log_context, "Transaction malformed, error: {:?}", vm_status,)
-                        }
+                        },
                     };
                 }
                 if AptosVM::should_restart_execution(output_ext.txn_output()) {
@@ -95,7 +98,7 @@ impl<'a, S: 'a + StateView> ExecutorTask for AptosExecutorTask<'a, S> {
                 } else {
                     ExecutionStatus::Success(AptosTransactionOutput::new(output_ext))
                 }
-            }
+            },
             Err(err) => ExecutionStatus::Abort(err),
         }
     }

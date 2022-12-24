@@ -9,8 +9,8 @@
 //! | version | txn_info bytes |
 //! ```
 //!
-//! `Version` is serialized in big endian so that records in RocksDB will be in order of it's
-//! numeric value.
+//! `Version` is serialized in big endian so that records in RocksDB will be in
+//! order of it's numeric value.
 
 use crate::schema::{ensure_slice_len_eq, TRANSACTION_INFO_CF_NAME};
 use anyhow::Result;

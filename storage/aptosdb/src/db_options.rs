@@ -13,7 +13,8 @@ const VERSION_SIZE: usize = std::mem::size_of::<Version>();
 
 pub(super) fn ledger_db_column_families() -> Vec<ColumnFamilyName> {
     vec![
-        /* empty cf */ DEFAULT_COLUMN_FAMILY_NAME,
+        // empty cf
+        DEFAULT_COLUMN_FAMILY_NAME,
         EPOCH_BY_VERSION_CF_NAME,
         EVENT_ACCUMULATOR_CF_NAME,
         EVENT_BY_KEY_CF_NAME,
@@ -35,7 +36,8 @@ pub(super) fn ledger_db_column_families() -> Vec<ColumnFamilyName> {
 
 pub(super) fn state_merkle_db_column_families() -> Vec<ColumnFamilyName> {
     vec![
-        /* empty cf */ DEFAULT_COLUMN_FAMILY_NAME,
+        // empty cf
+        DEFAULT_COLUMN_FAMILY_NAME,
         DB_METADATA_CF_NAME,
         JELLYFISH_MERKLE_NODE_CF_NAME,
         STALE_NODE_INDEX_CF_NAME,

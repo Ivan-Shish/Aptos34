@@ -60,9 +60,9 @@ impl DBPruner for LedgerPruner {
         // Commit all the changes to DB atomically
         self.db.write_schemas(db_batch)?;
 
-        // TODO(zcc): recording progress after writing schemas might provide wrong answers to
-        // API calls when they query min_readable_version while the write_schemas are still in
-        // progress.
+        // TODO(zcc): recording progress after writing schemas might provide wrong
+        // answers to API calls when they query min_readable_version while the
+        // write_schemas are still in progress.
         self.record_progress(current_target_version);
         Ok(current_target_version)
     }
@@ -91,11 +91,15 @@ impl DBPruner for LedgerPruner {
                     "Try to update stored min readable transaction version to the actual one.",
                 );
                 Ok(version)
-            }
+            },
             std::cmp::Ordering::Equal => Ok(version),
             std::cmp::Ordering::Less => {
-                panic!("No transaction is found at or after stored ledger pruner progress ({}), db might be corrupted.", stored_min_version)
-            }
+                panic!(
+                    "No transaction is found at or after stored ledger pruner progress ({}), db \
+                     might be corrupted.",
+                    stored_min_version
+                )
+            },
         }
     }
 
@@ -147,7 +151,8 @@ impl LedgerPruner {
         pruner
     }
 
-    /// Prunes the genesis transaction and saves the db alterations to the given change set
+    /// Prunes the genesis transaction and saves the db alterations to the given
+    /// change set
     pub fn prune_genesis(
         ledger_db: Arc<DB>,
         state_store: Arc<StateStore>,
@@ -170,8 +175,8 @@ impl LedgerPruner {
     ) -> anyhow::Result<Version> {
         let min_readable_version = self.min_readable_version();
 
-        // Current target version might be less than the target version to ensure we don't prune
-        // more than max_version in one go.
+        // Current target version might be less than the target version to ensure we
+        // don't prune more than max_version in one go.
         let current_target_version = self.get_current_batch_target(max_versions as Version);
 
         self.transaction_store_pruner.prune(

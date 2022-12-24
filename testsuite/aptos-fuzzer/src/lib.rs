@@ -17,7 +17,8 @@ pub mod fuzz_targets;
 /// Implementation for a particular target of a fuzz operation.
 pub trait FuzzTargetImpl: Sync + Send + fmt::Debug {
     /// The name of the fuzz target.
-    /// By default, we use the struct name, however, implementations may prefer to override this.
+    /// By default, we use the struct name, however, implementations may prefer
+    /// to override this.
     fn name(&self) -> &'static str {
         std::any::type_name::<Self>()
             .rsplit("::")
@@ -28,13 +29,15 @@ pub trait FuzzTargetImpl: Sync + Send + fmt::Debug {
     /// A description for this target.
     fn description(&self) -> &'static str;
 
-    /// Generates a new example for this target to store in the corpus. `idx` is the current index
-    /// of the item being generated, starting from 0.
+    /// Generates a new example for this target to store in the corpus. `idx` is
+    /// the current index of the item being generated, starting from 0.
     ///
-    /// Returns `Some(bytes)` if a value was generated, or `None` if no value can be generated.
+    /// Returns `Some(bytes)` if a value was generated, or `None` if no value
+    /// can be generated.
     fn generate(&self, _idx: usize, _gen: &mut ValueGenerator) -> Option<Vec<u8>>;
 
-    /// Fuzz the target with this data. The fuzzer tests for panics or OOMs with this method.
+    /// Fuzz the target with this data. The fuzzer tests for panics or OOMs with
+    /// this method.
     fn fuzz(&self, data: &[u8]);
 }
 

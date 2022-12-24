@@ -134,7 +134,8 @@ async fn test_old_indexer() {
     // Let the test complete! Yes, this does suck.
     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
 
-    // Get them into the array and sort by type in order to prevent ordering from breaking tests
+    // Get them into the array and sort by type in order to prevent ordering from
+    // breaking tests
     let mut transactions = vec![];
     for v in 0..2 {
         transactions

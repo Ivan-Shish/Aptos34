@@ -50,7 +50,8 @@ pub fn get_free_port() -> u32 {
     listener.local_addr().unwrap().port() as u32
 }
 
-/// Waits for the testnet's genesis job to complete, while tailing the job's logs
+/// Waits for the testnet's genesis job to complete, while tailing the job's
+/// logs
 async fn wait_genesis_job(kube_client: &K8sClient, era: &str, kube_namespace: &str) -> Result<()> {
     aptos_retrier::retry_async(k8s_wait_genesis_strategy(), || {
         let jobs: Api<Job> = Api::namespaced(kube_client.clone(), kube_namespace);
@@ -75,7 +76,7 @@ async fn wait_genesis_job(kube_client: &K8sClient, era: &str, kube_namespace: &s
                         ])
                         .status()
                         .expect("Failed to tail genesis logs");
-                }
+                },
                 None => info!("Genesis completed running"),
             }
             info!("Genesis status: {:?}", status);
@@ -83,7 +84,7 @@ async fn wait_genesis_job(kube_client: &K8sClient, era: &str, kube_namespace: &s
                 Some(_) => {
                     info!("Genesis done");
                     Ok(())
-                }
+                },
                 None => bail!("Genesis did not succeed"),
             }
         })
@@ -119,11 +120,11 @@ async fn wait_node_haproxy(
                         }
                         info!("Deployment {} has no status", deployment_name);
                         bail!("Deployment not ready");
-                    }
+                    },
                     Err(e) => {
                         info!("Failed to get deployment: {}", e);
                         bail!("Failed to get deployment: {}", e);
-                    }
+                    },
                 }
             }
             Ok(())
@@ -132,8 +133,9 @@ async fn wait_node_haproxy(
     .await
 }
 
-/// Waits for all given K8sNodes to be ready. Called when the testnet is first started, so we may have to wait a while for
-/// machines to be provisioned by the cloud provider.
+/// Waits for all given K8sNodes to be ready. Called when the testnet is first
+/// started, so we may have to wait a while for machines to be provisioned by
+/// the cloud provider.
 async fn wait_nodes_stateful_set(
     kube_client: &K8sClient,
     kube_namespace: &str,
@@ -173,16 +175,17 @@ async fn delete_k8s_collection<T: Clone + DeserializeOwned + Meta>(
         either::Left(list) => {
             let names: Vec<_> = list.iter().map(Meta::name).collect();
             info!("Deleting collection of {}: {:?}", name, names);
-        }
+        },
         either::Right(status) => {
             info!("Deleted collection of {}: status={:?}", name, status);
-        }
+        },
     }
 
     Ok(())
 }
 
-/// Delete existing k8s resources in the namespace. This is essentially helm uninstall but lighter weight
+/// Delete existing k8s resources in the namespace. This is essentially helm
+/// uninstall but lighter weight
 pub(crate) async fn delete_k8s_resources(client: K8sClient, kube_namespace: &str) -> Result<()> {
     // selector for the helm chart
     let aptos_node_helm_selector = "app.kubernetes.io/part-of=aptos-node";
@@ -196,8 +199,9 @@ pub(crate) async fn delete_k8s_resources(client: K8sClient, kube_namespace: &str
     let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client.clone(), kube_namespace);
     let jobs: Api<Job> = Api::namespaced(client.clone(), kube_namespace);
     let cronjobs: Api<CronJob> = Api::namespaced(client.clone(), kube_namespace);
-    // service deletion by label selector is not supported in this version of k8s api
-    // let services: Api<Service> = Api::namespaced(client.clone(), kube_namespace);
+    // service deletion by label selector is not supported in this version of k8s
+    // api let services: Api<Service> = Api::namespaced(client.clone(),
+    // kube_namespace);
 
     for selector in &[
         aptos_node_helm_selector,
@@ -236,9 +240,10 @@ pub(crate) fn delete_all_chaos(kube_namespace: &str) -> Result<()> {
     Ok(())
 }
 
-/// Deletes all Forge resources from the given namespace. If the namespace is "default", delete the management configmap
-/// as well as all compute resources. If the namespace is a Forge namespace (has the "forge-*" prefix), then simply delete
-/// the entire namespace
+/// Deletes all Forge resources from the given namespace. If the namespace is
+/// "default", delete the management configmap as well as all compute resources.
+/// If the namespace is a Forge namespace (has the "forge-*" prefix), then
+/// simply delete the entire namespace
 async fn delete_k8s_cluster(kube_namespace: String) -> Result<()> {
     let client: K8sClient = create_k8s_client().await;
 
@@ -253,11 +258,14 @@ async fn delete_k8s_cluster(kube_namespace: String) -> Result<()> {
                 .delete(&management_configmap_name, &DeleteParams::default())
                 .await
             {
-                Ok(_) => info!(
-                    "Deleted default management configmap: {}",
-                    &management_configmap_name
-                ),
-                // if configmap not found, assume it's already been deleted and make clean-up idempotent
+                Ok(_) => {
+                    info!(
+                        "Deleted default management configmap: {}",
+                        &management_configmap_name
+                    )
+                },
+                // if configmap not found, assume it's already been deleted and make clean-up
+                // idempotent
                 Err(KubeError::Api(api_err)) => {
                     if api_err.code == 404 {
                         info!(
@@ -267,11 +275,11 @@ async fn delete_k8s_cluster(kube_namespace: String) -> Result<()> {
                     } else {
                         bail!(api_err);
                     }
-                }
+                },
                 Err(e) => bail!(e),
             };
             delete_k8s_resources(client, "default").await?;
-        }
+        },
         s if s.starts_with("forge") => {
             let namespaces: Api<Namespace> = Api::all(client);
             namespaces
@@ -279,13 +287,13 @@ async fn delete_k8s_cluster(kube_namespace: String) -> Result<()> {
                 .await?
                 .map_left(|namespace| info!("Deleting namespace {}: {:?}", s, namespace.status))
                 .map_right(|status| info!("Deleted namespace {}: {:?}", s, status));
-        }
+        },
         _ => {
             bail!(
                 "Invalid kubernetes namespace provided: {}. Use forge-*",
                 kube_namespace
             );
-        }
+        },
     }
 
     Ok(())
@@ -372,7 +380,8 @@ fn upgrade_aptos_node_helm(options: &[String], kube_namespace: String) -> Result
 }
 
 // runs helm upgrade on the installed aptos-genesis release named "genesis"
-// if a new "era" is specified, a new genesis will be created, and old resources will be destroyed
+// if a new "era" is specified, a new genesis will be created, and old resources
+// will be destroyed
 fn upgrade_genesis_helm(options: &[String], kube_namespace: String) -> Result<()> {
     upgrade_helm_release(
         GENESIS_HELM_RELEASE_NAME.to_string(),
@@ -791,8 +800,8 @@ async fn create_namespace(
             );
         } else if api_err.code == 401 {
             return Err(ApiError::FinalError(
-                "Unauthorized, did you authorize with kubernetes? \
-                    Try running `kubectl get current-context`"
+                "Unauthorized, did you authorize with kubernetes? Try running `kubectl get \
+                 current-context`"
                     .to_string(),
             ));
         } else {
@@ -816,7 +825,8 @@ pub async fn create_management_configmap(
 
     // try to create a new namespace
     // * if it errors with 409, the namespace exists already and we should use it
-    // * if it errors with 403, the namespace is likely in the process of being terminated, so try again
+    // * if it errors with 403, the namespace is likely in the process of being
+    //   terminated, so try again
     RetryPolicy::exponential(Duration::from_millis(1000))
         .with_max_delay(Duration::from_millis(10 * 60 * 1000))
         .retry_if(
@@ -914,8 +924,8 @@ pub async fn cleanup_cluster_with_management() -> Result<()> {
         pods_api.delete(&pod_name, &DeleteParams::default()).await?;
     }
 
-    // delete all forge testnets over a threshold age using their management configmaps
-    // unless they are explicitly set with "keep = true"
+    // delete all forge testnets over a threshold age using their management
+    // configmaps unless they are explicitly set with "keep = true"
     let configmaps_api: Api<ConfigMap> = Api::all(kube_client.clone());
     let lp = ListParams::default();
     let configmaps = configmaps_api
@@ -1032,7 +1042,7 @@ mod tests {
         let namespace_creator = Arc::new(FailedNamespacesApi::from_status_code(401));
         let result = create_namespace(namespace_creator, "banana".to_string()).await;
         match result {
-            Err(ApiError::FinalError(_)) => {}
+            Err(ApiError::FinalError(_)) => {},
             _ => panic!("Expected final error"),
         }
     }
@@ -1105,7 +1115,7 @@ labels:
         let namespace_creator = Arc::new(FailedNamespacesApi::from_status_code(403));
         let result = create_namespace(namespace_creator, "banana".to_string()).await;
         match result {
-            Err(ApiError::RetryableError(_)) => {}
+            Err(ApiError::RetryableError(_)) => {},
             _ => panic!("Expected retryable error"),
         }
     }

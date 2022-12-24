@@ -4,8 +4,8 @@
 use crate::state_store::state_key::{StateKey, StateKeyTag};
 use move_core_types::account_address::AccountAddress;
 
-// Struct for defining prefix of a state key, which can be used for finding all the values with a
-// particular key prefix
+// Struct for defining prefix of a state key, which can be used for finding all
+// the values with a particular key prefix
 #[derive(Clone, Debug)]
 pub struct StateKeyPrefix {
     tag: StateKeyTag,

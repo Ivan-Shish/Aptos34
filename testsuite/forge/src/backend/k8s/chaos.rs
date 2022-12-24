@@ -1,16 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::process::{Command, Stdio};
-
-use anyhow::bail;
-use aptos_logger::info;
-use tempfile::TempDir;
-
 use crate::{
     dump_string_to_file, K8sSwarm, Result, Swarm, SwarmChaos, SwarmNetworkBandwidth,
     SwarmNetworkDelay, SwarmNetworkLoss, SwarmNetworkPartition, KUBECTL_BIN,
 };
+use anyhow::bail;
+use aptos_logger::info;
+use std::process::{Command, Stdio};
+use tempfile::TempDir;
 
 macro_rules! DELAY_NETWORK_CHAOS_TEMPLATE {
     () => {
@@ -43,9 +41,11 @@ impl K8sSwarm {
     }
 
     /// Removes the SwarmChaos from the specified namespace, if it exists
-    /// Most types of Chaos are represented by a single NetworkChaos CRD, so we can just reconstruct
-    /// it and kubectl delete -f it. However, Delay Chaos is represnted by however many pairwise delays there
-    /// are (GroupNetworkDelay ie region), so we need to delete each one individually.
+    /// Most types of Chaos are represented by a single NetworkChaos CRD, so we
+    /// can just reconstruct it and kubectl delete -f it. However, Delay
+    /// Chaos is represnted by however many pairwise delays there
+    /// are (GroupNetworkDelay ie region), so we need to delete each one
+    /// individually.
     pub fn remove_swarm_chaos(&self, chaos: &SwarmChaos) -> Result<()> {
         match chaos {
             SwarmChaos::Delay(network_delay) => {
@@ -71,11 +71,11 @@ impl K8sSwarm {
                     }
                 }
                 Ok(())
-            }
+            },
             _ => {
                 let template = self.create_chaos_template(chaos)?;
                 self.remove_chaos_template(template)
-            }
+            },
         }
     }
 

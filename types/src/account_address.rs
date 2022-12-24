@@ -1,17 +1,18 @@
-use anyhow::bail;
-use std::fmt::{Debug, Display, Formatter};
-use std::str::FromStr;
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 use crate::transaction::authenticator::{AuthenticationKey, Scheme};
+use anyhow::bail;
 use aptos_crypto::{
     ed25519::Ed25519PublicKey,
     hash::{CryptoHasher, HashValue},
     x25519,
 };
-
 pub use move_core_types::account_address::AccountAddress;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    str::FromStr,
+};
 
 const SALT: &[u8] = b"aptos_framework::staking_contract";
 const VESTING_POOL_SALT: &[u8] = b"aptos_framework::vesting";
@@ -51,10 +52,11 @@ impl FromStr for AccountAddressWithChecks {
 
         if working.len() > NUM_CHARS {
             bail!(
-                "AccountAddress {} is too long {} must be {} hex characters with or without a 0x in front",
+                "AccountAddress {} is too long {} must be {} hex characters with or without a 0x \
+                 in front",
                 str,
                 working.len(),
-               NUM_CHARS
+                NUM_CHARS
             )
         } else if !has_0x && working.len() < NUM_CHARS {
             bail!(
@@ -130,11 +132,11 @@ pub fn from_public_key(public_key: &Ed25519PublicKey) -> AccountAddress {
     AuthenticationKey::ed25519(public_key).derived_address()
 }
 
-// Note: This is inconsistent with current types because AccountAddress is derived
-// from consensus key which is of type Ed25519PublicKey. Since AccountAddress does
-// not mean anything in a setting without remote authentication, we use the network
-// public key to generate a peer_id for the peer.
-// See this issue for potential improvements: https://github.com/aptos-labs/aptos-core/issues/3960
+// Note: This is inconsistent with current types because AccountAddress is
+// derived from consensus key which is of type Ed25519PublicKey. Since
+// AccountAddress does not mean anything in a setting without remote
+// authentication, we use the network public key to generate a peer_id for the
+// peer. See this issue for potential improvements: https://github.com/aptos-labs/aptos-core/issues/3960
 pub fn from_identity_public_key(identity_public_key: x25519::PublicKey) -> AccountAddress {
     let mut array = [0u8; AccountAddress::LENGTH];
     let pubkey_slice = identity_public_key.as_slice();
@@ -198,10 +200,11 @@ pub fn create_resource_address(address: AccountAddress, seed: &[u8]) -> AccountA
     AccountAddress::from_bytes(&hash.as_ref()).unwrap()
 }
 
-// Define the Hasher used for hashing AccountAddress types. In order to properly use the
-// CryptoHasher derive macro we need to have this in its own module so that it doesn't conflict
-// with the imported `AccountAddress` from move-core-types. It needs to have the same name since
-// the hash salt is calculated using the name of the type.
+// Define the Hasher used for hashing AccountAddress types. In order to properly
+// use the CryptoHasher derive macro we need to have this in its own module so
+// that it doesn't conflict with the imported `AccountAddress` from
+// move-core-types. It needs to have the same name since the hash salt is
+// calculated using the name of the type.
 mod hasher {
     #[derive(serde::Deserialize, aptos_crypto_derive::CryptoHasher)]
     struct AccountAddress;

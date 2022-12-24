@@ -8,12 +8,15 @@
 //! - Only supports ProxyProtocol V2
 //! - Rejects ProxyProtocol V1
 //! - Only supports IPv4 & IPv6 TCP mode
-//! - All other valid connections, will just drop the address information and use the proxy's one
+//! - All other valid connections, will just drop the address information and
+//!   use the proxy's one
 //! - Does not interpret TLVs
 //!
 //! ## Interpetations not in the spec
-//! - An address space that doesn't match the size expected is rejected e.g. too big for IPv4
-//! - Address space that's larger than the current supported requests is rejected
+//! - An address space that doesn't match the size expected is rejected e.g. too
+//!   big for IPv4
+//! - Address space that's larger than the current supported requests is
+//!   rejected
 
 use aptos_types::network_address::NetworkAddress;
 use futures::io::{AsyncRead, AsyncReadExt};
@@ -73,7 +76,7 @@ pub async fn read_header<T: AsyncRead + std::marker::Unpin>(
                 io::ErrorKind::InvalidInput,
                 "ProxyProtocol: Unsupported command or protocol version",
             ));
-        }
+        },
     };
 
     // High 4 bits is family, low 4 bits is protocol
@@ -90,9 +93,10 @@ pub async fn read_header<T: AsyncRead + std::marker::Unpin>(
             // UNSPEC, UDP, and UNIX Steam/datagram
             // Accept connection but ignore address info as per spec
             original_addr.clone()
-        }
+        },
         TCP_IPV4 => {
-            // This is not mentioned in the spec, but if it doesn't match we might not read correctly
+            // This is not mentioned in the spec, but if it doesn't match we might not read
+            // correctly
             if address_size < IPV4_SIZE {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -104,9 +108,10 @@ pub async fn read_header<T: AsyncRead + std::marker::Unpin>(
             let src_port = u16::from_be_bytes(address_bytes[8..10].try_into().unwrap());
             let socket_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(src_addr)), src_port);
             NetworkAddress::from(socket_addr)
-        }
+        },
         TCP_IPV6 => {
-            // This is not mentioned in the spec, but if it doesn't match we might not read correctly
+            // This is not mentioned in the spec, but if it doesn't match we might not read
+            // correctly
             if address_size < IPV6_SIZE {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -119,13 +124,13 @@ pub async fn read_header<T: AsyncRead + std::marker::Unpin>(
 
             let socket_addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::from(src_addr)), src_port);
             NetworkAddress::from(socket_addr)
-        }
+        },
         _ => {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "ProxyProtocol: Unsupported Address Family or Protocol",
             ));
-        }
+        },
     };
 
     Ok(source_address)
@@ -245,13 +250,10 @@ mod test {
 
     #[test]
     fn test_local_proxy_protocol() {
-        let address_bytes: [&[u8; 1]; 5] = [
-            &[LOCAL_PROTOCOL],
-            &[UDP_IPV4],
-            &[UDP_IPV6],
-            &[TCP_UNIX],
-            &[UDP_UNIX],
-        ];
+        let address_bytes: [&[u8; 1]; 5] =
+            [&[LOCAL_PROTOCOL], &[UDP_IPV4], &[UDP_IPV6], &[TCP_UNIX], &[
+                UDP_UNIX,
+            ]];
 
         address_bytes
             .iter()

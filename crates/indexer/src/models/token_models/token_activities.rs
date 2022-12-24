@@ -43,7 +43,8 @@ pub struct TokenActivity {
     pub transaction_timestamp: chrono::NaiveDateTime,
 }
 
-/// A simplified TokenActivity (excluded common fields) to reduce code duplication
+/// A simplified TokenActivity (excluded common fields) to reduce code
+/// duplication
 struct TokenActivityHelper<'a> {
     pub token_data_id: &'a TokenDataIdType,
     pub property_version: BigDecimal,
@@ -70,7 +71,7 @@ impl TokenActivity {
                         txn_version,
                         parse_timestamp(user_txn.timestamp.0, txn_version),
                     )),
-                    None => {}
+                    None => {},
                 };
             }
         }

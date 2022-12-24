@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::smoke_test_environment::SwarmBuilder;
-use aptos::account::create::DEFAULT_FUNDED_COINS;
-use aptos::common::types::GasOptions;
+use aptos::{account::create::DEFAULT_FUNDED_COINS, common::types::GasOptions};
 use aptos_crypto::{PrivateKey, ValidCryptoMaterialStringExt};
 use aptos_keygen::KeyGen;
 
@@ -66,9 +65,10 @@ async fn test_account_flow() {
 
     cli.assert_account_balance_now(2, DEFAULT_FUNDED_COINS - gas_used - 5)
         .await;
-    // Setting max gas skips simulation (this should fail for too little gas units, but be charged gas)
-    // If it was simulated, it wouldn't charge gas, and it would need to be caught by the VM.  Mempool
-    // submission doesn't check max gas is correct, just that the user has enough to pay it
+    // Setting max gas skips simulation (this should fail for too little gas units,
+    // but be charged gas) If it was simulated, it wouldn't charge gas, and it
+    // would need to be caught by the VM.  Mempool submission doesn't check max
+    // gas is correct, just that the user has enough to pay it
     cli.transfer_coins(
         2,
         1,

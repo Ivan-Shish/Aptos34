@@ -5,6 +5,7 @@
 // we need to know the chain ID. This is pretty unfortunate, especially since
 // it's only really necessary for devnet. Try to find another approach.
 
+use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 use crate::{
     get_provider,
     provider::{noise::NoiseProvider, ProviderCollection},
@@ -12,8 +13,6 @@ use crate::{
 use anyhow::Result;
 use aptos_network_checker::args::HandshakeArgs;
 use serde::{Deserialize, Serialize};
-
-use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -58,8 +57,8 @@ impl Checker for HandshakeChecker {
                     "Noise connection established successfully".to_string(),
                     100,
                     format!(
-                        "{}. This indicates your noise port ({}) is open and the node is \
-                    running with the private key matching the provided public key.",
+                        "{}. This indicates your noise port ({}) is open and the node is running \
+                         with the private key matching the provided public key.",
                         message,
                         target_noise_provider.network_address.find_port().unwrap()
                     ),
@@ -68,8 +67,8 @@ impl Checker for HandshakeChecker {
                     "Failed to establish noise connection".to_string(),
                     0,
                     format!(
-                        "{:#}. Either the noise port ({}) is closed or the node is not \
-                    running with the private key matching the provided public key.",
+                        "{:#}. Either the noise port ({}) is closed or the node is not running \
+                         with the private key matching the provided public key.",
                         err,
                         target_noise_provider.network_address.find_port().unwrap()
                     ),

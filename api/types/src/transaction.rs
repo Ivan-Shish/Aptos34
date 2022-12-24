@@ -7,19 +7,16 @@ use crate::{
     MoveValue, VerifyInput, VerifyInputWithRecursion, U64,
 };
 use anyhow::{bail, Context as AnyhowContext};
-use aptos_crypto::ed25519::{ED25519_PUBLIC_KEY_LENGTH, ED25519_SIGNATURE_LENGTH};
-use aptos_crypto::multi_ed25519::{BITMAP_NUM_OF_BYTES, MAX_NUM_OF_KEYS};
 use aptos_crypto::{
-    ed25519::{self, Ed25519PublicKey},
-    multi_ed25519::{self, MultiEd25519PublicKey},
+    ed25519::{self, Ed25519PublicKey, ED25519_PUBLIC_KEY_LENGTH, ED25519_SIGNATURE_LENGTH},
+    multi_ed25519::{self, MultiEd25519PublicKey, BITMAP_NUM_OF_BYTES, MAX_NUM_OF_KEYS},
 };
-use aptos_types::transaction::authenticator::MAX_NUM_OF_SIGS;
 use aptos_types::{
     account_address::AccountAddress,
     block_metadata::BlockMetadata,
     contract_event::{ContractEvent, EventWithVersion},
     transaction::{
-        authenticator::{AccountAuthenticator, TransactionAuthenticator},
+        authenticator::{AccountAuthenticator, TransactionAuthenticator, MAX_NUM_OF_SIGS},
         Script, SignedTransaction, TransactionOutput, TransactionWithProof,
     },
 };
@@ -42,9 +39,9 @@ use std::{
 
 /// Transaction data
 ///
-/// This is a combination enum of an onchain transaction and a pending transaction.
-/// When the transaction is still in mempool, it will be pending.  If it's been committed to the
-/// chain, it will show up as OnChain.
+/// This is a combination enum of an onchain transaction and a pending
+/// transaction. When the transaction is still in mempool, it will be pending.
+/// If it's been committed to the chain, it will show up as OnChain.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum TransactionData {
     /// A committed transaction
@@ -67,7 +64,8 @@ impl From<SignedTransaction> for TransactionData {
 
 /// A committed transaction
 ///
-/// This is a representation of the onchain payload, outputs, events, and proof of a transaction.
+/// This is a representation of the onchain payload, outputs, events, and proof
+/// of a transaction.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TransactionOnChainData {
     /// The ledger version of the transaction
@@ -226,7 +224,7 @@ impl Transaction {
             Transaction::BlockMetadataTransaction(txn) => &txn.info,
             Transaction::PendingTransaction(_txn) => {
                 bail!("pending transaction does not have TransactionInfo")
-            }
+            },
             Transaction::GenesisTransaction(txn) => &txn.info,
             Transaction::StateCheckpointTransaction(txn) => &txn.info,
         })
@@ -310,7 +308,8 @@ impl From<(&SignedTransaction, TransactionPayload)> for UserTransactionRequest {
     }
 }
 
-/// Information related to how a transaction affected the state of the blockchain
+/// Information related to how a transaction affected the state of the
+/// blockchain
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Object)]
 pub struct TransactionInfo {
     pub version: U64,
@@ -321,16 +320,19 @@ pub struct TransactionInfo {
     pub gas_used: U64,
     /// Whether the transaction was successful
     pub success: bool,
-    /// The VM status of the transaction, can tell useful information in a failure
+    /// The VM status of the transaction, can tell useful information in a
+    /// failure
     pub vm_status: String,
     pub accumulator_root_hash: HashValue,
     /// Final state of resources changed by the transaction
     pub changes: Vec<WriteSetChange>,
-    /// Block height that the transaction belongs in, this field will not be present through the API
+    /// Block height that the transaction belongs in, this field will not be
+    /// present through the API
     #[oai(skip)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub block_height: Option<U64>,
-    /// Epoch of the transaction belongs in, this field will not be present through the API
+    /// Epoch of the transaction belongs in, this field will not be present
+    /// through the API
     #[oai(skip)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch: Option<U64>,
@@ -732,7 +734,8 @@ pub struct DeleteTableItem {
     pub state_key_hash: String,
     pub handle: HexEncodedBytes,
     pub key: HexEncodedBytes,
-    // This is optional, and only possible to populate if the table indexer is enabled for this node
+    // This is optional, and only possible to populate if the table indexer is enabled for this
+    // node
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub data: Option<DeletedTableData>,
@@ -785,7 +788,8 @@ pub struct WriteTableItem {
     pub handle: HexEncodedBytes,
     pub key: HexEncodedBytes,
     pub value: HexEncodedBytes,
-    // This is optional, and only possible to populate if the table indexer is enabled for this node
+    // This is optional, and only possible to populate if the table indexer is enabled for this
+    // node
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub data: Option<DecodedTableData>,
@@ -826,6 +830,7 @@ impl VerifyInput for TransactionSignature {
 
 impl TryFrom<TransactionSignature> for TransactionAuthenticator {
     type Error = anyhow::Error;
+
     fn try_from(ts: TransactionSignature) -> anyhow::Result<Self> {
         Ok(match ts {
             TransactionSignature::Ed25519Signature(sig) => sig.try_into()?,
@@ -848,13 +853,17 @@ impl VerifyInput for Ed25519Signature {
         let signature_len = self.signature.inner().len();
         if public_key_len != ED25519_PUBLIC_KEY_LENGTH {
             bail!(
-                "Ed25519 signature's public key is an invalid number of bytes, should be {} bytes but found {}",
-                ED25519_PUBLIC_KEY_LENGTH, public_key_len
+                "Ed25519 signature's public key is an invalid number of bytes, should be {} bytes \
+                 but found {}",
+                ED25519_PUBLIC_KEY_LENGTH,
+                public_key_len
             )
         } else if signature_len != ED25519_SIGNATURE_LENGTH {
             bail!(
-                "Ed25519 signature length is an invalid number of bytes, should be {} bytes but found {}",
-                ED25519_SIGNATURE_LENGTH, signature_len
+                "Ed25519 signature length is an invalid number of bytes, should be {} bytes but \
+                 found {}",
+                ED25519_SIGNATURE_LENGTH,
+                signature_len
             )
         } else {
             // TODO: Check if they match / parse correctly?
@@ -1032,7 +1041,8 @@ impl TryFrom<MultiEd25519Signature> for AccountAuthenticator {
 /// The account signature scheme allows you to have two types of accounts:
 ///
 ///   1. A single Ed25519 key account, one private key
-///   2. A k-of-n multi-Ed25519 key account, multiple private keys, such that k-of-n must sign a transaction.
+///   2. A k-of-n multi-Ed25519 key account, multiple private keys, such that
+/// k-of-n must sign a transaction.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Union)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[oai(one_of, discriminator_name = "type", rename_all = "snake_case")]
@@ -1217,8 +1227,10 @@ impl From<TransactionAuthenticator> for TransactionSignature {
 /// A transaction identifier
 ///
 /// There are 2 types transaction ids from HTTP request inputs:
-/// 1. Transaction hash: hex-encoded string, e.g. "0x374eda71dce727c6cd2dd4a4fd47bfb85c16be2e3e95ab0df4948f39e1af9981"
-/// 2. Transaction version: u64 number string (as we encode u64 into string in JSON), e.g. "122"
+/// 1. Transaction hash: hex-encoded string, e.g.
+/// "0x374eda71dce727c6cd2dd4a4fd47bfb85c16be2e3e95ab0df4948f39e1af9981"
+/// 2. Transaction version: u64 number string (as we encode u64 into string in
+/// JSON), e.g. "122"
 #[derive(Clone, Debug, Union)]
 #[oai(one_of, discriminator_name = "type", rename_all = "snake_case")]
 pub enum TransactionId {

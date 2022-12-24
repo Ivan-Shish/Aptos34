@@ -128,7 +128,8 @@ fn test_get_all_transaction_outputs() {
     // Spawn a new server thread to handle any transaction output stream requests
     let _handler = spawn_service_and_expect_request(streaming_service_listener, expected_request);
 
-    // Send a transaction output stream request and verify we get a data stream listener
+    // Send a transaction output stream request and verify we get a data stream
+    // listener
     let response = block_on(streaming_service_client.get_all_transaction_outputs(
         request_start_version,
         request_end_version,
@@ -156,10 +157,12 @@ fn test_continuously_stream_transactions() {
             target: target.clone(),
         });
 
-    // Spawn a new server thread to handle any continuous transaction stream requests
+    // Spawn a new server thread to handle any continuous transaction stream
+    // requests
     let _handler = spawn_service_and_expect_request(streaming_service_listener, expected_request);
 
-    // Send a continuous transaction stream request and verify we get a data stream listener
+    // Send a continuous transaction stream request and verify we get a data stream
+    // listener
     let response = block_on(streaming_service_client.continuously_stream_transactions(
         known_version,
         known_epoch,
@@ -187,10 +190,12 @@ fn test_continuously_stream_transaction_outputs() {
         },
     );
 
-    // Spawn a new server thread to handle any continuous transaction output stream requests
+    // Spawn a new server thread to handle any continuous transaction output stream
+    // requests
     let _handler = spawn_service_and_expect_request(streaming_service_listener, expected_request);
 
-    // Send a continuous transaction output stream request and verify we get a data stream listener
+    // Send a continuous transaction output stream request and verify we get a data
+    // stream listener
     let response = block_on(
         streaming_service_client.continuously_stream_transaction_outputs(
             request_start_version,
@@ -230,34 +235,36 @@ fn test_terminate_stream() {
 }
 
 /// Spawns a new thread that listens to the given streaming service listener and
-/// responds successfully to any requests that match the specified `expected_request`.
-/// Otherwise, an error is returned.
+/// responds successfully to any requests that match the specified
+/// `expected_request`. Otherwise, an error is returned.
 fn spawn_service_and_expect_request(
     mut streaming_service_listener: StreamingServiceListener,
     expected_request: StreamRequest,
 ) -> JoinHandle<()> {
     initialize_logger();
 
-    std::thread::spawn(move || loop {
-        if let Some(stream_request_message) =
-            streaming_service_listener.select_next_some().now_or_never()
-        {
-            // Create a new data stream sender and listener pair
-            let (_, listener) = new_data_stream_sender_listener();
+    std::thread::spawn(move || {
+        loop {
+            if let Some(stream_request_message) =
+                streaming_service_listener.select_next_some().now_or_never()
+            {
+                // Create a new data stream sender and listener pair
+                let (_, listener) = new_data_stream_sender_listener();
 
-            // Verify the client request is as expected and respond appropriately
-            let stream_request = stream_request_message.stream_request;
-            let response = if stream_request == expected_request {
-                Ok(listener)
-            } else {
-                Err(Error::UnexpectedErrorEncountered(format!(
-                    "Unexpected stream request! Got: {:?} but expected: {:?}",
-                    stream_request, expected_request
-                )))
-            };
+                // Verify the client request is as expected and respond appropriately
+                let stream_request = stream_request_message.stream_request;
+                let response = if stream_request == expected_request {
+                    Ok(listener)
+                } else {
+                    Err(Error::UnexpectedErrorEncountered(format!(
+                        "Unexpected stream request! Got: {:?} but expected: {:?}",
+                        stream_request, expected_request
+                    )))
+                };
 
-            // Send the response to the client
-            let _send_result = stream_request_message.response_sender.send(response);
+                // Send the response to the client
+                let _send_result = stream_request_message.response_sender.send(response);
+            }
         }
     })
 }

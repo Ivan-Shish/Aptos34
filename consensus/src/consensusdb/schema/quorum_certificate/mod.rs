@@ -1,7 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines physical storage schema for consensus quorum certificate (of a block).
+//! This module defines physical storage schema for consensus quorum certificate
+//! (of a block).
 //!
 //! Serialized quorum certificate bytes identified by block_hash.
 //! ```text

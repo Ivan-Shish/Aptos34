@@ -19,9 +19,9 @@ use std::{collections::HashMap, hash::Hash, sync::Arc, vec::Vec};
 
 /// A trait describing a test framework for a specific application
 ///
-/// This is essentially an abstract implementation, to get around how rust handles traits
-/// there are functions to get required variables in the implementation.
-///
+/// This is essentially an abstract implementation, to get around how rust
+/// handles traits there are functions to get required variables in the
+/// implementation.
 pub trait TestFramework<Node: ApplicationNode + Sync> {
     /// Constructor for the [`TestFramework`]
     fn new(nodes: HashMap<NodeId, Node>) -> Self;
@@ -29,7 +29,8 @@ pub trait TestFramework<Node: ApplicationNode + Sync> {
     /// A constructor for `Node` specific to the application
     fn build_node(node_id: NodeId, config: NodeConfig, peer_network_ids: &[PeerNetworkId]) -> Node;
 
-    /// In order to have separate tasks, we have to pull these out of the framework
+    /// In order to have separate tasks, we have to pull these out of the
+    /// framework
     fn take_node(&mut self, node_id: NodeId) -> Node;
 }
 

@@ -36,7 +36,6 @@ where
 {
     /// The number of accounts created by default.
     pub const DEFAULT_NUM_ACCOUNTS: usize = 100;
-
     /// The number of transactions created by default.
     pub const DEFAULT_NUM_TRANSACTIONS: usize = 1000;
 
@@ -110,7 +109,8 @@ struct TransactionBenchState {
 }
 
 impl TransactionBenchState {
-    /// Creates a new benchmark state with the given number of accounts and transactions.
+    /// Creates a new benchmark state with the given number of accounts and
+    /// transactions.
     fn with_size<S>(strategy: S, num_accounts: usize, num_transactions: usize) -> Self
     where
         S: Strategy,
@@ -122,7 +122,8 @@ impl TransactionBenchState {
             num_transactions,
         );
 
-        // Insert a blockmetadata transaction at the beginning to better simulate the real life traffic.
+        // Insert a blockmetadata transaction at the beginning to better simulate the
+        // real life traffic.
         let validator_set =
             ValidatorSet::fetch_config(&state.executor.get_state_view().as_move_resolver())
                 .expect("Unable to retrieve the validator set from storage");
@@ -144,8 +145,8 @@ impl TransactionBenchState {
         state
     }
 
-    /// Creates a new benchmark state with the given account universe strategy and number of
-    /// transactions.
+    /// Creates a new benchmark state with the given account universe strategy
+    /// and number of transactions.
     fn with_universe<S>(
         strategy: S,
         universe_strategy: impl Strategy<Value = AccountUniverseGen>,
@@ -162,9 +163,9 @@ impl TransactionBenchState {
             .current();
 
         let mut executor = FakeExecutor::from_head_genesis();
-        // Run in gas-cost-stability mode for now -- this ensures that new accounts are ignored.
-        // XXX We may want to include new accounts in case they have interesting performance
-        // characteristics.
+        // Run in gas-cost-stability mode for now -- this ensures that new accounts are
+        // ignored. XXX We may want to include new accounts in case they have
+        // interesting performance characteristics.
         let mut universe = universe.setup_gas_cost_stability(&mut executor);
 
         let transaction_gens = vec(strategy, num_transactions)
@@ -184,16 +185,16 @@ impl TransactionBenchState {
 
     /// Executes this state in a single block.
     fn execute(self) {
-        // The output is ignored here since we're just testing transaction performance, not trying
-        // to assert correctness.
+        // The output is ignored here since we're just testing transaction performance,
+        // not trying to assert correctness.
         BlockAptosVM::execute_block(self.transactions, self.executor.get_state_view(), 1)
             .expect("VM should not fail to start");
     }
 
     /// Executes this state in a single block via parallel execution.
     fn execute_parallel(self) {
-        // The output is ignored here since we're just testing transaction performance, not trying
-        // to assert correctness.
+        // The output is ignored here since we're just testing transaction performance,
+        // not trying to assert correctness.
         BlockAptosVM::execute_block(
             self.transactions,
             self.executor.get_state_view(),

@@ -14,24 +14,26 @@ use std::{collections::HashMap, marker::PhantomData};
 
 /// A builder for a [`TestFramework`] implementation.
 ///
-/// This handles making sure that nodes are unique, and that they have the channels attached
-/// to each other to send messages between each other.
-///
+/// This handles making sure that nodes are unique, and that they have the
+/// channels attached to each other to send messages between each other.
 pub struct TestFrameworkBuilder<Framework: TestFramework<Node>, Node: TestNode> {
-    /// Owners are a simple stand in for actual [`AccountAddress`] uniqueness in the network.
-    /// An `owner` can have 1 of each [`NodeType`] of `Node`. This simplifies linking
-    /// [`NodeType::Validator`] and [`NodeType::ValidatorFullNode`] later, as well as keeps
+    /// Owners are a simple stand in for actual [`AccountAddress`] uniqueness in
+    /// the network. An `owner` can have 1 of each [`NodeType`] of `Node`.
+    /// This simplifies linking [`NodeType::Validator`] and
+    /// [`NodeType::ValidatorFullNode`] later, as well as keeps
     /// a unique identifier for each node as [`NodeId`].
     owners: u32,
     /// The unique mapping of `Node` to ensure no duplicates.
     nodes: HashMap<NodeId, Node>,
-    /// Random generator for randomness in keys and [`PeerId`]s. Hardcoded to remove non-determinism.
+    /// Random generator for randomness in keys and [`PeerId`]s. Hardcoded to
+    /// remove non-determinism.
     rng: StdRng,
     _framework_marker: PhantomData<Framework>,
 }
 
 impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framework, Node> {
-    /// Create a new [`TestFrameworkBuilder`], ensuring that there is a fixed number of `owners`.
+    /// Create a new [`TestFrameworkBuilder`], ensuring that there is a fixed
+    /// number of `owners`.
     pub fn new(owners: u32) -> Self {
         Self {
             owners,
@@ -59,15 +61,10 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
             .expect("Validator must have a validator network")
             .peer_id();
 
-        self.add_node(
-            owner,
-            NodeType::Validator,
-            config,
-            &[
-                PeerNetworkId::new(NetworkId::Validator, peer_id),
-                PeerNetworkId::new(NetworkId::Vfn, peer_id),
-            ],
-        )
+        self.add_node(owner, NodeType::Validator, config, &[
+            PeerNetworkId::new(NetworkId::Validator, peer_id),
+            PeerNetworkId::new(NetworkId::Vfn, peer_id),
+        ])
     }
 
     /// Adds a [`TestNode`] of [`NodeType::ValidatorFullNode`]
@@ -84,15 +81,10 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
             .expect("Vfn must have a public network")
             .peer_id();
 
-        self.add_node(
-            owner,
-            NodeType::ValidatorFullNode,
-            config,
-            &[
-                PeerNetworkId::new(NetworkId::Vfn, peer_id),
-                PeerNetworkId::new(NetworkId::Public, peer_id),
-            ],
-        )
+        self.add_node(owner, NodeType::ValidatorFullNode, config, &[
+            PeerNetworkId::new(NetworkId::Vfn, peer_id),
+            PeerNetworkId::new(NetworkId::Public, peer_id),
+        ])
     }
 
     /// Adds a [`TestNode`] of [`NodeType::PublicFullNode`]
@@ -109,12 +101,9 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
             .expect("Pfn must have a public network")
             .peer_id();
 
-        self.add_node(
-            owner,
-            NodeType::PublicFullNode,
-            config,
-            &[PeerNetworkId::new(NetworkId::Public, peer_id)],
-        )
+        self.add_node(owner, NodeType::PublicFullNode, config, &[
+            PeerNetworkId::new(NetworkId::Public, peer_id),
+        ])
     }
 
     /// Add a node to the network, ensuring that it doesn't already exist

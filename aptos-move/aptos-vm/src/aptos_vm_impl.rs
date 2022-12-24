@@ -22,12 +22,10 @@ use aptos_types::{
     account_config::{TransactionValidation, APTOS_TRANSACTION_VALIDATION, CORE_CODE_ADDRESS},
     chain_id::ChainId,
     on_chain_config::{
-        ApprovedExecutionHashes, GasSchedule, GasScheduleV2, OnChainConfig, StorageGasSchedule,
-        Version,
+        ApprovedExecutionHashes, FeatureFlag, Features, GasSchedule, GasScheduleV2, OnChainConfig,
+        StorageGasSchedule, Version,
     },
-    on_chain_config::{FeatureFlag, Features},
-    transaction::AbortInfo,
-    transaction::{ExecutionStatus, TransactionOutput, TransactionStatus},
+    transaction::{AbortInfo, ExecutionStatus, TransactionOutput, TransactionStatus},
     vm_status::{StatusCode, VMStatus},
 };
 use fail::fail_point;
@@ -71,12 +69,12 @@ impl AptosVMImpl {
                         AptosGasParameters::from_on_chain_gas_schedule(&map, feature_version),
                         feature_version,
                     )
-                }
+                },
                 None => match GasSchedule::fetch_config(&storage) {
                     Some(gas_schedule) => {
                         let map = gas_schedule.to_btree_map();
                         (AptosGasParameters::from_on_chain_gas_schedule(&map, 0), 0)
-                    }
+                    },
                     None => (None, 0),
                 },
             };
@@ -102,8 +100,9 @@ impl AptosVMImpl {
             storage_gas_schedule.as_ref(),
         );
 
-        // TODO(Gas): Right now, we have to use some dummy values for gas parameters if they are not found on-chain.
-        //            This only happens in a edge case that is probably related to write set transactions or genesis,
+        // TODO(Gas): Right now, we have to use some dummy values for gas parameters if
+        // they are not found on-chain.            This only happens in a edge
+        // case that is probably related to write set transactions or genesis,
         //            which logically speaking, shouldn't be handled by the VM at all.
         //            We should clean up the logic here once we get that refactored.
         let (native_gas_params, abs_val_size_gas_params) = match &gas_params {
@@ -116,7 +115,8 @@ impl AptosVMImpl {
 
         let features = Features::fetch_config(&storage).unwrap_or_default();
 
-        // If no chain ID is in storage, we assume we are in a testing environment and use ChainId::TESTING
+        // If no chain ID is in storage, we assume we are in a testing environment and
+        // use ChainId::TESTING
         let chain_id = ChainId::fetch_config(&storage).unwrap_or_else(ChainId::test);
 
         let inner = MoveVmExt::new(
@@ -158,7 +158,8 @@ impl AptosVMImpl {
             .unwrap_or(&APTOS_TRANSACTION_VALIDATION)
     }
 
-    // TODO: Move this to an on-chain config once those are a part of the core framework
+    // TODO: Move this to an on-chain config once those are a part of the core
+    // framework
     fn get_transaction_validation<S: ResourceResolver>(
         remote_cache: &S,
     ) -> Option<TransactionValidation> {
@@ -260,8 +261,8 @@ impl AptosVMImpl {
             }
         }
 
-        // The submitted max gas units that the transaction can consume is greater than the
-        // maximum number of gas units bound that we have set for any
+        // The submitted max gas units that the transaction can consume is greater than
+        // the maximum number of gas units bound that we have set for any
         // transaction.
         if txn_data.max_gas_amount() > txn_gas_params.maximum_number_of_gas_units {
             warn!(
@@ -275,9 +276,9 @@ impl AptosVMImpl {
             ));
         }
 
-        // The submitted transactions max gas units needs to be at least enough to cover the
-        // intrinsic cost of the transaction as calculated against the size of the
-        // underlying `RawTransaction`
+        // The submitted transactions max gas units needs to be at least enough to cover
+        // the intrinsic cost of the transaction as calculated against the size
+        // of the underlying `RawTransaction`
         let intrinsic_gas: Gas = txn_gas_params
             .calculate_intrinsic_gas(raw_bytes_len)
             .to_unit_round_up_with_params(txn_gas_params);
@@ -294,9 +295,9 @@ impl AptosVMImpl {
             ));
         }
 
-        // The submitted gas price is less than the minimum gas unit price set by the VM.
-        // NB: MIN_PRICE_PER_GAS_UNIT may equal zero, but need not in the future. Hence why
-        // we turn off the clippy warning.
+        // The submitted gas price is less than the minimum gas unit price set by the
+        // VM. NB: MIN_PRICE_PER_GAS_UNIT may equal zero, but need not in the
+        // future. Hence why we turn off the clippy warning.
         #[allow(clippy::absurd_extreme_comparisons)]
         let below_min_bound = txn_data.gas_unit_price() < txn_gas_params.min_price_per_gas_unit;
         if below_min_bound {
@@ -309,7 +310,8 @@ impl AptosVMImpl {
             return Err(VMStatus::Error(StatusCode::GAS_UNIT_PRICE_BELOW_MIN_BOUND));
         }
 
-        // The submitted gas price is greater than the maximum gas unit price set by the VM.
+        // The submitted gas price is greater than the maximum gas unit price set by the
+        // VM.
         if txn_data.gas_unit_price() > txn_gas_params.max_price_per_gas_unit {
             warn!(
                 *log_context,
@@ -322,8 +324,10 @@ impl AptosVMImpl {
         Ok(())
     }
 
-    /// Run the prologue of a transaction by calling into either `SCRIPT_PROLOGUE_NAME` function
-    /// or `MULTI_AGENT_SCRIPT_PROLOGUE_NAME` function stored in the `ACCOUNT_MODULE` on chain.
+    /// Run the prologue of a transaction by calling into either
+    /// `SCRIPT_PROLOGUE_NAME` function
+    /// or `MULTI_AGENT_SCRIPT_PROLOGUE_NAME` function stored in the
+    /// `ACCOUNT_MODULE` on chain.
     pub(crate) fn run_script_prologue<S: MoveResolverExt>(
         &self,
         session: &mut SessionExt<S>,
@@ -386,8 +390,8 @@ impl AptosVMImpl {
             .or_else(|err| convert_prologue_error(transaction_validation, err, log_context))
     }
 
-    /// Run the prologue of a transaction by calling into `MODULE_PROLOGUE_NAME` function stored
-    /// in the `ACCOUNT_MODULE` on chain.
+    /// Run the prologue of a transaction by calling into `MODULE_PROLOGUE_NAME`
+    /// function stored in the `ACCOUNT_MODULE` on chain.
     pub(crate) fn run_module_prologue<S: MoveResolverExt>(
         &self,
         session: &mut SessionExt<S>,
@@ -425,8 +429,8 @@ impl AptosVMImpl {
             .or_else(|err| convert_prologue_error(transaction_validation, err, log_context))
     }
 
-    /// Run the epilogue of a transaction by calling into `EPILOGUE_NAME` function stored
-    /// in the `ACCOUNT_MODULE` on chain.
+    /// Run the epilogue of a transaction by calling into `EPILOGUE_NAME`
+    /// function stored in the `ACCOUNT_MODULE` on chain.
     pub(crate) fn run_success_epilogue<S: MoveResolverExt>(
         &self,
         session: &mut SessionExt<S>,
@@ -464,8 +468,9 @@ impl AptosVMImpl {
             .or_else(|err| convert_epilogue_error(transaction_validation, err, log_context))
     }
 
-    /// Run the failure epilogue of a transaction by calling into `USER_EPILOGUE_NAME` function
-    /// stored in the `ACCOUNT_MODULE` on chain.
+    /// Run the failure epilogue of a transaction by calling into
+    /// `USER_EPILOGUE_NAME` function stored in the `ACCOUNT_MODULE` on
+    /// chain.
     pub(crate) fn run_failure_epilogue<S: MoveResolverExt>(
         &self,
         session: &mut SessionExt<S>,
@@ -553,7 +558,8 @@ impl<'a> AptosVMInternals<'a> {
         &self.0.move_vm
     }
 
-    /// Returns the internal gas schedule if it has been loaded, or an error if it hasn't.
+    /// Returns the internal gas schedule if it has been loaded, or an error if
+    /// it hasn't.
     pub fn gas_params(
         self,
         log_context: &AdapterLogSchema,
@@ -570,7 +576,8 @@ impl<'a> AptosVMInternals<'a> {
     ///
     /// The `TransactionDataCache` can be used as a `ChainState`.
     ///
-    /// If you don't care about the transaction metadata, use `TransactionMetadata::default()`.
+    /// If you don't care about the transaction metadata, use
+    /// `TransactionMetadata::default()`.
     pub fn with_txn_data_cache<T, S: StateView>(
         self,
         state_view: &S,

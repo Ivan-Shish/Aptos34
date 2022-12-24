@@ -26,7 +26,8 @@ fn get_abi_paths(dir: &Path) -> std::io::Result<Vec<String>> {
     Ok(abi_paths)
 }
 
-/// Read all ABI files the specified directories. This supports both new and old `EntryABI`s.
+/// Read all ABI files the specified directories. This supports both new and old
+/// `EntryABI`s.
 pub fn read_abis(dir_paths: &[impl AsRef<Path>]) -> anyhow::Result<Vec<EntryABI>> {
     let mut abis = Vec::<EntryABI>::new();
     for dir in dir_paths.iter() {

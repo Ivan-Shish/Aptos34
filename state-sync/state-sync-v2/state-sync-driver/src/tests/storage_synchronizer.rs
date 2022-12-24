@@ -82,7 +82,8 @@ async fn test_apply_transaction_outputs() {
         .await
         .unwrap();
 
-    // Verify we get a mempool and event notification. Also verify that there's no pending data.
+    // Verify we get a mempool and event notification. Also verify that there's no
+    // pending data.
     verify_mempool_and_event_notification(
         Some(&mut event_listener),
         &mut mempool_listener,
@@ -198,7 +199,8 @@ async fn test_execute_transactions() {
         .await
         .unwrap();
 
-    // Verify we get a mempool and event notification. Also verify that there's no pending data.
+    // Verify we get a mempool and event notification. Also verify that there's no
+    // pending data.
     verify_mempool_and_event_notification(
         Some(&mut event_listener),
         &mut mempool_listener,
@@ -540,7 +542,8 @@ fn create_storage_synchronizer(
     )
 }
 
-/// Verifies that the expected snapshot commit notification is received by the listener
+/// Verifies that the expected snapshot commit notification is received by the
+/// listener
 async fn verify_snapshot_commit_notification(
     commit_listener: &mut CommitNotificationListener,
     expected_committed_transactions: CommittedTransactions,

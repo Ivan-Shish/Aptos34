@@ -30,8 +30,9 @@ fn init_module() {
         42
     );
 
-    // Republish to show that init_module is not called again. If init_module would be called again,
-    // we would get an abort here because the first time, it used move_to for initialization.
+    // Republish to show that init_module is not called again. If init_module would
+    // be called again, we would get an abort here because the first time, it
+    // used move_to for initialization.
     assert_success!(h.publish_package(&acc, &common::test_dir_path("init_module.data/pack")));
     assert_eq!(
         h.read_resource::<ModuleData>(acc.address(), module_data)
@@ -45,7 +46,8 @@ fn init_module() {
 fn init_module_when_republishing_package() {
     let mut h = MoveHarness::new();
 
-    // Deploy a package that initially does not have the module that has the init_module function.
+    // Deploy a package that initially does not have the module that has the
+    // init_module function.
     let acc = h.aptos_framework_account();
     assert_success!(h.publish_package(
         &acc,

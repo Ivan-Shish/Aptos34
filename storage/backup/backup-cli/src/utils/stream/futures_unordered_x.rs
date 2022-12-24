@@ -1,9 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-/// This wraps around `futures::stream::futures_unorderd::FuturesUnordered` to provide similar
-/// functionality except that there's limit on concurrency. This allows us to manage more futures
-/// without activation too many of them at the same time.
+/// This wraps around `futures::stream::futures_unorderd::FuturesUnordered` to
+/// provide similar functionality except that there's limit on concurrency. This
+/// allows us to manage more futures without activation too many of them at the
+/// same time.
 use futures::{
     stream::{FusedStream, FuturesUnordered},
     task::{Context, Poll},
@@ -38,8 +39,9 @@ impl<Fut: Future> FuturesUnorderedX<Fut> {
 
     /// Returns the number of futures contained in the queue.
     ///
-    /// This represents the total number of in-flight futures, including those whose outputs queued
-    /// for polling, those currently being processing and those in queued due to concurrency limit.
+    /// This represents the total number of in-flight futures, including those
+    /// whose outputs queued for polling, those currently being processing
+    /// and those in queued due to concurrency limit.
     pub fn len(&self) -> usize {
         self.queued.len() + self.in_progress.len() + self.queued_outputs.len()
     }
@@ -68,10 +70,12 @@ impl<Fut: Future> Stream for FuturesUnorderedX<Fut> {
     type Item = Fut::Output;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Collect outputs from newly finished futures from the underlying `FuturesUnordered`.
+        // Collect outputs from newly finished futures from the underlying
+        // `FuturesUnordered`.
         while let Poll::Ready(Some(output)) = self.in_progress.poll_next_unpin(cx) {
             self.queued_outputs.push_back(output);
-            // Concurrency is now below `self.max_in_progress`, kick off a queued one, if any.
+            // Concurrency is now below `self.max_in_progress`, kick off a queued one, if
+            // any.
             if let Some(future) = self.queued.pop_front() {
                 self.in_progress.push(future)
             }

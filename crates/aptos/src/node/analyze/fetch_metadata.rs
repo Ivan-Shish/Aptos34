@@ -209,8 +209,14 @@ impl FetchMetadata {
         let mut batch_index = 0;
 
         println!(
-            "Fetching {} to {} sequence number, wanting epochs [{}, {}), last version: {} and epoch: {}",
-            start_seq_num, last_seq_num, wanted_start_epoch, wanted_end_epoch, state.version, state.epoch,
+            "Fetching {} to {} sequence number, wanting epochs [{}, {}), last version: {} and \
+             epoch: {}",
+            start_seq_num,
+            last_seq_num,
+            wanted_start_epoch,
+            wanted_end_epoch,
+            state.version,
+            state.epoch,
         );
         let mut result: Vec<EpochInfo> = vec![];
         if wanted_start_epoch >= wanted_end_epoch {
@@ -300,7 +306,8 @@ impl FetchMetadata {
                             }
                             assert!(
                                 current.is_empty(),
-                                "Couldn't find ValidatorSet change for transactions start={}, limit={} for epoch {}",
+                                "Couldn't find ValidatorSet change for transactions start={}, \
+                                 limit={} for epoch {}",
                                 last.version,
                                 event.version - last.version,
                                 event.event.epoch(),

@@ -83,7 +83,8 @@ fn test_staking_end_to_end() {
 
 #[test]
 fn test_staking_mainnet() {
-    // TODO: Update to have custom validators/accounts with initial balances at genesis.
+    // TODO: Update to have custom validators/accounts with initial balances at
+    // genesis.
     let mut harness = MoveHarness::new_mainnet();
 
     // Validator there's at least one validator in the validator set.
@@ -125,7 +126,8 @@ fn test_staking_rewards() {
     assert_success!(setup_staking(&mut harness, &validator_1, stake_amount_1));
     harness.new_epoch();
 
-    // Both validators propose a block in the current epoch. Both should receive rewards.
+    // Both validators propose a block in the current epoch. Both should receive
+    // rewards.
     harness.new_block_with_metadata(validator_1_address, vec![]);
     harness.new_block_with_metadata(validator_2_address, vec![]);
     harness.new_epoch();
@@ -142,7 +144,8 @@ fn test_staking_rewards() {
 
     let index_1 = get_validator_config(&harness, &validator_1_address).validator_index as u32;
 
-    // Each validator proposes in their own epoch. They receive the rewards at the end of each epoch
+    // Each validator proposes in their own epoch. They receive the rewards at the
+    // end of each epoch
     harness.new_block_with_metadata(validator_1_address, vec![]);
     harness.new_epoch();
     stake_amount_1 += rewards_per_epoch;
@@ -166,8 +169,8 @@ fn test_staking_rewards() {
         stake_amount_2
     );
 
-    // Validator 1 misses one proposal and thus receives no rewards while validator 2 didn't miss
-    // any so they receive full rewards.
+    // Validator 1 misses one proposal and thus receives no rewards while validator
+    // 2 didn't miss any so they receive full rewards.
     harness.new_block_with_metadata(validator_2_address, vec![index_1]);
     harness.new_epoch();
     assert_eq!(
@@ -180,7 +183,8 @@ fn test_staking_rewards() {
         stake_amount_2
     );
 
-    // Validator 1 misses one proposal but has one successful so they receive half of the rewards.
+    // Validator 1 misses one proposal but has one successful so they receive half
+    // of the rewards.
     harness.new_block_with_metadata(validator_1_address, vec![index_1]);
     harness.new_epoch();
     stake_amount_1 += rewards_per_epoch / 2;
@@ -209,8 +213,8 @@ fn test_staking_rewards_pending_inactive() {
         validator_address
     );
 
-    // Validator proposes a block in the current epoch and should receive rewards despite
-    // being pending_inactive.
+    // Validator proposes a block in the current epoch and should receive rewards
+    // despite being pending_inactive.
     harness.new_block_with_metadata(validator_address, vec![]);
     harness.new_epoch();
     assert_eq!(

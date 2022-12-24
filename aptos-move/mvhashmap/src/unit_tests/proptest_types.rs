@@ -89,32 +89,34 @@ where
                 let mut acc: Option<DeltaOp> = None;
                 while let Some((_, data)) = iter.next_back() {
                     match data {
-                        Data::Write(v) => match acc {
-                            Some(d) => {
-                                let maybe_value =
-                                    AggregatorValue::from_write(v).map(|value| value.into());
-                                if maybe_value.is_none() {
-                                    // v must be a deletion.
-                                    assert!(matches!(v, Value(None)));
-                                    return ExpectedOutput::Deleted;
-                                }
+                        Data::Write(v) => {
+                            match acc {
+                                Some(d) => {
+                                    let maybe_value =
+                                        AggregatorValue::from_write(v).map(|value| value.into());
+                                    if maybe_value.is_none() {
+                                        // v must be a deletion.
+                                        assert!(matches!(v, Value(None)));
+                                        return ExpectedOutput::Deleted;
+                                    }
 
-                                match d.apply_to(maybe_value.unwrap()) {
-                                    Err(_) => return ExpectedOutput::Failure,
-                                    Ok(i) => return ExpectedOutput::Resolved(i),
-                                }
+                                    match d.apply_to(maybe_value.unwrap()) {
+                                        Err(_) => return ExpectedOutput::Failure,
+                                        Ok(i) => return ExpectedOutput::Resolved(i),
+                                    }
+                                },
+                                None => match v {
+                                    Value(Some(w)) => return ExpectedOutput::Value(w.clone()),
+                                    Value(None) => return ExpectedOutput::Deleted,
+                                },
                             }
-                            None => match v {
-                                Value(Some(w)) => return ExpectedOutput::Value(w.clone()),
-                                Value(None) => return ExpectedOutput::Deleted,
-                            },
                         },
                         Data::Delta(d) => match acc.as_mut() {
                             Some(a) => {
                                 if a.merge_onto(*d).is_err() {
                                     return ExpectedOutput::Failure;
                                 }
-                            }
+                            },
                             None => acc = Some(*d),
                         },
                     }
@@ -124,7 +126,7 @@ where
                     Some(d) => ExpectedOutput::Unresolved(d),
                     None => ExpectedOutput::NotInMap,
                 }
-            }
+            },
         }
     }
 }
@@ -170,7 +172,7 @@ where
             Operator::Read => None,
             Operator::Insert(_) | Operator::Remove | Operator::Update(_) => {
                 Some((key.clone(), idx))
-            }
+            },
         })
         .collect::<Vec<_>>();
     for (key, idx) in versions_to_write {
@@ -183,81 +185,88 @@ where
     // Spawn a few threads in parallel to commit each operator.
     rayon::scope(|s| {
         for _ in 0..universe.len() {
-            s.spawn(|_| loop {
-                // Each thread will eagerly fetch an Operator to execute.
-                let idx = curent_idx.fetch_add(1, Ordering::Relaxed);
-                if idx >= transactions.len() {
-                    // Abort when all transactions are processed.
-                    break;
-                }
-                let key = &transactions[idx].0;
-                match &transactions[idx].1 {
-                    Operator::Read => {
-                        use MVHashMapError::*;
-                        use MVHashMapOutput::*;
+            s.spawn(|_| {
+                loop {
+                    // Each thread will eagerly fetch an Operator to execute.
+                    let idx = curent_idx.fetch_add(1, Ordering::Relaxed);
+                    if idx >= transactions.len() {
+                        // Abort when all transactions are processed.
+                        break;
+                    }
+                    let key = &transactions[idx].0;
+                    match &transactions[idx].1 {
+                        Operator::Read => {
+                            use MVHashMapError::*;
+                            use MVHashMapOutput::*;
 
-                        let baseline = baseline.get(key, idx);
-                        let mut retry_attempts = 0;
-                        loop {
-                            match map.read(key, idx) {
-                                Ok(Version(_, v)) => {
-                                    match &*v {
-                                        Value(Some(w)) => {
-                                            assert_eq!(
-                                                baseline,
-                                                ExpectedOutput::Value(w.clone()),
-                                                "{:?}",
-                                                idx
-                                            );
+                            let baseline = baseline.get(key, idx);
+                            let mut retry_attempts = 0;
+                            loop {
+                                match map.read(key, idx) {
+                                    Ok(Version(_, v)) => {
+                                        match &*v {
+                                            Value(Some(w)) => {
+                                                assert_eq!(
+                                                    baseline,
+                                                    ExpectedOutput::Value(w.clone()),
+                                                    "{:?}",
+                                                    idx
+                                                );
+                                            },
+                                            Value(None) => {
+                                                assert_eq!(
+                                                    baseline,
+                                                    ExpectedOutput::Deleted,
+                                                    "{:?}",
+                                                    idx
+                                                );
+                                            },
                                         }
-                                        Value(None) => {
-                                            assert_eq!(
-                                                baseline,
-                                                ExpectedOutput::Deleted,
-                                                "{:?}",
-                                                idx
-                                            );
-                                        }
-                                    }
-                                    break;
+                                        break;
+                                    },
+                                    Ok(Resolved(v)) => {
+                                        assert_eq!(
+                                            baseline,
+                                            ExpectedOutput::Resolved(v),
+                                            "{:?}",
+                                            idx
+                                        );
+                                        break;
+                                    },
+                                    Err(NotFound) => {
+                                        assert_eq!(baseline, ExpectedOutput::NotInMap, "{:?}", idx);
+                                        break;
+                                    },
+                                    Err(DeltaApplicationFailure) => {
+                                        assert_eq!(baseline, ExpectedOutput::Failure, "{:?}", idx);
+                                        break;
+                                    },
+                                    Err(Unresolved(d)) => {
+                                        assert_eq!(
+                                            baseline,
+                                            ExpectedOutput::Unresolved(d),
+                                            "{:?}",
+                                            idx
+                                        );
+                                        break;
+                                    },
+                                    Err(Dependency(_i)) => (),
                                 }
-                                Ok(Resolved(v)) => {
-                                    assert_eq!(baseline, ExpectedOutput::Resolved(v), "{:?}", idx);
-                                    break;
+                                retry_attempts += 1;
+                                if retry_attempts > DEFAULT_TIMEOUT {
+                                    panic!("Failed to get value for {:?}", idx);
                                 }
-                                Err(NotFound) => {
-                                    assert_eq!(baseline, ExpectedOutput::NotInMap, "{:?}", idx);
-                                    break;
-                                }
-                                Err(DeltaApplicationFailure) => {
-                                    assert_eq!(baseline, ExpectedOutput::Failure, "{:?}", idx);
-                                    break;
-                                }
-                                Err(Unresolved(d)) => {
-                                    assert_eq!(
-                                        baseline,
-                                        ExpectedOutput::Unresolved(d),
-                                        "{:?}",
-                                        idx
-                                    );
-                                    break;
-                                }
-                                Err(Dependency(_i)) => (),
+                                std::thread::sleep(std::time::Duration::from_millis(100));
                             }
-                            retry_attempts += 1;
-                            if retry_attempts > DEFAULT_TIMEOUT {
-                                panic!("Failed to get value for {:?}", idx);
-                            }
-                            std::thread::sleep(std::time::Duration::from_millis(100));
-                        }
+                        },
+                        Operator::Remove => {
+                            map.add_write(key, (idx, 1), Value(None));
+                        },
+                        Operator::Insert(v) => {
+                            map.add_write(key, (idx, 1), Value(Some(v.clone())));
+                        },
+                        Operator::Update(delta) => map.add_delta(key, idx, *delta),
                     }
-                    Operator::Remove => {
-                        map.add_write(key, (idx, 1), Value(None));
-                    }
-                    Operator::Insert(v) => {
-                        map.add_write(key, (idx, 1), Value(Some(v.clone())));
-                    }
-                    Operator::Update(delta) => map.add_delta(key, idx, *delta),
                 }
             })
         }

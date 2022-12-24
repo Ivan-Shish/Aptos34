@@ -60,9 +60,10 @@ pub struct CurrentTokenOwnership {
 }
 
 impl TokenOwnership {
-    /// We only want to track tokens in 0x1::token::TokenStore for now. This is because the table
-    /// schema doesn't have table type (i.e. token container) as primary key. TokenStore has token_id
-    /// as key and token as value.
+    /// We only want to track tokens in 0x1::token::TokenStore for now. This is
+    /// because the table schema doesn't have table type (i.e. token
+    /// container) as primary key. TokenStore has token_id as key and token
+    /// as value.
     pub fn from_token(
         token: &Token,
         table_item_key_type: &str,
@@ -119,7 +120,7 @@ impl TokenOwnership {
                     table_handle_to_owner
                 );
                 (None, None, None)
-            }
+            },
         };
 
         Ok(Some((

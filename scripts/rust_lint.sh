@@ -26,7 +26,10 @@ set -e
 set -x
 
 cargo xclippy
-cargo fmt $CHECK_ARG
+
+# We require the nightly rustfmt to enforce stricter
+# formatting rules.
+cargo +nightly fmt $CHECK_ARG
 
 # Once cargo-sort correctly handles workspace dependencies,
 # we can move to cleaner workspace dependency notation.

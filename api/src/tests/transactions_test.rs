@@ -3,8 +3,8 @@
 
 use super::new_test_context;
 use aptos_api_test_context::{assert_json, current_function_name, pretty, TestContext};
-
 use aptos_crypto::{
+    ed25519::Ed25519PrivateKey,
     multi_ed25519::{MultiEd25519PrivateKey, MultiEd25519PublicKey},
     PrivateKey, SigningKey, Uniform,
 };
@@ -17,8 +17,6 @@ use aptos_types::{
     },
     utility_coin::APTOS_COIN_TYPE,
 };
-
-use aptos_crypto::ed25519::Ed25519PrivateKey;
 use move_core_types::{
     identifier::Identifier,
     language_storage::{ModuleId, TypeTag},
@@ -262,10 +260,12 @@ async fn test_multi_agent_signed_transaction() {
             secondary_signer_addresses: _,
             secondary_signers,
         } => (sender, secondary_signers),
-        _ => panic!(
-            "expecting TransactionAuthenticator::MultiAgent, but got: {:?}",
-            txn.authenticator()
-        ),
+        _ => {
+            panic!(
+                "expecting TransactionAuthenticator::MultiAgent, but got: {:?}",
+                txn.authenticator()
+            )
+        },
     };
     assert_json(
         resp["signature"].clone(),
@@ -389,7 +389,10 @@ async fn test_get_transaction_by_hash_not_found() {
 
     let resp = context
         .expect_status_code(404)
-        .get("/transactions/by_hash/0xdadfeddcca7cb6396c735e9094c76c6e4e9cb3e3ef814730693aed59bd87b31d")
+        .get(
+            "/transactions/by_hash/\
+             0xdadfeddcca7cb6396c735e9094c76c6e4e9cb3e3ef814730693aed59bd87b31d",
+        )
         .await;
     context.check_golden_output(resp);
 }
@@ -460,7 +463,10 @@ async fn test_get_pending_transaction_by_hash() {
 
     let not_found = context
         .expect_status_code(404)
-        .get("/transactions/by_hash/0xdadfeddcca7cb6396c735e9094c76c6e4e9cb3e3ef814730693aed59bd87b31d")
+        .get(
+            "/transactions/by_hash/\
+             0xdadfeddcca7cb6396c735e9094c76c6e4e9cb3e3ef814730693aed59bd87b31d",
+        )
         .await;
     context.check_golden_output(not_found);
 }
@@ -566,7 +572,9 @@ async fn test_signing_message_with_payload(
     context.commit_mempool_txns(10).await;
 
     let ledger = context.get("/").await;
-    assert_eq!(ledger["ledger_version"].as_str().unwrap(), "3"); // metadata + user txn + state checkpoint
+    assert_eq!(ledger["ledger_version"].as_str().unwrap(), "3"); // metadata +
+                                                                 // user txn +
+                                                                 // state checkpoint
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -924,7 +932,8 @@ async fn test_submit_entry_function_api_validation(
     #[derive(serde::Serialize)]
     struct HackStruct(pub Box<str>);
 
-    // Identifiers check when you call new, but they don't check when you deserialize, surprise!
+    // Identifiers check when you call new, but they don't check when you
+    // deserialize, surprise!
     let module_id: Identifier =
         serde_json::from_str(&serde_json::to_string(&HackStruct(module_id.into())).unwrap())
             .unwrap();

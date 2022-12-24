@@ -12,7 +12,6 @@ use futures::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     Future, SinkExt, StreamExt,
 };
-
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -32,7 +31,8 @@ const BYTES_TO_TRANSFER: usize = 100_000_000;
 const ALLOWED_BYTES_PER_SEC: usize = 10_000;
 /// Chunk size to write bytes to the stream at a time
 const CHUNK_SIZE: usize = 10_000;
-/// Buffer size used by Tokio when reading, backpressure only occurs after this is full
+/// Buffer size used by Tokio when reading, backpressure only occurs after this
+/// is full
 // const READ_BUFFER_SIZE: usize = 100;
 /// Buffer size used by Tokio when writing
 // const WRITE_BUFFER_SIZE: usize = 100;
@@ -115,8 +115,14 @@ fn run_experiment<F: Future<Output = Vec<RunStats>> + 'static + Send>(
     println!("-- Stats --");
     for run in stats {
         println!(
-            "{} stats\t|\tTotal actions: {}\t|\tTotal bytes: {}\t|\tThroughput(actions/s): {}\t|\tThroughput(bytes/s): {}\t|\tTime elapsed: {:?}",
-            run.label, run.num_actions, run.num_bytes, run.actions_per_s, run.bytes_per_s, run.elapsed
+            "{} stats\t|\tTotal actions: {}\t|\tTotal bytes: {}\t|\tThroughput(actions/s): \
+             {}\t|\tThroughput(bytes/s): {}\t|\tTime elapsed: {:?}",
+            run.label,
+            run.num_actions,
+            run.num_bytes,
+            run.actions_per_s,
+            run.bytes_per_s,
+            run.elapsed
         );
     }
 }
@@ -146,8 +152,9 @@ async fn stats<F: Future<Output = (usize, usize)>, Block: FnOnce() -> F>(
     }
 }
 
-/// A generalized test of the rate limiter, allowing for turning off rate limiting on either
-/// read or write sides.  `total_test_bytes` is the lower bound of send / receive bytes
+/// A generalized test of the rate limiter, allowing for turning off rate
+/// limiting on either read or write sides.  `total_test_bytes` is the lower
+/// bound of send / receive bytes
 async fn test_rate_limiter<
     R: AsyncRead + Unpin + Send,
     W: AsyncWrite + Unpin + Send,
@@ -258,9 +265,11 @@ async fn test_no_rate_limit(num_bytes: usize) -> Vec<RunStats> {
     test_rate_limiter(num_bytes, |reader| reader, |writer| writer).await
 }
 
-/// Tests backpressure, where only the reader is limited.  Using a socket adds a buffer
-/// that causes the backpressure only to occur after a large amount of traffic first. (> 500k bytes)
-/// > 55 chunks could cause backpressure, for a proper test > 100 or > 200 give good results.
+/// Tests backpressure, where only the reader is limited.  Using a socket adds a
+/// buffer that causes the backpressure only to occur after a large amount of
+/// traffic first. (> 500k bytes)
+/// > 55 chunks could cause backpressure, for a proper test > 100 or > 200 give
+/// > good results.
 async fn test_rate_limit_read(num_bytes: usize, throughput: usize) -> Vec<RunStats> {
     let inbound_rate_limiter = simple_shared_bucket("read", throughput);
     test_rate_limiter(
@@ -271,7 +280,8 @@ async fn test_rate_limit_read(num_bytes: usize, throughput: usize) -> Vec<RunSta
     .await
 }
 
-/// Tests only if the writer is rate limited, which should provide a smoother read rate
+/// Tests only if the writer is rate limited, which should provide a smoother
+/// read rate
 async fn test_rate_limit_write(num_bytes: usize, throughput: usize) -> Vec<RunStats> {
     let outbound_rate_limiter = simple_shared_bucket("write", throughput);
     test_rate_limiter(
@@ -282,8 +292,8 @@ async fn test_rate_limit_write(num_bytes: usize, throughput: usize) -> Vec<RunSt
     .await
 }
 
-/// Tests if both are rate limited.  Results should be roughly the same in the long term as
-/// the other two
+/// Tests if both are rate limited.  Results should be roughly the same in the
+/// long term as the other two
 async fn test_rate_limit_read_write(
     num_bytes: usize,
     read_throughput: usize,

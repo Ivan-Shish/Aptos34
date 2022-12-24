@@ -1,17 +1,18 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Duration;
-
 use super::Test;
-use crate::success_criteria::{SuccessCriteria, SuccessCriteriaChecker};
-use crate::{CoreContext, Result, Swarm, TestReport};
+use crate::{
+    success_criteria::{SuccessCriteria, SuccessCriteriaChecker},
+    CoreContext, Result, Swarm, TestReport,
+};
 use aptos_transaction_emitter_lib::{EmitJobRequest, TxnStats};
+use std::time::Duration;
 use tokio::runtime::Runtime;
 
-/// The testing interface which defines a test written with full control over an existing network.
-/// Tests written against this interface will have access to both the Root account as well as the
-/// nodes which comprise the network.
+/// The testing interface which defines a test written with full control over an
+/// existing network. Tests written against this interface will have access to
+/// both the Root account as well as the nodes which comprise the network.
 pub trait NetworkTest: Test {
     /// Executes the test against the given context.
     fn run<'t>(&self, ctx: &mut NetworkContext<'t>) -> Result<()>;

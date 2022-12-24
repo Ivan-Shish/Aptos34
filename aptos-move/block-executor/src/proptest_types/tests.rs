@@ -353,10 +353,10 @@ fn publishing_fixed_params() {
                 reads: reads.clone(),
                 writes_and_deltas: new_writes_and_deltas,
             }
-        }
+        },
         _ => {
             unreachable!();
-        }
+        },
     };
 
     let data_view = DeltaDataView::<KeyType<[u8; 32]>, ValueType<[u8; 32]>> {
@@ -393,10 +393,10 @@ fn publishing_fixed_params() {
                 reads: new_reads,
                 writes_and_deltas: writes_and_deltas.clone(),
             }
-        }
+        },
         _ => {
             unreachable!();
-        }
+        },
     };
 
     for _ in 0..200 {
@@ -413,8 +413,8 @@ fn publishing_fixed_params() {
 }
 
 #[test]
-// Test a single transaction intersection interleaves with a lot of dependencies and
-// not overlapping module r/w keys.
+// Test a single transaction intersection interleaves with a lot of dependencies
+// and not overlapping module r/w keys.
 fn module_publishing_races() {
     for _ in 0..10 {
         publishing_fixed_params();

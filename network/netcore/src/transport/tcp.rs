@@ -45,6 +45,7 @@ impl TCPBufferCfg {
             outbound_tx_buffer_bytes: None,
         }
     }
+
     pub fn new_configs(
         inbound_rx: Option<u32>,
         inbound_tx: Option<u32>,
@@ -90,11 +91,11 @@ impl TcpTransport {
 }
 
 impl Transport for TcpTransport {
-    type Output = TcpSocket;
     type Error = ::std::io::Error;
-    type Listener = TcpListenerStream;
     type Inbound = future::Ready<io::Result<TcpSocket>>;
+    type Listener = TcpListenerStream;
     type Outbound = TcpOutbound;
+    type Output = TcpSocket;
 
     fn listen_on(
         &self,
@@ -332,7 +333,7 @@ impl Stream for TcpListenerStream {
                     future::ready(Ok(TcpSocket::new(socket))),
                     dialer_addr,
                 ))))
-            }
+            },
             Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
             Poll::Pending => Poll::Pending,
         }
@@ -357,11 +358,12 @@ impl Future for TcpOutbound {
 
 /// A wrapper around a tokio TcpStream
 ///
-/// In order to properly implement the AsyncRead/AsyncWrite traits we need to wrap a TcpStream to
-/// ensure that the "close" method actually closes the write half of the TcpStream.  This is
-/// because the "close" method on a TcpStream just performs a no-op instead of actually shutting
-/// down the write side of the TcpStream.
-//TODO Probably should add some tests for this
+/// In order to properly implement the AsyncRead/AsyncWrite traits we need to
+/// wrap a TcpStream to ensure that the "close" method actually closes the write
+/// half of the TcpStream.  This is because the "close" method on a TcpStream
+/// just performs a no-op instead of actually shutting down the write side of
+/// the TcpStream.
+// TODO Probably should add some tests for this
 #[derive(Debug)]
 pub struct TcpSocket {
     inner: Compat<TcpStream>,
@@ -426,13 +428,13 @@ mod test {
                     let mut buf = [0; 3];
                     out.read_exact(&mut buf).await?;
                     assert_eq!(&buf, b"Air");
-                }
+                },
                 ConnectionOrigin::Outbound => {
                     let mut buf = [0; 5];
                     out.read_exact(&mut buf).await?;
                     assert_eq!(&buf, b"Earth");
                     out.write_all(b"Air").await?;
-                }
+                },
             }
             Ok(())
         });

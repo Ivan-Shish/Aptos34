@@ -15,10 +15,11 @@ pub struct TransactionChunk {
     /// Repeated `len(record) + record`, where `record` is BCS serialized tuple
     /// `(Transaction, TransactionInfo)`
     pub transactions: FileHandle,
-    /// BCS serialized `(TransactionAccumulatorRangeProof, LedgerInfoWithSignatures)`.
-    /// The `TransactionAccumulatorRangeProof` links the transactions to the
-    /// `LedgerInfoWithSignatures`, and the `LedgerInfoWithSignatures` can be verified by the
-    /// signatures it carries, against the validator set in the epoch. (Hence proper
+    /// BCS serialized `(TransactionAccumulatorRangeProof,
+    /// LedgerInfoWithSignatures)`. The `TransactionAccumulatorRangeProof`
+    /// links the transactions to the `LedgerInfoWithSignatures`, and the
+    /// `LedgerInfoWithSignatures` can be verified by the signatures it
+    /// carries, against the validator set in the epoch. (Hence proper
     /// `EpochEndingBackup` is needed for verification.)
     pub proof: FileHandle,
 }

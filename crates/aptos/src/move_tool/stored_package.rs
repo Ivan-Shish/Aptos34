@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::bail;
-use aptos_framework::natives::code::{
-    ModuleMetadata, PackageMetadata, PackageRegistry, UpgradePolicy,
+use aptos_framework::{
+    natives::code::{ModuleMetadata, PackageMetadata, PackageRegistry, UpgradePolicy},
+    unzip_metadata_str,
 };
-use aptos_framework::unzip_metadata_str;
 use aptos_rest_client::Client;
 use aptos_types::account_address::AccountAddress;
 use move_package::compilation::package_layout::CompiledPackageLayout;
 use reqwest::Url;
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
-// TODO: this is a first naive implementation of the package registry. Before mainnet
-// we need to use tables for the package registry.
+// TODO: this is a first naive implementation of the package registry. Before
+// mainnet we need to use tables for the package registry.
 
 /// Represents the package registry at a given account.
 pub struct CachedPackageRegistry {
@@ -52,7 +51,8 @@ impl CachedPackageRegistry {
             .collect()
     }
 
-    /// Finds the metadata for the given module in the registry by its unique name.
+    /// Finds the metadata for the given module in the registry by its unique
+    /// name.
     pub async fn get_module<'a>(
         &self,
         name: impl AsRef<str>,
@@ -68,7 +68,8 @@ impl CachedPackageRegistry {
         bail!("module `{}` not found", name)
     }
 
-    /// Finds the metadata for the given package in the registry by its unique name.
+    /// Finds the metadata for the given package in the registry by its unique
+    /// name.
     pub async fn get_package<'a>(
         &self,
         name: impl AsRef<str>,
@@ -135,7 +136,7 @@ impl<'a> CachedPackageMetadata<'a> {
                 true => {
                     println!("module without code: {}", module.name);
                     "".into()
-                }
+                },
                 false => unzip_metadata_str(&module.source)?,
             };
             fs::write(sources_dir.join(format!("{}.move", module.name)), source)?;

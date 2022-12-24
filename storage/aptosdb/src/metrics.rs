@@ -88,8 +88,9 @@ pub static PRUNER_LEAST_READABLE_VERSION: Lazy<IntGaugeVec> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Pruner batch size. For ledger pruner, this means the number of versions to be pruned at a time.
-/// For state store pruner, this means the number of stale nodes to be pruned at a time.
+/// Pruner batch size. For ledger pruner, this means the number of versions to
+/// be pruned at a time. For state store pruner, this means the number of stale
+/// nodes to be pruned at a time.
 pub static PRUNER_BATCH_SIZE: Lazy<IntGaugeVec> = Lazy::new(|| {
     register_int_gauge_vec!(
         // metric name
@@ -110,7 +111,13 @@ pub static API_LATENCY_SECONDS: Lazy<HistogramVec> = Lazy::new(|| {
         "Aptos storage api latency in seconds",
         // metric labels (dimensions)
         &["api_name", "result"],
-        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-6, // factor=
+            2.0,  // count=
+            22
+        )
+        .unwrap(),
     )
     .unwrap()
 });
@@ -123,7 +130,13 @@ pub static OTHER_TIMERS_SECONDS: Lazy<HistogramVec> = Lazy::new(|| {
         "Various timers below public API level.",
         // metric labels (dimensions)
         &["name"],
-        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-6, // factor=
+            2.0,  // count=
+            22
+        )
+        .unwrap(),
     )
     .unwrap()
 });
@@ -136,7 +149,13 @@ pub static NODE_CACHE_SECONDS: Lazy<HistogramVec> = Lazy::new(|| {
         "Latency of node cache.",
         // metric labels (dimensions)
         &["name"],
-        exponential_buckets(/*start=*/ 1e-9, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+        exponential_buckets(
+            // start=
+            1e-9, // factor=
+            2.0,  // count=
+            30
+        )
+        .unwrap(),
     )
     .unwrap()
 });

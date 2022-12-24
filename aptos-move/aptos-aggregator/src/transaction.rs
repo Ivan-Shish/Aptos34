@@ -4,21 +4,20 @@
 use crate::delta_change_set::{deserialize, DeltaChangeSet};
 use anyhow::bail;
 use aptos_state_view::StateView;
-use aptos_types::transaction::CheckChangeSet;
 use aptos_types::{
-    transaction::{ChangeSet, TransactionOutput},
+    transaction::{ChangeSet, CheckChangeSet, TransactionOutput},
     write_set::{TransactionWrite, WriteOp, WriteSet, WriteSetMut},
 };
-use std::collections::btree_map;
-use std::sync::Arc;
+use std::{collections::btree_map, sync::Arc};
 
-/// Helpful trait for e.g. extracting u128 value out of TransactionWrite that we know is
-/// for aggregator (i.e. if we have seen a DeltaOp for the same access path).
+/// Helpful trait for e.g. extracting u128 value out of TransactionWrite that we
+/// know is for aggregator (i.e. if we have seen a DeltaOp for the same access
+/// path).
 pub struct AggregatorValue(u128);
 
 impl AggregatorValue {
-    /// Returns None if the write doesn't contain a value (i.e deletion), and panics if
-    /// the value raw bytes can't be deserialized into an u128.
+    /// Returns None if the write doesn't contain a value (i.e deletion), and
+    /// panics if the value raw bytes can't be deserialized into an u128.
     pub fn from_write(write: &dyn TransactionWrite) -> Option<Self> {
         let v = write.extract_raw_bytes();
         v.map(|bytes| Self(deserialize(&bytes)))
@@ -79,14 +78,14 @@ impl ChangeSetExt {
                     Creation(data) => {
                         let val: u128 = bcs::from_bytes(data)?;
                         *r = Creation(bcs::to_bytes(&op.apply_to(val)?)?);
-                    }
+                    },
                     Modification(data) => {
                         let val: u128 = bcs::from_bytes(data)?;
                         *r = Modification(bcs::to_bytes(&op.apply_to(val)?)?);
-                    }
+                    },
                     Deletion => {
                         bail!("Failed to apply Aggregator delta -- value already deleted");
-                    }
+                    },
                 }
             } else {
                 match delta_ops.entry(key) {
@@ -95,10 +94,10 @@ impl ChangeSetExt {
                         // delta, ensuring the strict ordering.
                         op.merge_onto(*entry.get())?;
                         *entry.into_mut() = op;
-                    }
+                    },
                     Vacant(entry) => {
                         entry.insert(op);
-                    }
+                    },
                 }
             }
         }
@@ -130,20 +129,20 @@ impl ChangeSetExt {
                         (Modification(_) | Creation(_), Creation(_))
                         | (Deletion, Deletion | Modification(_)) => {
                             bail!("The given change sets cannot be squashed")
-                        }
+                        },
                         (Modification(_), Modification(data)) => *r = Modification(data),
                         (Creation(_), Modification(data)) => *r = Creation(data),
                         (Modification(_), Deletion) => *r = Deletion,
                         (Deletion, Creation(data)) => *r = Modification(data),
                         (Creation(_), Deletion) => {
                             entry.remove();
-                        }
+                        },
                     }
-                }
+                },
                 Vacant(entry) => {
                     delta.remove(entry.key());
                     entry.insert(op);
-                }
+                },
             }
         }
 

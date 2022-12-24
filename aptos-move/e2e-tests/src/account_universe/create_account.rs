@@ -65,8 +65,8 @@ impl AUTransactionGen for CreateAccountGen {
     }
 }
 
-/// Represents a create-account transaction in the account universe where the destination already
-/// exists.
+/// Represents a create-account transaction in the account universe where the
+/// destination already exists.
 ///
 /// The parameters are the minimum and maximum balances to transfer.
 #[derive(Arbitrary, Clone, Debug)]
@@ -88,8 +88,8 @@ impl AUTransactionGen for CreateExistingAccountGen {
 
         let txn = create_account_txn(sender.account(), receiver.account(), sender.sequence_number);
 
-        // This transaction should never work, but it will fail differently if there's not enough
-        // gas to reserve.
+        // This transaction should never work, but it will fail differently if there's
+        // not enough gas to reserve.
         let mut gas_used = 0;
         let gas_price = txn.gas_unit_price();
         let enough_max_gas = sender.balance >= gas_costs::TXN_RESERVED * gas_price;

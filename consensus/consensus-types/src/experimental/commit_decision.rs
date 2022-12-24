@@ -44,8 +44,8 @@ impl CommitDecision {
         &self.ledger_info
     }
 
-    /// Verifies that the signatures carried in the message forms a valid quorum,
-    /// and then verifies the signature.
+    /// Verifies that the signatures carried in the message forms a valid
+    /// quorum, and then verifies the signature.
     pub fn verify(&self, validator: &ValidatorVerifier) -> anyhow::Result<()> {
         // We do not need to check the author because as long as the signature tree
         // is valid, the message should be valid.

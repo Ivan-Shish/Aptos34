@@ -31,9 +31,9 @@ pub use crate::{
     vault::VaultStorage,
 };
 
-// Some common serializations for interacting with bytes these must be manually added to types via:
-// #[serde(serialize_with = "to_base64", deserialize_with = "from_base64")]
-// some_value: Vec<u8>
+// Some common serializations for interacting with bytes these must be manually
+// added to types via: #[serde(serialize_with = "to_base64", deserialize_with =
+// "from_base64")] some_value: Vec<u8>
 
 pub fn to_base64<S>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error>
 where

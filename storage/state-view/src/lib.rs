@@ -18,9 +18,9 @@ use std::ops::Deref;
 pub mod account_with_state_cache;
 pub mod account_with_state_view;
 
-/// `StateView` is a trait that defines a read-only snapshot of the global state. It is passed to
-/// the VM for transaction execution, during which the VM is guaranteed to read anything at the
-/// given state.
+/// `StateView` is a trait that defines a read-only snapshot of the global
+/// state. It is passed to the VM for transaction execution, during which the VM
+/// is guaranteed to read anything at the given state.
 pub trait TStateView: Sync {
     type Key;
 
@@ -32,8 +32,9 @@ pub trait TStateView: Sync {
     /// Gets the state value for a given state key.
     fn get_state_value(&self, state_key: &Self::Key) -> Result<Option<Vec<u8>>>;
 
-    /// VM needs this method to know whether the current state view is for genesis state creation.
-    /// Currently TransactionPayload::WriteSet is only valid for genesis state creation.
+    /// VM needs this method to know whether the current state view is for
+    /// genesis state creation. Currently TransactionPayload::WriteSet is
+    /// only valid for genesis state creation.
     fn is_genesis(&self) -> bool;
 
     /// Get state storage usage info at epoch ending.

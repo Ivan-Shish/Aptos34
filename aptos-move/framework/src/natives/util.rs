@@ -42,12 +42,13 @@ macro_rules! pop_vec_arg {
                 return Err(PartialVMError::new(
                     StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR,
                 ))
-            }
+            },
             Some(Err(e)) => return Err(e),
             Some(Ok(v)) => v,
         };
 
-        // Pop each Value from the popped Vec<Value>, cast it as a Vec<u8>, and push it to a Vec<Vec<u8>>
+        // Pop each Value from the popped Vec<Value>, cast it as a Vec<u8>, and push it
+        // to a Vec<Vec<u8>>
         let mut vec_vec = vec![];
         for value in value_vec {
             let vec = match value.value_as::<$t>() {
@@ -61,12 +62,13 @@ macro_rules! pop_vec_arg {
     }};
 }
 
-/***************************************************************************************************
- * native fun from_bytes
- *
- *   gas cost: base_cost + unit_cost * bytes_len
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun from_bytes
+///
+///   gas cost: base_cost + unit_cost * bytes_len
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct FromBytesGasParameters {
     pub base: InternalGas,
@@ -104,10 +106,11 @@ pub fn make_native_from_bytes(gas_params: FromBytesGasParameters) -> NativeFunct
     Arc::new(move |context, ty_args, args| native_from_bytes(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub from_bytes: FromBytesGasParameters,

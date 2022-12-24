@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This file defines event store APIs that are related to the event accumulator and events
-//! themselves.
+//! This file defines event store APIs that are related to the event accumulator
+//! and events themselves.
 #![allow(unused)]
 
 use super::AptosDB;
@@ -53,7 +53,8 @@ impl EventStore {
         let mut events = vec![];
 
         let mut iter = self.db.iter::<EventSchema>(ReadOptions::default())?;
-        // Grab the first event and then iterate until we get all events for this version.
+        // Grab the first event and then iterate until we get all events for this
+        // version.
         iter.seek(&version)?;
         while let Some(((ver, index), event)) = iter.next().transpose()? {
             if ver != version {
@@ -115,8 +116,8 @@ impl EventStore {
         ))
     }
 
-    /// Get the latest sequence number on `event_key` considering all transactions with versions
-    /// no greater than `ledger_version`.
+    /// Get the latest sequence number on `event_key` considering all
+    /// transactions with versions no greater than `ledger_version`.
     pub fn get_latest_sequence_number(
         &self,
         ledger_version: Version,
@@ -146,9 +147,10 @@ impl EventStore {
             })
     }
 
-    /// Given `event_key` and `start_seq_num`, returns events identified by transaction version and
-    /// index among all events emitted by the same transaction. Result won't contain records with a
-    /// transaction version > `ledger_version` and is in ascending order.
+    /// Given `event_key` and `start_seq_num`, returns events identified by
+    /// transaction version and index among all events emitted by the same
+    /// transaction. Result won't contain records with a transaction version
+    /// > `ledger_version` and is in ascending order.
     pub fn lookup_events_by_key(
         &self,
         event_key: &EventKey,
@@ -230,7 +232,7 @@ impl EventStore {
                 } else {
                     Ok(None)
                 }
-            }
+            },
         }
     }
 
@@ -258,7 +260,7 @@ impl EventStore {
                 } else {
                     Ok(None)
                 }
-            }
+            },
         }
     }
 
@@ -286,7 +288,7 @@ impl EventStore {
                 } else {
                     Ok(None)
                 }
-            }
+            },
         }
     }
 
@@ -300,8 +302,8 @@ impl EventStore {
         Ok((first_version, payload))
     }
 
-    /// Save contract events yielded by the transaction at `version` and return root hash of the
-    /// event accumulator formed by these events.
+    /// Save contract events yielded by the transaction at `version` and return
+    /// root hash of the event accumulator formed by these events.
     pub fn put_events(
         &self,
         version: u64,
@@ -356,8 +358,9 @@ impl EventStore {
             .collect::<Result<Vec<_>>>()
     }
 
-    /// Finds the first event sequence number in a specified stream on which `comp` returns false.
-    /// (assuming the whole stream is partitioned by `comp`)
+    /// Finds the first event sequence number in a specified stream on which
+    /// `comp` returns false. (assuming the whole stream is partitioned by
+    /// `comp`)
     fn search_for_event_lower_bound<C>(
         &self,
         event_key: &EventKey,
@@ -400,25 +403,31 @@ impl EventStore {
     }
 
     /// Gets the version of the last transaction committed before timestamp,
-    /// a commited block at or after the required timestamp must exist (otherwise it's possible
-    /// the next block committed as a timestamp smaller than the one in the request).
+    /// a commited block at or after the required timestamp must exist
+    /// (otherwise it's possible the next block committed as a timestamp
+    /// smaller than the one in the request).
     pub(crate) fn get_last_version_before_timestamp(
         &self,
         timestamp: u64,
         ledger_version: Version,
     ) -> Result<Version> {
         let event_key = new_block_event_key();
-        let seq_at_or_after_ts = self.search_for_event_lower_bound(
-            &event_key,
-            |event| {
-                let new_block_event: NewBlockEvent = event.try_into()?;
-                Ok(new_block_event.proposed_time() < timestamp)
-            },
-            ledger_version,
-        )?.ok_or_else(|| format_err!(
-            "No new block found beyond timestamp {}, so can't determine the last version before it.",
-            timestamp,
-        ))?;
+        let seq_at_or_after_ts = self
+            .search_for_event_lower_bound(
+                &event_key,
+                |event| {
+                    let new_block_event: NewBlockEvent = event.try_into()?;
+                    Ok(new_block_event.proposed_time() < timestamp)
+                },
+                ledger_version,
+            )?
+            .ok_or_else(|| {
+                format_err!(
+                    "No new block found beyond timestamp {}, so can't determine the last version \
+                     before it.",
+                    timestamp,
+                )
+            })?;
 
         ensure!(
             seq_at_or_after_ts > 0,
@@ -434,7 +443,8 @@ impl EventStore {
             .ok_or_else(|| format_err!("A block with non-zero seq num started at version 0."))
     }
 
-    /// Prunes events by accumulator store for a range of version in [begin, end)
+    /// Prunes events by accumulator store for a range of version in [begin,
+    /// end)
     fn prune_event_accumulator(
         &self,
         begin: Version,
@@ -452,7 +462,8 @@ impl EventStore {
         Ok(())
     }
 
-    /// Prune a set of candidate events in the range of version in [begin, end) and all related indices
+    /// Prune a set of candidate events in the range of version in [begin, end)
+    /// and all related indices
     pub fn prune_events(
         &self,
         start: Version,

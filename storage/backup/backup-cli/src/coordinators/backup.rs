@@ -40,27 +40,28 @@ pub struct BackupCoordinatorOpt {
         long,
         default_value = "1",
         help = "Frequency (in number of epochs) to take state snapshots at epoch ending versions. \
-        Adjacent epochs share much of the state, so it's inefficient storage-wise and bandwidth-wise \
-        to take it too frequently. However, a recent snapshot is obviously desirable if one intends \
-        to recover a snapshot and catch up with the chain by replaying transactions on top of it. \
-        Notice: If, while a snapshot is being taken, the chain advanced several epoch, past several \
-        new points where a snapshot is eligible according to this setting, we will skip those in the \
-        middle and take only at the newest epoch among them. For example, if the setting is 5, \
-        then the snapshots will be at at 0, 5, 10 ... If when the snapshot at 5 ends the chain \
-        is already at 19, then snapshot at 15 will be taken instead of at 10 (not at 18)."
+                Adjacent epochs share much of the state, so it's inefficient storage-wise and \
+                bandwidth-wise to take it too frequently. However, a recent snapshot is obviously \
+                desirable if one intends to recover a snapshot and catch up with the chain by \
+                replaying transactions on top of it. Notice: If, while a snapshot is being taken, \
+                the chain advanced several epoch, past several new points where a snapshot is \
+                eligible according to this setting, we will skip those in the middle and take \
+                only at the newest epoch among them. For example, if the setting is 5, then the \
+                snapshots will be at at 0, 5, 10 ... If when the snapshot at 5 ends the chain is \
+                already at 19, then snapshot at 15 will be taken instead of at 10 (not at 18)."
     )]
     pub state_snapshot_interval_epochs: usize,
-    // Defaulting to 1M, which converts to a 20 minutes delay of a transaction showing up in a backup,
-    // from a 1K TPS chain, and a few minutes replay time.
+    // Defaulting to 1M, which converts to a 20 minutes delay of a transaction showing up in a
+    // backup, from a 1K TPS chain, and a few minutes replay time.
     #[clap(
         long,
         default_value = "1000000",
-        help = "The frequency (in transaction versions) to take an incremental transaction backup. \
-        Making a transaction backup every 10 Million versions will result in the latest transaction \
-        to appear in the backup potentially 10 Million versions later. If the net work is running \
-        at 1 thousand transactions per second, that is roughly 3 hours. On the other hand, if \
-        backups are too frequent and hence small, it slows down loading the backup metadata by too \
-        many small files. "
+        help = "The frequency (in transaction versions) to take an incremental transaction \
+                backup. Making a transaction backup every 10 Million versions will result in the \
+                latest transaction to appear in the backup potentially 10 Million versions later. \
+                If the net work is running at 1 thousand transactions per second, that is roughly \
+                3 hours. On the other hand, if backups are too frequent and hence small, it slows \
+                down loading the backup metadata by too many small files. "
     )]
     pub transaction_batch_size: usize,
     #[clap(flatten)]
@@ -118,9 +119,10 @@ impl BackupCoordinator {
 
         // On new DbState retrieved:
         // `watch_db_state` informs `backup_epoch_endings` via channel 1,
-        // and the latter informs the other backup type workers via channel 2, after epoch
-        // ending is properly backed up, if necessary. This way, the epoch ending LedgerInfo needed
-        // for proof verification is always available in the same backup storage.
+        // and the latter informs the other backup type workers via channel 2, after
+        // epoch ending is properly backed up, if necessary. This way, the epoch
+        // ending LedgerInfo needed for proof verification is always available
+        // in the same backup storage.
         let (tx1, rx1) = watch::channel::<Option<DbState>>(None);
         let (tx2, rx2) = watch::channel::<Option<DbState>>(None);
 
@@ -183,11 +185,13 @@ impl BackupCoordinator {
                         .map_err(|e| anyhow!("Receivers should not be cancelled: {}", e))
                         .unwrap()
                 }
-            }
-            Err(e) => warn!(
-                "Failed pulling DbState from local node: {}. Will keep trying.",
-                e
-            ),
+            },
+            Err(e) => {
+                warn!(
+                    "Failed pulling DbState from local node: {}. Will keep trying.",
+                    e
+                )
+            },
         };
     }
 
@@ -204,7 +208,8 @@ impl BackupCoordinator {
             let (first, last) = get_batch_range(last_epoch_ending_epoch_in_backup, 1);
 
             if db_state.epoch <= last {
-                // "<=" because `db_state.epoch` hasn't ended yet, wait for the next db_state update
+                // "<=" because `db_state.epoch` hasn't ended yet, wait for the next db_state
+                // update
                 break;
             }
 
@@ -307,9 +312,8 @@ impl BackupCoordinator {
         W: Worker<'a, S, Fut> + Copy + 'a,
         Fut: Future<Output = Result<S>> + 'a,
     {
-        stream::unfold(
-            (initial_state, db_state_rx.clone()),
-            move |(s, mut rx)| async move {
+        stream::unfold((initial_state, db_state_rx.clone()), move |(s, mut rx)| {
+            async move {
                 rx.changed().await.unwrap();
                 let db_state = *rx.borrow();
                 if let Some(db_state) = db_state {
@@ -322,8 +326,8 @@ impl BackupCoordinator {
                     // initial state
                     Some(((), (s, rx)))
                 }
-            },
-        )
+            }
+        })
     }
 }
 
@@ -340,9 +344,10 @@ where
 }
 
 fn get_batch_range(last_in_backup: Option<u64>, batch_size: usize) -> (u64, u64) {
-    // say, 7 is already in backup, and we target batches of size 10, we will return (8, 10) in this
-    // case, so 8, 9, 10 will be in this batch, and next time the backup worker will pass in 10,
-    // and we will return (11, 20). The transaction 0 will be in it's own batch.
+    // say, 7 is already in backup, and we target batches of size 10, we will return
+    // (8, 10) in this case, so 8, 9, 10 will be in this batch, and next time
+    // the backup worker will pass in 10, and we will return (11, 20). The
+    // transaction 0 will be in it's own batch.
     last_in_backup.map_or((0, 0), |n| {
         let first = n + 1;
         let batch = n / batch_size as u64 + 1;
@@ -352,10 +357,11 @@ fn get_batch_range(last_in_backup: Option<u64>, batch_size: usize) -> (u64, u64)
 }
 
 fn get_next_snapshot(last_in_backup: Option<u64>, db_state: DbState, interval: usize) -> u64 {
-    // We don't try to guarantee snapshots are taken at each applicable interval: when the backup
-    // progress can't keep up with the ledger growth, we favor timeliness over completeness.
-    // For example, with interval 100, when we finished taking a snapshot at version 700, if we
-    // found the latest version is already 1250, the next snapshot we take will be at 1200, not 800.
+    // We don't try to guarantee snapshots are taken at each applicable interval:
+    // when the backup progress can't keep up with the ledger growth, we favor
+    // timeliness over completeness. For example, with interval 100, when we
+    // finished taking a snapshot at version 700, if we found the latest version
+    // is already 1250, the next snapshot we take will be at 1200, not 800.
 
     let next_for_storage = match last_in_backup {
         Some(last) => (last / interval as u64 + 1) * interval as u64,

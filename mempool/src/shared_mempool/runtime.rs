@@ -11,9 +11,8 @@ use crate::{
     QuorumStoreRequest,
 };
 use aptos_config::{config::NodeConfig, network_id::NetworkId};
-use aptos_infallible::{Mutex, RwLock};
-
 use aptos_event_notifications::ReconfigNotificationListener;
+use aptos_infallible::{Mutex, RwLock};
 use aptos_logger::Level;
 use aptos_mempool_notifications::MempoolNotificationListener;
 use aptos_network::application::storage::PeerMetadataStorage;
@@ -31,9 +30,12 @@ use tokio::runtime::{Builder, Handle, Runtime};
 
 /// Bootstrap of SharedMempool.
 /// Creates a separate Tokio Runtime that runs the following routines:
-///   - outbound_sync_task (task that periodically broadcasts transactions to peers).
-///   - inbound_network_task (task that handles inbound mempool messages and network events).
-///   - gc_task (task that performs GC of all expired transactions by SystemTTL).
+///   - outbound_sync_task (task that periodically broadcasts transactions to
+///     peers).
+///   - inbound_network_task (task that handles inbound mempool messages and
+///     network events).
+///   - gc_task (task that performs GC of all expired transactions by
+///     SystemTTL).
 pub(crate) fn start_shared_mempool<V>(
     executor: &Handle,
     config: &NodeConfig,

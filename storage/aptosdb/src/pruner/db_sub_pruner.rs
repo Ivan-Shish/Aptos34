@@ -6,8 +6,8 @@ use std::fmt::Debug;
 
 /// Defines the trait for sub-pruner of a parent DB pruner
 pub trait DBSubPruner: Debug {
-    /// Performs the actual pruning, a target version is passed, which is the target the pruner
-    /// tries to prune.
+    /// Performs the actual pruning, a target version is passed, which is the
+    /// target the pruner tries to prune.
     fn prune(
         &self,
         db_batch: &mut SchemaBatch,

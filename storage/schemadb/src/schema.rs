@@ -1,8 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module provides traits that define the behavior of a schema and its associated key and
-//! value types, along with helpers to define a new schema with ease.
+//! This module provides traits that define the behavior of a schema and its
+//! associated key and value types, along with helpers to define a new schema
+//! with ease.
 use crate::ColumnFamilyName;
 use anyhow::Result;
 use std::fmt::Debug;
@@ -66,14 +67,15 @@ use std::fmt::Debug;
 /// ```
 #[macro_export]
 macro_rules! define_schema {
-    ($schema_type: ident, $key_type: ty, $value_type: ty, $cf_name: expr) => {
+    ($schema_type:ident, $key_type:ty, $value_type:ty, $cf_name:expr) => {
         #[derive(Debug)]
         pub(crate) struct $schema_type;
 
         impl $crate::schema::Schema for $schema_type {
-            const COLUMN_FAMILY_NAME: $crate::ColumnFamilyName = $cf_name;
             type Key = $key_type;
             type Value = $value_type;
+
+            const COLUMN_FAMILY_NAME: $crate::ColumnFamilyName = $cf_name;
         }
     };
 }
@@ -94,10 +96,12 @@ pub trait ValueCodec<S: Schema + ?Sized>: Sized + PartialEq + Debug {
     fn decode_value(data: &[u8]) -> Result<Self>;
 }
 
-/// This defines a type that can be used to seek a [`SchemaIterator`](crate::SchemaIterator), via
-/// interfaces like [`seek`](crate::SchemaIterator::seek).
+/// This defines a type that can be used to seek a
+/// [`SchemaIterator`](crate::SchemaIterator), via interfaces like
+/// [`seek`](crate::SchemaIterator::seek).
 pub trait SeekKeyCodec<S: Schema + ?Sized>: Sized {
-    /// Converts `self` to bytes which is used to seek the underlying raw iterator.
+    /// Converts `self` to bytes which is used to seek the underlying raw
+    /// iterator.
     fn encode_seek_key(&self) -> Result<Vec<u8>>;
 }
 
@@ -113,11 +117,12 @@ where
     }
 }
 
-/// This trait defines a schema: an association of a column family name, the key type and the value
-/// type.
+/// This trait defines a schema: an association of a column family name, the key
+/// type and the value type.
 pub trait Schema: Debug + Send + Sync + 'static {
     /// The column family name associated with this struct.
-    /// Note: all schemas within the same SchemaDB must have distinct column family names.
+    /// Note: all schemas within the same SchemaDB must have distinct column
+    /// family names.
     const COLUMN_FAMILY_NAME: ColumnFamilyName;
 
     /// Type of the key.
@@ -131,8 +136,8 @@ pub mod fuzzing {
     use crate::schema::{KeyCodec, Schema, ValueCodec};
     use proptest::{collection::vec, prelude::*};
 
-    /// Helper used in tests to assert a (key, value) pair for a certain [`Schema`] is able to convert
-    /// to bytes and convert back.
+    /// Helper used in tests to assert a (key, value) pair for a certain
+    /// [`Schema`] is able to convert to bytes and convert back.
     pub fn assert_encode_decode<S: Schema>(key: &S::Key, value: &S::Value) {
         {
             let encoded = key.encode_key().expect("Encoding key should work.");
@@ -146,7 +151,8 @@ pub mod fuzzing {
         }
     }
 
-    /// Helper used in tests and fuzzers to make sure a schema never panics when decoding random bytes.
+    /// Helper used in tests and fuzzers to make sure a schema never panics when
+    /// decoding random bytes.
     #[allow(unused_must_use)]
     pub fn assert_no_panic_decoding<S: Schema>(bytes: &[u8]) {
         S::Key::decode_key(bytes);
@@ -159,7 +165,7 @@ pub mod fuzzing {
 
     #[macro_export]
     macro_rules! test_no_panic_decoding {
-        ($schema_type: ty) => {
+        ($schema_type:ty) => {
             use aptos_schemadb::schema::fuzzing::{arb_small_vec_u8, assert_no_panic_decoding};
             use proptest::prelude::*;
 

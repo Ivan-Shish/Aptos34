@@ -1,13 +1,14 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! The PeerManager module is responsible for establishing connections between Peers and for
-//! opening/receiving new substreams on those connections.
+//! The PeerManager module is responsible for establishing connections between
+//! Peers and for opening/receiving new substreams on those connections.
 //!
 //! ## Implementation
 //!
 //! The PeerManager is implemented as a number of actors:
-//!  * A main event loop actor which is responsible for handling requests and sending
+//!  * A main event loop actor which is responsible for handling requests and
+//!    sending
 //!  notification about new/lost Peers to the rest of the network stack.
 //!  * An actor responsible for dialing and listening for new connections.
 use crate::{
@@ -95,8 +96,8 @@ where
     trusted_peers: Arc<RwLock<PeerSet>>,
     /// Channel to receive requests from other actors.
     requests_rx: aptos_channel::Receiver<(PeerId, ProtocolId), PeerManagerRequest>,
-    /// Upstream handlers for RPC and DirectSend protocols. The handlers are promised fair delivery
-    /// of messages across (PeerId, ProtocolId).
+    /// Upstream handlers for RPC and DirectSend protocols. The handlers are
+    /// promised fair delivery of messages across (PeerId, ProtocolId).
     upstream_handlers:
         HashMap<ProtocolId, aptos_channel::Sender<(PeerId, ProtocolId), PeerManagerNotification>>,
     /// Channels to send NewPeer/LostPeer notifications to.
@@ -166,8 +167,9 @@ where
         );
         let (transport_reqs_tx, transport_reqs_rx) =
             aptos_channels::new(channel_size, &counters::PENDING_PEER_MANAGER_DIAL_REQUESTS);
-        //TODO now that you can only listen on a socket inside of a tokio runtime we'll need to
-        // rethink how we init the PeerManager so we don't have to do this funny thing.
+        // TODO now that you can only listen on a socket inside of a tokio runtime we'll
+        // need to rethink how we init the PeerManager so we don't have to do
+        // this funny thing.
         let transport_notifs_tx_clone = transport_notifs_tx.clone();
         let _guard = executor.enter();
         let (transport_handler, listen_addr) = TransportHandler::new(
@@ -248,7 +250,8 @@ where
         &self.listen_addr
     }
 
-    /// Start listening on the set address and return a future which runs PeerManager
+    /// Start listening on the set address and return a future which runs
+    /// PeerManager
     pub async fn start(mut self) {
         // Start listening for connections.
         info!(
@@ -292,7 +295,8 @@ where
             TransportNotification::NewConnection(mut conn) => {
                 match conn.metadata.origin {
                     ConnectionOrigin::Outbound => {
-                        // TODO: This is right now a hack around having to feed trusted peers deeper in the outbound path.  Inbound ones are assigned at Noise handshake time.
+                        // TODO: This is right now a hack around having to feed trusted peers deeper
+                        // in the outbound path.  Inbound ones are assigned at Noise handshake time.
                         conn.metadata.role = self
                             .trusted_peers
                             .read()
@@ -308,13 +312,13 @@ where
                                 conn.metadata
                             )
                         }
-                    }
+                    },
                     ConnectionOrigin::Inbound => {
                         // Everything below here is meant for unknown peers only, role comes from
                         // Noise handshake and if it's not `Unknown` it is trusted
                         if conn.metadata.role == PeerRole::Unknown {
-                            // TODO: Keep track of somewhere else to not take this hit in case of DDoS
-                            // Count unknown inbound connections
+                            // TODO: Keep track of somewhere else to not take this hit in case of
+                            // DDoS Count unknown inbound connections
                             let unknown_inbound_conns = self
                                 .active_peers
                                 .iter()
@@ -329,8 +333,9 @@ where
                                 .count();
 
                             // Reject excessive inbound connections made by unknown peers
-                            // We control outbound connections with Connectivity manager before we even send them
-                            // and we must allow connections that already exist to pass through tie breaking.
+                            // We control outbound connections with Connectivity manager before we
+                            // even send them and we must allow
+                            // connections that already exist to pass through tie breaking.
                             if !self
                                 .active_peers
                                 .contains_key(&conn.metadata.remote_peer_id)
@@ -352,7 +357,7 @@ where
                                 return;
                             }
                         }
-                    }
+                    },
                 }
 
                 // Add new peer, updating counters and all
@@ -363,7 +368,7 @@ where
                 );
                 self.add_peer(conn);
                 self.update_connected_peers_metrics();
-            }
+            },
             TransportNotification::Disconnected(lost_conn_metadata, reason) => {
                 // See: https://github.com/aptos-labs/aptos-core/issues/3128#issuecomment-605351504 for
                 // detailed reasoning on `Disconnected` events should be handled correctly.
@@ -377,7 +382,8 @@ where
                     reason
                 );
                 let peer_id = lost_conn_metadata.remote_peer_id;
-                // If the active connection with the peer is lost, remove it from `active_peers`.
+                // If the active connection with the peer is lost, remove it from
+                // `active_peers`.
                 if let Entry::Occupied(entry) = self.active_peers.entry(peer_id) {
                     let (conn_metadata, _) = entry.get();
                     if conn_metadata.connection_id == lost_conn_metadata.connection_id {
@@ -414,8 +420,8 @@ where
                     .find_ip_addr()
                     .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
 
-                // Notify upstream if there's still no active connection. This might be redundant,
-                // but does not affect correctness.
+                // Notify upstream if there's still no active connection. This might be
+                // redundant, but does not affect correctness.
                 if !self.active_peers.contains_key(&peer_id) {
                     let notif = ConnectionNotification::LostPeer(
                         lost_conn_metadata,
@@ -429,7 +435,7 @@ where
                 self.inbound_rate_limiters.try_garbage_collect_key(&ip_addr);
                 self.outbound_rate_limiters
                     .try_garbage_collect_key(&ip_addr);
-            }
+            },
         }
     }
 
@@ -450,7 +456,8 @@ where
                     debug!(
                         NetworkSchema::new(&self.network_context)
                             .connection_metadata_with_address(curr_connection),
-                        "{} Already connected to Peer {} with connection {:?}. Not dialing address {}",
+                        "{} Already connected to Peer {} with connection {:?}. Not dialing \
+                         address {}",
                         self.network_context,
                         requested_peer_id.short_str(),
                         curr_connection,
@@ -470,7 +477,7 @@ where
                     let request = TransportRequest::DialPeer(requested_peer_id, addr, response_tx);
                     self.transport_reqs_tx.send(request).await.unwrap();
                 };
-            }
+            },
             ConnectionRequest::DisconnectPeer(peer_id, resp_tx) => {
                 // Send a CloseConnection request to Peer and drop the send end of the
                 // PeerRequest channel.
@@ -502,7 +509,7 @@ where
                         );
                     }
                 }
-            }
+            },
         }
     }
 
@@ -519,10 +526,10 @@ where
         let (peer_id, protocol_id, peer_request) = match request {
             PeerManagerRequest::SendDirectSend(peer_id, msg) => {
                 (peer_id, msg.protocol_id(), PeerRequest::SendDirectSend(msg))
-            }
+            },
             PeerManagerRequest::SendRpc(peer_id, req) => {
                 (peer_id, req.protocol_id(), PeerRequest::SendRpc(req))
-            }
+            },
         };
 
         if let Some((conn_metadata, sender)) = self.active_peers.get_mut(&peer_id) {
@@ -554,13 +561,15 @@ where
         self.executor.spawn(transport_handler.listen());
     }
 
-    /// In the event two peers simultaneously dial each other we need to be able to do
-    /// tie-breaking to determine which connection to keep and which to drop in a deterministic
-    /// way. One simple way is to compare our local PeerId with that of the remote's PeerId and
-    /// keep the connection where the peer with the greater PeerId is the dialer.
+    /// In the event two peers simultaneously dial each other we need to be able
+    /// to do tie-breaking to determine which connection to keep and which
+    /// to drop in a deterministic way. One simple way is to compare our
+    /// local PeerId with that of the remote's PeerId and
+    /// keep the connection where the peer with the greater PeerId is the
+    /// dialer.
     ///
-    /// Returns `true` if the existing connection should be dropped and `false` if the new
-    /// connection should be dropped.
+    /// Returns `true` if the existing connection should be dropped and `false`
+    /// if the new connection should be dropped.
     fn simultaneous_dial_tie_breaking(
         own_peer_id: PeerId,
         remote_peer_id: PeerId,
@@ -694,8 +703,8 @@ where
         );
         self.executor.spawn(peer.start());
 
-        // Start background task to handle events (RPCs and DirectSend messages) received from
-        // peer.
+        // Start background task to handle events (RPCs and DirectSend messages)
+        // received from peer.
         self.spawn_peer_network_events_handler(peer_id, peer_notifs_rx);
         // Save PeerRequest sender to `active_peers`.
         self.active_peers
@@ -709,7 +718,8 @@ where
         }
     }
 
-    /// Sends a `ConnectionNotification` to all event handlers, warns on failures
+    /// Sends a `ConnectionNotification` to all event handlers, warns on
+    /// failures
     fn send_conn_notification(&mut self, peer_id: PeerId, notification: ConnectionNotification) {
         for handler in self.connection_event_handlers.iter_mut() {
             if let Err(e) = handler.push(peer_id, notification.clone()) {

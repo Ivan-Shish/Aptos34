@@ -1,8 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::core_mempool::{CoreMempool, TimelineState, TxnPointer};
-use crate::network::MempoolSyncMsg;
+use crate::{
+    core_mempool::{CoreMempool, TimelineState, TxnPointer},
+    network::MempoolSyncMsg,
+};
 use anyhow::{format_err, Result};
 use aptos_compression::metrics::CompressionClient;
 use aptos_config::config::{NodeConfig, MAX_APPLICATION_MESSAGE_SIZE};
@@ -154,7 +156,8 @@ pub(crate) fn batch_add_signed_txn(
     Ok(())
 }
 
-// Helper struct that keeps state between `.get_block` calls. Imitates work of Consensus.
+// Helper struct that keeps state between `.get_block` calls. Imitates work of
+// Consensus.
 pub struct ConsensusMock(HashSet<TxnPointer>);
 
 impl ConsensusMock {

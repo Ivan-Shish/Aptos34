@@ -143,7 +143,8 @@ async fn test_get_events_by_struct_type_has_generic_type_parameter() {
 
     // This test is for making sure we can look up right struct with generic
     // type specified in the URL path.
-    // Instead of creating the example, we just look up an event handle that does not exist.
+    // Instead of creating the example, we just look up an event handle that does
+    // not exist.
     let path = format!(
         "/accounts/0x1/events/{}/coin",
         utf8_percent_encode(

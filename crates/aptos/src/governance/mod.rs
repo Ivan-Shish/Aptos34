@@ -1,38 +1,47 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::common::types::{
-    CliError, CliTypedResult, MovePackageDir, PoolAddressArgs, ProfileOptions, PromptOptions,
-    RestOptions, TransactionOptions, TransactionSummary,
-};
-use crate::common::utils::prompt_yes_with_override;
 #[cfg(feature = "no-upload-proposal")]
 use crate::common::utils::read_from_file;
-use crate::move_tool::{FrameworkPackageArgs, IncludedArtifacts};
-use crate::{CliCommand, CliResult};
+use crate::{
+    common::{
+        types::{
+            CliError, CliTypedResult, MovePackageDir, PoolAddressArgs, ProfileOptions,
+            PromptOptions, RestOptions, TransactionOptions, TransactionSummary,
+        },
+        utils::prompt_yes_with_override,
+    },
+    move_tool::{FrameworkPackageArgs, IncludedArtifacts},
+    CliCommand, CliResult,
+};
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::HashValue;
 use aptos_framework::{BuildOptions, BuiltPackage, ReleasePackage};
 use aptos_logger::warn;
-use aptos_rest_client::aptos_api_types::{Address, HexEncodedBytes, U128, U64};
-use aptos_rest_client::{Client, Transaction};
+use aptos_rest_client::{
+    aptos_api_types::{Address, HexEncodedBytes, U128, U64},
+    Client, Transaction,
+};
 use aptos_sdk::move_types::language_storage::CORE_CODE_ADDRESS;
-use aptos_types::event::EventHandle;
-use aptos_types::governance::VotingRecords;
-use aptos_types::stake_pool::StakePool;
-use aptos_types::state_store::table::TableHandle;
 use aptos_types::{
     account_address::AccountAddress,
+    event::EventHandle,
+    governance::VotingRecords,
+    stake_pool::StakePool,
+    state_store::table::TableHandle,
     transaction::{Script, TransactionPayload},
 };
 use async_trait::async_trait;
 use clap::Parser;
 use move_core_types::transaction_argument::TransactionArgument;
 use reqwest::Url;
-use serde::Deserialize;
-use serde::Serialize;
-use std::path::Path;
-use std::{collections::BTreeMap, fmt::Formatter, fs, path::PathBuf};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::BTreeMap,
+    fmt::Formatter,
+    fs,
+    path::{Path, PathBuf},
+};
 use tempfile::TempDir;
 
 /// Tool for on-chain governance
@@ -133,8 +142,8 @@ impl CliCommand<VerifiedProposal> for ViewProposal {
 
 /// List the last 100 visible onchain proposals
 ///
-/// Note, if the full node you are talking to is pruning data, it may not have some of the
-/// proposals show here
+/// Note, if the full node you are talking to is pruning data, it may not have
+/// some of the proposals show here
 #[derive(Parser)]
 pub struct ListProposals {
     #[clap(flatten)]
@@ -257,16 +266,17 @@ async fn get_proposal(
 pub struct SubmitProposal {
     /// Location of the JSON metadata of the proposal
     ///
-    /// If this location does not keep the metadata in the exact format, it will be less likely
-    /// that voters will approve this proposal, as they won't be able to verify it.
+    /// If this location does not keep the metadata in the exact format, it will
+    /// be less likely that voters will approve this proposal, as they won't
+    /// be able to verify it.
     #[clap(long)]
     pub(crate) metadata_url: Url,
 
     #[cfg(feature = "no-upload-proposal")]
     /// A JSON file to be uploaded later at the metadata URL
     ///
-    /// If this does not match properly, voters may choose to vote no.  For real proposals,
-    /// it is better to already have it uploaded at the URL.
+    /// If this does not match properly, voters may choose to vote no.  For real
+    /// proposals, it is better to already have it uploaded at the URL.
     #[clap(long)]
     pub(crate) metadata_path: Option<PathBuf>,
 
@@ -415,8 +425,8 @@ struct ProposalSubmissionSummary {
 
 /// Submit a vote on a proposal
 ///
-/// Votes can only be given on proposals that are currently open for voting.  You can vote
-/// with `--yes` for a yes vote, and `--no` for a no vote.
+/// Votes can only be given on proposals that are currently open for voting.
+/// You can vote with `--yes` for a yes vote, and `--no` for a no vote.
 #[derive(Parser)]
 pub struct SubmitVote {
     /// Id of the proposal to vote on
@@ -453,7 +463,7 @@ impl CliCommand<Vec<TransactionSummary>> for SubmitVote {
                 return Err(CliError::CommandArgumentError(
                     "Must choose only either --yes or --no".to_string(),
                 ));
-            }
+            },
         };
 
         let client: &Client = &self
@@ -616,8 +626,8 @@ fn compile_script(
 
     if scripts_count != 1 {
         return Err(CliError::UnexpectedError(format!(
-            "Only one script can be prepared a time. Make sure one and only one script file \
-                is included in the Move package. Found {} scripts.",
+            "Only one script can be prepared a time. Make sure one and only one script file is \
+             included in the Move package. Found {} scripts.",
             scripts_count
         )));
     }
@@ -738,17 +748,19 @@ pub struct GenerateUpgradeProposal {
     #[clap(long, parse(from_os_str), default_value = "proposal.move")]
     pub(crate) output: PathBuf,
 
-    /// What artifacts to include in the package. This can be one of `none`, `sparse`, and
-    /// `all`. `none` is the most compact form and does not allow to reconstruct a source
-    /// package from chain; `sparse` is the minimal set of artifacts needed to reconstruct
-    /// a source package; `all` includes all available artifacts. The choice of included
-    /// artifacts heavily influences the size and therefore gas cost of publishing: `none`
-    /// is the size of bytecode alone; `sparse` is roughly 2 times as much; and `all` 3-4
-    /// as much.
+    /// What artifacts to include in the package. This can be one of `none`,
+    /// `sparse`, and `all`. `none` is the most compact form and does not
+    /// allow to reconstruct a source package from chain; `sparse` is the
+    /// minimal set of artifacts needed to reconstruct a source package;
+    /// `all` includes all available artifacts. The choice of included
+    /// artifacts heavily influences the size and therefore gas cost of
+    /// publishing: `none` is the size of bytecode alone; `sparse` is
+    /// roughly 2 times as much; and `all` 3-4 as much.
     #[clap(long, default_value_t = IncludedArtifacts::Sparse)]
     pub(crate) included_artifacts: IncludedArtifacts,
 
-    /// Generate the script for mainnet governance proposal by default or generate the upgrade script for testnet.
+    /// Generate the script for mainnet governance proposal by default or
+    /// generate the upgrade script for testnet.
     #[clap(long)]
     pub(crate) testnet: bool,
 

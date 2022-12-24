@@ -8,7 +8,8 @@ use aptos_cached_packages::aptos_stdlib::aptos_token_stdlib;
 fn test_token_creation_with_token_events_store() {
     let mut h = MoveHarness::new();
 
-    // Deploy a package that initially does not have the module that has the init_module function.
+    // Deploy a package that initially does not have the module that has the
+    // init_module function.
     let acc = h.aptos_framework_account();
     let token_owner = acc.address();
     let collection_name = b"collection_name".to_vec();

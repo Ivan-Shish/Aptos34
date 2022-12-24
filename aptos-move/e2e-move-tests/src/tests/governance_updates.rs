@@ -12,12 +12,13 @@ use aptos_types::{
 
 #[test]
 fn large_transactions() {
-    // This test validates that only small txns (less than the maximum txn size) can be kept. It
-    // then evaluates the limits of the ApprovedExecutionHashes. Specifically, the hash is the code
-    // is the only portion that can exceed the size limits. There's a further restriction on the
-    // maximum transaction size of 1 MB even for governance, because the governance transaction can
-    // be submitted by any one and that can result in a large amount of large transactions making their
-    // way into consensus.
+    // This test validates that only small txns (less than the maximum txn size) can
+    // be kept. It then evaluates the limits of the ApprovedExecutionHashes.
+    // Specifically, the hash is the code is the only portion that can exceed
+    // the size limits. There's a further restriction on the maximum transaction
+    // size of 1 MB even for governance, because the governance transaction can
+    // be submitted by any one and that can result in a large amount of large
+    // transactions making their way into consensus.
     let mut h = MoveHarness::new();
 
     let alice = h.new_account_at(AccountAddress::from_hex_literal("0xa11ce").unwrap());

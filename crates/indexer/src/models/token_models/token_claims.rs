@@ -31,8 +31,9 @@ pub struct CurrentTokenPendingClaim {
 }
 
 impl CurrentTokenPendingClaim {
-    /// Token claim is stored in a table in the offerer's account. The key is token_offer_id (token_id + to address)
-    /// and value is token (token_id + amount)
+    /// Token claim is stored in a table in the offerer's account. The key is
+    /// token_offer_id (token_id + to address) and value is token (token_id
+    /// + amount)
     pub fn from_write_table_item(
         table_item: &APIWriteTableItem,
         txn_version: i64,
@@ -126,8 +127,8 @@ impl CurrentTokenPendingClaim {
 
             let table_metadata = table_handle_to_owner.get(&table_handle).unwrap_or_else(|| {
                 panic!(
-                    "Missing table handle metadata for claim. \
-                    Version: {}, table handle for PendingClaims: {}, all metadata: {:?}",
+                    "Missing table handle metadata for claim. Version: {}, table handle for \
+                     PendingClaims: {}, all metadata: {:?}",
                     txn_version, table_handle, table_handle_to_owner
                 )
             });

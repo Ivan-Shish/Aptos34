@@ -1,13 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-///! This module provides reusable helpers in tests.
+/// ! This module provides reusable helpers in tests.
 use super::*;
 use crate::{
     jellyfish_merkle_node::JellyfishMerkleNodeSchema, schema::state_value::StateValueSchema,
 };
-use aptos_types::ledger_info::generate_ledger_info_with_sig;
-
 use aptos_crypto::hash::{CryptoHash, EventAccumulatorHasher, TransactionAccumulatorHasher};
 use aptos_executor_types::ProofReader;
 use aptos_jellyfish_merkle::node_type::{Node, NodeKey};
@@ -15,7 +13,7 @@ use aptos_scratchpad::SparseMerkleTree;
 use aptos_temppath::TempPath;
 use aptos_types::{
     contract_event::ContractEvent,
-    ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
+    ledger_info::{generate_ledger_info_with_sig, LedgerInfo, LedgerInfoWithSignatures},
     proof::accumulator::InMemoryAccumulator,
     proptest_types::{AccountInfoUniverse, BlockGen},
 };
@@ -200,9 +198,9 @@ prop_compose! {
 pub fn arb_blocks_to_commit(
 ) -> impl Strategy<Value = Vec<(Vec<TransactionToCommit>, LedgerInfoWithSignatures)>> {
     arb_blocks_to_commit_impl(
-        5,  /* num_accounts */
-        2,  /* max_user_txn_per_block */
-        10, /* max_blocks */
+        5,  // num_accounts
+        2,  // max_user_txn_per_block
+        10, // max_blocks
     )
 }
 
@@ -324,10 +322,10 @@ pub fn test_save_blocks_impl(
         update_in_memory_state(&mut in_memory_state, txns_to_commit.as_slice());
         db.save_transactions(
             txns_to_commit,
-            cur_ver,                /* first_version */
-            cur_ver.checked_sub(1), /* base_state_version */
+            cur_ver,                // first_version
+            cur_ver.checked_sub(1), // base_state_version
             Some(ledger_info_with_sigs),
-            false, /* sync_commit */
+            false, // sync_commit
             in_memory_state.clone(),
         )
         .unwrap();
@@ -350,7 +348,7 @@ pub fn test_save_blocks_impl(
             txns_to_commit,
             cur_ver,
             ledger_info_with_sigs,
-            batch_idx + 1 == num_batches, /* is_latest */
+            batch_idx + 1 == num_batches, // is_latest
         );
 
         // check getting all events by version for all committed transactions
@@ -370,7 +368,7 @@ pub fn test_save_blocks_impl(
         &first_batch,
         0,
         &latest_ledger_info,
-        false, /* is_latest */
+        false, // is_latest
     );
     // Verify an old batch with an old LedgerInfo.
     verify_committed_transactions(
@@ -378,7 +376,7 @@ pub fn test_save_blocks_impl(
         &first_batch,
         0,
         &first_batch_ledger_info,
-        true, /* is_latest */
+        true, // is_latest
     );
     let (_, ledger_infos_with_sigs): (Vec<_>, Vec<_>) = input.iter().cloned().unzip();
     verify_epochs(&db, &ledger_infos_with_sigs);
@@ -387,7 +385,7 @@ pub fn test_save_blocks_impl(
     db.state_store.buffered_state().lock().sync_commit();
     verify_snapshots(
         &db,
-        0, /* first_version */
+        0, // first_version
         snapshot_versions,
         input
             .iter()
@@ -610,7 +608,7 @@ fn verify_account_txns(
                     account,
                     first_seq_num,
                     limit,
-                    true, /* include_events */
+                    true, // include_events
                     ledger_info.version(),
                 )
                 .unwrap();
@@ -829,10 +827,10 @@ pub fn test_sync_transactions_impl(
             update_in_memory_state(&mut in_memory_state, &txns_to_commit[..batch1_len]);
             db.save_transactions(
                 &txns_to_commit[..batch1_len],
-                cur_ver, /* first_version */
+                cur_ver, // first_version
                 base_state_version,
                 None,
-                false, /* sync_commit */
+                false, // sync_commit
                 in_memory_state.clone(),
             )
             .unwrap();
@@ -840,10 +838,10 @@ pub fn test_sync_transactions_impl(
         update_in_memory_state(&mut in_memory_state, &txns_to_commit[batch1_len..]);
         db.save_transactions(
             &txns_to_commit[batch1_len..],
-            cur_ver + batch1_len as u64, /* first_version */
+            cur_ver + batch1_len as u64, // first_version
             base_state_version,
             Some(ledger_info_with_sigs),
-            false, /* sync_commit */
+            false, // sync_commit
             in_memory_state.clone(),
         )
         .unwrap();
@@ -862,7 +860,7 @@ pub fn test_sync_transactions_impl(
             txns_to_commit,
             cur_ver,
             ledger_info_with_sigs,
-            batch_idx + 1 == num_batches, /* is_latest */
+            batch_idx + 1 == num_batches, // is_latest
         );
 
         cur_ver += txns_to_commit.len() as u64;
@@ -872,7 +870,7 @@ pub fn test_sync_transactions_impl(
     db.state_store.buffered_state().lock().sync_commit();
     verify_snapshots(
         &db,
-        0, /* first_version */
+        0, // first_version
         snapshot_versions,
         input
             .iter()

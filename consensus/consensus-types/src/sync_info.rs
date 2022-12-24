@@ -14,7 +14,8 @@ pub struct SyncInfo {
     highest_quorum_cert: QuorumCert,
     /// Highest ordered cert known to the peer.
     highest_ordered_cert: Option<QuorumCert>,
-    /// Highest commit cert (ordered cert with execution result) known to the peer.
+    /// Highest commit cert (ordered cert with execution result) known to the
+    /// peer.
     highest_commit_cert: QuorumCert,
     /// Optional highest timeout certificate if available.
     highest_2chain_timeout_cert: Option<TwoChainTimeoutCertificate>,

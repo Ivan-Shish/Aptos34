@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::*;
-use rand::{Rng, SeedableRng};
+// TODO going to remove random seed once cluster deployment supports re-run
+// genesis
+use crate::{
+    success_criteria::SuccessCriteria,
+    system_metrics::{MetricsThreshold, SystemMetricsThreshold},
+};
+use aptos_framework::ReleaseBundle;
+use rand::{rngs::OsRng, Rng, SeedableRng};
 use std::{
     fmt::{Display, Formatter},
     io::{self, Write},
@@ -14,35 +21,30 @@ use std::{
 use structopt::{clap::arg_enum, StructOpt};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use tokio::runtime::Runtime;
-// TODO going to remove random seed once cluster deployment supports re-run genesis
-use crate::{
-    success_criteria::SuccessCriteria,
-    system_metrics::{MetricsThreshold, SystemMetricsThreshold},
-};
-use aptos_framework::ReleaseBundle;
-use rand::rngs::OsRng;
 
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Forged in Fire")]
 pub struct Options {
-    /// The FILTER string is tested against the name of all tests, and only those tests whose names
-    /// contain the filter are run.
+    /// The FILTER string is tested against the name of all tests, and only
+    /// those tests whose names contain the filter are run.
     filter: Option<String>,
     #[structopt(long = "exact")]
     /// Exactly match filters rather than by substring
     filter_exact: bool,
     #[allow(dead_code)]
     #[structopt(long, default_value = "1", env = "RUST_TEST_THREADS")]
-    /// NO-OP: unsupported option, exists for compatibility with the default test harness
-    /// Number of threads used for running tests in parallel
+    /// NO-OP: unsupported option, exists for compatibility with the default
+    /// test harness Number of threads used for running tests in parallel
     test_threads: NonZeroUsize,
     #[allow(dead_code)]
     #[structopt(short = "q", long)]
-    /// NO-OP: unsupported option, exists for compatibility with the default test harness
+    /// NO-OP: unsupported option, exists for compatibility with the default
+    /// test harness
     quiet: bool,
     #[allow(dead_code)]
     #[structopt(long)]
-    /// NO-OP: unsupported option, exists for compatibility with the default test harness
+    /// NO-OP: unsupported option, exists for compatibility with the default
+    /// test harness
     nocapture: bool,
     #[structopt(long)]
     /// List all tests
@@ -56,19 +58,21 @@ pub struct Options {
     /// Configure formatting of output:
     ///   pretty = Print verbose output;
     ///   terse = Display one character per test;
-    ///   (json is unsupported, exists for compatibility with the default test harness)
+    ///   (json is unsupported, exists for compatibility with the default test
+    /// harness)
     #[structopt(long, possible_values = &Format::variants(), default_value, case_insensitive = true)]
     format: Format,
     #[allow(dead_code)]
     #[structopt(short = "Z")]
-    /// NO-OP: unsupported option, exists for compatibility with the default test harness
-    /// -Z unstable-options Enable nightly-only flags:
-    ///                     unstable-options = Allow use of experimental features
+    /// NO-OP: unsupported option, exists for compatibility with the default
+    /// test harness -Z unstable-options Enable nightly-only flags:
+    ///                     unstable-options = Allow use of experimental
+    /// features
     z_unstable_options: Option<String>,
     #[allow(dead_code)]
     #[structopt(long)]
-    /// NO-OP: unsupported option, exists for compatibility with the default test harness
-    /// Show captured stdout of successful tests
+    /// NO-OP: unsupported option, exists for compatibility with the default
+    /// test harness Show captured stdout of successful tests
     show_output: bool,
 }
 
@@ -106,8 +110,9 @@ pub fn forge_main<F: Factory>(tests: ForgeConfig<'_>, factory: F, options: &Opti
         Ok(..) => Ok(()),
         Err(e) => {
             eprintln!("Failed to run tests:\n{}", e);
-            process::exit(101); // Exit with a non-zero exit code if tests failed
-        }
+            process::exit(101); // Exit with a non-zero exit code if tests
+                                // failed
+        },
     }
 }
 
@@ -125,10 +130,12 @@ pub struct ForgeConfig<'cfg> {
     admin_tests: Vec<&'cfg dyn AdminTest>,
     network_tests: Vec<&'cfg dyn NetworkTest>,
 
-    /// The initial number of validators to spawn when the test harness creates a swarm
+    /// The initial number of validators to spawn when the test harness creates
+    /// a swarm
     initial_validator_count: NonZeroUsize,
 
-    /// The initial number of fullnodes to spawn when the test harness creates a swarm
+    /// The initial number of fullnodes to spawn when the test harness creates a
+    /// swarm
     initial_fullnode_count: usize,
 
     /// The initial version to use when the test harness creates a swarm
@@ -424,13 +431,13 @@ impl<'cfg, F: Factory> Forge<'cfg, F> {
     ) -> impl Iterator<Item = T> + 'a {
         tests
             // Filter by ignored
-            .filter(
-                move |test| match (self.options.include_ignored, self.options.ignored) {
+            .filter(move |test| {
+                match (self.options.include_ignored, self.options.ignored) {
                     (true, _) => true, // Don't filter anything
                     (false, true) => test.ignored(),
                     (false, false) => !test.ignored(),
-                },
-            )
+                }
+            })
             // Filter by test name
             .filter(move |test| {
                 if let Some(filter) = &self.options.filter {
@@ -471,7 +478,7 @@ fn run_test<F: FnOnce() -> Result<()>>(f: F) -> TestResult {
                 println!("::error::{:?}", e);
             }
             TestResult::FailedWithMsg(format!("{:?}", e))
-        }
+        },
     }
 }
 
@@ -500,14 +507,14 @@ impl TestSummary {
             TestResult::Ok => {
                 self.passed += 1;
                 self.write_ok()?;
-            }
+            },
             TestResult::FailedWithMsg(msg) => {
                 self.failed.push(name);
                 self.write_failed()?;
                 writeln!(self.stdout)?;
 
                 write!(self.stdout, "Error: {}", msg)?;
-            }
+            },
         }
         writeln!(self.stdout)?;
         Ok(())

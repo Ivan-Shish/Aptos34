@@ -16,13 +16,13 @@ use aptos_gas::{
     AbstractValueSizeGasParameters, AptosGasParameters, ChangeSetConfigs, InitialGasSchedule,
     NativeGasParameters, ToOnChainGasSchedule, LATEST_GAS_FEATURE_VERSION,
 };
-use aptos_types::account_config::aptos_test_root_address;
-use aptos_types::on_chain_config::{FeatureFlag, Features};
 use aptos_types::{
-    account_config::{self, events::NewEpochEvent, CORE_CODE_ADDRESS},
+    account_config::{self, aptos_test_root_address, events::NewEpochEvent, CORE_CODE_ADDRESS},
     chain_id::ChainId,
     contract_event::ContractEvent,
-    on_chain_config::{GasScheduleV2, OnChainConsensusConfig, APTOS_MAX_KNOWN_VERSION},
+    on_chain_config::{
+        FeatureFlag, Features, GasScheduleV2, OnChainConsensusConfig, APTOS_MAX_KNOWN_VERSION,
+    },
     transaction::{authenticator::AuthenticationKey, ChangeSet, Transaction, WriteSetPayload},
 };
 use aptos_vm::{
@@ -41,7 +41,8 @@ use once_cell::sync::Lazy;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-// The seed is arbitrarily picked to produce a consistent key. XXX make this more formal?
+// The seed is arbitrarily picked to produce a consistent key. XXX make this
+// more formal?
 const GENESIS_SEED: [u8; 32] = [42; 32];
 
 const GENESIS_MODULE_NAME: &str = "genesis";
@@ -137,7 +138,8 @@ pub fn encode_aptos_mainnet_genesis_transaction(
 
     let mut session1_out = session.finish().unwrap();
 
-    // Publish the framework, using a different session id, in case both scripts creates tables
+    // Publish the framework, using a different session id, in case both scripts
+    // creates tables
     let state_view = GenesisStateView::new();
     let data_cache = state_view.as_move_resolver();
 
@@ -158,9 +160,9 @@ pub fn encode_aptos_mainnet_genesis_transaction(
         .unwrap();
     let (delta_change_set, change_set) = change_set_ext.into_inner();
 
-    // Publishing stdlib should not produce any deltas around aggregators and map to write ops and
-    // not deltas. The second session only publishes the framework module bundle, which should not
-    // produce deltas either.
+    // Publishing stdlib should not produce any deltas around aggregators and map to
+    // write ops and not deltas. The second session only publishes the framework
+    // module bundle, which should not produce deltas either.
     assert!(
         delta_change_set.is_empty(),
         "non-empty delta change set in genesis"
@@ -252,7 +254,8 @@ pub fn encode_genesis_change_set(
     let state_view = GenesisStateView::new();
     let data_cache = state_view.as_move_resolver();
 
-    // Publish the framework, using a different session id, in case both scripts creates tables
+    // Publish the framework, using a different session id, in case both scripts
+    // creates tables
     let mut id2_arr = [0u8; 32];
     id2_arr[31] = 1;
     let id2 = HashValue::new(id2_arr);
@@ -270,9 +273,9 @@ pub fn encode_genesis_change_set(
         .unwrap();
     let (delta_change_set, change_set) = change_set_ext.into_inner();
 
-    // Publishing stdlib should not produce any deltas around aggregators and map to write ops and
-    // not deltas. The second session only publishes the framework module bundle, which should not
-    // produce deltas either.
+    // Publishing stdlib should not produce any deltas around aggregators and map to
+    // write ops and not deltas. The second session only publishes the framework
+    // module bundle, which should not produce deltas either.
     assert!(
         delta_change_set.is_empty(),
         "non-empty delta change set in genesis"
@@ -364,17 +367,19 @@ fn initialize(
     let consensus_config_bytes =
         bcs::to_bytes(consensus_config).expect("Failure serializing genesis consensus config");
 
-    // Calculate the per-epoch rewards rate, represented as 2 separate ints (numerator and
-    // denominator).
+    // Calculate the per-epoch rewards rate, represented as 2 separate ints
+    // (numerator and denominator).
     let rewards_rate_denominator = 1_000_000_000;
     let num_epochs_in_a_year = NUM_SECONDS_PER_YEAR / genesis_config.epoch_duration_secs;
-    // Multiplication before division to minimize rounding errors due to integer division.
+    // Multiplication before division to minimize rounding errors due to integer
+    // division.
     let rewards_rate_numerator = (genesis_config.rewards_apy_percentage * rewards_rate_denominator
         / 100)
         / num_epochs_in_a_year;
 
-    // Block timestamps are in microseconds and epoch_interval is used to check if a block timestamp
-    // has crossed into a new epoch. So epoch_interval also needs to be in micro seconds.
+    // Block timestamps are in microseconds and epoch_interval is used to check if a
+    // block timestamp has crossed into a new epoch. So epoch_interval also
+    // needs to be in micro seconds.
     let epoch_interval_usecs = genesis_config.epoch_duration_secs * MICRO_SECONDS_PER_SECOND;
     exec_function(
         session,
@@ -504,9 +509,9 @@ fn create_employee_validators(
     );
 }
 
-/// Creates and initializes each validator owner and validator operator. This method creates all
-/// the required accounts, sets the validator operators for each validator owner, and sets the
-/// validator config on-chain.
+/// Creates and initializes each validator owner and validator operator. This
+/// method creates all the required accounts, sets the validator operators for
+/// each validator owner, and sets the validator config on-chain.
 fn create_and_initialize_validators(
     session: &mut SessionExt<impl MoveResolver>,
     validators: &[Validator],
@@ -578,22 +583,17 @@ fn publish_package(session: &mut SessionExt<impl MoveResolver>, pack: &ReleasePa
         });
 
     // Call the initialize function with the metadata.
-    exec_function(
-        session,
-        CODE_MODULE_NAME,
-        "initialize",
-        vec![],
-        vec![
-            MoveValue::Signer(CORE_CODE_ADDRESS)
-                .simple_serialize()
-                .unwrap(),
-            MoveValue::Signer(addr).simple_serialize().unwrap(),
-            bcs::to_bytes(pack.package_metadata()).unwrap(),
-        ],
-    );
+    exec_function(session, CODE_MODULE_NAME, "initialize", vec![], vec![
+        MoveValue::Signer(CORE_CODE_ADDRESS)
+            .simple_serialize()
+            .unwrap(),
+        MoveValue::Signer(addr).simple_serialize().unwrap(),
+        bcs::to_bytes(pack.package_metadata()).unwrap(),
+    ]);
 }
 
-/// Trigger a reconfiguration. This emits an event that will be passed along to the storage layer.
+/// Trigger a reconfiguration. This emits an event that will be passed along to
+/// the storage layer.
 fn emit_new_block_and_epoch_event(session: &mut SessionExt<impl MoveResolver>) {
     exec_function(
         session,
@@ -627,8 +627,8 @@ fn verify_genesis_write_set(events: &[ContractEvent]) {
     assert_eq!(new_epoch_events[0].sequence_number(), 0,);
 }
 
-/// An enum specifying whether the compiled stdlib/scripts should be used or freshly built versions
-/// should be used.
+/// An enum specifying whether the compiled stdlib/scripts should be used or
+/// freshly built versions should be used.
 #[derive(Debug, Eq, PartialEq)]
 pub enum GenesisOptions {
     /// Framework compiled from head
@@ -654,7 +654,7 @@ pub fn generate_genesis_change_set_for_testing_with_count(
         GenesisOptions::Mainnet => {
             // We don't yet have mainnet, so returning testnet here
             aptos_framework::testnet_release_bundle()
-        }
+        },
     };
 
     generate_test_genesis(framework, Some(count as usize)).0
@@ -685,14 +685,15 @@ pub fn test_genesis_change_set_and_validators(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Validator {
-    /// The Aptos account address of the validator or the admin in the case of a commissioned or
-    /// vesting managed validator.
+    /// The Aptos account address of the validator or the admin in the case of a
+    /// commissioned or vesting managed validator.
     pub owner_address: AccountAddress,
-    /// The Aptos account address of the validator's operator (same as `address` if the validator is
-    /// its own operator).
+    /// The Aptos account address of the validator's operator (same as `address`
+    /// if the validator is its own operator).
     pub operator_address: AccountAddress,
     pub voter_address: AccountAddress,
-    /// Amount to stake for consensus. Also the intial amount minted to the owner account.
+    /// Amount to stake for consensus. Also the intial amount minted to the
+    /// owner account.
     pub stake_amount: u64,
 
     /// bls12381 public key used to sign consensus messages.
@@ -793,7 +794,8 @@ pub fn generate_mainnet_genesis(
     framework: &ReleaseBundle,
     count: Option<usize>,
 ) -> (ChangeSet, Vec<TestValidator>) {
-    // TODO: Update to have custom validators/accounts with initial balances at genesis.
+    // TODO: Update to have custom validators/accounts with initial balances at
+    // genesis.
     let test_validators = TestValidator::new_test_set(count, Some(1_000_000_000_000_000));
     let validators_: Vec<Validator> = test_validators.iter().map(|t| t.data.clone()).collect();
     let validators = &validators_;
@@ -811,7 +813,8 @@ pub fn generate_mainnet_genesis(
 }
 
 fn mainnet_genesis_config() -> GenesisConfiguration {
-    // TODO: Update once mainnet numbers are decided. These numbers are just placeholders.
+    // TODO: Update once mainnet numbers are decided. These numbers are just
+    // placeholders.
     GenesisConfiguration {
         allow_new_validators: true,
         epoch_duration_secs: 2 * 3600, // 2 hours

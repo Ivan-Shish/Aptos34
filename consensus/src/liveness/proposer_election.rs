@@ -1,26 +1,28 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::cmp::Ordering;
-
 use aptos_consensus_types::common::{Author, Round};
 use aptos_fallible::copy_from_slice::copy_slice_to_vec;
 use num_traits::CheckedAdd;
+use std::cmp::Ordering;
 
-/// ProposerElection incorporates the logic of choosing a leader among multiple candidates.
+/// ProposerElection incorporates the logic of choosing a leader among multiple
+/// candidates.
 pub trait ProposerElection {
-    /// If a given author is a valid candidate for being a proposer, generate the info,
-    /// otherwise return None.
+    /// If a given author is a valid candidate for being a proposer, generate
+    /// the info, otherwise return None.
     /// Note that this function is synchronous.
     fn is_valid_proposer(&self, author: Author, round: Round) -> bool {
         self.get_valid_proposer(round) == author
     }
 
     /// Return the valid proposer for a given round (this information can be
-    /// used by e.g., voters for choosing the destinations for sending their votes to).
+    /// used by e.g., voters for choosing the destinations for sending their
+    /// votes to).
     fn get_valid_proposer(&self, round: Round) -> Author;
 
-    /// Return the chain health: a ratio of voting power participating in the consensus.
+    /// Return the chain health: a ratio of voting power participating in the
+    /// consensus.
     fn get_voting_power_participation_ratio(&self, _round: Round) -> f64 {
         1.0
     }
@@ -36,7 +38,8 @@ pub trait ProposerElection {
     }
 }
 
-// next consumes seed and returns random deterministic u64 value in [0, max) range
+// next consumes seed and returns random deterministic u64 value in [0, max)
+// range
 fn next_in_range(state: Vec<u8>, max: u128) -> u128 {
     // hash = SHA-3-256(state)
     let hash = aptos_crypto::HashValue::sha3_256_of(&state).to_vec();
@@ -71,7 +74,8 @@ pub(crate) fn choose_index(mut weights: Vec<u128>, state: Vec<u8>) -> usize {
 
 #[test]
 fn test_bounds() {
-    // check that bounds are correct, and both first and last weight can be selected.
+    // check that bounds are correct, and both first and last weight can be
+    // selected.
     let mut selected = [0, 0];
     let weights = [u64::MAX as u128 * 1000, u64::MAX as u128 * 1000].to_vec();
     // 10 is enough to get one of each.

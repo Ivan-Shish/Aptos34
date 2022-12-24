@@ -3,7 +3,8 @@
 
 use serde_reflection::{ContainerFormat, Error, Format, FormatHolder, Result};
 
-/// Verify that a Serde format is compatible with BCS and follows best practices.
+/// Verify that a Serde format is compatible with BCS and follows best
+/// practices.
 pub fn lint_bcs_format(format: &ContainerFormat) -> Result<()> {
     if is_empty_container(format) {
         return Err(Error::Custom("Please avoid 0-sized containers".into()));
@@ -31,7 +32,7 @@ pub fn lint_bcs_format(format: &ContainerFormat) -> Result<()> {
                 } else {
                     Ok(())
                 }
-            }
+            },
             _ => Ok(()),
         }
     })

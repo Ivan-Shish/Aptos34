@@ -8,8 +8,7 @@ use crate::{
 };
 use aptos_build_info::build_information;
 use aptos_logger::{debug, Level};
-use aptos_rest_client::aptos_api_types::HashValue;
-use aptos_rest_client::{Account, Client};
+use aptos_rest_client::{aptos_api_types::HashValue, Account, Client};
 use aptos_telemetry::service::telemetry_is_disabled;
 use aptos_types::{chain_id::ChainId, transaction::authenticator::AuthenticationKey};
 use itertools::Itertools;
@@ -110,9 +109,11 @@ async fn send_telemetry_event(
     .await;
 }
 
-/// A result wrapper for displaying either a correct execution result or an error.
+/// A result wrapper for displaying either a correct execution result or an
+/// error.
 ///
-/// The purpose of this is to have a pretty easy to recognize JSON output format e.g.
+/// The purpose of this is to have a pretty easy to recognize JSON output format
+/// e.g.
 ///
 /// {
 ///   "Result":{
@@ -123,7 +124,6 @@ async fn send_telemetry_event(
 /// {
 ///   "Error":"Failed to run command"
 /// }
-///
 #[derive(Debug, Serialize)]
 enum ResultWrapper<T> {
     Result(T),
@@ -209,7 +209,8 @@ pub fn write_to_file_with_opts(
         .map_err(|e| CliError::IO(name.to_string(), e))
 }
 
-/// Appends a file extension to a `Path` without overwriting the original extension.
+/// Appends a file extension to a `Path` without overwriting the original
+/// extension.
 pub fn append_file_extension(
     file: &Path,
     appended_extension: &'static str,

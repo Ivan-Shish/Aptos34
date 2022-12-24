@@ -28,11 +28,11 @@ pub mod fuzzing;
 const MAX_NUM_KEY_VERSIONS: u32 = 4;
 
 /// Default request timeouts for vault operations.
-/// Note: there is a bug in ureq v 1.5.4 where it's not currently possible to set
-/// different timeouts for connections and operations. The connection timeout
-/// will override any other timeouts (including reads and writes). This has been
-/// fixed in ureq 2. Once we upgrade, we'll be able to have separate timeouts.
-/// Until then, the connection timeout is used for all operations.
+/// Note: there is a bug in ureq v 1.5.4 where it's not currently possible to
+/// set different timeouts for connections and operations. The connection
+/// timeout will override any other timeouts (including reads and writes). This
+/// has been fixed in ureq 2. Once we upgrade, we'll be able to have separate
+/// timeouts. Until then, the connection timeout is used for all operations.
 const DEFAULT_CONNECTION_TIMEOUT_MS: u64 = 1_000;
 const DEFAULT_RESPONSE_TIMEOUT_MS: u64 = 1_000;
 
@@ -96,20 +96,24 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-/// Client provides a client around the restful interface to a Vault servce. Learn more
-/// here: <https://www.vaultproject.io/api-docs/>
+/// Client provides a client around the restful interface to a Vault servce.
+/// Learn more here: <https://www.vaultproject.io/api-docs/>
 ///
 /// A brief overview of Vault:
 ///
-/// * Vault stores data in various paths, in the case of a WebAPI, different URLs. So, for example,
-/// both a secret and a policy are hosted at distinct paths. Policies are then used to define which
-/// actors can access those paths and with what actions.
-/// * Vault uses a KV store separated into various containers or secrets. In the concept of a file
-/// system, a secret might represent a folder, where keys would be files, and the contents the
-/// values. Policies are only applied at the folder level.
-/// * Data is accessed in Vault via tokens. Policies can only be granted during creation of a
-/// token, but policies can be amended afterward. So you cannot add new policies to a token, but
-/// you can increase the tokens abilities by modifying the underlying policies.
+/// * Vault stores data in various paths, in the case of a WebAPI, different
+///   URLs. So, for example,
+/// both a secret and a policy are hosted at distinct paths. Policies are then
+/// used to define which actors can access those paths and with what actions.
+/// * Vault uses a KV store separated into various containers or secrets. In the
+///   concept of a file
+/// system, a secret might represent a folder, where keys would be files, and
+/// the contents the values. Policies are only applied at the folder level.
+/// * Data is accessed in Vault via tokens. Policies can only be granted during
+///   creation of a
+/// token, but policies can be amended afterward. So you cannot add new policies
+/// to a token, but you can increase the tokens abilities by modifying the
+/// underlying policies.
 pub struct Client {
     agent: ureq::Agent,
     host: String,
@@ -181,9 +185,10 @@ impl Client {
         process_policy_read_response(resp)
     }
 
-    /// Create a new policy in Vault, see the explanation for Policy for how the data is
-    /// structured. Vault does not distingush a create and update. An update must first read the
-    /// existing policy, amend the contents,  and then be applied via this API.
+    /// Create a new policy in Vault, see the explanation for Policy for how the
+    /// data is structured. Vault does not distingush a create and update.
+    /// An update must first read the existing policy, amend the contents,
+    /// and then be applied via this API.
     pub fn set_policy(&self, policy_name: &str, policy: &Policy) -> Result<(), Error> {
         let request = self
             .agent
@@ -193,8 +198,9 @@ impl Client {
         process_generic_response(resp)
     }
 
-    /// Creates a new token or identity for accessing Vault. The token will have access to anything
-    /// under the default policy and any prescribed policies.
+    /// Creates a new token or identity for accessing Vault. The token will have
+    /// access to anything under the default policy and any prescribed
+    /// policies.
     pub fn create_token(&self, policies: Vec<&str>) -> Result<String, Error> {
         let request = self
             .agent
@@ -346,9 +352,9 @@ impl Client {
         process_generic_response(resp)
     }
 
-    /// Trims the number of key versions held in vault storage. This prevents stale
-    /// keys from sitting around for too long and becoming susceptible to key
-    /// gathering attacks.
+    /// Trims the number of key versions held in vault storage. This prevents
+    /// stale keys from sitting around for too long and becoming susceptible
+    /// to key gathering attacks.
     ///
     /// Once the key versions have been trimmed, this method returns the most
     /// recent (i.e., highest versioned) public key for the given cryptographic
@@ -389,8 +395,9 @@ impl Client {
         Ok(newest_pub_key.value.clone())
     }
 
-    /// Trims the key versions according to the minimum available version specified.
-    /// This operation deletes any older keys and cannot be undone.
+    /// Trims the key versions according to the minimum available version
+    /// specified. This operation deletes any older keys and cannot be
+    /// undone.
     fn set_minimum_available_version(
         &self,
         name: &str,
@@ -406,7 +413,8 @@ impl Client {
         process_generic_response(resp)
     }
 
-    /// Sets the minimum encryption and decryption versions for a named cryptographic key.
+    /// Sets the minimum encryption and decryption versions for a named
+    /// cryptographic key.
     fn set_minimum_encrypt_decrypt_version(
         &self,
         name: &str,
@@ -469,8 +477,8 @@ impl Client {
         }
     }
 
-    /// Returns whether or not the vault is unsealed (can be read from / written to). This can be
-    /// queried without authentication.
+    /// Returns whether or not the vault is unsealed (can be read from / written
+    /// to). This can be queried without authentication.
     pub fn unsealed(&self) -> Result<bool, Error> {
         let request = self.agent.get(&format!("{}/v1/sys/seal-status", self.host));
         let resp = self.upgrade_request_without_token(request).call();
@@ -492,8 +500,9 @@ impl Client {
     }
 }
 
-/// Processes a generic response returned by a vault request. This function simply just checks
-/// that the response was not an error and calls response.into_string() to clear the ureq stream.
+/// Processes a generic response returned by a vault request. This function
+/// simply just checks that the response was not an error and calls
+/// response.into_string() to clear the ureq stream.
 pub fn process_generic_response(resp: Response) -> Result<(), Error> {
     if resp.ok() {
         // Explicitly clear buffer so the stream can be re-used.
@@ -510,13 +519,13 @@ pub fn process_policy_list_response(resp: Response) -> Result<Vec<String>, Error
         200 => {
             let policies: ListPoliciesResponse = serde_json::from_str(&resp.into_string()?)?;
             Ok(policies.policies)
-        }
+        },
         // There are no policies.
         404 => {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Ok(vec![])
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -535,13 +544,13 @@ pub fn process_secret_list_response(resp: Response) -> Result<Vec<String>, Error
         200 => {
             let resp: ReadSecretListResponse = serde_json::from_str(&resp.into_string()?)?;
             Ok(resp.data.keys)
-        }
+        },
         // There are no secrets.
         404 => {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Ok(vec![])
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -563,12 +572,12 @@ pub fn process_secret_read_response(
             let created_time = data.metadata.created_time.clone();
             let version = data.metadata.version;
             Ok(ReadResponse::new(created_time, value, version))
-        }
+        },
         404 => {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Err(Error::NotFound(secret.into(), key.into()))
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -600,12 +609,12 @@ pub fn process_transit_create_response(name: &str, resp: Response) -> Result<(),
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Ok(())
-        }
+        },
         404 => {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Err(Error::NotFound("transit/".into(), name.into()))
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -647,12 +656,12 @@ pub fn process_transit_list_response(resp: Response) -> Result<Vec<String>, Erro
         200 => {
             let list_keys: ListKeysResponse = serde_json::from_str(&resp.into_string()?)?;
             Ok(list_keys.data.keys)
-        }
+        },
         404 => {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Err(Error::NotFound("transit/".into(), "keys".into()))
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -674,12 +683,12 @@ pub fn process_transit_read_response(
                 ));
             }
             Ok(read_resp)
-        }
+        },
         404 => {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Err(Error::NotFound("transit/".into(), name.into()))
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -691,7 +700,7 @@ pub fn process_transit_restore_response(resp: Response) -> Result<(), Error> {
             // Explicitly clear buffer so the stream can be re-used.
             resp.into_string()?;
             Ok(())
-        }
+        },
         _ => Err(resp.into()),
     }
 }
@@ -730,8 +739,9 @@ pub fn process_unsealed_response(resp: Response) -> Result<bool, Error> {
 ///       "name":"local_owner_key__consensus",
 ///       "keys":{
 ///          "1":{
-///             "key":"C3R5O8uAfrgv7sJmCMSLEp1R2HmkZtwdfGT/xVvZVvgCGo6TkWga/ojplJFMM+i2805X3CV7IRyNBCSJcr4AqQ==",
-///             "hmac_key":null,
+///             
+/// "key":"C3R5O8uAfrgv7sJmCMSLEp1R2HmkZtwdfGT/xVvZVvgCGo6TkWga/
+/// ojplJFMM+i2805X3CV7IRyNBCSJcr4AqQ==",             "hmac_key":null,
 ///             "time":"2020-05-29T06:27:38.1233515Z",
 ///             "ec_x":null,
 ///             "ec_y":null,
@@ -766,9 +776,9 @@ pub fn process_unsealed_response(resp: Response) -> Result<bool, Error> {
 ///    }
 /// }
 ///
-/// This is intended to be a very simple application of it only for the purpose of introducing a
-/// single key with no versioning history into Vault. This is /only/ for test purposes and not
-/// intended for production use cases.
+/// This is intended to be a very simple application of it only for the purpose
+/// of introducing a single key with no versioning history into Vault. This is
+/// /only/ for test purposes and not intended for production use cases.
 #[derive(Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct KeyBackup {
     policy: KeyBackupPolicy,
@@ -873,8 +883,8 @@ impl<T> ReadResponse<T> {
     }
 }
 
-/// Below is a sample output of a CreateTokenResponse. Only the fields leveraged by this framework
-/// are decoded.
+/// Below is a sample output of a CreateTokenResponse. Only the fields leveraged
+/// by this framework are decoded.
 /// {
 ///   "request_id": "f00341c1-fad5-f6e6-13fd-235617f858a1",
 ///   "lease_id": "",
@@ -921,7 +931,7 @@ struct CreateTokenAuth {
 ///      "2": "Euzymqx6iXjS3/NuGKDCiM2Ev6wdhnU+rBiKnJ7YpHE="
 ///    }
 ///  }
-///}
+/// }
 #[derive(Debug, Deserialize, PartialEq, Eq, Serialize)]
 struct ExportKeyResponse {
     data: ExportKey,
@@ -1001,9 +1011,9 @@ pub struct ReadKey {
     public_key: String,
 }
 
-/// Below is a sample output of ReadSecretListResponse. All fields are decoded and used.
-/// Note: in the case that a secret contains a subpath, that will be returned. Vault does
-/// not automatically recurse.
+/// Below is a sample output of ReadSecretListResponse. All fields are decoded
+/// and used. Note: in the case that a secret contains a subpath, that will be
+/// returned. Vault does not automatically recurse.
 /// {
 ///   "data": {
 ///     "keys": ["foo", "foo/"]
@@ -1020,8 +1030,8 @@ struct ReadSecretListData {
     keys: Vec<String>,
 }
 
-/// Below is a sample output of ReadSecretResponse. Note, this returns all keys within a secret.
-/// Only fields leveraged by this framework are decoded.
+/// Below is a sample output of ReadSecretResponse. Note, this returns all keys
+/// within a secret. Only fields leveraged by this framework are decoded.
 /// {
 ///   "data": {
 ///     "data": {
@@ -1080,20 +1090,21 @@ struct RenewTokenAuth {
     lease_duration: u32,
 }
 
-/// This data structure is used to represent both policies read from Vault and written to Vault.
-/// Thus the same Policy read, can then be written back after amending. Vault stores the rules or
-/// per path policies in an encoded json blob, so that effectively means json within json, hence
-/// the unusual semantics below.
-/// {
+/// This data structure is used to represent both policies read from Vault and
+/// written to Vault. Thus the same Policy read, can then be written back after
+/// amending. Vault stores the rules or per path policies in an encoded json
+/// blob, so that effectively means json within json, hence the unusual
+/// semantics below. {
 ///   rules: json!{
 ///     path: {
-///       'auth/*': { capabilities: ['create', 'read', 'update', 'delete', 'list', 'sudo'] },
-///       'sys/auth/*': { capabilities: ['create', 'read', 'update', 'delete', 'sudo'] },
-///     }
+///       'auth/*': { capabilities: ['create', 'read', 'update', 'delete',
+/// 'list', 'sudo'] },       'sys/auth/*': { capabilities: ['create', 'read',
+/// 'update', 'delete', 'sudo'] },     }
 ///   }
 /// }
-/// Note: Vault claims rules is deprecated and policy should be used instead, but that doesn't seem
-/// to work and makes the reading asymmetrical from the writing.
+/// Note: Vault claims rules is deprecated and policy should be used instead,
+/// but that doesn't seem to work and makes the reading asymmetrical from the
+/// writing.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct Policy {
     #[serde(skip)]
@@ -1165,8 +1176,9 @@ pub enum Capability {
 /// Below is an example of SignatureResponse.
 /// {
 ///   "data": {
-///     "signature": "vault:v1:MEUCIQCyb869d7KWuA0hBM9b5NJrmWzMW3/pT+0XYCM9VmGR+QIgWWF6ufi4OS2xo1eS2V5IeJQfsi59qeMWtgX0LipxEHI="
-///   }
+///     "signature":
+/// "vault:v1:MEUCIQCyb869d7KWuA0hBM9b5NJrmWzMW3/
+/// pT+0XYCM9VmGR+QIgWWF6ufi4OS2xo1eS2V5IeJQfsi59qeMWtgX0LipxEHI="   }
 /// }
 #[derive(Debug, Deserialize, PartialEq, Eq, Serialize)]
 struct SignatureResponse {
@@ -1178,8 +1190,8 @@ struct Signature {
     signature: String,
 }
 
-/// Below is an example of SealStatusResponse. Only the fields leveraged by this framework are
-/// decoded.
+/// Below is an example of SealStatusResponse. Only the fields leveraged by this
+/// framework are decoded.
 /// {
 ///   "type": "shamir",
 ///   "sealed": false,

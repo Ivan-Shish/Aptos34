@@ -223,10 +223,10 @@ fn test_verify_three_element_sparse_merkle() {
 
     {
         // Construct a proof of key1.
-        let proof = SparseMerkleProof::new(
-            Some(leaf1),
-            vec![internal_b_hash, *SPARSE_MERKLE_PLACEHOLDER_HASH],
-        );
+        let proof = SparseMerkleProof::new(Some(leaf1), vec![
+            internal_b_hash,
+            *SPARSE_MERKLE_PLACEHOLDER_HASH,
+        ]);
 
         // The exact key value exists.
         assert!(proof.verify(root_hash, key1, Some(&blob1)).is_ok());
@@ -243,8 +243,8 @@ fn test_verify_three_element_sparse_merkle() {
         assert!(proof
             .verify::<StateValue>(root_hash, non_existing_key1, None)
             .is_ok());
-        // This proof can't be used to show that non_existing_key2 doesn't exist because it lives
-        // in a different subtree.
+        // This proof can't be used to show that non_existing_key2 doesn't exist because
+        // it lives in a different subtree.
         assert!(proof
             .verify::<StateValue>(root_hash, non_existing_key2, None)
             .is_err());
@@ -284,8 +284,10 @@ fn test_verify_transaction() {
         HashValue::zero(),
         event_root1_hash,
         Some(state_root1_hash),
-        /* gas_used = */ 0,
-        /* major_status = */ ExecutionStatus::Success,
+        // gas_used =
+        0,
+        // major_status =
+        ExecutionStatus::Success,
     );
     let txn_info1_hash = txn_info1.hash();
 
@@ -317,8 +319,10 @@ fn test_verify_transaction() {
         HashValue::zero(),
         event_root1_hash,
         Some(state_root1_hash),
-        /* gas_used = */ 0,
-        /* major_status = */ ExecutionStatus::Success,
+        // gas_used =
+        0,
+        // major_status =
+        ExecutionStatus::Success,
     );
     let proof = TransactionInfoWithProof::new(ledger_info_to_transaction_info_proof, fake_txn_info);
     assert!(proof.verify(&ledger_info, 1).is_err());
@@ -348,11 +352,10 @@ fn test_accumulator_extension_proof() {
     assert_eq!(derived_tree.version(), 0);
 
     // Test multiple values
-    let two_tree = AccumulatorExtensionProof::<TestOnlyHasher>::new(
-        vec![HashValue::zero()],
-        1,
-        vec![HashValue::zero()],
-    );
+    let two_tree =
+        AccumulatorExtensionProof::<TestOnlyHasher>::new(vec![HashValue::zero()], 1, vec![
+            HashValue::zero(),
+        ]);
 
     let derived_tree = two_tree.verify(HashValue::zero()).unwrap();
     let two_hash = TestAccumulatorInternalNode::new(HashValue::zero(), HashValue::zero()).hash();
@@ -375,7 +378,8 @@ fn test_transaction_info_list_with_proof() {
         .verify(&empty_ledger_info, None)
         .unwrap_err();
 
-    // Verify info hash mismatch (the empty ledger info expected an info hash of zero)
+    // Verify info hash mismatch (the empty ledger info expected an info hash of
+    // zero)
     transaction_info_list_proof
         .verify(&empty_ledger_info, Some(1))
         .unwrap_err();
@@ -419,12 +423,14 @@ fn test_transaction_list_with_proof() {
         .verify(&empty_ledger_info, None)
         .unwrap_err();
 
-    // Verify mismatch between hash of transaction and hash stored in transaction info
+    // Verify mismatch between hash of transaction and hash stored in transaction
+    // info
     transaction_list_with_proof
         .verify(&empty_ledger_info, Some(1))
         .unwrap_err();
 
-    // Verify transaction hashes match but info root hash verification fails (ledger info expected zero root hash)
+    // Verify transaction hashes match but info root hash verification fails (ledger
+    // info expected zero root hash)
     let transaction_list_proof =
         create_single_transaction_info_proof(Some(transactions[0].hash()), None, None);
     let transaction_list_with_proof = TransactionListWithProof::new(
@@ -445,7 +451,8 @@ fn test_transaction_list_with_proof() {
         .verify(&ledger_info, Some(1))
         .unwrap_err();
 
-    // Construct a new transaction list with proof where the transaction info and event hashes match
+    // Construct a new transaction list with proof where the transaction info and
+    // event hashes match
     let transaction_list_proof = create_single_transaction_info_proof(
         Some(transactions[0].hash()),
         Some(event.hash()),
@@ -506,7 +513,8 @@ fn test_transaction_and_output_list_with_proof() {
         .verify(&empty_ledger_info, None)
         .unwrap_err();
 
-    // Verify correct info hash but event verification now fails (event hash mismatch)
+    // Verify correct info hash but event verification now fails (event hash
+    // mismatch)
     let (root_hash, transaction_output_list_proof) = create_txn_output_list_with_proof(
         &transaction,
         &transaction_output,
@@ -532,7 +540,8 @@ fn test_transaction_and_output_list_with_proof() {
         .verify(&ledger_info, Some(1))
         .unwrap_err();
 
-    // Construct a new transaction output list proof where the transaction info and event hashes match
+    // Construct a new transaction output list proof where the transaction info and
+    // event hashes match
     let (root_hash, transaction_output_list_proof) = create_txn_output_list_with_proof(
         &transaction,
         &transaction_output,

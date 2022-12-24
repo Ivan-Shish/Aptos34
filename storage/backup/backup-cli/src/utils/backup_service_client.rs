@@ -17,7 +17,7 @@ pub struct BackupServiceClientOpt {
         long = "backup-service-address",
         default_value = "http://localhost:6186",
         help = "Backup service address. By default a Aptos Node runs the backup service serving \
-        on tcp port 6186 to localhost only."
+                on tcp port 6186 to localhost only."
     )]
     pub address: String,
 }

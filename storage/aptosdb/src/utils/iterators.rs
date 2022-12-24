@@ -1,22 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::event::EventSchema;
-use crate::ledger_info::LedgerInfoSchema;
-use crate::state_value::StateValueSchema;
-use crate::transaction_by_account::TransactionByAccountSchema;
+use crate::{
+    event::EventSchema, ledger_info::LedgerInfoSchema, state_value::StateValueSchema,
+    transaction_by_account::TransactionByAccountSchema,
+};
 use anyhow::{anyhow, ensure, Result};
-use aptos_schemadb::iterator::SchemaIterator;
-use aptos_schemadb::{ReadOptions, DB};
-use aptos_types::account_address::AccountAddress;
-use aptos_types::contract_event::ContractEvent;
-use aptos_types::ledger_info::LedgerInfoWithSignatures;
-use aptos_types::state_store::state_key::StateKey;
-use aptos_types::state_store::state_key_prefix::StateKeyPrefix;
-use aptos_types::state_store::state_value::StateValue;
-use aptos_types::transaction::Version;
-use std::iter::Peekable;
-use std::marker::PhantomData;
+use aptos_schemadb::{iterator::SchemaIterator, ReadOptions, DB};
+use aptos_types::{
+    account_address::AccountAddress,
+    contract_event::ContractEvent,
+    ledger_info::LedgerInfoWithSignatures,
+    state_store::{state_key::StateKey, state_key_prefix::StateKeyPrefix, state_value::StateValue},
+    transaction::Version,
+};
+use std::{iter::Peekable, marker::PhantomData};
 
 pub struct ContinuousVersionIter<I, T> {
     inner: I,
@@ -45,7 +43,7 @@ where
                 );
                 self.expected_next_version += 1;
                 Some(transaction)
-            }
+            },
             None => None,
         };
 
@@ -108,14 +106,15 @@ impl<'a> PrefixedStateValueIterator<'a> {
         desired_version: Version,
     ) -> Result<Self> {
         let mut read_opts = ReadOptions::default();
-        // Without this, iterators are not guaranteed a total order of all keys, but only keys for the same prefix.
-        // For example,
+        // Without this, iterators are not guaranteed a total order of all keys, but
+        // only keys for the same prefix. For example,
         // aptos/abc|2
         // aptos/abc|1
         // aptos/abc|0
         // aptos/abd|1
-        // if we seek('aptos/'), and call next, we may not reach `aptos/abd/1` because the prefix extractor we adopted
-        // here will stick with prefix `aptos/abc` and return `None` or any arbitrary result after visited all the
+        // if we seek('aptos/'), and call next, we may not reach `aptos/abd/1` because
+        // the prefix extractor we adopted here will stick with prefix
+        // `aptos/abc` and return `None` or any arbitrary result after visited all the
         // keys starting with `aptos/abc`.
         read_opts.set_total_order_seek(true);
         let mut iter = db.iter::<StateValueSchema>(read_opts)?;
@@ -157,7 +156,8 @@ impl<'a> PrefixedStateValueIterator<'a> {
                 }
 
                 self.prev_key = Some(state_key.clone());
-                // Seek to the next key - this can be done by seeking to the current key with version 0
+                // Seek to the next key - this can be done by seeking to the current key with
+                // version 0
                 self.inner.seek(&(state_key.clone(), 0))?;
 
                 if let Some(state_value) = state_value_opt {
@@ -221,7 +221,7 @@ impl<'a> AccountTransactionVersionIter<'a> {
                     ensure!(
                         seq_num == expected_seq_num,
                         "DB corruption: account transactions sequence numbers are not contiguous: \
-                     actual: {}, expected: {}",
+                         actual: {}, expected: {}",
                         seq_num,
                         expected_seq_num,
                     );
@@ -246,7 +246,7 @@ impl<'a> AccountTransactionVersionIter<'a> {
                 self.expected_next_seq_num = Some(seq_num + 1);
                 self.prev_version = Some(version);
                 Some((seq_num, version))
-            }
+            },
             None => None,
         })
     }
@@ -293,7 +293,7 @@ impl<'a> EpochEndingLedgerInfoIter<'a> {
                     self.next_epoch += 1;
                     Some(li)
                 }
-            }
+            },
             _ => None,
         };
 

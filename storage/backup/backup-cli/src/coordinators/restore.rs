@@ -32,9 +32,9 @@ pub struct RestoreCoordinatorOpt {
     pub replay_all: bool,
     #[clap(
         long,
-        help = "[default to only start ledger history after selected state snapshot] \
-        Ignore restoring the ledger history (transactions and events) before this version \
-        if possible, set 0 for full ledger history."
+        help = "[default to only start ledger history after selected state snapshot] Ignore \
+                restoring the ledger history (transactions and events) before this version if \
+                possible, set 0 for full ledger history."
     )]
     pub ledger_history_start_version: Option<Version>,
     #[clap(long, help = "Skip restoring epoch ending info, used for debugging.")]
@@ -88,12 +88,12 @@ impl RestoreCoordinator {
 
     async fn run_impl(self) -> Result<()> {
         // N.b.
-        // The coordinator now focuses on doing one procedure, ignoring the combination of options
-        // supported before:
+        // The coordinator now focuses on doing one procedure, ignoring the combination
+        // of options supported before:
         //   1. a most recent state snapshot
         //   2. a only transaction and its output, at the state snapshot version
-        //   3. the epoch history from 0 up until the latest closed epoch preceding the state
-        //      snapshot version.
+        //   3. the epoch history from 0 up until the latest closed epoch preceding the
+        // state      snapshot version.
         // And it does so in a resume-able way.
 
         if self.replay_all {
@@ -119,8 +119,8 @@ impl RestoreCoordinator {
             info!(
                 next_txn_version = next_txn_version,
                 "DB is ready to accept transactions, start the node to catch up with the chain. \
-                If the node is unable to catch up because the DB is too old, delete the data folder \
-                and bootstrap again.",
+                 If the node is unable to catch up because the DB is too old, delete the data \
+                 folder and bootstrap again.",
             );
             return Ok(());
         }
@@ -210,8 +210,8 @@ impl RestoreCoordinator {
                 Ok(self.target_version())
             } else {
                 warn!(
-                    "Can't find transaction backup containing the target version, \
-                    will restore as much as possible"
+                    "Can't find transaction backup containing the target version, will restore as \
+                     much as possible"
                 );
                 Ok(b.last_version)
             }

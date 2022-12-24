@@ -8,8 +8,9 @@ use aptos_scratchpad::{FrozenSparseMerkleTree, SparseMerkleTree, StateStoreStatu
 use aptos_state_view::{StateViewId, TStateView};
 use aptos_types::{
     proof::SparseMerkleProofExt,
-    state_store::state_storage_usage::StateStorageUsage,
-    state_store::{state_key::StateKey, state_value::StateValue},
+    state_store::{
+        state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
+    },
     transaction::Version,
     write_set::WriteSet,
 };
@@ -28,8 +29,8 @@ static IO_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
         .unwrap()
 });
 
-/// `CachedStateView` is like a snapshot of the global state comprised of state view at two
-/// levels, persistent storage and memory.
+/// `CachedStateView` is like a snapshot of the global state comprised of state
+/// view at two levels, persistent storage and memory.
 pub struct CachedStateView {
     /// For logging and debugging purpose, identifies what this view is for.
     id: StateViewId,
@@ -40,15 +41,18 @@ pub struct CachedStateView {
     /// The in-memory state on top of the snapshot.
     speculative_state: FrozenSparseMerkleTree<StateValue>,
 
-    /// The cache of verified account states from `reader` and `speculative_state_view`,
-    /// represented by a hashmap with an account address as key and a pair of an ordered
-    /// account state map and an an optional account state proof as value. When the VM queries an
-    /// `access_path`, this cache will first check whether `reader_cache` is hit. If hit, it
-    /// will return the corresponding value of that `access_path`; otherwise, the account state
-    /// will be loaded into the cache from scratchpad or persistent storage in order as a
-    /// deserialized ordered map and then be returned. If the VM queries this account again,
-    /// the cached data can be read directly without bothering storage layer. The proofs in
-    /// cache are needed by ScratchPad after VM execution to construct an in-memory sparse Merkle
+    /// The cache of verified account states from `reader` and
+    /// `speculative_state_view`, represented by a hashmap with an account
+    /// address as key and a pair of an ordered account state map and an an
+    /// optional account state proof as value. When the VM queries an
+    /// `access_path`, this cache will first check whether `reader_cache` is
+    /// hit. If hit, it will return the corresponding value of that
+    /// `access_path`; otherwise, the account state will be loaded into the
+    /// cache from scratchpad or persistent storage in order as a
+    /// deserialized ordered map and then be returned. If the VM queries this
+    /// account again, the cached data can be read directly without
+    /// bothering storage layer. The proofs in cache are needed by
+    /// ScratchPad after VM execution to construct an in-memory sparse Merkle
     /// tree.
     /// ```text
     ///                      +----------------------------+
@@ -76,19 +80,21 @@ pub struct CachedStateView {
     ///        | +------------------------------+ +--------------------+ |
     ///        +---------------------------------------------------------+
     /// ```
-    /// Cache of state key to state value, which is used in case of fine grained storage object.
-    /// Eventually this should replace the `account_to_state_cache` as we deprecate account state blob
-    /// completely and migrate to fine grained storage. A value of None in this cache reflects that
-    /// the corresponding key has been deleted. This is a temporary hack until we support deletion
-    /// in JMT node.
+    /// Cache of state key to state value, which is used in case of fine grained
+    /// storage object. Eventually this should replace the
+    /// `account_to_state_cache` as we deprecate account state blob
+    /// completely and migrate to fine grained storage. A value of None in this
+    /// cache reflects that the corresponding key has been deleted. This is
+    /// a temporary hack until we support deletion in JMT node.
     state_cache: RwLock<HashMap<StateKey, Option<StateValue>>>,
     proof_fetcher: Arc<dyn ProofFetcher>,
 }
 
 impl CachedStateView {
-    /// Constructs a [`CachedStateView`] with persistent state view in the DB and the in-memory
-    /// speculative state represented by `speculative_state`. The persistent state view is the
-    /// latest one preceding `next_version`
+    /// Constructs a [`CachedStateView`] with persistent state view in the DB
+    /// and the in-memory speculative state represented by
+    /// `speculative_state`. The persistent state view is the latest one
+    /// preceding `next_version`
     pub fn new(
         id: StateViewId,
         reader: Arc<dyn DbReader>,
@@ -96,9 +102,10 @@ impl CachedStateView {
         speculative_state: SparseMerkleTree<StateValue>,
         proof_fetcher: Arc<dyn ProofFetcher>,
     ) -> Result<Self> {
-        // n.b. Freeze the state before getting the state snapshot, otherwise it's possible that
-        // after we got the snapshot, in-mem trees newer than it gets dropped before being frozen,
-        // due to a commit happening from another thread.
+        // n.b. Freeze the state before getting the state snapshot, otherwise it's
+        // possible that after we got the snapshot, in-mem trees newer than it
+        // gets dropped before being frozen, due to a commit happening from
+        // another thread.
         let speculative_state = speculative_state.freeze();
         let snapshot = reader.get_state_snapshot_before(next_version)?;
 
@@ -161,18 +168,19 @@ impl CachedStateView {
                                 .verify(root_hash, key_hash, value.as_ref())
                                 .map_err(|err| {
                                     format_err!(
-                                    "Proof is invalid for key {:?} with state root hash {:?}: {}",
-                                    state_key,
-                                    root_hash,
-                                    err
-                                )
+                                        "Proof is invalid for key {:?} with state root hash {:?}: \
+                                         {}",
+                                        state_key,
+                                        root_hash,
+                                        err
+                                    )
                                 })?;
                         }
                         value
-                    }
+                    },
                     None => None,
                 }
-            }
+            },
         };
 
         Ok(state_value_option)

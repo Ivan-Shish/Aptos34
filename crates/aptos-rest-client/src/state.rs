@@ -85,9 +85,9 @@ impl State {
             }
         } else {
             anyhow::bail!(
-                "Failed to build State from headers due to missing values in response. \
-                Chain ID: {:?}, Version: {:?}, Timestamp: {:?}, Epoch: {:?}, \
-                Oldest Ledger Version: {:?}, Block Height: {:?} Oldest Block Height: {:?}",
+                "Failed to build State from headers due to missing values in response. Chain ID: \
+                 {:?}, Version: {:?}, Timestamp: {:?}, Epoch: {:?}, Oldest Ledger Version: {:?}, \
+                 Block Height: {:?} Oldest Block Height: {:?}",
                 maybe_chain_id,
                 maybe_version,
                 maybe_timestamp,

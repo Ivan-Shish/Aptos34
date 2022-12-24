@@ -21,14 +21,16 @@ use std::{
 // The delimiter between the version and the hash.
 const WAYPOINT_DELIMITER: char = ':';
 
-/// Waypoint keeps information about the LedgerInfo on a given version, which provides an
-/// off-chain mechanism to verify the sync process right after the restart.
-/// At high level, a trusted waypoint verifies the LedgerInfo for a certain epoch change.
-/// For more information, please refer to the Waypoints documentation.
+/// Waypoint keeps information about the LedgerInfo on a given version, which
+/// provides an off-chain mechanism to verify the sync process right after the
+/// restart. At high level, a trusted waypoint verifies the LedgerInfo for a
+/// certain epoch change. For more information, please refer to the Waypoints
+/// documentation.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
 pub struct Waypoint {
-    /// The version of the reconfiguration transaction that is being approved by this waypoint.
+    /// The version of the reconfiguration transaction that is being approved by
+    /// this waypoint.
     version: Version,
     /// The hash of the chosen fields of LedgerInfo.
     value: HashValue,
@@ -124,8 +126,8 @@ impl FromStr for Waypoint {
 }
 
 /// Keeps the fields of LedgerInfo that are hashed for generating a waypoint.
-/// Note that not all the fields of LedgerInfo are included: some consensus-related fields
-/// might not be the same for all the participants.
+/// Note that not all the fields of LedgerInfo are included: some
+/// consensus-related fields might not be the same for all the participants.
 #[derive(Deserialize, Serialize, CryptoHasher, BCSCryptoHash)]
 struct Ledger2WaypointConverter {
     epoch: u64,

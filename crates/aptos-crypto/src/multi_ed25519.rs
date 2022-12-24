@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module provides an API for the accountable threshold multi-sig PureEdDSA signature scheme
-//! over the ed25519 twisted Edwards curve as defined in [RFC8032](https://tools.ietf.org/html/rfc8032).
+//! This module provides an API for the accountable threshold multi-sig
+//! PureEdDSA signature scheme over the ed25519 twisted Edwards curve as defined in [RFC8032](https://tools.ietf.org/html/rfc8032).
 //!
 //! Signature verification also checks and rejects non-canonical signatures.
 
@@ -27,7 +27,8 @@ pub const MAX_NUM_OF_KEYS: usize = 32;
 /// Number of bytes used for the bitmap in a MultiEd25519 private key
 pub const BITMAP_NUM_OF_BYTES: usize = 4;
 
-/// Vector of private keys in the multi-key Ed25519 structure along with the threshold.
+/// Vector of private keys in the multi-key Ed25519 structure along with the
+/// threshold.
 #[derive(DeserializeKey, Eq, PartialEq, SilentDisplay, SilentDebug, SerializeKey)]
 pub struct MultiEd25519PrivateKey {
     private_keys: Vec<Ed25519PrivateKey>,
@@ -37,18 +38,20 @@ pub struct MultiEd25519PrivateKey {
 #[cfg(feature = "assert-private-keys-not-cloneable")]
 static_assertions::assert_not_impl_any!(MultiEd25519PrivateKey: Clone);
 
-/// Vector of public keys in the multi-key Ed25519 structure along with the threshold.
+/// Vector of public keys in the multi-key Ed25519 structure along with the
+/// threshold.
 #[derive(Clone, DeserializeKey, Eq, PartialEq, SerializeKey)]
 pub struct MultiEd25519PublicKey {
     public_keys: Vec<Ed25519PublicKey>,
     threshold: u8,
 }
 
-/// Vector of the multi-key signatures along with a 32bit [u8; 4] bitmap required to map signatures
-/// with their corresponding public keys.
+/// Vector of the multi-key signatures along with a 32bit [u8; 4] bitmap
+/// required to map signatures with their corresponding public keys.
 ///
-/// Note that bits are read from left to right. For instance, in the following bitmap
-/// [0b0001_0000, 0b0000_0000, 0b0000_0000, 0b0000_0001], the 3rd and 31st positions are set.
+/// Note that bits are read from left to right. For instance, in the following
+/// bitmap [0b0001_0000, 0b0000_0000, 0b0000_0000, 0b0000_0001], the 3rd and
+/// 31st positions are set.
 #[derive(Clone, DeserializeKey, Eq, PartialEq, SerializeKey)]
 pub struct MultiEd25519Signature {
     signatures: Vec<Ed25519Signature>,
@@ -118,20 +121,24 @@ impl MultiEd25519PublicKey {
         to_bytes(&self.public_keys, self.threshold)
     }
 
-    /// Checks that all sub PKs would deserialize correctly and are NOT in the small order subgroup.
+    /// Checks that all sub PKs would deserialize correctly and are NOT in the
+    /// small order subgroup.
     ///
     /// This function is called by our MultiEd25519 PK validation APIs in Move.
     ///
-    /// We cannot rely on `TryFrom<&[u8]> for MultiEd25519PublicKey` since it does not exclude
-    /// sub-PKs that are of small order. (Due to limitations in `ed25519_dalek`'s APIs, we cannot
-    /// call the small-subgroup check API on an `ed25519_dalek::PublicKey` struct.) As a result, we
-    /// are forced to replicate some of its code here.
+    /// We cannot rely on `TryFrom<&[u8]> for MultiEd25519PublicKey` since it
+    /// does not exclude sub-PKs that are of small order. (Due to
+    /// limitations in `ed25519_dalek`'s APIs, we cannot
+    /// call the small-subgroup check API on an `ed25519_dalek::PublicKey`
+    /// struct.) As a result, we are forced to replicate some of its code
+    /// here.
     ///
-    /// Returns a tuple (`success`, `num_deserializations`, `num_small_order_checks`), where
-    /// `success` is true if the bytes represent a valid MultiEd25519 PK and false otherwise,
-    /// `num_deserializations` is the number of deserialization attempts on a sub PK, and
-    /// `num_small_order_checks` is the number of small order checks on a successfully-deserialized
-    /// PK.
+    /// Returns a tuple (`success`, `num_deserializations`,
+    /// `num_small_order_checks`), where `success` is true if the bytes
+    /// represent a valid MultiEd25519 PK and false otherwise,
+    /// `num_deserializations` is the number of deserialization attempts on a
+    /// sub PK, and `num_small_order_checks` is the number of small order
+    /// checks on a successfully-deserialized PK.
     ///
     /// This function returns early as soon as a sub PK fails a check.
     pub fn validate_bytes_and_count_checks(bytes: &[u8]) -> (bool, usize, usize) {
@@ -142,18 +149,18 @@ impl MultiEd25519PublicKey {
             return (false, num_deserializations, num_small_order_checks);
         }
 
-        // Checks that the threshold is correctly encoded in the last bytes of the PK, and that the
-        // # of sub-PKs is > 0 and <= MAX_NUM_OF_KEYS.
+        // Checks that the threshold is correctly encoded in the last bytes of the PK,
+        // and that the # of sub-PKs is > 0 and <= MAX_NUM_OF_KEYS.
         match check_and_get_threshold(bytes, ED25519_PUBLIC_KEY_LENGTH) {
             Err(_) => return (false, num_deserializations, num_small_order_checks),
-            _ => {}
+            _ => {},
         };
 
         for chunk in bytes.chunks_exact(ED25519_PUBLIC_KEY_LENGTH) {
             // Parse as a slice
             let slice = match <[u8; ED25519_PUBLIC_KEY_LENGTH]>::try_from(chunk) {
                 Ok(slice) => slice,
-                Err(_) => return (false, num_deserializations, num_small_order_checks), // This should never happen because this is a ChunksExact iterator
+                Err(_) => return (false, num_deserializations, num_small_order_checks), /* This should never happen because this is a ChunksExact iterator */
             };
 
             // First, check this is a valid point on the curve.
@@ -178,7 +185,8 @@ impl MultiEd25519PublicKey {
 // PrivateKey Traits //
 ///////////////////////
 
-/// Convenient method to create a MultiEd25519PrivateKey from a single Ed25519PrivateKey.
+/// Convenient method to create a MultiEd25519PrivateKey from a single
+/// Ed25519PrivateKey.
 impl From<&Ed25519PrivateKey> for MultiEd25519PrivateKey {
     fn from(ed_private_key: &Ed25519PrivateKey) -> Self {
         MultiEd25519PrivateKey {
@@ -193,11 +201,11 @@ impl PrivateKey for MultiEd25519PrivateKey {
 }
 
 impl SigningKey for MultiEd25519PrivateKey {
-    type VerifyingKeyMaterial = MultiEd25519PublicKey;
     type SignatureMaterial = MultiEd25519Signature;
+    type VerifyingKeyMaterial = MultiEd25519PublicKey;
 
-    /// Uses the first `threshold` private keys to create a MultiEd25519 signature on `message`.
-    /// (Used for testing only.)
+    /// Uses the first `threshold` private keys to create a MultiEd25519
+    /// signature on `message`. (Used for testing only.)
     fn sign<T: CryptoHash + Serialize>(
         &self,
         message: &T,
@@ -263,7 +271,8 @@ impl Uniform for MultiEd25519PrivateKey {
 impl TryFrom<&[u8]> for MultiEd25519PrivateKey {
     type Error = CryptoMaterialError;
 
-    /// Deserialize an Ed25519PrivateKey. This method will also check for key and threshold validity.
+    /// Deserialize an Ed25519PrivateKey. This method will also check for key
+    /// and threshold validity.
     fn try_from(bytes: &[u8]) -> std::result::Result<MultiEd25519PrivateKey, CryptoMaterialError> {
         if bytes.is_empty() {
             return Err(CryptoMaterialError::WrongLengthError);
@@ -309,7 +318,8 @@ impl Genesis for MultiEd25519PrivateKey {
 // PublicKey Traits //
 //////////////////////
 
-/// Convenient method to create a MultiEd25519PublicKey from a single Ed25519PublicKey.
+/// Convenient method to create a MultiEd25519PublicKey from a single
+/// Ed25519PublicKey.
 impl From<Ed25519PublicKey> for MultiEd25519PublicKey {
     fn from(ed_public_key: Ed25519PublicKey) -> Self {
         MultiEd25519PublicKey {
@@ -319,7 +329,8 @@ impl From<Ed25519PublicKey> for MultiEd25519PublicKey {
     }
 }
 
-/// Implementing From<&PrivateKey<...>> allows to derive a public key in a more elegant fashion.
+/// Implementing From<&PrivateKey<...>> allows to derive a public key in a more
+/// elegant fashion.
 impl From<&MultiEd25519PrivateKey> for MultiEd25519PublicKey {
     fn from(private_key: &MultiEd25519PrivateKey) -> Self {
         let public_keys = private_key
@@ -350,9 +361,10 @@ impl std::hash::Hash for MultiEd25519PublicKey {
 impl TryFrom<&[u8]> for MultiEd25519PublicKey {
     type Error = CryptoMaterialError;
 
-    /// Deserialize a MultiEd25519PublicKey. This method will also check for threshold validity.
-    /// This method will NOT ensure keys are safe against small subgroup attacks, since our signature
-    /// verification API will automatically prevent it.
+    /// Deserialize a MultiEd25519PublicKey. This method will also check for
+    /// threshold validity. This method will NOT ensure keys are safe
+    /// against small subgroup attacks, since our signature verification API
+    /// will automatically prevent it.
     fn try_from(bytes: &[u8]) -> std::result::Result<MultiEd25519PublicKey, CryptoMaterialError> {
         if bytes.is_empty() {
             return Err(CryptoMaterialError::WrongLengthError);
@@ -371,8 +383,8 @@ impl TryFrom<&[u8]> for MultiEd25519PublicKey {
 
 /// We deduce VerifyingKey from pointing to the signature material
 impl VerifyingKey for MultiEd25519PublicKey {
-    type SigningKeyMaterial = MultiEd25519PrivateKey;
     type SignatureMaterial = MultiEd25519Signature;
+    type SigningKeyMaterial = MultiEd25519PrivateKey;
 }
 
 impl fmt::Display for MultiEd25519PublicKey {
@@ -457,7 +469,8 @@ impl MultiEd25519Signature {
         &self.bitmap
     }
 
-    /// Serialize a MultiEd25519Signature in the form of sig0||sig1||..sigN||bitmap.
+    /// Serialize a MultiEd25519Signature in the form of
+    /// sig0||sig1||..sigN||bitmap.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = self
             .signatures
@@ -476,8 +489,8 @@ impl MultiEd25519Signature {
 impl TryFrom<&[u8]> for MultiEd25519Signature {
     type Error = CryptoMaterialError;
 
-    /// Deserialize a MultiEd25519Signature. This method will also check for malleable signatures
-    /// and bitmap validity.
+    /// Deserialize a MultiEd25519Signature. This method will also check for
+    /// malleable signatures and bitmap validity.
     fn try_from(bytes: &[u8]) -> std::result::Result<MultiEd25519Signature, CryptoMaterialError> {
         let length = bytes.len();
         let bitmap_num_of_bytes = length % ED25519_SIGNATURE_LENGTH;
@@ -539,32 +552,32 @@ impl ValidCryptoMaterial for MultiEd25519Signature {
 }
 
 impl Signature for MultiEd25519Signature {
-    type VerifyingKeyMaterial = MultiEd25519PublicKey;
     type SigningKeyMaterial = MultiEd25519PrivateKey;
+    type VerifyingKeyMaterial = MultiEd25519PublicKey;
 
     fn verify<T: CryptoHash + Serialize>(
         &self,
         message: &T,
         public_key: &MultiEd25519PublicKey,
     ) -> Result<()> {
-        // NOTE: Public keys need not be validated because we use ed25519_dalek's verify_strict,
-        // which checks for small order public keys.
+        // NOTE: Public keys need not be validated because we use ed25519_dalek's
+        // verify_strict, which checks for small order public keys.
         let mut bytes = <T as CryptoHash>::Hasher::seed().to_vec();
         bcs::serialize_into(&mut bytes, &message)
             .map_err(|_| CryptoMaterialError::SerializationError)?;
         Self::verify_arbitrary_msg(self, &bytes, public_key)
     }
 
-    /// Checks that `self` is valid for an arbitrary &[u8] `message` using `public_key`.
-    /// Outside of this crate, this particular function should only be used for native signature
-    /// verification in Move.
+    /// Checks that `self` is valid for an arbitrary &[u8] `message` using
+    /// `public_key`. Outside of this crate, this particular function should
+    /// only be used for native signature verification in Move.
     fn verify_arbitrary_msg(
         &self,
         message: &[u8],
         public_key: &MultiEd25519PublicKey,
     ) -> Result<()> {
-        // NOTE: Public keys need not be validated because we use ed25519_dalek's verify_strict,
-        // which checks for small order public keys.
+        // NOTE: Public keys need not be validated because we use ed25519_dalek's
+        // verify_strict, which checks for small order public keys.
         match bitmap_last_set_bit(self.bitmap) {
             Some(last_bit) if (last_bit as usize) < public_key.public_keys.len() => (),
             _ => {
@@ -572,7 +585,7 @@ impl Signature for MultiEd25519Signature {
                     "{}",
                     CryptoMaterialError::BitVecError("Signature index is out of range".to_string())
                 ))
-            }
+            },
         };
         if bitmap_count_ones(self.bitmap) < public_key.threshold as u32 {
             return Err(anyhow!(

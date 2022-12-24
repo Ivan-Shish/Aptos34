@@ -113,7 +113,8 @@ impl ValidatorNodeConfig {
         let private_identity_file = dir.join(PRIVATE_IDENTITY);
         let public_identity_file = dir.join(PUBLIC_IDENTITY);
 
-        // If they all already exist, use them, otherwise generate new ones and overwrite
+        // If they all already exist, use them, otherwise generate new ones and
+        // overwrite
         if val_identity_file.exists()
             && vfn_identity_file.exists()
             && private_identity_file.exists()
@@ -295,7 +296,8 @@ impl FullnodeNodeConfig {
         Ok(())
     }
 
-    /// Sets identity for a public full node.  Should only be run on a public full node
+    /// Sets identity for a public full node.  Should only be run on a public
+    /// full node
     fn set_identity(&mut self) -> anyhow::Result<()> {
         if self
             .config
@@ -337,8 +339,8 @@ impl FullnodeNodeConfig {
         fullnode_public_network.identity = public_network.identity.clone();
         fullnode_public_network.listen_address = public_network.listen_address.clone();
 
-        // Grab the validator's vfn network information and configure it as a seed for the VFN's
-        // vfn network
+        // Grab the validator's vfn network information and configure it as a seed for
+        // the VFN's vfn network
         let validators_vfn_network = validator_config
             .full_node_networks
             .iter()

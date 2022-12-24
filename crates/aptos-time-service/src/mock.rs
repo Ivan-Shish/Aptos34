@@ -32,9 +32,9 @@ type SleepIndex = usize;
 ///
 /// `MockTimeService` has the option to auto advance time when new `Sleep`s are
 /// crated. When we're auto advancing, new `Sleep`s are immediately resolved and
-/// the simulation time is advanced to the wait deadline. New `Sleep`s whose deadlines
-/// are after the auto advance deadline will be pending and must be manually
-/// woken by the `MockTimeService::advance_{..}` methods.
+/// the simulation time is advanced to the wait deadline. New `Sleep`s whose
+/// deadlines are after the auto advance deadline will be pending and must be
+/// manually woken by the `MockTimeService::advance_{..}` methods.
 #[derive(Clone, Debug)]
 pub struct MockTimeService {
     inner: Arc<Mutex<Inner>>,
@@ -51,14 +51,16 @@ struct Inner {
     base_time: Instant,
     /// The current simulated time, offset from the `base_time`.
     now: Duration,
-    /// If `Some`, then auto advance until the simulation time passes the deadline.
+    /// If `Some`, then auto advance until the simulation time passes the
+    /// deadline.
     auto_advance_deadline: Option<Duration>,
     /// The next unique index that we can allocate to a new waiter.
     next_sleep_index: SleepIndex,
     /// A queue of pending `MockSleep`s. The entries are stored in a `BTreeMap`
-    /// ordered by the wait deadline (and entry index, meaning ties are broken by
-    /// insertion order). Rather than store the `MockSleep`s themselves, we store
-    /// a `Waker` to alert the `MockSleep` future when it's complete.
+    /// ordered by the wait deadline (and entry index, meaning ties are broken
+    /// by insertion order). Rather than store the `MockSleep`s themselves,
+    /// we store a `Waker` to alert the `MockSleep` future when it's
+    /// complete.
     ///
     /// Note that we store an `Option<Waker>` since there is a gap between when
     /// a `MockSleep` is created + registered and when it's first polled (and
@@ -66,12 +68,13 @@ struct Inner {
     pending: BTreeMap<(Duration, SleepIndex), Option<Waker>>,
 }
 
-/// A [`Future`] that resolves when the simulated time in the [`MockTimeService`]
-/// advances past its deadline. When these are pending, they have an entry in the
-/// `MockTimeService`'s `pending` queue.
+/// A [`Future`] that resolves when the simulated time in the
+/// [`MockTimeService`] advances past its deadline. When these are pending, they
+/// have an entry in the `MockTimeService`'s `pending` queue.
 #[derive(Debug)]
 pub struct MockSleep {
-    /// A handle to the `MockTimeService` so we can get the underlying sleep entry.
+    /// A handle to the `MockTimeService` so we can get the underlying sleep
+    /// entry.
     time_service: MockTimeService,
     /// Wait until the simulated time has at least passed this `deadline`.
     deadline: Duration,
@@ -84,8 +87,9 @@ pub struct MockSleep {
 /////////////////////
 
 impl MockTimeService {
-    /// Create a new `MockTimeService` with no auto advance. Time will only advance
-    /// by manually calling the `MockTimeService::advance_{..}` methods.
+    /// Create a new `MockTimeService` with no auto advance. Time will only
+    /// advance by manually calling the `MockTimeService::advance_{..}`
+    /// methods.
     pub fn new() -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
@@ -103,8 +107,8 @@ impl MockTimeService {
         Self::new_auto_advance_for(duration_max())
     }
 
-    /// Create a new `MockTimeService` that will auto advance until the simulation
-    /// time passes `deadline`.
+    /// Create a new `MockTimeService` that will auto advance until the
+    /// simulation time passes `deadline`.
     pub fn new_auto_advance_for(deadline: Duration) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
@@ -143,7 +147,8 @@ impl MockTimeService {
         self.lock().advance(Duration::from_secs(duration))
     }
 
-    /// Advance time by `duration` milliseconds. See [`advance`](#method.advance).
+    /// Advance time by `duration` milliseconds. See
+    /// [`advance`](#method.advance).
     pub fn advance_ms(&self, duration: u64) -> usize {
         self.lock().advance(Duration::from_millis(duration))
     }
@@ -381,7 +386,7 @@ impl Future for MockSleep {
                 // We're still waiting. Update our `Waker` so we can get notified.
                 maybe_waker.replace(cx.waker().clone());
                 Poll::Pending
-            }
+            },
             // If we're not in the queue then we are done!
             None => Poll::Ready(()),
         }

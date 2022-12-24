@@ -16,6 +16,8 @@ use aptos_config::{
 use aptos_crypto::x25519;
 use aptos_id_generator::{IdGenerator, U32IdGenerator};
 use aptos_logger::prelude::*;
+// Re-exposed for aptos-network-checker
+pub use aptos_netcore::transport::tcp::{resolve_and_connect, TCPBufferCfg, TcpSocket};
 use aptos_netcore::transport::{proxy_protocol, tcp, ConnectionOrigin, Transport};
 use aptos_short_hex_str::AsShortHexStr;
 use aptos_time_service::{timeout, TimeService, TimeServiceTrait};
@@ -31,9 +33,6 @@ use futures::{
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, convert::TryFrom, fmt, io, pin::Pin, sync::Arc, time::Duration};
-
-// Re-exposed for aptos-network-checker
-pub use aptos_netcore::transport::tcp::{resolve_and_connect, TCPBufferCfg, TcpSocket};
 
 #[cfg(test)]
 mod test;
@@ -171,15 +170,16 @@ impl fmt::Display for ConnectionMetadata {
     }
 }
 
-/// The `Connection` struct consists of connection metadata and the actual socket for
-/// communication.
+/// The `Connection` struct consists of connection metadata and the actual
+/// socket for communication.
 #[derive(Debug)]
 pub struct Connection<TSocket> {
     pub socket: TSocket,
     pub metadata: ConnectionMetadata,
 }
 
-/// Convenience function for adding a timeout to a Future that returns an `io::Result`.
+/// Convenience function for adding a timeout to a Future that returns an
+/// `io::Result`.
 async fn timeout_io<F, T>(time_service: TimeService, duration: Duration, fut: F) -> io::Result<T>
 where
     F: Future<Output = io::Result<T>>,
@@ -218,7 +218,8 @@ impl UpgradeContext {
     }
 }
 
-/// If we have proxy protocol enabled, then prepend the un-proxied address to the error.
+/// If we have proxy protocol enabled, then prepend the un-proxied address to
+/// the error.
 fn add_pp_addr(proxy_protocol_enabled: bool, error: io::Error, addr: &NetworkAddress) -> io::Error {
     if proxy_protocol_enabled {
         io::Error::new(
@@ -232,9 +233,10 @@ fn add_pp_addr(proxy_protocol_enabled: bool, error: io::Error, addr: &NetworkAdd
 
 /// Upgrade an inbound connection. This means we run a Noise IK handshake for
 /// authentication and then negotiate common supported protocols. If
-/// `ctxt.noise.auth_mode` is `HandshakeAuthMode::Mutual( anti_replay_timestamps , trusted_peers )`,
-/// then we will only allow connections from peers with a pubkey in the `trusted_peers`
-/// set. Otherwise, we will allow inbound connections from any pubkey.
+/// `ctxt.noise.auth_mode` is `HandshakeAuthMode::Mutual( anti_replay_timestamps
+/// , trusted_peers )`, then we will only allow connections from peers with a
+/// pubkey in the `trusted_peers` set. Otherwise, we will allow inbound
+/// connections from any pubkey.
 async fn upgrade_inbound<T: TSocket>(
     ctxt: Arc<UpgradeContext>,
     fut_socket: impl Future<Output = io::Result<T>>,
@@ -245,7 +247,8 @@ async fn upgrade_inbound<T: TSocket>(
     let mut socket = fut_socket.await?;
 
     // If we have proxy protocol enabled, process the event, otherwise skip it
-    // TODO: This would make more sense to build this in at instantiation so we don't need to put the if statement here
+    // TODO: This would make more sense to build this in at instantiation so we
+    // don't need to put the if statement here
     let addr = if proxy_protocol_enabled {
         proxy_protocol::read_header(&addr, &mut socket)
             .await
@@ -397,13 +400,13 @@ pub async fn upgrade_outbound<T: TSocket>(
 /// The common AptosNet Transport.
 ///
 /// The base transport layer is pluggable, so long as it provides a reliable,
-/// ordered, connection-oriented, byte-stream abstraction (e.g., TCP). We currently
-/// use either `MemoryTransport` or `TcpTransport` as this base layer.
+/// ordered, connection-oriented, byte-stream abstraction (e.g., TCP). We
+/// currently use either `MemoryTransport` or `TcpTransport` as this base layer.
 ///
-/// Inbound and outbound connections are first established with the `base_transport`
-/// and then negotiate a secure, authenticated transport layer (currently Noise
-/// protocol). Finally, we negotiate common supported application protocols with
-/// the `Handshake` protocol.
+/// Inbound and outbound connections are first established with the
+/// `base_transport` and then negotiate a secure, authenticated transport layer
+/// (currently Noise protocol). Finally, we negotiate common supported
+/// application protocols with the `Handshake` protocol.
 // TODO(philiphayes): rework Transport trait, possibly include Upgrade trait.
 // ideas in this PR thread: https://github.com/aptos-labs/aptos-core/pull/3478#issuecomment-617385633
 pub struct AptosNetTransport<TTransport> {
@@ -475,8 +478,8 @@ where
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
                     format!(
-                        "Unexpected dialing network address: '{}', expected: \
-                         memory, ip+tcp, or dns+tcp",
+                        "Unexpected dialing network address: '{}', expected: memory, ip+tcp, or \
+                         dns+tcp",
                         addr
                     ),
                 )
@@ -488,7 +491,7 @@ where
                 let base_addr = NetworkAddress::try_from(base_transport_protos.to_vec())
                     .expect("base_transport_protos is always non-empty");
                 Ok((base_addr, *pubkey, *version))
-            }
+            },
             _ => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
@@ -500,10 +503,10 @@ where
         }
     }
 
-    /// Dial a peer at `addr`. If the `addr` is not supported or formatted correctly,
-    /// return `Err`. Otherwise, return a `Future` that resolves to `Err` if there
-    /// was some issue dialing the peer and `Ok` with a fully upgraded connection
-    /// to that peer if our dial was successful.
+    /// Dial a peer at `addr`. If the `addr` is not supported or formatted
+    /// correctly, return `Err`. Otherwise, return a `Future` that resolves
+    /// to `Err` if there was some issue dialing the peer and `Ok` with a
+    /// fully upgraded connection to that peer if our dial was successful.
     ///
     /// ### Dialing `NetworkAddress` format
     ///
@@ -538,7 +541,8 @@ where
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!(
-                    "Attempting to dial remote with unsupported handshake version: {}, expected: {}",
+                    "Attempting to dial remote with unsupported handshake version: {}, expected: \
+                     {}",
                     handshake_version, self.ctxt.handshake_version,
                 ),
             ));
@@ -553,9 +557,10 @@ where
         Ok(upgrade_fut)
     }
 
-    /// Listen on address `addr`. If the `addr` is not supported or formatted correctly,
-    /// return `Err`. Otherwise, return a `Stream` of fully upgraded inbound connections
-    /// and the dialer's observed network address.
+    /// Listen on address `addr`. If the `addr` is not supported or formatted
+    /// correctly, return `Err`. Otherwise, return a `Stream` of fully
+    /// upgraded inbound connections and the dialer's observed network
+    /// address.
     ///
     /// ### Listening `NetworkAddress` format
     ///
@@ -615,11 +620,11 @@ where
 }
 
 // If using `AptosNetTransport` as a `Transport` trait, then all upgrade futures
-// and listening streams must be boxed, since `upgrade_inbound` and `upgrade_outbound`
-// are async fns (and therefore unnamed types).
+// and listening streams must be boxed, since `upgrade_inbound` and
+// `upgrade_outbound` are async fns (and therefore unnamed types).
 //
-// TODO(philiphayes): We can change these `Pin<Box<dyn Future<..>>> to `impl Future<..>`
-// when/if this rust feature is stabilized: https://github.com/rust-lang/rust/issues/63063
+// TODO(philiphayes): We can change these `Pin<Box<dyn Future<..>>> to `impl
+// Future<..>` when/if this rust feature is stabilized: https://github.com/rust-lang/rust/issues/63063
 
 impl<TTransport: Transport> Transport for AptosNetTransport<TTransport>
 where
@@ -629,12 +634,12 @@ where
     TTransport::Inbound: Send + 'static,
     TTransport::Listener: Send + 'static,
 {
-    type Output = Connection<NoiseStream<TTransport::Output>>;
     type Error = io::Error;
     type Inbound = Pin<Box<dyn Future<Output = io::Result<Self::Output>> + Send + 'static>>;
-    type Outbound = Pin<Box<dyn Future<Output = io::Result<Self::Output>> + Send + 'static>>;
     type Listener =
         Pin<Box<dyn Stream<Item = io::Result<(Self::Inbound, NetworkAddress)>> + Send + 'static>>;
+    type Outbound = Pin<Box<dyn Future<Output = io::Result<Self::Output>> + Send + 'static>>;
+    type Output = Connection<NoiseStream<TTransport::Output>>;
 
     fn dial(&self, peer_id: PeerId, addr: NetworkAddress) -> io::Result<Self::Outbound> {
         self.dial(peer_id, addr)

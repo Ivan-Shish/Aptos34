@@ -1,22 +1,21 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//!
 //! This module is to contain all networking logging information.
 //!
 //! ```
 //! use aptos_config::network_id::NetworkContext;
 //! use aptos_logger::info;
-//! use aptos_types::{PeerId, network_address::NetworkAddress};
 //! use aptos_network::logging::NetworkSchema;
+//! use aptos_types::{network_address::NetworkAddress, PeerId};
 //!
 //! info!(
-//!   NetworkSchema::new(&NetworkContext::mock())
-//!     .remote_peer(&PeerId::random())
-//!     .network_address(&NetworkAddress::mock()),
-//!   field_name = "field",
-//!   "Value is {} message",
-//!   5
+//!     NetworkSchema::new(&NetworkContext::mock())
+//!         .remote_peer(&PeerId::random())
+//!         .network_address(&NetworkAddress::mock()),
+//!     field_name = "field",
+//!     "Value is {} message",
+//!     5
 //! );
 //! ```
 

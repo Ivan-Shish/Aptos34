@@ -17,7 +17,6 @@ use proptest::{
     strategy::{Strategy, ValueTree},
     test_runner::TestRunner,
 };
-
 use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 pub struct Bencher<K, V> {
@@ -74,8 +73,8 @@ where
     V: Clone + Eq + Send + Sync + Arbitrary + 'static,
     Vec<u8>: From<V>,
 {
-    /// Creates a new benchmark state with the given account universe strategy and number of
-    /// transactions.
+    /// Creates a new benchmark state with the given account universe strategy
+    /// and number of transactions.
     pub(crate) fn with_universe(
         universe_strategy: impl Strategy<Value = Vec<K>>,
         num_transactions: usize,

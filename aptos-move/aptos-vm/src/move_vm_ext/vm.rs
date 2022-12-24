@@ -14,8 +14,9 @@ use aptos_gas::{AbstractValueSizeGasParameters, NativeGasParameters};
 use move_binary_format::errors::VMResult;
 use move_bytecode_verifier::VerifierConfig;
 use move_table_extension::NativeTableContext;
-use move_vm_runtime::config::VMConfig;
-use move_vm_runtime::{move_vm::MoveVM, native_extensions::NativeContextExtensions};
+use move_vm_runtime::{
+    config::VMConfig, move_vm::MoveVM, native_extensions::NativeContextExtensions,
+};
 use std::ops::Deref;
 
 pub struct MoveVmExt {
@@ -32,9 +33,10 @@ impl MoveVmExt {
         allow_binary_format_v6: bool,
         chain_id: u8,
     ) -> VMResult<Self> {
-        // Note: binary format v6 adds a few new integer types and their corresponding instructions.
-        //       Therefore it depends on a new version of the gas schedule and cannot be allowed if
-        //       the gas schedule hasn't been updated yet.
+        // Note: binary format v6 adds a few new integer types and their corresponding
+        // instructions.       Therefore it depends on a new version of the gas
+        // schedule and cannot be allowed if       the gas schedule hasn't been
+        // updated yet.
         let max_binary_format_version = if allow_binary_format_v6 && gas_feature_version >= 5 {
             6
         } else {
@@ -87,8 +89,8 @@ impl MoveVmExt {
         extensions.add(NativeCodeContext::default());
         extensions.add(NativeStateStorageContext::new(remote));
 
-        // The VM code loader has bugs around module upgrade. After a module upgrade, the internal
-        // cache needs to be flushed to work around those bugs.
+        // The VM code loader has bugs around module upgrade. After a module upgrade,
+        // the internal cache needs to be flushed to work around those bugs.
         self.inner.flush_loader_cache_if_invalidated();
 
         SessionExt::new(self.inner.new_session_with_extensions(remote, extensions))

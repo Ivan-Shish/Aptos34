@@ -1,11 +1,11 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::metrics;
 use crate::{
     error::Error,
     logging::{LogEntry, LogSchema},
     metadata_storage::MetadataStorageInterface,
+    metrics,
     notification_handlers::{
         CommitNotification, CommittedTransactions, ErrorNotification, MempoolNotificationHandler,
     },
@@ -19,19 +19,22 @@ use aptos_infallible::Mutex;
 use aptos_logger::prelude::*;
 use aptos_mempool_notifications::MempoolNotificationSender;
 use aptos_storage_interface::{DbReader, DbReaderWriter, StateSnapshotReceiver};
-use aptos_types::state_store::state_key::StateKey;
-use aptos_types::state_store::state_value::StateValue;
-use aptos_types::transaction::Version;
 use aptos_types::{
     ledger_info::LedgerInfoWithSignatures,
-    state_store::state_value::StateValueChunkWithProof,
+    state_store::{
+        state_key::StateKey,
+        state_value::{StateValue, StateValueChunkWithProof},
+    },
     transaction::{
         Transaction, TransactionListWithProof, TransactionOutput, TransactionOutputListWithProof,
+        Version,
     },
 };
 use async_trait::async_trait;
-use futures::channel::mpsc::UnboundedSender;
-use futures::{channel::mpsc, SinkExt, StreamExt};
+use futures::{
+    channel::{mpsc, mpsc::UnboundedSender},
+    SinkExt, StreamExt,
+};
 use std::{
     future::Future,
     sync::{
@@ -139,8 +142,8 @@ pub struct StorageSynchronizer<ChunkExecutor, MetadataStorage> {
     storage: DbReaderWriter,
 }
 
-// TODO(joshlind): this cannot currently be derived because of limitations around
-// how deriving `Clone` works. See: https://github.com/rust-lang/rust/issues/26925.
+// TODO(joshlind): this cannot currently be derived because of limitations
+// around how deriving `Clone` works. See: https://github.com/rust-lang/rust/issues/26925.
 impl<
         ChunkExecutor: ChunkExecutorTrait + 'static,
         MetadataStorage: MetadataStorageInterface + Clone,
@@ -167,7 +170,8 @@ impl<
         MetadataStorage: MetadataStorageInterface + Clone,
     > StorageSynchronizer<ChunkExecutor, MetadataStorage>
 {
-    /// Returns a new storage synchronizer alongside the executor and committer handles
+    /// Returns a new storage synchronizer alongside the executor and committer
+    /// handles
     pub fn new<MempoolNotifier: MempoolNotificationSender>(
         driver_config: StateSyncDriverConfig,
         chunk_executor: Arc<ChunkExecutor>,
@@ -290,7 +294,8 @@ impl<
         target_ledger_info: LedgerInfoWithSignatures,
         target_output_with_proof: TransactionOutputListWithProof,
     ) -> Result<JoinHandle<()>, Error> {
-        // Create a channel to notify the state snapshot receiver when data chunks are ready
+        // Create a channel to notify the state snapshot receiver when data chunks are
+        // ready
         let max_pending_data_chunks = self.driver_config.max_pending_data_chunks as usize;
         let (state_snapshot_notifier, state_snapshot_listener) =
             mpsc::channel(max_pending_data_chunks);
@@ -427,7 +432,7 @@ fn spawn_executor<ChunkExecutor: ChunkExecutorTrait + 'static>(
                     }
                     drop(timer);
                     (notification_id, result)
-                }
+                },
                 StorageDataChunk::TransactionOutputs(
                     notification_id,
                     outputs_with_proof,
@@ -475,7 +480,7 @@ fn spawn_executor<ChunkExecutor: ChunkExecutorTrait + 'static>(
                     }
                     drop(timer);
                     (notification_id, result)
-                }
+                },
                 storage_data_chunk => {
                     error!(
                         LogSchema::new(LogEntry::StorageSynchronizer).message(&format!(
@@ -484,7 +489,7 @@ fn spawn_executor<ChunkExecutor: ChunkExecutorTrait + 'static>(
                         ))
                     );
                     break;
-                }
+                },
             };
 
             // Notify the committer of new executed chunks
@@ -500,7 +505,7 @@ fn spawn_executor<ChunkExecutor: ChunkExecutorTrait + 'static>(
                         .await;
                         decrement_pending_data_chunks(pending_transaction_chunks.clone());
                     }
-                }
+                },
                 Err(error) => {
                     let error = format!(
                         "Failed to execute/apply the storage data chunk! Error: {:?}",
@@ -513,7 +518,7 @@ fn spawn_executor<ChunkExecutor: ChunkExecutorTrait + 'static>(
                     )
                     .await;
                     decrement_pending_data_chunks(pending_transaction_chunks.clone());
-                }
+                },
             }
         }
     };
@@ -556,8 +561,8 @@ fn spawn_committer<
                     // Log the event and update the metrics
                     info!(
                         LogSchema::new(LogEntry::StorageSynchronizer).message(&format!(
-                            "Committed a new transaction chunk! \
-                                    Transaction total: {:?}, event total: {:?}",
+                            "Committed a new transaction chunk! Transaction total: {:?}, event \
+                             total: {:?}",
                             notification.committed_transactions.len(),
                             notification.committed_events.len()
                         ))
@@ -585,7 +590,7 @@ fn spawn_committer<
                         event_subscription_service.clone(),
                     )
                     .await;
-                }
+                },
                 Err(error) => {
                     let error = format!("Failed to commit executed chunk! Error: {:?}", error);
                     send_storage_synchronizer_error(
@@ -594,7 +599,7 @@ fn spawn_committer<
                         error,
                     )
                     .await;
-                }
+                },
             };
             drop(timer);
             decrement_pending_data_chunks(pending_transaction_chunks.clone());
@@ -660,9 +665,9 @@ fn spawn_state_snapshot_receiver<
                             // Update the logs and metrics
                             info!(
                                 LogSchema::new(LogEntry::StorageSynchronizer).message(&format!(
-                                    "Committed a new state value chunk! Chunk size: {:?}, last persisted index: {:?}",
-                                    num_state_values,
-                                    last_committed_state_index
+                                    "Committed a new state value chunk! Chunk size: {:?}, last \
+                                     persisted index: {:?}",
+                                    num_state_values, last_committed_state_index
                                 ))
                             );
 
@@ -689,7 +694,11 @@ fn spawn_state_snapshot_receiver<
                                         all_states_synced,
                                     )
                                 {
-                                    let error = format!("Failed to update the last persisted state index at version: {:?}! Error: {:?}", version, error);
+                                    let error = format!(
+                                        "Failed to update the last persisted state index at \
+                                         version: {:?}! Error: {:?}",
+                                        version, error
+                                    );
                                     send_storage_synchronizer_error(
                                         error_notification_sender.clone(),
                                         notification_id,
@@ -725,7 +734,7 @@ fn spawn_state_snapshot_receiver<
                             }
                             decrement_pending_data_chunks(pending_transaction_chunks.clone());
                             return; // There's nothing left to do!
-                        }
+                        },
                         Err(error) => {
                             let error =
                                 format!("Failed to commit state value chunk! Error: {:?}", error);
@@ -735,9 +744,9 @@ fn spawn_state_snapshot_receiver<
                                 error,
                             )
                             .await;
-                        }
+                        },
                     }
-                }
+                },
                 storage_data_chunk => {
                     error!(
                         LogSchema::new(LogEntry::StorageSynchronizer).message(&format!(
@@ -745,7 +754,7 @@ fn spawn_state_snapshot_receiver<
                             storage_data_chunk
                         ))
                     );
-                }
+                },
             }
             decrement_pending_data_chunks(pending_transaction_chunks.clone());
         }
@@ -792,13 +801,19 @@ async fn finalize_storage_and_send_commit<
         .map_err(|error| format!("Failed to finalize the state snapshot! Error: {:?}", error))?;
 
     // Update the metadata storage
-    metadata_storage.update_last_persisted_state_value_index(
+    metadata_storage
+        .update_last_persisted_state_value_index(
             target_ledger_info,
             last_committed_state_index,
             true,
-        ).map_err(|error| {
-        format!("All states have synced, but failed to update the metadata storage at version {:?}! Error: {:?}", version, error)
-    })?;
+        )
+        .map_err(|error| {
+            format!(
+                "All states have synced, but failed to update the metadata storage at version \
+                 {:?}! Error: {:?}",
+                version, error
+            )
+        })?;
 
     // Reset the chunk executor
     chunk_executor.reset().map_err(|error| {

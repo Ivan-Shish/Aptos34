@@ -34,14 +34,14 @@ use aptos_types::{chain_id::ChainId, network_address::NetworkAddress, PeerId};
 use std::{clone::Clone, collections::HashMap, fmt::Debug, net::IpAddr, sync::Arc};
 use tokio::runtime::Handle;
 
-/// Inbound and Outbound connections are always secured with NoiseIK.  The dialer
-/// will always verify the listener.
+/// Inbound and Outbound connections are always secured with NoiseIK.  The
+/// dialer will always verify the listener.
 #[derive(Debug)]
 pub enum AuthenticationMode {
-    /// Inbound connections will first be checked against the known peers set, and
-    /// if the `PeerId` is known it will be authenticated against it's `PublicKey`
-    /// Otherwise, the incoming connections will be allowed through in the common
-    /// pool of unknown peers.
+    /// Inbound connections will first be checked against the known peers set,
+    /// and if the `PeerId` is known it will be authenticated against it's
+    /// `PublicKey` Otherwise, the incoming connections will be allowed
+    /// through in the common pool of unknown peers.
     MaybeMutual(x25519::PrivateKey),
     /// Both dialer and listener will verify public keys of each other in the
     /// handshake.
@@ -303,7 +303,7 @@ impl PeerManagerBuilder {
                     ),
                     executor,
                 )))
-            }
+            },
             #[cfg(any(test, feature = "testing", feature = "fuzzing"))]
             [Memory(_)] => Some(TransportPeerManager::Memory(self.build_with_transport(
                 AptosNetTransport::new(
@@ -319,11 +319,13 @@ impl PeerManagerBuilder {
                 ),
                 executor,
             ))),
-            _ => panic!(
-                "{} Unsupported listen_address: '{}', expected '/memory/<port>', \
-                 '/ip4/<addr>/tcp/<port>', or '/ip6/<addr>/tcp/<port>'.",
-                self.network_context, self.listen_address
-            ),
+            _ => {
+                panic!(
+                    "{} Unsupported listen_address: '{}', expected '/memory/<port>', \
+                     '/ip4/<addr>/tcp/<port>', or '/ip6/<addr>/tcp/<port>'.",
+                    self.network_context, self.listen_address
+                )
+            },
         };
 
         self
@@ -422,8 +424,8 @@ impl PeerManagerBuilder {
             .tcp_buffer_cfg
     }
 
-    /// Register a peer-to-peer service (i.e., both client and service) for given
-    /// protocols.
+    /// Register a peer-to-peer service (i.e., both client and service) for
+    /// given protocols.
     pub fn add_p2p_service(
         &mut self,
         config: &AppConfig,

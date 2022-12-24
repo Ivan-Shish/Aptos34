@@ -157,9 +157,9 @@ fn block_forest_from_keys(
     key_pairs: Vec<bls12381::PrivateKey>,
 ) -> impl Strategy<Value = LinearizedBlockForest> {
     let leaf = leaf_strategy().prop_map(|block| vec![block]);
-    // Note that having `expected_branch_size` of 1 seems to generate significantly larger trees
-    // than desired (this is my understanding after reading the documentation:
-    // https://docs.rs/proptest/0.3.0/proptest/strategy/trait.Strategy.html#method.prop_recursive)
+    // Note that having `expected_branch_size` of 1 seems to generate significantly
+    // larger trees than desired (this is my understanding after reading the
+    // documentation: https://docs.rs/proptest/0.3.0/proptest/strategy/trait.Strategy.html#method.prop_recursive)
     leaf.prop_recursive(depth, depth, 2, move |inner| {
         child(proptests::mostly_in_keypair_pool(key_pairs.clone()), inner)
     })
@@ -197,7 +197,7 @@ pub fn gen_test_certificate(
             let mut placeholder = placeholder_ledger_info();
             placeholder.set_consensus_data_hash(vote_data.hash());
             placeholder
-        }
+        },
     };
 
     QuorumCert::new(
@@ -236,8 +236,8 @@ pub fn placeholder_certificate_for_block(
         ),
     );
 
-    // This ledger info doesn't carry any meaningful information: it is all zeros except for
-    // the consensus data hash that carries the actual vote.
+    // This ledger info doesn't carry any meaningful information: it is all zeros
+    // except for the consensus data hash that carries the actual vote.
     let mut ledger_info_placeholder = placeholder_ledger_info();
 
     ledger_info_placeholder.set_consensus_data_hash(vote_data.hash());

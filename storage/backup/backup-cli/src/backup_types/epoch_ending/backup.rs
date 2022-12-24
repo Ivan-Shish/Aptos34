@@ -25,7 +25,8 @@ pub struct EpochEndingBackupOpt {
 
     #[clap(
         long = "end-epoch",
-        help = "Epoch before which epoch ending backup stops. Pass in the current open epoch to get all."
+        help = "Epoch before which epoch ending backup stops. Pass in the current open epoch to \
+                get all."
     )]
     pub end_epoch: u64,
 }
@@ -56,7 +57,8 @@ impl EpochEndingBackupController {
 
     pub async fn run(self) -> Result<FileHandle> {
         info!(
-            "Epoch ending backup started, starting from epoch {start_epoch}, until epoch {end_epoch} (excluded).",
+            "Epoch ending backup started, starting from epoch {start_epoch}, until epoch \
+             {end_epoch} (excluded).",
             start_epoch = self.start_epoch,
             end_epoch = self.end_epoch,
         );

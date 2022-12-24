@@ -39,8 +39,17 @@ impl fmt::Display for TxnStatsRate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "submitted: {} txn/s, committed: {} txn/s, expired: {} txn/s, failed submission: {} tnx/s, latency: {} ms, (p50: {} ms, p90: {} ms, p99: {} ms), latency samples: {}",
-            self.submitted, self.committed, self.expired, self.failed_submission, self.latency, self.p50_latency, self.p90_latency, self.p99_latency, self.latency_samples,
+            "submitted: {} txn/s, committed: {} txn/s, expired: {} txn/s, failed submission: {} \
+             tnx/s, latency: {} ms, (p50: {} ms, p90: {} ms, p99: {} ms), latency samples: {}",
+            self.submitted,
+            self.committed,
+            self.expired,
+            self.failed_submission,
+            self.latency,
+            self.p50_latency,
+            self.p90_latency,
+            self.p99_latency,
+            self.latency_samples,
         )
     }
 }

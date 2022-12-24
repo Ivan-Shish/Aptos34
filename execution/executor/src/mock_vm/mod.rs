@@ -6,7 +6,6 @@ mod mock_vm_test;
 
 use aptos_crypto::{ed25519::Ed25519PrivateKey, PrivateKey, Uniform};
 use aptos_state_view::StateView;
-use aptos_types::transaction::NoOpChangeSetChecker;
 use aptos_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
@@ -20,9 +19,9 @@ use aptos_types::{
     },
     state_store::state_key::StateKey,
     transaction::{
-        ChangeSet, ExecutionStatus, RawTransaction, Script, SignedTransaction, Transaction,
-        TransactionArgument, TransactionOutput, TransactionPayload, TransactionStatus,
-        WriteSetPayload,
+        ChangeSet, ExecutionStatus, NoOpChangeSetChecker, RawTransaction, Script,
+        SignedTransaction, Transaction, TransactionArgument, TransactionOutput, TransactionPayload,
+        TransactionStatus, WriteSetPayload,
     },
     vm_status::{StatusCode, VMStatus},
     write_set::{WriteOp, WriteSet, WriteSetMut},
@@ -48,7 +47,8 @@ enum MockVMTransaction {
 pub static KEEP_STATUS: Lazy<TransactionStatus> =
     Lazy::new(|| TransactionStatus::Keep(ExecutionStatus::Success));
 
-// We use 10 as the assertion error code for insufficient balance within the Aptos coin contract.
+// We use 10 as the assertion error code for insufficient balance within the
+// Aptos coin contract.
 pub static DISCARD_STATUS: Lazy<TransactionStatus> =
     Lazy::new(|| TransactionStatus::Discard(StatusCode::INSUFFICIENT_BALANCE_FOR_TRANSACTION_FEE));
 
@@ -80,8 +80,8 @@ impl VMExecutor for MockVM {
             return Ok(vec![output]);
         }
 
-        // output_cache is used to store the output of transactions so they are visible to later
-        // transactions.
+        // output_cache is used to store the output of transactions so they are visible
+        // to later transactions.
         let mut output_cache = HashMap::new();
         let mut outputs = vec![];
 
@@ -139,7 +139,7 @@ impl VMExecutor for MockVM {
                         0,
                         KEEP_STATUS.clone(),
                     ));
-                }
+                },
                 MockVMTransaction::Payment {
                     sender,
                     recipient,
@@ -180,7 +180,7 @@ impl VMExecutor for MockVM {
                         0,
                         TransactionStatus::Keep(ExecutionStatus::Success),
                     ));
-                }
+                },
             }
         }
 
@@ -365,9 +365,11 @@ fn decode_transaction(txn: &SignedTransaction) -> MockVMTransaction {
             match script.args().len() {
                 1 => match script.args()[0] {
                     TransactionArgument::U64(amount) => MockVMTransaction::Mint { sender, amount },
-                    _ => unimplemented!(
-                        "Only one integer argument is allowed for mint transactions."
-                    ),
+                    _ => {
+                        unimplemented!(
+                            "Only one integer argument is allowed for mint transactions."
+                        )
+                    },
                 },
                 2 => match (&script.args()[0], &script.args()[1]) {
                     (TransactionArgument::Address(recipient), TransactionArgument::U64(amount)) => {
@@ -376,21 +378,23 @@ fn decode_transaction(txn: &SignedTransaction) -> MockVMTransaction {
                             recipient: *recipient,
                             amount: *amount,
                         }
-                    }
-                    _ => unimplemented!(
-                        "The first argument for payment transaction must be recipient address \
-                         and the second argument must be amount."
-                    ),
+                    },
+                    _ => {
+                        unimplemented!(
+                            "The first argument for payment transaction must be recipient address \
+                             and the second argument must be amount."
+                        )
+                    },
                 },
                 _ => unimplemented!("Transaction must have one or two arguments."),
             }
-        }
+        },
         TransactionPayload::EntryFunction(_) => {
             // TODO: we need to migrate Script to EntryFunction later
             unimplemented!("MockVM does not support entry function transaction payload.")
-        }
+        },
         TransactionPayload::ModuleBundle(_) => {
             unimplemented!("MockVM does not support Module transaction payload.")
-        }
+        },
     }
 }

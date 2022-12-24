@@ -3,6 +3,8 @@
 
 //! This file implements traits for Ed25519 private keys and public keys.
 
+#[cfg(any(test, feature = "fuzzing"))]
+use crate::test_utils::{self, KeyPair};
 use crate::{
     ed25519::{Ed25519Signature, ED25519_PRIVATE_KEY_LENGTH, ED25519_PUBLIC_KEY_LENGTH},
     hash::CryptoHash,
@@ -10,13 +12,10 @@ use crate::{
 };
 use aptos_crypto_derive::{DeserializeKey, SerializeKey, SilentDebug, SilentDisplay};
 use core::convert::TryFrom;
-use serde::Serialize;
-use std::fmt;
-
-#[cfg(any(test, feature = "fuzzing"))]
-use crate::test_utils::{self, KeyPair};
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest::prelude::*;
+use serde::Serialize;
+use std::fmt;
 
 /// An Ed25519 private key
 #[derive(DeserializeKey, SerializeKey, SilentDebug, SilentDisplay)]
@@ -46,7 +45,8 @@ impl Ed25519PrivateKey {
         self.0.to_bytes()
     }
 
-    /// Deserialize an Ed25519PrivateKey without any validation checks apart from expected key size.
+    /// Deserialize an Ed25519PrivateKey without any validation checks apart
+    /// from expected key size.
     fn from_bytes_unchecked(
         bytes: &[u8],
     ) -> std::result::Result<Ed25519PrivateKey, CryptoMaterialError> {
@@ -74,10 +74,12 @@ impl Ed25519PublicKey {
         self.0.to_bytes()
     }
 
-    /// Deserialize an Ed25519PublicKey without any validation checks apart from expected key size
-    /// and valid curve point, although not necessarily in the prime-order subgroup.
+    /// Deserialize an Ed25519PublicKey without any validation checks apart from
+    /// expected key size and valid curve point, although not necessarily in
+    /// the prime-order subgroup.
     ///
-    /// This function does NOT check the public key for membership in a small subgroup.
+    /// This function does NOT check the public key for membership in a small
+    /// subgroup.
     pub(crate) fn from_bytes_unchecked(
         bytes: &[u8],
     ) -> std::result::Result<Ed25519PublicKey, CryptoMaterialError> {
@@ -97,12 +99,11 @@ impl Ed25519PublicKey {
     ///
     /// Arguments:
     /// - `x25519_bytes`: bit representation of a public key in clamped
-    ///            Montgomery form, a.k.a. the x25519 public key format.
+    ///   Montgomery form, a.k.a. the x25519 public key format.
     /// - `negative`: whether to interpret the given point as a negative point,
-    ///               as the Montgomery form erases the sign byte. By XEdDSA
-    ///               convention, if you expect to ever convert this back to an
-    ///               x25519 public key, you should pass `false` for this
-    ///               argument.
+    ///   as the Montgomery form erases the sign byte. By XEdDSA convention, if
+    ///   you expect to ever convert this back to an x25519 public key, you
+    ///   should pass `false` for this argument.
     #[cfg(test)]
     pub(crate) fn from_x25519_public_bytes(
         x25519_bytes: &[u8],
@@ -134,8 +135,8 @@ impl PrivateKey for Ed25519PrivateKey {
 }
 
 impl SigningKey for Ed25519PrivateKey {
-    type VerifyingKeyMaterial = Ed25519PublicKey;
     type SignatureMaterial = Ed25519Signature;
+    type VerifyingKeyMaterial = Ed25519PublicKey;
 
     fn sign<T: CryptoHash + Serialize>(
         &self,
@@ -170,20 +171,21 @@ impl PartialEq<Self> for Ed25519PrivateKey {
 
 impl Eq for Ed25519PrivateKey {}
 
-// We could have a distinct kind of validation for the PrivateKey: e.g., checking the derived
-// PublicKey is valid?
+// We could have a distinct kind of validation for the PrivateKey: e.g.,
+// checking the derived PublicKey is valid?
 impl TryFrom<&[u8]> for Ed25519PrivateKey {
     type Error = CryptoMaterialError;
 
-    /// Deserialize an Ed25519PrivateKey. This method will check for private key validity: i.e.,
-    /// correct key length.
+    /// Deserialize an Ed25519PrivateKey. This method will check for private key
+    /// validity: i.e., correct key length.
     fn try_from(bytes: &[u8]) -> std::result::Result<Ed25519PrivateKey, CryptoMaterialError> {
-        // Note that the only requirement is that the size of the key is 32 bytes, something that
-        // is already checked during deserialization of ed25519_dalek::SecretKey
+        // Note that the only requirement is that the size of the key is 32 bytes,
+        // something that is already checked during deserialization of
+        // ed25519_dalek::SecretKey
         //
-        // Also, the underlying ed25519_dalek implementation ensures that the derived public key
-        // is safe and it will not lie in a small-order group, thus no extra check for PublicKey
-        // validation is required.
+        // Also, the underlying ed25519_dalek implementation ensures that the derived
+        // public key is safe and it will not lie in a small-order group, thus
+        // no extra check for PublicKey validation is required.
         Ed25519PrivateKey::from_bytes_unchecked(bytes)
     }
 }
@@ -212,7 +214,8 @@ impl Genesis for Ed25519PrivateKey {
 // PublicKey Traits //
 //////////////////////
 
-// Implementing From<&PrivateKey<...>> allows to derive a public key in a more elegant fashion
+// Implementing From<&PrivateKey<...>> allows to derive a public key in a more
+// elegant fashion
 impl From<&Ed25519PrivateKey> for Ed25519PublicKey {
     fn from(private_key: &Ed25519PrivateKey) -> Self {
         let secret: &ed25519_dalek::SecretKey = &private_key.0;
@@ -245,8 +248,8 @@ impl Eq for Ed25519PublicKey {}
 // We deduce VerifyingKey from pointing to the signature material
 // we get the ability to do `pubkey.validate(msg, signature)`
 impl VerifyingKey for Ed25519PublicKey {
-    type SigningKeyMaterial = Ed25519PrivateKey;
     type SignatureMaterial = Ed25519Signature;
+    type SigningKeyMaterial = Ed25519PrivateKey;
 }
 
 impl fmt::Display for Ed25519PublicKey {
@@ -264,9 +267,10 @@ impl fmt::Debug for Ed25519PublicKey {
 impl TryFrom<&[u8]> for Ed25519PublicKey {
     type Error = CryptoMaterialError;
 
-    /// Deserialize an Ed25519PublicKey. This method will NOT check for key validity, which means
-    /// the returned public key could be in a small subgroup. Nonetheless, our signature
-    /// verification implicitly checks if the public key lies in a small subgroup, so canonical
+    /// Deserialize an Ed25519PublicKey. This method will NOT check for key
+    /// validity, which means the returned public key could be in a small
+    /// subgroup. Nonetheless, our signature verification implicitly checks
+    /// if the public key lies in a small subgroup, so canonical
     /// uses of this library will not be susceptible to small subgroup attacks.
     fn try_from(bytes: &[u8]) -> std::result::Result<Ed25519PublicKey, CryptoMaterialError> {
         Ed25519PublicKey::from_bytes_unchecked(bytes)

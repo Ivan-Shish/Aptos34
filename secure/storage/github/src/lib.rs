@@ -57,12 +57,12 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-/// Client provides a client around the restful interface to GitHub API version 3. Learn more
-/// here: <https://developer.github.com/v3>
+/// Client provides a client around the restful interface to GitHub API version
+/// 3. Learn more here: <https://developer.github.com/v3>
 ///
-/// This is not intended for securely storing private data, though perhaps it could with a private
-/// repository. The tooling is intended to be used to exchange data in an authenticated fashion
-/// across multiple peers.
+/// This is not intended for securely storing private data, though perhaps it
+/// could with a private repository. The tooling is intended to be used to
+/// exchange data in an authenticated fashion across multiple peers.
 pub struct Client {
     branch: String,
     owner: String,
@@ -82,7 +82,8 @@ impl Client {
 
     /// Delete a file from a GitHub repository
     pub fn delete_file(&self, path: &str) -> Result<(), Error> {
-        // Occasionally GitHub sends us back delayed results and the file is already deleted.
+        // Occasionally GitHub sends us back delayed results and the file is already
+        // deleted.
         let hash = match self.get_sha(path) {
             Ok(hash) => hash,
             Err(Error::NotFound(_)) => return Ok(()),
@@ -92,7 +93,7 @@ impl Client {
         let resp = self
             .upgrade_request(ureq::delete(&self.post_url(path)))
             .send_json(
-                json!({ "branch": self.branch.to_string(), "message": "aptos-secure", "sha": hash }),
+                json!({ "branch": self.branch.to_string(), "message": "aptos-secure", "sha": hash })
             );
 
         match resp.status() {
@@ -101,7 +102,8 @@ impl Client {
         }
     }
 
-    /// Recursively delete all files, which as a by product will delete all folders
+    /// Recursively delete all files, which as a by product will delete all
+    /// folders
     pub fn delete_directory(&self, path: &str) -> Result<(), Error> {
         let files = self.get_directory(path.trim_end_matches('/'))?;
         for file in files {
@@ -114,7 +116,8 @@ impl Client {
         Ok(())
     }
 
-    /// Retrieve a list of branches, this is effectively a status check on the repository
+    /// Retrieve a list of branches, this is effectively a status check on the
+    /// repository
     pub fn get_branches(&self) -> Result<Vec<String>, Error> {
         let url = format!("{}/repos/{}/{}/branches", URL, self.owner, self.repository);
         let resp = self.upgrade_request(ureq::get(&url)).call();
@@ -124,13 +127,13 @@ impl Client {
                 let resp = resp.into_string()?;
                 let branches: Vec<Branch> = serde_json::from_str(&resp)?;
                 Ok(branches.into_iter().map(|b| b.name).collect())
-            }
+            },
             _ => Err(resp.into()),
         }
     }
 
-    /// Retrieve the name of contents within a given directory, note, there are no such thing as
-    /// empty directories in git.
+    /// Retrieve the name of contents within a given directory, note, there are
+    /// no such thing as empty directories in git.
     pub fn get_directory(&self, path: &str) -> Result<Vec<String>, Error> {
         Ok(self
             .get_internal(path)?
@@ -153,8 +156,8 @@ impl Client {
                 .content
                 .as_ref()
                 .ok_or_else(|| Error::InternalError("No content found".into()))?;
-            // Apparently GitHub introduces newlines every 60 characters and at the end of content,
-            // this strips those characters out.
+            // Apparently GitHub introduces newlines every 60 characters and at the end of
+            // content, this strips those characters out.
             Ok(content.lines().collect::<Vec<_>>().join(""))
         } else {
             Err(Error::InternalError(format!(
@@ -169,10 +172,10 @@ impl Client {
         let json = match self.get_sha(path) {
             Ok(hash) => {
                 json!({ "branch": self.branch.to_string(), "content": content, "message": format!("[aptos-management] {}", path), "sha": hash })
-            }
+            },
             Err(Error::NotFound(_)) => {
                 json!({ "branch": self.branch.to_string(), "content": content, "message": format!("[aptos-management] {}", path) })
-            }
+            },
             Err(e) => return Err(e),
         };
 
@@ -223,7 +226,7 @@ impl Client {
                 }
 
                 Err(Error::SerializationError(resp))
-            }
+            },
             404 => Err(Error::NotFound(path.into())),
             _ => Err(resp.into()),
         }
@@ -272,15 +275,16 @@ struct GetResponse {
     content: Option<String>,
 }
 
-// This test suite depends on the developer providing an active repository, the account where that
-// repository is hosted, and a token that can modify that repository. Due to the nature of these
-// tests, they cannot be provided in this framework and the tests are labeled as ignored
+// This test suite depends on the developer providing an active repository, the
+// account where that repository is hosted, and a token that can modify that
+// repository. Due to the nature of these tests, they cannot be provided in this
+// framework and the tests are labeled as ignored
 //
-// GitHub updates can misbehave due to changes in file structure thus dependent operations can
-// fail, for example, an update of a file reads its hash and then updates. If another operation
-// happens after the hash retrieval but before the update, the hash will change resulting in a
-// failed update. Therefore these tests must be run in series via:
-// `cargo xtest -- --ignored --test-threads=1`
+// GitHub updates can misbehave due to changes in file structure thus dependent
+// operations can fail, for example, an update of a file reads its hash and then
+// updates. If another operation happens after the hash retrieval but before the
+// update, the hash will change resulting in a failed update. Therefore these
+// tests must be run in series via: `cargo xtest -- --ignored --test-threads=1`
 #[cfg(test)]
 mod tests {
     use super::*;

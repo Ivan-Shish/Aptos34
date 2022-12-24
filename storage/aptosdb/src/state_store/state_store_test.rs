@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use super::*;
 use crate::{
     state_restore::StateSnapshotRestore,
     test_helper::{arb_state_kv_sets, update_store},
@@ -15,8 +16,6 @@ use aptos_types::{
     access_path::AccessPath, account_address::AccountAddress, state_store::state_key::StateKeyTag,
 };
 use proptest::{collection::hash_map, prelude::*};
-
-use super::*;
 
 fn put_value_set(
     state_store: &StateStore,
@@ -110,7 +109,7 @@ fn test_state_store_reader_writer() {
     let mut root = put_value_set(
         store,
         vec![(key1.clone(), value1.clone())],
-        0, /* version */
+        0, // version
         None,
     );
     verify_value_and_proof(store, key1.clone(), Some(&value1), 0, root);
@@ -118,8 +117,8 @@ fn test_state_store_reader_writer() {
     verify_value_and_proof(store, key2.clone(), None, 0, root);
     verify_value_and_proof(store, key3.clone(), None, 0, root);
 
-    // Insert address 1 with updated value1, address2 with value 2 and address3 with value3 and
-    // verify new states.
+    // Insert address 1 with updated value1, address2 with value 2 and address3 with
+    // value3 and verify new states.
 
     root = put_value_set(
         store,
@@ -128,7 +127,7 @@ fn test_state_store_reader_writer() {
             (key2.clone(), value2.clone()),
             (key3.clone(), value3.clone()),
         ],
-        1, /* version */
+        1, // version
         Some(0),
     );
 
@@ -203,7 +202,8 @@ fn test_get_values_by_key_prefix() {
         Some(0),
     );
 
-    // Ensure that we still get only values for key1 and key2 for version 0 after the update
+    // Ensure that we still get only values for key1 and key2 for version 0 after
+    // the update
     let key_value_map = traverse_values(store, &account_key_prefx, 0);
     assert_eq!(key_value_map.len(), 2);
     assert_eq!(*key_value_map.get(&key1).unwrap(), value1_v0);
@@ -256,7 +256,8 @@ pub fn test_get_state_snapshot_before() {
     assert_eq!(store.get_state_snapshot_before(1).unwrap(), Some((0, hash)));
     assert_eq!(store.get_state_snapshot_before(2).unwrap(), Some((0, hash)));
 
-    // hack: VersionData expected on every version, so duplicate the data at version 1
+    // hack: VersionData expected on every version, so duplicate the data at version
+    // 1
     let usage = store.get_usage(Some(0)).unwrap();
     store
         .ledger_db

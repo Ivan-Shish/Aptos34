@@ -12,15 +12,14 @@ pub use response::Response;
 pub mod state;
 pub mod types;
 
+use crate::{
+    aptos::{AptosVersion, Balance},
+    error::RestError,
+};
+use anyhow::{anyhow, Result};
 pub use aptos_api_types::{
     self, IndexResponseBcs, MoveModuleBytecode, PendingTransaction, Transaction,
 };
-pub use state::State;
-pub use types::{deserialize_from_prefixed_hex_string, Account, Resource};
-
-use crate::aptos::{AptosVersion, Balance};
-use crate::error::RestError;
-use anyhow::{anyhow, Result};
 use aptos_api_types::{
     deserialize_from_string,
     mime_types::{BCS, BCS_SIGNED_TRANSACTION as BCS_CONTENT_TYPE},
@@ -37,14 +36,16 @@ use aptos_types::{
     transaction::SignedTransaction,
 };
 use move_core_types::language_storage::StructTag;
-use reqwest::header::ACCEPT;
-use reqwest::{header::CONTENT_TYPE, Client as ReqwestClient, StatusCode};
+use reqwest::{
+    header::{ACCEPT, CONTENT_TYPE},
+    Client as ReqwestClient, StatusCode,
+};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
-use std::future::Future;
-use std::time::Duration;
+pub use state::State;
+use std::{collections::BTreeMap, future::Future, time::Duration};
 use tokio::time::Instant;
+pub use types::{deserialize_from_prefixed_hex_string, Account, Resource};
 use url::Url;
 
 pub const USER_AGENT: &str = concat!("aptos-client-sdk-rust / ", env!("CARGO_PKG_VERSION"));
@@ -86,7 +87,7 @@ impl Client {
                 } else {
                     path.to_string()
                 }
-            }
+            },
         };
 
         Self {
@@ -443,6 +444,7 @@ impl Client {
             .await?;
         self.json(response).await
     }
+
     pub async fn submit_batch_bcs(
         &self,
         txns: &[SignedTransaction],
@@ -541,15 +543,15 @@ impl Client {
 
     /// Implementation of waiting for a transaction
     /// * `hash`: hash of the submitted transaction
-    /// * `expiration_timestamp_secs`: expiration time of the submitted transaction
-    /// * `max_server_lag_wait`:
-    ///     Fullnodes generally lag some amount behind the authoritative blockchain ledger state.
-    ///     This field gives the node some time to update its ledger state to the point
-    ///     where your transaction might have expired.
-    ///     We recommend setting this value to at least 60 seconds.
-    /// * `timeout_from_call`:
-    ///     When an absolute timeout for this function is needed,
-    ///     irrespective of whether expiry time is reached.
+    /// * `expiration_timestamp_secs`: expiration time of the submitted
+    ///   transaction
+    /// * `max_server_lag_wait`: Fullnodes generally lag some amount behind the
+    ///   authoritative blockchain ledger state. This field gives the node some
+    ///   time to update its ledger state to the point where your transaction
+    ///   might have expired. We recommend setting this value to at least 60
+    ///   seconds.
+    /// * `timeout_from_call`: When an absolute timeout for this function is
+    ///   needed, irrespective of whether expiry time is reached.
     async fn wait_for_transaction_by_hash_inner<F, Fut, T>(
         &self,
         hash: HashValue,
@@ -571,38 +573,55 @@ impl Client {
             match fetch(hash).await? {
                 WaitForTransactionResult::Success(result) => {
                     return Ok(result);
-                }
+                },
                 WaitForTransactionResult::FailedExecution(vm_status) => {
                     return Err(anyhow!(
                         "Transaction committed on chain, but failed execution: {}",
                         vm_status
                     ))?;
-                }
+                },
                 WaitForTransactionResult::Pending(state) => {
                     reached_mempool = true;
                     if expiration_timestamp_secs <= state.timestamp_usecs / 1_000_000 {
-                        return Err(anyhow!("Transaction expired. It is guaranteed it will not be committed on chain.").into());
+                        return Err(anyhow!(
+                            "Transaction expired. It is guaranteed it will not be committed on \
+                             chain."
+                        )
+                        .into());
                     }
                     chain_timestamp_usecs = Some(state.timestamp_usecs);
-                }
+                },
                 WaitForTransactionResult::NotFound(error) => {
                     if let RestError::Api(aptos_error_response) = error {
                         if let Some(state) = aptos_error_response.state {
                             if expiration_timestamp_secs <= state.timestamp_usecs / 1_000_000 {
                                 if reached_mempool {
-                                    return Err(anyhow!("Transaction expired. It is guaranteed it will not be committed on chain.").into());
+                                    return Err(anyhow!(
+                                        "Transaction expired. It is guaranteed it will not be \
+                                         committed on chain."
+                                    )
+                                    .into());
                                 } else {
-                                    // We want to know whether we ever got Pending state from the mempool,
-                                    // to warn in case we didn't.
-                                    // Unless we are calling endpoint that is a very large load-balanced pool of nodes,
-                                    // we should always see pending after submitting a transaction.
+                                    // We want to know whether we ever got Pending state from the
+                                    // mempool, to warn in case
+                                    // we didn't. Unless we are
+                                    // calling endpoint that is a very large load-balanced pool of
+                                    // nodes, we should always
+                                    // see pending after submitting a transaction.
                                     // (i.e. if we hit the node we submitted a transaction to,
                                     // it shouldn't return NotFound on the first call)
                                     //
-                                    // At the end, when the expiration happens, we might get NotFound or Pending
-                                    // based on whether GC run on the full node to remove expired transaction,
-                                    // so that information is not useful. So we need to keep this variable as state.
-                                    return Err(anyhow!("Transaction expired, without being seen in mempool. It is guaranteed it will not be committed on chain.").into());
+                                    // At the end, when the expiration happens, we might get
+                                    // NotFound or Pending based
+                                    // on whether GC run on the full node to remove expired
+                                    // transaction,
+                                    // so that information is not useful. So we need to keep this
+                                    // variable as state.
+                                    return Err(anyhow!(
+                                        "Transaction expired, without being seen in mempool. It \
+                                         is guaranteed it will not be committed on chain."
+                                    )
+                                    .into());
                                 }
                             }
                             chain_timestamp_usecs = Some(state.timestamp_usecs);
@@ -617,7 +636,7 @@ impl Client {
                             self.path_prefix_string(),
                         )
                     );
-                }
+                },
             }
 
             if let Some(max_server_lag_wait_duration) = max_server_lag_wait {
@@ -625,11 +644,14 @@ impl Client {
                     > expiration_timestamp_secs + max_server_lag_wait_duration.as_secs()
                 {
                     return Err(anyhow!(
-                        "Ledger on endpoint ({}) is more than {}s behind current time, timing out waiting for the transaction. Warning, transaction ({}) might still succeed.",
+                        "Ledger on endpoint ({}) is more than {}s behind current time, timing out \
+                         waiting for the transaction. Warning, transaction ({}) might still \
+                         succeed.",
                         self.path_prefix_string(),
                         max_server_lag_wait_duration.as_secs(),
                         hash,
-                    ).into());
+                    )
+                    .into());
                 }
             }
 
@@ -637,10 +659,12 @@ impl Client {
             if let Some(timeout_duration) = timeout_from_call {
                 if elapsed > timeout_duration {
                     return Err(anyhow!(
-                        "Timeout of {}s after calling wait_for_transaction reached. Warning, transaction ({}) might still succeed.",
+                        "Timeout of {}s after calling wait_for_transaction reached. Warning, \
+                         transaction ({}) might still succeed.",
                         timeout_duration.as_secs(),
                         hash,
-                    ).into());
+                    )
+                    .into());
                 }
             }
 
@@ -722,31 +746,33 @@ impl Client {
             expiration_timestamp_secs,
             max_server_lag_wait,
             timeout_from_call,
-            |hash| async move {
-                let resp = self.get_transaction_by_hash_bcs_inner(hash).await?;
-                if resp.status() != StatusCode::NOT_FOUND {
-                    let resp = self.check_and_parse_bcs_response(resp).await?;
-                    let resp = resp.and_then(|bytes| bcs::from_bytes(&bytes))?;
-                    let (maybe_pending_txn, state) = resp.into_parts();
+            |hash| {
+                async move {
+                    let resp = self.get_transaction_by_hash_bcs_inner(hash).await?;
+                    if resp.status() != StatusCode::NOT_FOUND {
+                        let resp = self.check_and_parse_bcs_response(resp).await?;
+                        let resp = resp.and_then(|bytes| bcs::from_bytes(&bytes))?;
+                        let (maybe_pending_txn, state) = resp.into_parts();
 
-                    // If we have a committed transaction, determine if it failed or not
-                    if let TransactionData::OnChain(txn) = maybe_pending_txn {
-                        let status = txn.info.status();
+                        // If we have a committed transaction, determine if it failed or not
+                        if let TransactionData::OnChain(txn) = maybe_pending_txn {
+                            let status = txn.info.status();
 
-                        if status.is_success() {
-                            Ok(WaitForTransactionResult::Success(Response::new(txn, state)))
+                            if status.is_success() {
+                                Ok(WaitForTransactionResult::Success(Response::new(txn, state)))
+                            } else {
+                                Ok(WaitForTransactionResult::FailedExecution(format!(
+                                    "{:?}",
+                                    status
+                                )))
+                            }
                         } else {
-                            Ok(WaitForTransactionResult::FailedExecution(format!(
-                                "{:?}",
-                                status
-                            )))
+                            Ok(WaitForTransactionResult::Pending(state))
                         }
                     } else {
-                        Ok(WaitForTransactionResult::Pending(state))
+                        let error_response = parse_error(resp).await;
+                        Ok(WaitForTransactionResult::NotFound(error_response))
                     }
-                } else {
-                    let error_response = parse_error(resp).await;
-                    Ok(WaitForTransactionResult::NotFound(error_response))
                 }
             },
         )
@@ -1398,7 +1424,7 @@ impl Client {
                 Err(err) => match err {
                     RestError::Api(inner) => {
                         should_retry(inner.status_code, Some(inner.error.clone()))
-                    }
+                    },
                     RestError::Http(status_code, _e) => should_retry(*status_code, None),
                     RestError::Bcs(_)
                     | RestError::Json(_)
@@ -1425,8 +1451,8 @@ impl Client {
         result
     }
 
-    /// This function builds a URL for use in pagination. It handles setting a limit,
-    /// adding the cursor, and adding a ledger version if given.
+    /// This function builds a URL for use in pagination. It handles setting a
+    /// limit, adding the cursor, and adding a ledger version if given.
     pub fn build_url_for_pagination(
         &self,
         base: &str,
@@ -1444,12 +1470,12 @@ impl Client {
         self.build_path(&path)
     }
 
-    /// This function calls an endpoint that has pagination support and paginates
-    /// using the cursor the API returns. It keeps paginating until the API doesn't
-    /// return a cursor anymore. Since the functions calling this function are
-    /// expected to return the data wrapped in a Response (exactly one), we return
-    /// the full results merged together wrapped in the Response we received from
-    /// the final call.
+    /// This function calls an endpoint that has pagination support and
+    /// paginates using the cursor the API returns. It keeps paginating
+    /// until the API doesn't return a cursor anymore. Since the functions
+    /// calling this function are expected to return the data wrapped in a
+    /// Response (exactly one), we return the full results merged together
+    /// wrapped in the Response we received from the final call.
     pub async fn paginate_with_cursor<T: for<'a> Deserialize<'a>>(
         &self,
         base_path: &str,
@@ -1480,9 +1506,9 @@ impl Client {
         }
     }
 
-    /// This function works just like `paginate_with_cursor`, but it calls the internal
-    /// helper functions for dealing with BCS data and collects data in the format we
-    /// use for BCS endpoint functions.
+    /// This function works just like `paginate_with_cursor`, but it calls the
+    /// internal helper functions for dealing with BCS data and collects
+    /// data in the format we use for BCS endpoint functions.
     pub async fn paginate_with_cursor_bcs<T: for<'a> Deserialize<'a> + Ord>(
         &self,
         base_path: &str,

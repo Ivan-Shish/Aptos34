@@ -1,10 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! There is only one noise based Checker right now, so this Provider is a bit light
-//! on features, it just makes it possible to make a noise connection.
-
-use std::sync::Arc;
+//! There is only one noise based Checker right now, so this Provider is a bit
+//! light on features, it just makes it possible to make a noise connection.
 
 use super::{
     api_index::ApiIndexProvider,
@@ -19,6 +17,7 @@ use aptos_network_checker::{
 use aptos_sdk::types::{chain_id::ChainId, network_address::NetworkAddress};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -54,8 +53,8 @@ impl NoiseProvider {
         }
     }
 
-    /// This function provides an opionated extra step over just the `provide` call by
-    /// actually trying to establih a connection.
+    /// This function provides an opionated extra step over just the `provide`
+    /// call by actually trying to establih a connection.
     pub async fn establish_connection(&self) -> Result<String> {
         check_endpoint(
             &CheckEndpointArgs {

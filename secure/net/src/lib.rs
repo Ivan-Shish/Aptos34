@@ -3,17 +3,19 @@
 
 #![forbid(unsafe_code)]
 
-//! This provides a simple networking substrate between a client and server. It is assumed that all
-//! operations are blocking and return only complete blocks of data. The intended use case has the
-//! server blocking on read.  Upon receiving a payload during a read, the server should process the
-//! payload, write a response, and then block on read again. The client should block on read after
-//! performing a write. Upon errors or remote disconnections, the call (read, write) will return an
-//! error to let the caller know of the event. A follow up call will result in the service
-//! attempting to either reconnect in the case of a client or accept a new client in the case of a
-//! server.
+//! This provides a simple networking substrate between a client and server. It
+//! is assumed that all operations are blocking and return only complete blocks
+//! of data. The intended use case has the server blocking on read.  Upon
+//! receiving a payload during a read, the server should process the
+//! payload, write a response, and then block on read again. The client should
+//! block on read after performing a write. Upon errors or remote
+//! disconnections, the call (read, write) will return an error to let the
+//! caller know of the event. A follow up call will result in the service
+//! attempting to either reconnect in the case of a client or accept a new
+//! client in the case of a server.
 //!
-//! Internally both the client and server leverage a NetworkStream that communications in blocks
-//! where a block is a length prefixed array of bytes.
+//! Internally both the client and server leverage a NetworkStream that
+//! communications in blocks where a block is a length prefixed array of bytes.
 
 use aptos_logger::{info, trace, warn, Schema};
 use aptos_metrics_core::{register_int_counter_vec, IntCounterVec};
@@ -387,7 +389,7 @@ impl NetworkServer {
                     )
                     .error(&err));
                     return Err(err);
-                }
+                },
             };
 
             self.increment_counter(Method::Connect, MethodResult::Success);
@@ -475,9 +477,10 @@ impl NetworkStream {
         Ok(())
     }
 
-    /// Data sent on a TCP socket may not necessarily be delivered at the exact time. So a read may
-    /// only include a subset of what was sent. This wraps around the TCP read buffer to ensure
-    /// that only full messages are received.
+    /// Data sent on a TCP socket may not necessarily be delivered at the exact
+    /// time. So a read may only include a subset of what was sent. This
+    /// wraps around the TCP read buffer to ensure that only full messages
+    /// are received.
     fn read_buffer(&mut self) -> Vec<u8> {
         if self.buffer.len() < 4 {
             return Vec::new();
@@ -497,8 +500,9 @@ impl NetworkStream {
         returnable_data
     }
 
-    /// Writing to a TCP socket will take in as much data as the underlying buffer has space for.
-    /// This wraps around that buffer and blocks until all the data has been pushed.
+    /// Writing to a TCP socket will take in as much data as the underlying
+    /// buffer has space for. This wraps around that buffer and blocks until
+    /// all the data has been pushed.
     fn write_all(&mut self, data: &[u8]) -> Result<(), Error> {
         let mut unwritten = data;
         let mut total_written: u64 = 0;
@@ -579,7 +583,8 @@ mod test {
         let mut server = NetworkServer::new("test", server_addr, TIMEOUT);
 
         let data = vec![4, 5, 6, 7];
-        // We aren't notified immediately that a server has shutdown, but it happens eventually
+        // We aren't notified immediately that a server has shutdown, but it happens
+        // eventually
         while client.write(&data).is_ok() {}
 
         let data = vec![8, 9, 10, 11];
@@ -621,8 +626,8 @@ mod test {
         // Timedout
         server.read().unwrap_err();
 
-        // New client, success, note the previous client connection is still active, the server is
-        // actively letting it go due to lack of activity.
+        // New client, success, note the previous client connection is still active, the
+        // server is actively letting it go due to lack of activity.
         let mut client2 = NetworkClient::new("test", server_addr, TIMEOUT);
         client2.write(&data2).unwrap();
         let result2 = server.read().unwrap();
@@ -646,8 +651,8 @@ mod test {
         // Timedout, it is hard to simulate a client receiving a write timeout
         client.read().unwrap_err();
 
-        // Clean up old Server listener but keep the stream online. Start a new server, which will
-        // be the one the client now connects to.
+        // Clean up old Server listener but keep the stream online. Start a new server,
+        // which will be the one the client now connects to.
         server.listener = None;
         let mut server2 = NetworkServer::new("test", server_addr, TIMEOUT);
 

@@ -1,9 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::BTreeMap;
-
 use shadow_rs::{is_release, shadow};
+use std::collections::BTreeMap;
 
 /// Build information keys
 pub const BUILD_BRANCH: &str = "build_branch";
@@ -44,8 +43,9 @@ macro_rules! build_information {
 /// WARNING: This does not return the expected value for the `dev`, `test`,
 /// and `bench` profiles. See the SO link above for more details.
 fn get_build_profile_name() -> String {
-    // The profile name is always the 3rd last part of the path (with 1 based indexing).
-    // e.g. /code/core/target/debug/build/aptos-build-info-9f91ba6f99d7a061/out
+    // The profile name is always the 3rd last part of the path (with 1 based
+    // indexing). e.g. /code/core/target/debug/build/
+    // aptos-build-info-9f91ba6f99d7a061/out
     std::env!("OUT_DIR")
         .split(std::path::MAIN_SEPARATOR)
         .nth_back(3)
@@ -104,8 +104,8 @@ pub fn get_build_information() -> BTreeMap<String, String> {
 }
 
 pub fn get_git_hash() -> String {
-    // Docker builds don't have the git directory so it has to be provided by this variable
-    // Otherwise, shadow will have the right commit hash
+    // Docker builds don't have the git directory so it has to be provided by this
+    // variable Otherwise, shadow will have the right commit hash
     if let Ok(git_sha) = std::env::var("GIT_SHA") {
         git_sha
     } else {

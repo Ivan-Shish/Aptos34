@@ -5,8 +5,6 @@
 //! (for accessing the storage) and an operation: a partial function with a
 //! postcondition.
 
-use std::collections::BTreeMap;
-
 use crate::module::AGGREGATOR_MODULE;
 use aptos_state_view::StateView;
 use aptos_types::{
@@ -15,6 +13,7 @@ use aptos_types::{
     write_set::{WriteOp, WriteSetMut},
 };
 use move_binary_format::errors::{Location, PartialVMError, PartialVMResult};
+use std::collections::BTreeMap;
 
 /// When `Addition` operation overflows the `limit`.
 const EADD_OVERFLOW: u64 = 0x02_0001;
@@ -113,12 +112,14 @@ impl DeltaOp {
         use DeltaUpdate::*;
 
         // First, update the history values of this delta given that it starts from
-        // +value or -value instead of 0. We should do this check to avoid cases like this:
+        // +value or -value instead of 0. We should do this check to avoid cases like
+        // this:
         //
-        // Suppose we have deltas with limit of 100, and we have some `d2` which is +3 but it
-        // was +99 at some point. Now, if we merge some `d1` which is +2 with `d2`, we get
-        // the result is +5. However, it should not have happened because `d2` should hit
-        // +2+99 > 100 at some point in history and fail.
+        // Suppose we have deltas with limit of 100, and we have some `d2` which is +3
+        // but it was +99 at some point. Now, if we merge some `d1` which is +2
+        // with `d2`, we get the result is +5. However, it should not have
+        // happened because `d2` should hit +2+99 > 100 at some point in history
+        // and fail.
         let shifted_max_positive = self.shifted_max_positive_by(&previous_delta)?;
         let shifted_min_negative = self.shifted_min_negative_by(&previous_delta)?;
 
@@ -126,7 +127,7 @@ impl DeltaOp {
         // In this cases we compute the absolute sum of deltas (A+B) and use plus
         // or minus sign accordingly.
         macro_rules! update_same_sign {
-            ($sign: ident, $a: ident, $b: ident) => {
+            ($sign:ident, $a:ident, $b:ident) => {
                 self.update = $sign(addition($a, $b, self.limit)?)
             };
         }
@@ -135,7 +136,7 @@ impl DeltaOp {
         // as +A-B and -A+B. In these cases we have to check which of A or B is greater
         // and possibly flip a sign.
         macro_rules! update_different_sign {
-            ($a: ident, $b: ident) => {
+            ($a:ident, $b:ident) => {
                 if $a >= $b {
                     self.update = Plus(subtraction($a, $b)?);
                 } else {
@@ -186,7 +187,7 @@ impl DeltaOp {
                                     .into_vm_status()
                             })
                             .map(|result| WriteOp::Modification(serialize(&result)))
-                    }
+                    },
                     // Something is wrong, the value to which we apply delta should
                     // always exist. Guard anyway.
                     None => Err(VMStatus::Error(StatusCode::STORAGE_ERROR)),
@@ -236,14 +237,14 @@ impl std::fmt::Debug for DeltaOp {
                     "+{} ensures 0 <= result <= {}, range [-{}, {}]",
                     value, self.limit, self.min_negative, self.max_positive
                 )
-            }
+            },
             DeltaUpdate::Minus(value) => {
                 write!(
                     f,
                     "-{} ensures 0 <= result <= {}, range [-{}, {}]",
                     value, self.limit, self.min_negative, self.max_positive
                 )
-            }
+            },
         }
     }
 }
@@ -268,7 +269,8 @@ pub fn delta_add(v: u128, limit: u128) -> DeltaOp {
     DeltaOp::new(DeltaUpdate::Plus(v), limit, v, 0)
 }
 
-/// `DeltaChangeSet` contains all access paths that one transaction wants to update with deltas.
+/// `DeltaChangeSet` contains all access paths that one transaction wants to
+/// update with deltas.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DeltaChangeSet {
     delta_change_set: BTreeMap<StateKey, DeltaOp>,
@@ -332,8 +334,8 @@ impl DeltaChangeSet {
 }
 
 impl<'a> IntoIterator for &'a DeltaChangeSet {
-    type Item = (&'a StateKey, &'a DeltaOp);
     type IntoIter = ::std::collections::btree_map::Iter<'a, StateKey, DeltaOp>;
+    type Item = (&'a StateKey, &'a DeltaOp);
 
     fn into_iter(self) -> Self::IntoIter {
         self.delta_change_set.iter()
@@ -341,8 +343,8 @@ impl<'a> IntoIterator for &'a DeltaChangeSet {
 }
 
 impl ::std::iter::IntoIterator for DeltaChangeSet {
-    type Item = (StateKey, DeltaOp);
     type IntoIter = ::std::collections::btree_map::IntoIter<StateKey, DeltaOp>;
+    type Item = (StateKey, DeltaOp);
 
     fn into_iter(self) -> Self::IntoIter {
         self.delta_change_set.into_iter()

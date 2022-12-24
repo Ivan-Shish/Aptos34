@@ -369,15 +369,15 @@ fn test_api(use_root_hash: bool) {
         let p = expected_weights[i] as f32 / total_weights as f32;
         let expected = (1000.0 * p) as i32;
         let std_dev = (1000.0 * p * (1.0 - p)).pow(0.5);
-        // We've run the election enough times, to expect occurances to be close to the average
-        // (each test is independent, as seed is different for every cycle)
-        // We check that difference from average is below 3 standard deviations,
-        // which will approximately be true in 99.7% of cases.
+        // We've run the election enough times, to expect occurances to be close to the
+        // average (each test is independent, as seed is different for every
+        // cycle) We check that difference from average is below 3 standard
+        // deviations, which will approximately be true in 99.7% of cases.
         // (as we can approximate each selection with normal distribution)
         //
-        // Test is deterministic, as all seeds are, so if it passes once, shouldn't ever fail.
-        // Meaning, wheen we change the selection formula, there is 0.3% chance this test will fail
-        // unnecessarily.
+        // Test is deterministic, as all seeds are, so if it passes once, shouldn't ever
+        // fail. Meaning, wheen we change the selection formula, there is 0.3%
+        // chance this test will fail unnecessarily.
         assert!(
             expected.abs_diff(selected[i]) as f32 <= 3.0 * std_dev,
             "{}: expected={} selected={}, std_dev: {}",
@@ -518,7 +518,8 @@ impl DbReader for MockDbReader {
     }
 
     /// Gets the transaction accumulator root hash at specified version.
-    /// Caller must guarantee the version is not greater than the latest version.
+    /// Caller must guarantee the version is not greater than the latest
+    /// version.
     fn get_accumulator_root_hash(&self, _version: Version) -> anyhow::Result<HashValue> {
         Ok(HashValue::zero())
     }
@@ -574,7 +575,8 @@ fn backend_wrapper_test() {
     assert_history(9, vec![8, 7, 6], true);
     assert_history(9, vec![8, 7, 6], false);
     aptos_db.add_event(1, 11);
-    // since we already saw round 10, and are asking for round 9, no need to fetch again.
+    // since we already saw round 10, and are asking for round 9, no need to fetch
+    // again.
     assert_history(9, vec![8, 7, 6], false);
     aptos_db.add_event(1, 12);
     assert_history(9, vec![8, 7, 6], false);
@@ -585,11 +587,13 @@ fn backend_wrapper_test() {
     assert_history(11, vec![11, 10, 8], true);
     assert_history(12, vec![12, 11, 10], false);
 
-    // since history include target round, unrelated transaction don't require refresh
+    // since history include target round, unrelated transaction don't require
+    // refresh
     aptos_db.add_another_transaction();
     assert_history(12, vec![12, 11, 10], false);
 
-    // since history doesn't include target round, any unrelated transaction requires refresh
+    // since history doesn't include target round, any unrelated transaction
+    // requires refresh
     assert_history(13, vec![12, 11, 10], true);
     aptos_db.add_another_transaction();
     assert_history(13, vec![12, 11, 10], true);

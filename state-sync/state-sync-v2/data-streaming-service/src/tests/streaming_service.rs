@@ -60,10 +60,10 @@ async fn test_notifications_state_values() {
                 );
 
                 next_expected_index += num_state_values;
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_index, TOTAL_NUM_STATE_VALUES)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -92,14 +92,15 @@ async fn test_notifications_state_values_limited_chunks() {
                 } else {
                     true // We hit a non-contiguous chunk
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 if next_expected_index != TOTAL_NUM_STATE_VALUES {
-                    true // The stream thought it had completed, but the chunk was incomplete
+                    true // The stream thought it had completed, but the chunk
+                         // was incomplete
                 } else {
                     return; // All data was received!
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         };
 
@@ -164,10 +165,10 @@ async fn test_notifications_state_values_multiple_streams() {
                         .await
                         .unwrap();
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_index, TOTAL_NUM_STATE_VALUES)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -214,7 +215,7 @@ async fn test_notifications_continuous_outputs() {
                     if ledger_info.version() == last_output_version && ledger_info.ends_epoch() {
                         next_expected_epoch += 1;
                     }
-                }
+                },
                 data_payload => unexpected_payload_type!(data_payload),
             }
         } else {
@@ -267,10 +268,10 @@ async fn test_notifications_continuous_outputs_target() {
                 if ledger_info.version() == last_output_version && ledger_info.ends_epoch() {
                     next_expected_epoch += 1;
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_version, target_version + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -325,7 +326,7 @@ async fn test_notifications_continuous_outputs_limited_chunks() {
                 } else {
                     true // We hit a non-contiguous chunk
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         };
 
@@ -417,7 +418,7 @@ async fn test_notifications_continuous_outputs_multiple_streams() {
                 if next_expected_epoch > end_epoch {
                     return;
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -471,7 +472,7 @@ async fn test_notifications_continuous_transactions() {
                     {
                         next_expected_epoch += 1;
                     }
-                }
+                },
                 data_payload => unexpected_payload_type!(data_payload),
             }
         } else {
@@ -531,7 +532,7 @@ async fn test_notifications_continuous_transactions_limited_chunks() {
                 } else {
                     true // We hit a non-contiguous chunk
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         };
 
@@ -609,10 +610,10 @@ async fn test_notifications_continuous_transactions_target() {
                 if ledger_info.version() == last_transaction_version && ledger_info.ends_epoch() {
                     next_expected_epoch += 1;
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_version, target_version + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -642,10 +643,10 @@ async fn test_notifications_epoch_ending() {
                     assert_le!(epoch, MAX_ADVERTISED_EPOCH_END);
                     next_expected_epoch += 1;
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_epoch, MAX_ADVERTISED_EPOCH_END + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -675,14 +676,15 @@ async fn test_notifications_epoch_ending_limited_chunks() {
                 } else {
                     true // We hit a non-contiguous chunk
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 if next_expected_epoch != MAX_ADVERTISED_EPOCH_END + 1 {
-                    true // The stream thought it had completed, but the chunk was incomplete
+                    true // The stream thought it had completed, but the chunk
+                         // was incomplete
                 } else {
                     return; // All data was received!
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         };
 
@@ -744,10 +746,10 @@ async fn test_notifications_epoch_ending_multiple_streams() {
                         .await
                         .unwrap();
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_epoch, MAX_ADVERTISED_EPOCH_END + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -794,7 +796,7 @@ async fn test_notifications_subscribe_outputs() {
                     if ledger_info.version() == last_output_version && ledger_info.ends_epoch() {
                         next_expected_epoch += 1;
                     }
-                }
+                },
                 data_payload => unexpected_payload_type!(data_payload),
             }
         } else {
@@ -849,7 +851,7 @@ async fn test_notifications_subscribe_transactions() {
                     {
                         next_expected_epoch += 1;
                     }
-                }
+                },
                 data_payload => unexpected_payload_type!(data_payload),
             }
         } else {
@@ -886,10 +888,10 @@ async fn test_notifications_transaction_outputs() {
 
                 let num_outputs = outputs_with_proof.transactions_and_outputs.len();
                 next_expected_version += num_outputs as u64;
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_version, MAX_ADVERTISED_TRANSACTION_OUTPUT + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -925,14 +927,15 @@ async fn test_notifications_transaction_outputs_limited_chunks() {
                 } else {
                     true // We hit a non-contiguous chunk
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 if next_expected_version != MAX_ADVERTISED_TRANSACTION_OUTPUT + 1 {
-                    true // The stream thought it had completed, but the chunk was incomplete
+                    true // The stream thought it had completed, but the chunk
+                         // was incomplete
                 } else {
                     return; // All data was received!
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         };
 
@@ -992,10 +995,10 @@ async fn test_notifications_transactions() {
 
                 let num_transactions = transactions_with_proof.transactions.len();
                 next_expected_transaction += num_transactions as u64;
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_transaction, MAX_ADVERTISED_TRANSACTION + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -1031,14 +1034,15 @@ async fn test_notifications_transactions_limited_chunks() {
                 } else {
                     true // We hit a non-contiguous chunk
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 if next_expected_version != MAX_ADVERTISED_TRANSACTION + 1 {
-                    true // The stream thought it had completed, but the chunk was incomplete
+                    true // The stream thought it had completed, but the chunk
+                         // was incomplete
                 } else {
                     return; // All data was received!
                 }
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         };
 
@@ -1118,10 +1122,10 @@ async fn test_notifications_transactions_multiple_streams() {
                         .await
                         .unwrap();
                 }
-            }
+            },
             DataPayload::EndOfStream => {
                 return assert_eq!(next_expected_version, MAX_ADVERTISED_TRANSACTION + 1)
-            }
+            },
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -1208,7 +1212,8 @@ async fn test_stream_continuous_outputs_target() {
 
     // Request a stream where data is missing (the target version is higher than
     // advertised) and verify the stream is still created. This covers the case
-    // where the advertised data is lagging behind the target requested by consensus.
+    // where the advertised data is lagging behind the target requested by
+    // consensus.
     let result = streaming_client
         .continuously_stream_transaction_outputs(
             MIN_ADVERTISED_TRANSACTION_OUTPUT - 1,
@@ -1228,7 +1233,8 @@ async fn test_stream_continuous_transactions() {
     // Create a new streaming client and service
     let streaming_client = create_streaming_client_and_service();
 
-    // Request a continuous transaction stream and verify we get a data stream listener
+    // Request a continuous transaction stream and verify we get a data stream
+    // listener
     let result = streaming_client
         .continuously_stream_transactions(
             MIN_ADVERTISED_TRANSACTION - 1,
@@ -1267,7 +1273,8 @@ async fn test_stream_continuous_transactions_target() {
     // Create a new streaming client and service
     let streaming_client = create_streaming_client_and_service();
 
-    // Request a continuous transaction stream and verify we get a data stream listener
+    // Request a continuous transaction stream and verify we get a data stream
+    // listener
     let result = streaming_client
         .continuously_stream_transactions(
             MIN_ADVERTISED_TRANSACTION - 1,
@@ -1284,7 +1291,8 @@ async fn test_stream_continuous_transactions_target() {
 
     // Request a stream where data is missing (the target version is higher than
     // advertised) and verify the stream is still created. This covers the case
-    // where the advertised data is lagging behind the target requested by consensus.
+    // where the advertised data is lagging behind the target requested by
+    // consensus.
     let result = streaming_client
         .continuously_stream_transactions(
             MIN_ADVERTISED_TRANSACTION - 1,
@@ -1376,7 +1384,8 @@ async fn test_stream_transactions() {
         .await;
     assert_ok!(result);
 
-    // Request a stream where transactions are missing (we are higher than advertised)
+    // Request a stream where transactions are missing (we are higher than
+    // advertised)
     let result = streaming_client
         .get_all_transactions(
             MIN_ADVERTISED_TRANSACTION,
@@ -1430,8 +1439,8 @@ async fn test_terminate_complete_stream() {
                     .await;
                 assert_ok!(result);
                 return;
-            }
-            DataPayload::TransactionOutputsWithProof(_) => {}
+            },
+            DataPayload::TransactionOutputsWithProof(_) => {},
             data_payload => unexpected_payload_type!(data_payload),
         }
     }
@@ -1452,7 +1461,7 @@ async fn test_terminate_stream() {
     // Fetch the first state value notification and then terminate the stream
     let data_notification = get_data_notification(&mut stream_listener).await.unwrap();
     match data_notification.data_payload {
-        DataPayload::StateValuesWithProof(_) => {}
+        DataPayload::StateValuesWithProof(_) => {},
         data_payload => unexpected_payload_type!(data_payload),
     }
 
@@ -1472,7 +1481,7 @@ async fn test_terminate_stream() {
     loop {
         let data_notification = get_data_notification(&mut stream_listener).await.unwrap();
         match data_notification.data_payload {
-            DataPayload::StateValuesWithProof(_) => {}
+            DataPayload::StateValuesWithProof(_) => {},
             DataPayload::EndOfStream => panic!("The stream should have terminated!"),
             data_payload => unexpected_payload_type!(data_payload),
         }

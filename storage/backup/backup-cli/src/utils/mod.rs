@@ -16,18 +16,20 @@ use aptos_config::config::{
     DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD, NO_OP_STORAGE_PRUNER_CONFIG,
 };
 use aptos_crypto::HashValue;
-use aptos_db::state_restore::StateSnapshotProgress;
 use aptos_db::{
     backup::restore_handler::RestoreHandler,
-    state_restore::{StateSnapshotRestore, StateValueBatch, StateValueWriter},
+    state_restore::{
+        StateSnapshotProgress, StateSnapshotRestore, StateValueBatch, StateValueWriter,
+    },
     AptosDB, GetRestoreHandler,
 };
 use aptos_infallible::duration_since_epoch;
 use aptos_jellyfish_merkle::{NodeBatch, TreeWriter};
 use aptos_logger::info;
-use aptos_types::state_store::state_storage_usage::StateStorageUsage;
 use aptos_types::{
-    state_store::{state_key::StateKey, state_value::StateValue},
+    state_store::{
+        state_key::StateKey, state_storage_usage::StateStorageUsage, state_value::StateValue,
+    },
     transaction::Version,
     waypoint::Waypoint,
 };
@@ -116,8 +118,8 @@ pub struct GlobalRestoreOpt {
 
     #[clap(
         long,
-        help = "Content newer than this version will not be recovered to DB, \
-        defaulting to the largest version possible, meaning recover everything in the backups."
+        help = "Content newer than this version will not be recovered to DB, defaulting to the \
+                largest version possible, meaning recover everything in the backups."
     )]
     pub target_version: Option<Version>,
 
@@ -189,7 +191,7 @@ impl RestoreRunMode {
         match self {
             Self::Restore { restore_handler } => {
                 restore_handler.get_state_restore_receiver(version, expected_root_hash)
-            }
+            },
             Self::Verify => {
                 let mock_store = Arc::new(MockStore);
                 StateSnapshotRestore::new_overwrite(
@@ -198,7 +200,7 @@ impl RestoreRunMode {
                     version,
                     expected_root_hash,
                 )
-            }
+            },
         }
     }
 
@@ -206,7 +208,7 @@ impl RestoreRunMode {
         match self {
             Self::Restore { restore_handler } => {
                 restore_handler.reset_state_store();
-            }
+            },
             Self::Verify => (),
         }
     }
@@ -215,11 +217,11 @@ impl RestoreRunMode {
         match self {
             RestoreRunMode::Restore { restore_handler } => {
                 restore_handler.get_next_expected_transaction_version()
-            }
+            },
             RestoreRunMode::Verify => {
                 info!("This is a dry run. Assuming resuming point at version 0.");
                 Ok(0)
-            }
+            },
         }
     }
 
@@ -227,7 +229,7 @@ impl RestoreRunMode {
         match self {
             RestoreRunMode::Restore { restore_handler } => {
                 restore_handler.get_in_progress_state_snapshot_version()
-            }
+            },
             RestoreRunMode::Verify => Ok(None),
         }
     }
@@ -252,8 +254,8 @@ impl TryFrom<GlobalRestoreOpt> for GlobalRestoreOptions {
         let run_mode = if let Some(db_dir) = &opt.db_dir {
             let restore_handler = Arc::new(AptosDB::open(
                 db_dir,
-                false,                       /* read_only */
-                NO_OP_STORAGE_PRUNER_CONFIG, /* pruner config */
+                false,                       // read_only
+                NO_OP_STORAGE_PRUNER_CONFIG, // pruner config
                 opt.rocksdb_opt.into(),
                 false,
                 BUFFERED_STATE_TARGET_ITEMS,
@@ -278,15 +280,14 @@ impl TryFrom<GlobalRestoreOpt> for GlobalRestoreOptions {
 pub struct TrustedWaypointOpt {
     #[clap(
         long,
-        help = "(multiple) When provided, an epoch ending LedgerInfo at the waypoint version will be \
-        checked against the hash in the waypoint, but signatures on it are NOT checked. \
-        Use this for two purposes: \
-        1. set the genesis or the latest waypoint to confirm the backup is compatible. \
-        2. set waypoints at versions where writeset transactions were used to overwrite the \
-        validator set, so that the signature check is skipped. \
-        N.B. LedgerInfos are verified only when restoring / verifying the epoch ending backups, \
-        i.e. they are NOT checked at all when doing one-shot restoring of the transaction \
-        and state backups."
+        help = "(multiple) When provided, an epoch ending LedgerInfo at the waypoint version will \
+                be checked against the hash in the waypoint, but signatures on it are NOT \
+                checked. Use this for two purposes: 1. set the genesis or the latest waypoint to \
+                confirm the backup is compatible. 2. set waypoints at versions where writeset \
+                transactions were used to overwrite the validator set, so that the signature \
+                check is skipped. N.B. LedgerInfos are verified only when restoring / verifying \
+                the epoch ending backups, i.e. they are NOT checked at all when doing one-shot \
+                restoring of the transaction and state backups."
     )]
     pub trust_waypoint: Vec<Waypoint>,
 }
@@ -310,7 +311,8 @@ pub struct ConcurrentDownloadsOpt {
     #[clap(
         long,
         help = "Number of concurrent downloads from the backup storage. This covers the initial \
-        metadata downloads as well. Speeds up remote backup access. [Defaults to number of CPUs]"
+                metadata downloads as well. Speeds up remote backup access. [Defaults to number \
+                of CPUs]"
     )]
     concurrent_downloads: Option<usize>,
 }
@@ -331,8 +333,8 @@ pub struct ReplayConcurrencyLevelOpt {
     /// AptosVM::set_concurrency_level_once() is called with this
     #[clap(
         long,
-        help = "concurrency_level used by the transaction executor, applicable when replaying transactions \
-        after a state snapshot. [Defaults to number of CPUs]"
+        help = "concurrency_level used by the transaction executor, applicable when replaying \
+                transactions after a state snapshot. [Defaults to number of CPUs]"
     )]
     replay_concurrency_level: Option<usize>,
 }

@@ -13,7 +13,8 @@ fn analyze_serde_formats() {
         // Compute the Serde formats of this corpus by analyzing the codebase.
         let registry = corpus.get_registry();
 
-        // If the corpus was recorded on disk, test that the formats have not changed since then.
+        // If the corpus was recorded on disk, test that the formats have not changed
+        // since then.
         if let Some(path) = corpus.output_file() {
             let content = std::fs::read_to_string(path).unwrap();
             let expected = serde_yaml::from_str::<Registry>(content.as_str()).unwrap();
@@ -33,16 +34,19 @@ fn analyze_serde_formats() {
             match all_corpuses.entry(key.clone()) {
                 Entry::Vacant(e) => {
                     e.insert(value);
-                }
-                Entry::Occupied(e) => assert_eq!(
-                    e.get(),
-                    &value,
-                    "Type {} in corpus {} differs with previous definition in another corpus: {:?} vs {:?}",
-                    key,
-                    corpus,
-                    e.get(),
-                    &value,
-                ),
+                },
+                Entry::Occupied(e) => {
+                    assert_eq!(
+                        e.get(),
+                        &value,
+                        "Type {} in corpus {} differs with previous definition in another corpus: \
+                         {:?} vs {:?}",
+                        key,
+                        corpus,
+                        e.get(),
+                        &value,
+                    )
+                },
             }
         }
     }

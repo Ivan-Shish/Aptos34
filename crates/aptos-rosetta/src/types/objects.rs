@@ -5,18 +5,16 @@
 //!
 //! [Spec](https://www.rosetta-api.org/docs/api_objects.html)
 
-use crate::common::native_coin_tag;
-use crate::construction::{
-    parse_create_stake_pool_operation, parse_reset_lockup_operation, parse_set_operator_operation,
-    parse_set_voter_operation,
-};
-use crate::types::move_types::*;
 use crate::{
-    common::{is_native_coin, native_coin},
+    common::{is_native_coin, native_coin, native_coin_tag},
+    construction::{
+        parse_create_stake_pool_operation, parse_reset_lockup_operation,
+        parse_set_operator_operation, parse_set_voter_operation,
+    },
     error::ApiResult,
     types::{
-        AccountIdentifier, BlockIdentifier, Error, OperationIdentifier, OperationStatus,
-        OperationStatusType, OperationType, TransactionIdentifier,
+        move_types::*, AccountIdentifier, BlockIdentifier, Error, OperationIdentifier,
+        OperationStatus, OperationStatusType, OperationType, TransactionIdentifier,
     },
     ApiError, RosettaContext,
 };
@@ -24,21 +22,22 @@ use anyhow::anyhow;
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::{ed25519::Ed25519PublicKey, ValidCryptoMaterialStringExt};
 use aptos_logger::warn;
-use aptos_rest_client::aptos_api_types::TransactionOnChainData;
-use aptos_rest_client::aptos_api_types::U64;
-use aptos_types::account_config::{AccountResource, CoinStoreResource, WithdrawEvent};
-use aptos_types::contract_event::ContractEvent;
-use aptos_types::stake_pool::{SetOperatorEvent, StakePool};
-use aptos_types::state_store::state_key::StateKey;
-use aptos_types::transaction::{EntryFunction, TransactionPayload};
-use aptos_types::write_set::{WriteOp, WriteSet};
-use aptos_types::{account_address::AccountAddress, event::EventKey};
+use aptos_rest_client::aptos_api_types::{TransactionOnChainData, U64};
+use aptos_types::{
+    account_address::AccountAddress,
+    account_config::{AccountResource, CoinStoreResource, WithdrawEvent},
+    contract_event::ContractEvent,
+    event::EventKey,
+    stake_pool::{SetOperatorEvent, StakePool},
+    state_store::state_key::StateKey,
+    transaction::{EntryFunction, TransactionPayload},
+    write_set::{WriteOp, WriteSet},
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use std::{
-    collections::HashMap,
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
     convert::TryFrom,
     fmt::{Display, Formatter},
     hash::Hash,
@@ -47,8 +46,8 @@ use std::{
 
 /// A description of all types used by the Rosetta implementation.
 ///
-/// This is used to verify correctness of the implementation and to check things like
-/// operation names, and error names.
+/// This is used to verify correctness of the implementation and to check things
+/// like operation names, and error names.
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/Allow.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -65,8 +64,8 @@ pub struct Allow {
     pub timestamp_start_index: u64,
     /// All call methods supported
     pub call_methods: Vec<String>,
-    /// A list of balance exemptions.  These should be as minimal as possible, otherwise it becomes
-    /// more complicated for users
+    /// A list of balance exemptions.  These should be as minimal as possible,
+    /// otherwise it becomes more complicated for users
     pub balance_exemptions: Vec<BalanceExemption>,
     /// Determines if mempool can change the balance on an account
     /// This should be set to false
@@ -108,12 +107,13 @@ pub struct Block {
     pub parent_block_identifier: BlockIdentifier,
     /// Timestamp in milliseconds to the block from the UNIX_EPOCH
     pub timestamp: u64,
-    /// Transactions associated with the version.  In aptos there should only be one transaction
+    /// Transactions associated with the version.  In aptos there should only be
+    /// one transaction
     pub transactions: Vec<Transaction>,
 }
 
-/// A combination of a transaction and the block associated.  In Aptos, this is just the same
-/// as the version associated with the transaction
+/// A combination of a transaction and the block associated.  In Aptos, this is
+/// just the same as the version associated with the transaction
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/BlockTransaction.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -142,8 +142,8 @@ pub struct CurrencyMetadata {
     pub move_type: String,
 }
 
-/// Various signing curves supported by Rosetta.  We only use [`CurveType::Edwards25519`]
-/// [API Spec](https://www.rosetta-api.org/docs/models/CurveType.html)
+/// Various signing curves supported by Rosetta.  We only use
+/// [`CurveType::Edwards25519`] [API Spec](https://www.rosetta-api.org/docs/models/CurveType.html)
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CurveType {
@@ -161,18 +161,19 @@ pub struct Operation {
     /// Type of operation
     #[serde(rename = "type")]
     pub operation_type: String,
-    /// Status of operation.  Must be populated if the transaction is in the past.  If submitting
-    /// new transactions, it must NOT be populated.
+    /// Status of operation.  Must be populated if the transaction is in the
+    /// past.  If submitting new transactions, it must NOT be populated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
-    /// AccountIdentifier should be provided to point at which account the change is
+    /// AccountIdentifier should be provided to point at which account the
+    /// change is
     #[serde(skip_serializing_if = "Option::is_none")]
     pub account: Option<AccountIdentifier>,
     /// Amount in the operation
-    ///
     #[serde(skip_serializing_if = "Option::is_none")]
     pub amount: Option<Amount>,
-    /// Operation specific metadata for any operation that's missing information it needs
+    /// Operation specific metadata for any operation that's missing information
+    /// it needs
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<OperationMetadata>,
 }
@@ -392,7 +393,7 @@ impl std::cmp::Ord for Operation {
                         .cmp(&other.operation_identifier.index),
                     order => order,
                 }
-            }
+            },
             (Some(_), None) => Ordering::Less,
             (None, Some(_)) => Ordering::Greater,
             (None, None) => Ordering::Equal,
@@ -468,8 +469,8 @@ impl OperationMetadata {
     }
 }
 
-/// Public key used for the rosetta implementation.  All private keys will never be handled
-/// in the Rosetta implementation.
+/// Public key used for the rosetta implementation.  All private keys will never
+/// be handled in the Rosetta implementation.
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/PublicKey.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -543,7 +544,8 @@ pub struct SigningPayload {
     pub signature_type: Option<SignatureType>,
 }
 
-/// A representation of a transaction by it's underlying operations (write set changes)
+/// A representation of a transaction by it's underlying operations (write set
+/// changes)
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/Transaction.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -592,14 +594,14 @@ impl Transaction {
         let (txn_type, maybe_user_txn, txn_info, events) = match &txn.transaction {
             UserTransaction(user_txn) => {
                 (TransactionType::User, Some(user_txn), txn.info, txn.events)
-            }
+            },
             GenesisTransaction(_) => (TransactionType::Genesis, None, txn.info, txn.events),
             BlockMetadata(_) => (TransactionType::BlockMetadata, None, txn.info, txn.events),
             StateCheckpoint(_) => (TransactionType::StateCheckpoint, None, txn.info, vec![]),
         };
 
-        // Operations must be sequential and operation index must always be in the same order
-        // with no gaps
+        // Operations must be sequential and operation index must always be in the same
+        // order with no gaps
         let successful = txn_info.status().is_success();
         let mut operations = vec![];
         let mut operation_index: u64 = 0;
@@ -666,8 +668,8 @@ impl Transaction {
 
 /// Parses operations from the transaction payload
 ///
-/// This case only occurs if the transaction failed, and that's because it's less accurate
-/// than just following the state changes
+/// This case only occurs if the transaction failed, and that's because it's
+/// less accurate than just following the state changes
 fn parse_failed_operations_from_txn_payload(
     operation_index: u64,
     sender: AccountAddress,
@@ -685,7 +687,8 @@ fn parse_failed_operations_from_txn_payload(
                 if let Some(type_tag) = inner.ty_args().first() {
                     // We don't want to do lookups on failures for currencies that don't exist,
                     // so we only look up cached info not new info
-                    // TODO: If other coins are supported, this will need to be updated to handle more coins
+                    // TODO: If other coins are supported, this will need to be updated to handle
+                    // more coins
                     if type_tag == &native_coin_tag() {
                         operations = parse_transfer_from_txn_payload(
                             inner,
@@ -695,12 +698,13 @@ fn parse_failed_operations_from_txn_payload(
                         )
                     }
                 }
-            }
+            },
             (AccountAddress::ONE, APTOS_ACCOUNT_MODULE, TRANSFER_FUNCTION) => {
-                // We could add a create here as well, but we don't know if it will actually happen
+                // We could add a create here as well, but we don't know if it will actually
+                // happen
                 operations =
                     parse_transfer_from_txn_payload(inner, native_coin(), sender, operation_index)
-            }
+            },
             (AccountAddress::ONE, ACCOUNT_MODULE, CREATE_ACCOUNT_FUNCTION) => {
                 if let Some(Ok(address)) = inner
                     .args()
@@ -716,7 +720,7 @@ fn parse_failed_operations_from_txn_payload(
                 } else {
                     warn!("Failed to parse create account {:?}", inner);
                 }
-            }
+            },
             (
                 AccountAddress::ONE,
                 STAKING_CONTRACT_MODULE,
@@ -731,7 +735,7 @@ fn parse_failed_operations_from_txn_payload(
                 } else {
                     warn!("Failed to parse set operator {:?}", inner);
                 }
-            }
+            },
             (AccountAddress::ONE, STAKING_CONTRACT_MODULE, UPDATE_VOTER_FUNCTION) => {
                 if let Ok(mut ops) =
                     parse_set_voter_operation(sender, inner.ty_args(), inner.args())
@@ -742,7 +746,7 @@ fn parse_failed_operations_from_txn_payload(
                 } else {
                     warn!("Failed to parse set voter {:?}", inner);
                 }
-            }
+            },
             (AccountAddress::ONE, STAKING_CONTRACT_MODULE, RESET_LOCKUP_FUNCTION) => {
                 if let Ok(mut ops) =
                     parse_reset_lockup_operation(sender, inner.ty_args(), inner.args())
@@ -753,7 +757,7 @@ fn parse_failed_operations_from_txn_payload(
                 } else {
                     warn!("Failed to parse reset lockup {:?}", inner);
                 }
-            }
+            },
             (AccountAddress::ONE, STAKING_CONTRACT_MODULE, CREATE_STAKING_CONTRACT_FUNCTION) => {
                 if let Ok(mut ops) =
                     parse_create_stake_pool_operation(sender, inner.ty_args(), inner.args())
@@ -764,10 +768,11 @@ fn parse_failed_operations_from_txn_payload(
                 } else {
                     warn!("Failed to parse create staking pool {:?}", inner);
                 }
-            }
+            },
             _ => {
-                // If we don't recognize the transaction payload, then we can't parse operations
-            }
+                // If we don't recognize the transaction payload, then we can't
+                // parse operations
+            },
         }
     }
     operations
@@ -814,8 +819,9 @@ fn parse_transfer_from_txn_payload(
 
 /// Parses operations from the write set
 ///
-/// This can only be done during a successful transaction because there are actual state changes.
-/// It is more accurate because untracked scripts are included in balance operations
+/// This can only be done during a successful transaction because there are
+/// actual state changes. It is more accurate because untracked scripts are
+/// included in balance operations
 async fn parse_operations_from_write_set(
     server_context: &RosettaContext,
     state_key: &StateKey,
@@ -834,11 +840,11 @@ async fn parse_operations_from_write_set(
             } else {
                 return Ok(vec![]);
             }
-        }
+        },
         _ => {
             // Ignore all but access path
             return Ok(vec![]);
-        }
+        },
     };
 
     let data = match write_op {
@@ -856,7 +862,7 @@ async fn parse_operations_from_write_set(
     ) {
         (AccountAddress::ONE, ACCOUNT_MODULE, ACCOUNT_RESOURCE, 0) => {
             parse_account_resource_changes(version, address, data, maybe_sender, operation_index)
-        }
+        },
         (AccountAddress::ONE, STAKE_MODULE, STAKE_POOL_RESOURCE, 0) => {
             parse_stake_pool_resource_changes(
                 server_context,
@@ -866,11 +872,11 @@ async fn parse_operations_from_write_set(
                 events,
                 operation_index,
             )
-        }
+        },
         (AccountAddress::ONE, STAKING_CONTRACT_MODULE, STORE_RESOURCE, 0) => {
             parse_staking_contract_resource_changes(address, data, events, operation_index, changes)
                 .await
-        }
+        },
         (AccountAddress::ONE, COIN_MODULE, COIN_STORE_RESOURCE, 1) => {
             if let Some(type_tag) = struct_tag.type_params.first() {
                 // TODO: This will need to be updated to support more coins
@@ -894,11 +900,11 @@ async fn parse_operations_from_write_set(
                 );
                 Ok(vec![])
             }
-        }
+        },
         _ => {
             // Any unknown type will just skip the operations
             Ok(vec![])
-        }
+        },
     }
 }
 
@@ -944,197 +950,200 @@ fn parse_stake_pool_resource_changes(
 
     // We at this point only care about balance changes from the stake pool
     // TODO: Balance changes are not supported for staking at this time
-    /*    if let Some(owner_address) = server_context.pool_address_to_owner.get(&pool_address) {
-            if let Ok(stakepool) = bcs::from_bytes::<StakePool>(data) {
-                let total_stake_account = AccountIdentifier::total_stake_account(*owner_address);
-                let operator_stake_account = AccountIdentifier::operator_stake_account(
-                    *owner_address,
-                    stakepool.operator_address,
-                );
-
-                // Retrieve add stake events
-                let add_stake_events = filter_events(
-                    events,
-                    stakepool.add_stake_events.key(),
-                    |event_key, event| {
-                        if let Ok(event) = bcs::from_bytes::<aptos_types::stake_pool::AddStakeEvent>(
-                            event.event_data(),
-                        ) {
-                            Some(event)
-                        } else {
-                            warn!(
-                                "Failed to parse add stake event!  Skipping for {}:{}",
-                                event_key.get_creator_address(),
-                                event_key.get_creation_number()
-                            );
-                            None
-                        }
-                    },
-                );
-
-                // For every stake event, we distribute to the two sub balances.  The withdrawal from the account
-                // is handled in coin
-                for event in add_stake_events {
-                    operations.push(Operation::deposit(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        total_stake_account.clone(),
-                        native_coin(),
-                        event.amount_added,
-                    ));
-                    operation_index += 1;
-                    operations.push(Operation::deposit(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        operator_stake_account.clone(),
-                        native_coin(),
-                        event.amount_added,
-                    ));
-                    operation_index += 1;
-                }
-
-                // Retrieve withdraw stake events
-                let withdraw_stake_events = filter_events(
-                    events,
-                    stakepool.withdraw_stake_events.key(),
-                    |event_key, event| {
-                        if let Ok(event) = bcs::from_bytes::<WithdrawStakeEvent>(event.event_data()) {
-                            Some(event)
-                        } else {
-                            warn!(
-                                "Failed to parse withdraw stake event!  Skipping for {}:{}",
-                                event_key.get_creator_address(),
-                                event_key.get_creation_number()
-                            );
-                            None
-                        }
-                    },
-                );
-
-                // For every withdraw event, we have to remove the amounts from the stake pools
-                for event in withdraw_stake_events {
-                    operations.push(Operation::withdraw(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        total_stake_account.clone(),
-                        native_coin(),
-                        event.amount_withdrawn,
-                    ));
-                    operation_index += 1;
-                    operations.push(Operation::withdraw(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        operator_stake_account.clone(),
-                        native_coin(),
-                        event.amount_withdrawn,
-                    ));
-                    operation_index += 1;
-                }
-
-                // Retrieve staking rewards events
-                let distribute_rewards_events = filter_events(
-                    events,
-                    stakepool.distribute_rewards_events.key(),
-                    |event_key, event| {
-                        if let Ok(event) = bcs::from_bytes::<DistributeRewardsEvent>(event.event_data())
-                        {
-                            Some(event)
-                        } else {
-                            warn!(
-                                "Failed to parse distribute rewards event!  Skipping for {}:{}",
-                                event_key.get_creator_address(),
-                                event_key.get_creation_number()
-                            );
-                            None
-                        }
-                    },
-                );
-
-                // For every distribute rewards events, add to the staking pools
-                for event in distribute_rewards_events {
-                    operations.push(Operation::staking_reward(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        total_stake_account.clone(),
-                        native_coin(),
-                        event.rewards_amount,
-                    ));
-                    operation_index += 1;
-                    operations.push(Operation::staking_reward(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        operator_stake_account.clone(),
-                        native_coin(),
-                        event.rewards_amount,
-                    ));
-                    operation_index += 1;
-                }
-
-                // Set voter has to be done at the `staking_contract` because there's no event for it here...
-
-                // Handle set operator events
-                let set_operator_events = filter_events(
-                    events,
-                    stakepool.set_operator_events.key(),
-                    |event_key, event| {
-                        if let Ok(event) = bcs::from_bytes::<aptos_types::stake_pool::SetOperatorEvent>(
-                            event.event_data(),
-                        ) {
-                            Some(event)
-                        } else {
-                            // If we can't parse the withdraw event, then there's nothing
-                            warn!(
-                                "Failed to parse set operator event!  Skipping for {}:{}",
-                                event_key.get_creator_address(),
-                                event_key.get_creation_number()
-                            );
-                            None
-                        }
-                    },
-                );
-
-                // For every set operator event, change the operator, and transfer the money between them
-                // We do this after balance transfers so the balance changes are easier
-                let final_staked_amount = stakepool.get_total_staked_amount();
-                for event in set_operator_events {
-                    operations.push(Operation::set_operator(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        *owner_address,
-                        Some(AccountIdentifier::base_account(event.old_operator)),
-                        AccountIdentifier::base_account(event.new_operator),
-                    ));
-                    operation_index += 1;
-
-                    let old_operator_account =
-                        AccountIdentifier::operator_stake_account(*owner_address, event.old_operator);
-                    operations.push(Operation::withdraw(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        old_operator_account,
-                        native_coin(),
-                        final_staked_amount,
-                    ));
-                    operation_index += 1;
-                    let new_operator_account =
-                        AccountIdentifier::operator_stake_account(*owner_address, event.old_operator);
-                    operations.push(Operation::deposit(
-                        operation_index,
-                        Some(OperationStatusType::Success),
-                        new_operator_account,
-                        native_coin(),
-                        final_staked_amount,
-                    ));
-                    operation_index += 1;
-                }
-            } else {
-                warn!(
-                    "Failed to parse stakepool for {} at version {}",
-                    pool_address, version
-                );
-            }
-        }
-    */
+    //    if let Some(owner_address) =
+    // server_context.pool_address_to_owner.get(&pool_address) {
+    // if let Ok(stakepool) = bcs::from_bytes::<StakePool>(data) {
+    // let total_stake_account =
+    // AccountIdentifier::total_stake_account(*owner_address);
+    // let operator_stake_account = AccountIdentifier::operator_stake_account(
+    // owner_address,
+    // stakepool.operator_address,
+    // );
+    //
+    // Retrieve add stake events
+    // let add_stake_events = filter_events(
+    // events,
+    // stakepool.add_stake_events.key(),
+    // |event_key, event| {
+    // if let Ok(event) = bcs::from_bytes::<aptos_types::stake_pool::AddStakeEvent>(
+    // event.event_data(),
+    // ) {
+    // Some(event)
+    // } else {
+    // warn!(
+    // "Failed to parse add stake event!  Skipping for {}:{}",
+    // event_key.get_creator_address(),
+    // event_key.get_creation_number()
+    // );
+    // None
+    // }
+    // },
+    // );
+    //
+    // For every stake event, we distribute to the two sub balances.  The withdrawal
+    // from the account is handled in coin
+    // for event in add_stake_events {
+    // operations.push(Operation::deposit(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // total_stake_account.clone(),
+    // native_coin(),
+    // event.amount_added,
+    // ));
+    // operation_index += 1;
+    // operations.push(Operation::deposit(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // operator_stake_account.clone(),
+    // native_coin(),
+    // event.amount_added,
+    // ));
+    // operation_index += 1;
+    // }
+    //
+    // Retrieve withdraw stake events
+    // let withdraw_stake_events = filter_events(
+    // events,
+    // stakepool.withdraw_stake_events.key(),
+    // |event_key, event| {
+    // if let Ok(event) = bcs::from_bytes::<WithdrawStakeEvent>(event.event_data())
+    // { Some(event)
+    // } else {
+    // warn!(
+    // "Failed to parse withdraw stake event!  Skipping for {}:{}",
+    // event_key.get_creator_address(),
+    // event_key.get_creation_number()
+    // );
+    // None
+    // }
+    // },
+    // );
+    //
+    // For every withdraw event, we have to remove the amounts from the stake pools
+    // for event in withdraw_stake_events {
+    // operations.push(Operation::withdraw(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // total_stake_account.clone(),
+    // native_coin(),
+    // event.amount_withdrawn,
+    // ));
+    // operation_index += 1;
+    // operations.push(Operation::withdraw(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // operator_stake_account.clone(),
+    // native_coin(),
+    // event.amount_withdrawn,
+    // ));
+    // operation_index += 1;
+    // }
+    //
+    // Retrieve staking rewards events
+    // let distribute_rewards_events = filter_events(
+    // events,
+    // stakepool.distribute_rewards_events.key(),
+    // |event_key, event| {
+    // if let Ok(event) =
+    // bcs::from_bytes::<DistributeRewardsEvent>(event.event_data()) {
+    // Some(event)
+    // } else {
+    // warn!(
+    // "Failed to parse distribute rewards event!  Skipping for {}:{}",
+    // event_key.get_creator_address(),
+    // event_key.get_creation_number()
+    // );
+    // None
+    // }
+    // },
+    // );
+    //
+    // For every distribute rewards events, add to the staking pools
+    // for event in distribute_rewards_events {
+    // operations.push(Operation::staking_reward(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // total_stake_account.clone(),
+    // native_coin(),
+    // event.rewards_amount,
+    // ));
+    // operation_index += 1;
+    // operations.push(Operation::staking_reward(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // operator_stake_account.clone(),
+    // native_coin(),
+    // event.rewards_amount,
+    // ));
+    // operation_index += 1;
+    // }
+    //
+    // Set voter has to be done at the `staking_contract` because there's no event
+    // for it here...
+    //
+    // Handle set operator events
+    // let set_operator_events = filter_events(
+    // events,
+    // stakepool.set_operator_events.key(),
+    // |event_key, event| {
+    // if let Ok(event) =
+    // bcs::from_bytes::<aptos_types::stake_pool::SetOperatorEvent>(
+    // event.event_data(),
+    // ) {
+    // Some(event)
+    // } else {
+    // If we can't parse the withdraw event, then there's nothing
+    // warn!(
+    // "Failed to parse set operator event!  Skipping for {}:{}",
+    // event_key.get_creator_address(),
+    // event_key.get_creation_number()
+    // );
+    // None
+    // }
+    // },
+    // );
+    //
+    // For every set operator event, change the operator, and transfer the money
+    // between them We do this after balance transfers so the balance changes
+    // are easier let final_staked_amount = stakepool.get_total_staked_amount();
+    // for event in set_operator_events {
+    // operations.push(Operation::set_operator(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // owner_address,
+    // Some(AccountIdentifier::base_account(event.old_operator)),
+    // AccountIdentifier::base_account(event.new_operator),
+    // ));
+    // operation_index += 1;
+    //
+    // let old_operator_account =
+    // AccountIdentifier::operator_stake_account(*owner_address,
+    // event.old_operator); operations.push(Operation::withdraw(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // old_operator_account,
+    // native_coin(),
+    // final_staked_amount,
+    // ));
+    // operation_index += 1;
+    // let new_operator_account =
+    // AccountIdentifier::operator_stake_account(*owner_address,
+    // event.old_operator); operations.push(Operation::deposit(
+    // operation_index,
+    // Some(OperationStatusType::Success),
+    // new_operator_account,
+    // native_coin(),
+    // final_staked_amount,
+    // ));
+    // operation_index += 1;
+    // }
+    // } else {
+    // warn!(
+    // "Failed to parse stakepool for {} at version {}",
+    // pool_address, version
+    // );
+    // }
+    // }
     Ok(operations)
 }
 
@@ -1403,7 +1412,7 @@ impl InternalOperation {
                                     seed: vec![],
                                 }));
                             }
-                        }
+                        },
                         Ok(OperationType::CreateAccount) => {
                             if let (
                                 Some(OperationMetadata {
@@ -1418,7 +1427,7 @@ impl InternalOperation {
                                     new_account: account.account_address()?,
                                 }));
                             }
-                        }
+                        },
                         Ok(OperationType::SetOperator) => {
                             if let (
                                 Some(OperationMetadata {
@@ -1441,7 +1450,7 @@ impl InternalOperation {
                                     new_operator: new_operator.account_address()?,
                                 }));
                             }
-                        }
+                        },
                         Ok(OperationType::SetVoter) => {
                             if let (
                                 Some(OperationMetadata {
@@ -1463,7 +1472,7 @@ impl InternalOperation {
                                     new_voter: new_voter.account_address()?,
                                 }));
                             }
-                        }
+                        },
                         Ok(OperationType::ResetLockup) => {
                             if let (Some(OperationMetadata { operator, .. }), Some(account)) =
                                 (&operation.metadata, &operation.account)
@@ -1480,8 +1489,8 @@ impl InternalOperation {
                                     operator,
                                 }));
                             }
-                        }
-                        _ => {}
+                        },
+                        _ => {},
                     }
                 }
 
@@ -1490,7 +1499,7 @@ impl InternalOperation {
                     "Unrecognized single operation {:?}",
                     operations
                 ))))
-            }
+            },
             2 => Ok(Self::Transfer(Transfer::extract_transfer(operations)?)),
             _ => Err(ApiError::InvalidOperations(Some(format!(
                 "Unrecognized operation combination {:?}",
@@ -1525,7 +1534,7 @@ impl InternalOperation {
                     aptos_stdlib::aptos_account_transfer(transfer.receiver, transfer.amount.0),
                     transfer.sender,
                 )
-            }
+            },
             InternalOperation::SetOperator(set_operator) => {
                 if set_operator.old_operator.is_none() {
                     return Err(ApiError::InvalidInput(Some(
@@ -1539,7 +1548,7 @@ impl InternalOperation {
                     ),
                     set_operator.owner,
                 )
-            }
+            },
             InternalOperation::SetVoter(set_voter) => {
                 if set_voter.operator.is_none() {
                     return Err(ApiError::InvalidInput(Some(
@@ -1553,7 +1562,7 @@ impl InternalOperation {
                     ),
                     set_voter.owner,
                 )
-            }
+            },
             InternalOperation::InitializeStakePool(init_stake_pool) => (
                 aptos_stdlib::staking_contract_create_staking_contract(
                     init_stake_pool.operator,

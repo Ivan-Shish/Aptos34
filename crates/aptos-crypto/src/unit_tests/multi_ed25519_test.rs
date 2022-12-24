@@ -3,13 +3,11 @@
 
 use crate::{
     ed25519::{Ed25519PrivateKey, Ed25519PublicKey, ED25519_PUBLIC_KEY_LENGTH},
-    multi_ed25519::{MultiEd25519PrivateKey, MultiEd25519PublicKey},
+    multi_ed25519::{MultiEd25519PrivateKey, MultiEd25519PublicKey, MultiEd25519Signature},
     test_utils::{TestAptosCrypto, TEST_SEED},
     traits::*,
     CryptoMaterialError::{ValidationError, WrongLengthError},
 };
-
-use crate::multi_ed25519::MultiEd25519Signature;
 use core::convert::TryFrom;
 use once_cell::sync::Lazy;
 use rand::{rngs::StdRng, SeedableRng};
@@ -133,8 +131,8 @@ fn test_multi_ed25519_public_key_serialization() {
     assert_eq!(num_small_order, 0);
     test_failed_public_key_serialization(multi_key_31_bytes, WrongLengthError);
 
-    // Test try_from 32 bytes (should fail) because we always need ED25519_PUBLIC_KEY_LENGTH * N + 1
-    // bytes (thus 32N + 1).
+    // Test try_from 32 bytes (should fail) because we always need
+    // ED25519_PUBLIC_KEY_LENGTH * N + 1 bytes (thus 32N + 1).
     let multi_key_32_bytes = MultiEd25519PublicKey::try_from(&[0u8; ED25519_PUBLIC_KEY_LENGTH][..]);
     let (success, num_deser, num_small_order) =
         MultiEd25519PublicKey::validate_bytes_and_count_checks(
@@ -166,7 +164,8 @@ fn test_multi_ed25519_public_key_serialization() {
             &[0u8; ED25519_PUBLIC_KEY_LENGTH + 1][..],
         );
     assert!(!success);
-    assert_eq!(num_deser, 0); // all 33 bytes are zero => threshold is 0 => invalid multisig PK dismissed early
+    assert_eq!(num_deser, 0); // all 33 bytes are zero => threshold is 0 => invalid multisig PK dismissed
+                              // early
     assert_eq!(num_small_order, 0);
     test_failed_public_key_serialization(multi_key_33_zero_bytes, ValidationError);
 
@@ -176,7 +175,8 @@ fn test_multi_ed25519_public_key_serialization() {
     let multi_private_key_7of10 = MultiEd25519PrivateKey::new(priv_keys_10, 7).unwrap();
     let multi_public_key_7of10 = MultiEd25519PublicKey::new(pub_keys_10, 7).unwrap();
 
-    // Check that MultiEd25519PublicKey::from MultiEd25519PrivateKey works as expected.
+    // Check that MultiEd25519PublicKey::from MultiEd25519PrivateKey works as
+    // expected.
     let multi_public_key_7of10_from_multi_private_key =
         MultiEd25519PublicKey::from(&multi_private_key_7of10);
     assert_eq!(
@@ -260,17 +260,20 @@ fn test_multi_ed25519_signature_serialization() {
     let multi_sig32 = MultiEd25519Signature::new(sig32_tuple);
     assert!(multi_sig32.is_ok());
     let multi_sig32_unwrapped = multi_sig32.unwrap();
-    assert_eq!(
-        multi_sig32_unwrapped.bitmap(),
-        &[0b1111_1111, 0b1111_1111, 0b1111_1111, 0b1111_1111]
-    );
+    assert_eq!(multi_sig32_unwrapped.bitmap(), &[
+        0b1111_1111,
+        0b1111_1111,
+        0b1111_1111,
+        0b1111_1111
+    ]);
     let pub_key_32 = vec![priv_keys_3[0].public_key(); 32];
     let multi_pub_key_32 = MultiEd25519PublicKey::new(pub_key_32, 32).unwrap();
     assert!(multi_sig32_unwrapped
         .verify(message(), &multi_pub_key_32)
         .is_ok());
 
-    // Fail to construct a MultiEd25519Signature object from 33 or more single signatures.
+    // Fail to construct a MultiEd25519Signature object from 33 or more single
+    // signatures.
     let sigs_33 = vec![single_signature.clone(); 33];
     let indices = 0..33;
     let sig33_tuple = sigs_33.into_iter().zip(indices.into_iter()).collect();
@@ -282,7 +285,8 @@ fn test_multi_ed25519_signature_serialization() {
         CryptoMaterialError::ValidationError
     );
 
-    // Fail to construct a MultiEd25519Signature object if there are duplicated indexes.
+    // Fail to construct a MultiEd25519Signature object if there are duplicated
+    // indexes.
     let sigs_3 = vec![single_signature; 3];
     let indices_with_duplicate = vec![0u8, 1u8, 1u8];
     let sig3_tuple = sigs_3
@@ -322,31 +326,37 @@ fn test_multi_ed25519_signature_verification() {
     let multi_private_key_7of10 = MultiEd25519PrivateKey::new(priv_keys_10.clone(), 7).unwrap();
     let multi_public_key_7of10 = MultiEd25519PublicKey::from(&multi_private_key_7of10);
 
-    // Verifying a 7-of-10 signature against a public key with the same threshold should pass.
+    // Verifying a 7-of-10 signature against a public key with the same threshold
+    // should pass.
     let multi_signature_7of10 = multi_private_key_7of10.sign(message()).unwrap();
-    assert_eq!(
-        multi_signature_7of10.bitmap(),
-        &[0b1111_1110, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(multi_signature_7of10.bitmap(), &[
+        0b1111_1110,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(multi_signature_7of10
         .verify(message(), &multi_public_key_7of10)
         .is_ok());
 
-    // Verifying a 7-of-10 signature against a public key with bigger threshold (i.e., 8) should fail.
+    // Verifying a 7-of-10 signature against a public key with bigger threshold
+    // (i.e., 8) should fail.
     let multi_public_key_8of10 = MultiEd25519PublicKey::new(pub_keys_10.clone(), 8).unwrap();
     assert!(multi_signature_7of10
         .verify(message(), &multi_public_key_8of10)
         .is_err());
 
-    // Verifying a 7-of-10 signature against a public key with smaller threshold (i.e., 6) should pass.
+    // Verifying a 7-of-10 signature against a public key with smaller threshold
+    // (i.e., 6) should pass.
     let multi_public_key_6of10 = MultiEd25519PublicKey::new(pub_keys_10.clone(), 6).unwrap();
     assert!(multi_signature_7of10
         .verify(message(), &multi_public_key_6of10)
         .is_ok());
 
-    // Verifying a 7-of-10 signature against a reordered MultiEd25519PublicKey should fail.
-    // To deterministically simulate reshuffling, we use a reversed vector of 10 keys.
-    // Note that because 10 is an even number, all of they keys will change position.
+    // Verifying a 7-of-10 signature against a reordered MultiEd25519PublicKey
+    // should fail. To deterministically simulate reshuffling, we use a reversed
+    // vector of 10 keys. Note that because 10 is an even number, all of they
+    // keys will change position.
     let mut pub_keys_10_reversed = pub_keys_10;
     pub_keys_10_reversed.reverse();
     let multi_public_key_7of10_reversed =
@@ -365,10 +375,12 @@ fn test_multi_ed25519_signature_verification() {
     let multi_sig_signed_by_2nd_key = MultiEd25519Signature::new(vec![(sig_with_2nd_key, 1)]);
     assert!(multi_sig_signed_by_2nd_key.is_ok());
     let multi_sig_signed_by_2nd_key_unwrapped = multi_sig_signed_by_2nd_key.unwrap();
-    assert_eq!(
-        multi_sig_signed_by_2nd_key_unwrapped.bitmap(),
-        &[0b0100_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(multi_sig_signed_by_2nd_key_unwrapped.bitmap(), &[
+        0b0100_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(multi_sig_signed_by_2nd_key_unwrapped
         .verify(message(), &multi_public_key_1of3)
         .is_ok());
@@ -383,7 +395,8 @@ fn test_multi_ed25519_signature_verification() {
         .verify(message(), &multi_public_key_1of3);
     assert!(failed_multi_sig_signed_by_2nd_key_wrong_index.is_err());
 
-    // Signing with the 2nd and 3rd keys must succeed, even if we surpass the threshold.
+    // Signing with the 2nd and 3rd keys must succeed, even if we surpass the
+    // threshold.
     let sig_with_3rd_key = priv_keys_3[2].sign(message()).unwrap();
     let multi_sig_signed_by_2nd_and_3rd_key = MultiEd25519Signature::new(vec![
         (sig_with_2nd_key.clone(), 1),
@@ -392,10 +405,12 @@ fn test_multi_ed25519_signature_verification() {
     assert!(multi_sig_signed_by_2nd_and_3rd_key.is_ok());
     let multi_sig_signed_by_2nd_and_3rd_key_unwrapped =
         multi_sig_signed_by_2nd_and_3rd_key.unwrap();
-    assert_eq!(
-        multi_sig_signed_by_2nd_and_3rd_key_unwrapped.bitmap(),
-        &[0b0110_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(multi_sig_signed_by_2nd_and_3rd_key_unwrapped.bitmap(), &[
+        0b0110_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(multi_sig_signed_by_2nd_and_3rd_key_unwrapped
         .verify(message(), &multi_public_key_1of3)
         .is_ok());
@@ -411,8 +426,8 @@ fn test_multi_ed25519_signature_verification() {
             .verify(message(), &multi_public_key_1of3);
     assert!(failed_multi_sig_signed_by_2nd_and_3rd_key_swapped.is_err());
 
-    // Signing with the 2nd and an unrelated key. Although threshold is met, it should fail as
-    // we don't accept invalid signatures.
+    // Signing with the 2nd and an unrelated key. Although threshold is met, it
+    // should fail as we don't accept invalid signatures.
     let sig_with_unrelated_key = priv_keys_10[9].sign(message()).unwrap();
     let multi_sig_signed_by_2nd_and_unrelated_key = MultiEd25519Signature::new(vec![
         (sig_with_2nd_key.clone(), 1),
@@ -437,10 +452,12 @@ fn test_multi_ed25519_signature_verification() {
     ]);
     assert!(signed_by_1st_and_2nd_key.is_ok());
     let signed_by_1st_and_2nd_key_unwrapped = signed_by_1st_and_2nd_key.unwrap();
-    assert_eq!(
-        signed_by_1st_and_2nd_key_unwrapped.bitmap(),
-        &[0b1100_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(signed_by_1st_and_2nd_key_unwrapped.bitmap(), &[
+        0b1100_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(signed_by_1st_and_2nd_key_unwrapped
         .verify(message(), &multi_public_key_2of3)
         .is_ok());
@@ -452,10 +469,12 @@ fn test_multi_ed25519_signature_verification() {
     ]);
     assert!(signed_by_1st_and_3rd_key.is_ok());
     let signed_by_1st_and_3rd_key_unwrapped = signed_by_1st_and_3rd_key.unwrap();
-    assert_eq!(
-        signed_by_1st_and_3rd_key_unwrapped.bitmap(),
-        &[0b1010_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(signed_by_1st_and_3rd_key_unwrapped.bitmap(), &[
+        0b1010_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(signed_by_1st_and_3rd_key_unwrapped
         .verify(message(), &multi_public_key_2of3)
         .is_ok());
@@ -467,10 +486,12 @@ fn test_multi_ed25519_signature_verification() {
     ]);
     assert!(signed_by_2nd_and_3rd_key.is_ok());
     let signed_by_2nd_and_3rd_key_unwrapped = signed_by_2nd_and_3rd_key.unwrap();
-    assert_eq!(
-        signed_by_2nd_and_3rd_key_unwrapped.bitmap(),
-        &[0b0110_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(signed_by_2nd_and_3rd_key_unwrapped.bitmap(), &[
+        0b0110_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(signed_by_2nd_and_3rd_key_unwrapped
         .verify(message(), &multi_public_key_2of3)
         .is_ok());
@@ -483,10 +504,12 @@ fn test_multi_ed25519_signature_verification() {
     ]);
     assert!(signed_by_all_3_keys.is_ok());
     let signed_by_all_3_keys_unwrapped = signed_by_all_3_keys.unwrap();
-    assert_eq!(
-        signed_by_all_3_keys_unwrapped.bitmap(),
-        &[0b1110_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(signed_by_all_3_keys_unwrapped.bitmap(), &[
+        0b1110_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(signed_by_all_3_keys_unwrapped
         .verify(message(), &multi_public_key_2of3)
         .is_ok());
@@ -495,10 +518,12 @@ fn test_multi_ed25519_signature_verification() {
     let signed_by_2nd_key = MultiEd25519Signature::new(vec![(sig_with_2nd_key, 1)]);
     assert!(signed_by_2nd_key.is_ok());
     let signed_by_2nd_key_unwrapped = signed_by_2nd_key.unwrap();
-    assert_eq!(
-        signed_by_2nd_key_unwrapped.bitmap(),
-        &[0b0100_0000, 0u8, 0u8, 0u8]
-    );
+    assert_eq!(signed_by_2nd_key_unwrapped.bitmap(), &[
+        0b0100_0000,
+        0u8,
+        0u8,
+        0u8
+    ]);
     assert!(signed_by_2nd_key_unwrapped
         .verify(message(), &multi_public_key_2of3)
         .is_err());

@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//
 // Noise Fuzzing
 // =============
 //
@@ -20,12 +19,12 @@ use futures_util::io::AsyncReadExt;
 use once_cell::sync::Lazy;
 use rand::SeedableRng;
 
-//
 // Corpus generation
 // =================
 //
 // - KEYPAIR: a unique keypair for fuzzing
-// - generate_first_two_messages: it will generate the first or second message in the handshake.
+// - generate_first_two_messages: it will generate the first or second message
+//   in the handshake.
 // - generate_corpus: the function called by our fuzzer to retrieve the corpus.
 //
 
@@ -114,12 +113,13 @@ pub fn generate_corpus(gen: &mut aptos_proptest_helpers::ValueGenerator) -> Vec<
     }
 }
 
-//
 // Fuzzing
 // =======
 //
-// - fuzz_initiator: fuzzes the second message of the handshake, received by the initiator.
-// - fuzz_responder: fuzzes the first message of the handshake, received by the responder.
+// - fuzz_initiator: fuzzes the second message of the handshake, received by the
+//   initiator.
+// - fuzz_responder: fuzzes the first message of the handshake, received by the
+//   responder.
 //
 
 /// let's provide the same timestamp everytime, faster
@@ -185,7 +185,6 @@ pub fn fuzz_post_handshake(data: &[u8]) {
     });
 }
 
-//
 // Tests
 // =====
 //

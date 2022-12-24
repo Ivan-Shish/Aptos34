@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! All proofs generated in this module are not valid proofs. They are only for the purpose of
-//! testing conversion between Rust and Protobuf.
+//! All proofs generated in this module are not valid proofs. They are only for
+//! the purpose of testing conversion between Rust and Protobuf.
 
 use crate::proof::{
     definition::MAX_ACCUMULATOR_PROOF_DEPTH, AccumulatorConsistencyProof, AccumulatorProof,

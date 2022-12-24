@@ -38,9 +38,10 @@ impl SwitchBoard {
 
 /// An in-memory socket server, listening for connections.
 ///
-/// After creating a `MemoryListener` by [`bind`]ing it to a socket address, it listens
-/// for incoming connections. These can be accepted by awaiting elements from the
-/// async stream of incoming connections, [`incoming`][`MemoryListener::incoming`].
+/// After creating a `MemoryListener` by [`bind`]ing it to a socket address, it
+/// listens for incoming connections. These can be accepted by awaiting elements
+/// from the async stream of incoming connections,
+/// [`incoming`][`MemoryListener::incoming`].
 ///
 /// The socket will be closed when the value is dropped.
 ///
@@ -50,10 +51,9 @@ impl SwitchBoard {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use std::io::Result;
-///
 /// use aptos_memsocket::{MemoryListener, MemorySocket};
 /// use futures::prelude::*;
+/// use std::io::Result;
 ///
 /// async fn write_stormlight(mut stream: MemorySocket) -> Result<()> {
 ///     let msg = b"The most important step a person can take is always the next one.";
@@ -182,8 +182,8 @@ impl MemoryListener {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use futures::prelude::*;
     /// use aptos_memsocket::MemoryListener;
+    /// use futures::prelude::*;
     ///
     /// # async fn work () -> ::std::io::Result<()> {
     /// let mut listener = MemoryListener::bind(16)?;
@@ -195,7 +195,7 @@ impl MemoryListener {
     ///         Ok(stream) => {
     ///             println!("new connection!");
     ///         },
-    ///         Err(e) => { /* connection failed */ }
+    ///         Err(e) => { /* connection failed */ },
     ///     }
     /// }
     /// # Ok(())}
@@ -210,7 +210,7 @@ impl MemoryListener {
             Poll::Ready(None) => {
                 let err = Error::new(ErrorKind::Other, "MemoryListener unknown error");
                 Poll::Ready(Err(err))
-            }
+            },
             Poll::Pending => Poll::Pending,
         }
     }
@@ -237,14 +237,14 @@ impl<'a> Stream for Incoming<'a> {
 ///
 /// A `MemorySocket` can either be created by connecting to an endpoint, via the
 /// [`connect`] method, or by [accepting] a connection from a [listener].
-/// It can be read or written to using the `AsyncRead`, `AsyncWrite`, and related
-/// extension traits in `futures::io`.
+/// It can be read or written to using the `AsyncRead`, `AsyncWrite`, and
+/// related extension traits in `futures::io`.
 ///
 /// # Examples
 ///
 /// ```rust, no_run
-/// use futures::prelude::*;
 /// use aptos_memsocket::MemorySocket;
+/// use futures::prelude::*;
 ///
 /// # async fn run() -> ::std::io::Result<()> {
 /// let (mut socket_a, mut socket_b) = MemorySocket::new_pair();
@@ -301,8 +301,8 @@ impl MemorySocket {
 
     /// Create a new in-memory Socket connected to the specified port.
     ///
-    /// This function will create a new MemorySocket socket and attempt to connect it to
-    /// the `port` provided.
+    /// This function will create a new MemorySocket socket and attempt to
+    /// connect it to the `port` provided.
     ///
     /// # Examples
     ///
@@ -373,7 +373,7 @@ impl AsyncRead for MemorySocket {
                         .take(bytes_to_read)
                         .copy_to_slice(&mut buf[bytes_read..(bytes_read + bytes_to_read)]);
                     bytes_read += bytes_to_read;
-                }
+                },
 
                 // Either we've exhausted our current buffer or don't have one
                 _ => {
@@ -386,12 +386,12 @@ impl AsyncRead for MemorySocket {
                                 } else {
                                     return Poll::Pending;
                                 }
-                            }
+                            },
                             Poll::Ready(Some(buf)) => Some(buf),
                             Poll::Ready(None) => return Poll::Ready(Ok(bytes_read)),
                         }
                     };
-                }
+                },
             }
         }
     }
@@ -416,7 +416,7 @@ impl AsyncWrite for MemorySocket {
                     // Unbounded channels should only ever have "Disconnected" errors
                     unreachable!();
                 }
-            }
+            },
             Poll::Ready(Err(e)) => {
                 if e.is_disconnected() {
                     return Poll::Ready(Err(Error::new(ErrorKind::BrokenPipe, e)));
@@ -424,7 +424,7 @@ impl AsyncWrite for MemorySocket {
 
                 // Unbounded channels should only ever have "Disconnected" errors
                 unreachable!();
-            }
+            },
             Poll::Pending => return Poll::Pending,
         }
 

@@ -123,7 +123,8 @@ fn borrow_after_move() {
     executor.execute_and_apply(borrow_txn);
 
     println!("HERE!");
-    // create a remove and a borrow resource transaction over the same resource in one block
+    // create a remove and a borrow resource transaction over the same resource in
+    // one block
     let txns = vec![
         Transaction::UserTransaction(remove_resource_txn(&sender, 14, vec![module.clone()])),
         Transaction::UserTransaction(borrow_resource_txn(&sender, 15, vec![module])),
@@ -176,7 +177,8 @@ fn change_after_move() {
     let borrow_txn = borrow_resource_txn(&sender, 13, vec![module.clone()]);
     executor.execute_and_apply(borrow_txn);
 
-    // create a remove and a change resource transaction over the same resource in one block
+    // create a remove and a change resource transaction over the same resource in
+    // one block
     let txns = vec![
         Transaction::UserTransaction(remove_resource_txn(&sender, 14, vec![module.clone()])),
         Transaction::UserTransaction(change_resource_txn(&sender, 15, vec![module.clone()])),

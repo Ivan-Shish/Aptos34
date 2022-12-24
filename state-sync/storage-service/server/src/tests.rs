@@ -17,14 +17,12 @@ use aptos_network::{
     },
 };
 use aptos_storage_interface::{DbReader, ExecutedTrees, Order};
-use aptos_storage_service_types::requests::{
-    NewTransactionsOrOutputsWithProofRequest, TransactionsOrOutputsWithProofRequest,
-};
 use aptos_storage_service_types::{
     requests::{
         DataRequest, EpochEndingLedgerInfoRequest, NewTransactionOutputsWithProofRequest,
-        NewTransactionsWithProofRequest, StateValuesWithProofRequest, StorageServiceRequest,
-        TransactionOutputsWithProofRequest, TransactionsWithProofRequest,
+        NewTransactionsOrOutputsWithProofRequest, NewTransactionsWithProofRequest,
+        StateValuesWithProofRequest, StorageServiceRequest, TransactionOutputsWithProofRequest,
+        TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
     },
     responses::{
         CompleteDataRange, DataResponse, DataSummary, ProtocolMetadata, ServerProtocolVersion,
@@ -135,7 +133,7 @@ async fn test_cachable_requests_compression() {
             match response.get_data_response().unwrap() {
                 DataResponse::TransactionsWithProof(response) => {
                     assert_eq!(response, transaction_lists_with_proof[i]);
-                }
+                },
                 _ => panic!("Expected transactions with proof but got: {:?}", response),
             };
         }
@@ -185,7 +183,8 @@ async fn test_cachable_requests_eviction() {
     let (mut mock_client, service, _) = MockClient::new(Some(db_reader), None);
     tokio::spawn(service.start());
 
-    // Process a request to fetch a state chunk. This should cache and serve the response.
+    // Process a request to fetch a state chunk. This should cache and serve the
+    // response.
     for _ in 0..2 {
         let _ =
             get_state_values_with_proof(&mut mock_client, version, start_index, end_index, true)
@@ -197,7 +196,8 @@ async fn test_cachable_requests_eviction() {
         let _ = get_number_of_states(&mut mock_client, version, true).await;
     }
 
-    // Process a request to fetch the state chunk again. This requires refetching the data.
+    // Process a request to fetch the state chunk again. This requires refetching
+    // the data.
     let _ =
         get_state_values_with_proof(&mut mock_client, version, start_index, end_index, true).await;
 }
@@ -262,13 +262,15 @@ async fn test_cachable_requests_data_versions() {
                     match response.get_data_response().unwrap() {
                         DataResponse::TransactionsWithProof(transactions_with_proof) => {
                             assert_eq!(transactions_with_proof, transaction_lists_with_proof[i])
-                        }
-                        _ => panic!(
-                            "Expected compressed transactions with proof but got: {:?}",
-                            response
-                        ),
+                        },
+                        _ => {
+                            panic!(
+                                "Expected compressed transactions with proof but got: {:?}",
+                                response
+                            )
+                        },
                     }
-                }
+                },
                 _ => panic!("Expected compressed response but got: {:?}", response),
             };
         }
@@ -1258,7 +1260,7 @@ async fn test_get_transactions_with_proof() {
             match response.get_data_response().unwrap() {
                 DataResponse::TransactionsWithProof(transactions_with_proof) => {
                     assert_eq!(transactions_with_proof, transaction_list_with_proof)
-                }
+                },
                 _ => panic!("Expected transactions with proof but got: {:?}", response),
             };
         }
@@ -1313,7 +1315,7 @@ async fn test_get_transactions_with_chunk_limit() {
         match response.get_data_response().unwrap() {
             DataResponse::TransactionsWithProof(transactions_with_proof) => {
                 assert_eq!(transactions_with_proof, transaction_list_with_proof)
-            }
+            },
             _ => panic!("Expected transactions with proof but got: {:?}", response),
         };
     }
@@ -1391,11 +1393,13 @@ async fn test_get_transaction_outputs_with_proof() {
         match response.get_data_response().unwrap() {
             DataResponse::TransactionOutputsWithProof(outputs_with_proof) => {
                 assert_eq!(outputs_with_proof, output_list_with_proof)
-            }
-            _ => panic!(
-                "Expected transaction outputs with proof but got: {:?}",
-                response
-            ),
+            },
+            _ => {
+                panic!(
+                    "Expected transaction outputs with proof but got: {:?}",
+                    response
+                )
+            },
         };
     }
 }
@@ -1440,11 +1444,13 @@ async fn test_get_transaction_outputs_with_proof_chunk_limit() {
     match response.get_data_response().unwrap() {
         DataResponse::TransactionOutputsWithProof(outputs_with_proof) => {
             assert_eq!(outputs_with_proof, output_list_with_proof)
-        }
-        _ => panic!(
-            "Expected transaction outputs with proof but got: {:?}",
-            response
-        ),
+        },
+        _ => {
+            panic!(
+                "Expected transaction outputs with proof but got: {:?}",
+                response
+            )
+        },
     };
 }
 
@@ -1699,7 +1705,7 @@ async fn test_get_epoch_ending_ledger_infos() {
         match response.get_data_response().unwrap() {
             DataResponse::EpochEndingLedgerInfos(response_epoch_change_proof) => {
                 assert_eq!(response_epoch_change_proof, epoch_change_proof)
-            }
+            },
             _ => panic!("Expected epoch ending ledger infos but got: {:?}", response),
         };
     }
@@ -1744,7 +1750,7 @@ async fn test_get_epoch_ending_ledger_infos_chunk_limit() {
     match response.get_data_response().unwrap() {
         DataResponse::EpochEndingLedgerInfos(response_epoch_change_proof) => {
             assert_eq!(response_epoch_change_proof, epoch_change_proof)
-        }
+        },
         _ => panic!("Expected epoch ending ledger infos but got: {:?}", response),
     };
 }
@@ -1858,7 +1864,8 @@ impl MockClient {
         res_rx
     }
 
-    /// Helper method to wait for and deserialize a response on the specified receiver
+    /// Helper method to wait for and deserialize a response on the specified
+    /// receiver
     async fn wait_for_response(
         &mut self,
         receiver: Receiver<Result<bytes::Bytes, aptos_network::protocols::network::RpcError>>,
@@ -1932,12 +1939,17 @@ async fn get_epoch_ending_ledger_infos_network_limit(network_limit_bytes: u64) {
                 let num_response_bytes = bcs::to_bytes(&response).unwrap().len() as u64;
                 let num_ledger_infos = epoch_change_proof.ledger_info_with_sigs.len() as u64;
                 if num_response_bytes > network_limit_bytes {
-                    assert_eq!(num_ledger_infos, 1); // Data cannot be reduced more than a single item
+                    assert_eq!(num_ledger_infos, 1); // Data cannot be reduced
+                                                     // more than a single item
                 } else {
                     let max_num_ledger_infos = network_limit_bytes / min_bytes_per_ledger_info;
-                    assert!(num_ledger_infos <= max_num_ledger_infos); // Verify data fits correctly into the limit
+                    assert!(num_ledger_infos <= max_num_ledger_infos); // Verify
+                                                                       // data fits
+                                                                       // correctly
+                                                                       // into the
+                                                                       // limit
                 }
-            }
+            },
             _ => panic!("Expected epoch ending ledger infos but got: {:?}", response),
         }
     }
@@ -2007,12 +2019,17 @@ async fn get_states_with_proof_network_limit(network_limit_bytes: u64) {
                 let num_response_bytes = bcs::to_bytes(&response).unwrap().len() as u64;
                 let num_state_values = state_value_chunk_with_proof.raw_values.len() as u64;
                 if num_response_bytes > network_limit_bytes {
-                    assert_eq!(num_state_values, 1); // Data cannot be reduced more than a single item
+                    assert_eq!(num_state_values, 1); // Data cannot be reduced
+                                                     // more than a single item
                 } else {
                     let max_num_state_values = network_limit_bytes / min_bytes_per_state_value;
-                    assert!(num_state_values <= max_num_state_values); // Verify data fits correctly into the limit
+                    assert!(num_state_values <= max_num_state_values); // Verify
+                                                                       // data fits
+                                                                       // correctly
+                                                                       // into the
+                                                                       // limit
                 }
-            }
+            },
             _ => panic!("Expected state values with proof but got: {:?}", response),
         }
     }
@@ -2072,12 +2089,15 @@ async fn get_outputs_with_proof_network_limit(network_limit_bytes: u64) {
                 let num_response_bytes = bcs::to_bytes(&response).unwrap().len() as u64;
                 let num_outputs = outputs_with_proof.transactions_and_outputs.len() as u64;
                 if num_response_bytes > network_limit_bytes {
-                    assert_eq!(num_outputs, 1); // Data cannot be reduced more than a single item
+                    assert_eq!(num_outputs, 1); // Data cannot be reduced more
+                                                // than a single item
                 } else {
                     let max_outputs = network_limit_bytes / min_bytes_per_output;
-                    assert!(num_outputs <= max_outputs); // Verify data fits correctly into the limit
+                    assert!(num_outputs <= max_outputs); // Verify data fits
+                                                         // correctly into the
+                                                         // limit
                 }
-            }
+            },
             _ => panic!("Expected outputs with proof but got: {:?}", response),
         };
     }
@@ -2149,12 +2169,18 @@ async fn get_transactions_with_proof_network_limit(network_limit_bytes: u64) {
                     let num_response_bytes = bcs::to_bytes(&response).unwrap().len() as u64;
                     let num_transactions = transactions_with_proof.transactions.len() as u64;
                     if num_response_bytes > network_limit_bytes {
-                        assert_eq!(num_transactions, 1); // Data cannot be reduced more than a single item
+                        assert_eq!(num_transactions, 1); // Data cannot be
+                                                         // reduced more than a
+                                                         // single item
                     } else {
                         let max_transactions = network_limit_bytes / min_bytes_per_transaction;
-                        assert!(num_transactions <= max_transactions); // Verify data fits correctly into the limit
+                        assert!(num_transactions <= max_transactions); // Verify
+                                                                       // data fits
+                                                                       // correctly
+                                                                       // into the
+                                                                       // limit
                     }
-                }
+                },
                 _ => panic!("Expected transactions with proof but got: {:?}", response),
             };
         }
@@ -2248,7 +2274,10 @@ async fn get_transactions_or_outputs_with_proof_network_limit(network_limit_byte
                             bcs::to_bytes(&transactions_with_proof).unwrap().len() as u64;
                         let num_transactions = transactions_with_proof.transactions.len() as u64;
                         if num_response_bytes > network_limit_bytes {
-                            assert_eq!(num_transactions, 1); // Data cannot be reduced more than a single item
+                            assert_eq!(num_transactions, 1); // Data cannot be
+                                                             // reduced more
+                                                             // than a single
+                                                             // item
                         } else {
                             let max_transactions = network_limit_bytes / min_bytes_per_transaction;
                             assert!(num_transactions <= max_transactions);
@@ -2258,7 +2287,9 @@ async fn get_transactions_or_outputs_with_proof_network_limit(network_limit_byte
                             bcs::to_bytes(&outputs_with_proof).unwrap().len() as u64;
                         let num_outputs = outputs_with_proof.transactions_and_outputs.len() as u64;
                         if num_response_bytes > network_limit_bytes {
-                            assert_eq!(num_outputs, 1); // Data cannot be reduced more than a single item
+                            assert_eq!(num_outputs, 1); // Data cannot be
+                                                        // reduced more than a
+                                                        // single item
                         } else {
                             let max_outputs = network_limit_bytes / min_bytes_per_output;
                             assert!(num_outputs <= max_outputs);
@@ -2266,11 +2297,13 @@ async fn get_transactions_or_outputs_with_proof_network_limit(network_limit_byte
                     } else {
                         panic!("No transactions or outputs were returned!");
                     }
-                }
-                _ => panic!(
-                    "Expected transactions or outputs with proof but got: {:?}",
-                    response
-                ),
+                },
+                _ => {
+                    panic!(
+                        "Expected transactions or outputs with proof but got: {:?}",
+                        response
+                    )
+                },
             };
         }
     }
@@ -2475,7 +2508,8 @@ async fn send_storage_request(
     mock_client.process_request(storage_request).await
 }
 
-/// Creates a mock db with the basic expectations required to handle subscription requests
+/// Creates a mock db with the basic expectations required to handle
+/// subscription requests
 fn create_mock_db_for_subscription(
     highest_ledger_info_clone: LedgerInfoWithSignatures,
     lowest_version: Version,
@@ -2520,7 +2554,8 @@ fn expect_get_transactions(
         .returning(move |_, _, _, _| Ok(transaction_list.clone()));
 }
 
-/// Sets an expectation on the given mock db for a call to fetch transaction outputs
+/// Sets an expectation on the given mock db for a call to fetch transaction
+/// outputs
 fn expect_get_transaction_outputs(
     mock_db: &mut MockDatabaseReader,
     start_version: u64,
@@ -2535,7 +2570,8 @@ fn expect_get_transaction_outputs(
         .returning(move |_, _, _| Ok(output_list.clone()));
 }
 
-/// Sets an expectation on the given mock db for a call to fetch an epoch change proof
+/// Sets an expectation on the given mock db for a call to fetch an epoch change
+/// proof
 fn expect_get_epoch_ending_ledger_infos(
     mock_db: &mut MockDatabaseReader,
     start_epoch: u64,
@@ -2549,7 +2585,8 @@ fn expect_get_epoch_ending_ledger_infos(
         .returning(move |_, _| Ok(epoch_change_proof.clone()));
 }
 
-/// Sets an expectation on the given mock db for a call to fetch state values with proof
+/// Sets an expectation on the given mock db for a call to fetch state values
+/// with proof
 fn expect_get_state_values_with_proof(
     mock_db: &mut MockDatabaseReader,
     version: u64,
@@ -2826,11 +2863,13 @@ async fn verify_new_transaction_outputs_with_proof(
         DataResponse::NewTransactionOutputsWithProof((outputs_with_proof, ledger_info)) => {
             assert_eq!(outputs_with_proof, output_list_with_proof);
             assert_eq!(ledger_info, expected_ledger_info);
-        }
-        response => panic!(
-            "Expected new transaction outputs with proof but got: {:?}",
-            response
-        ),
+        },
+        response => {
+            panic!(
+                "Expected new transaction outputs with proof but got: {:?}",
+                response
+            )
+        },
     };
 }
 
@@ -2852,11 +2891,13 @@ async fn verify_new_transactions_with_proof(
         DataResponse::NewTransactionsWithProof((transactions_with_proof, ledger_info)) => {
             assert_eq!(transactions_with_proof, expected_transactions_with_proof);
             assert_eq!(ledger_info, expected_ledger_info);
-        }
-        response => panic!(
-            "Expected new transaction with proof but got: {:?}",
-            response
-        ),
+        },
+        response => {
+            panic!(
+                "Expected new transaction with proof but got: {:?}",
+                response
+            )
+        },
     };
 }
 
@@ -2888,11 +2929,13 @@ async fn verify_new_transactions_or_outputs_with_proof(
                 );
             }
             assert_eq!(ledger_info, expected_ledger_info);
-        }
-        response => panic!(
-            "Expected new transaction outputs with proof but got: {:?}",
-            response
-        ),
+        },
+        response => {
+            panic!(
+                "Expected new transaction outputs with proof but got: {:?}",
+                response
+            )
+        },
     };
 }
 
@@ -2915,11 +2958,13 @@ fn verify_transactions_or_output_response(
             } else {
                 assert_eq!(outputs_with_proof.unwrap(), output_list_with_proof.clone());
             }
-        }
-        _ => panic!(
-            "Expected transactions or outputs with proof but got: {:?}",
-            response
-        ),
+        },
+        _ => {
+            panic!(
+                "Expected transactions or outputs with proof but got: {:?}",
+                response
+            )
+        },
     };
 }
 

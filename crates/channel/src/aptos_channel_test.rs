@@ -143,7 +143,8 @@ fn test_feedback_on_drop() {
         assert_eq!(receiver.select_next_some().await, 'a');
         assert_eq!(receiver.select_next_some().await, 'b');
         assert_eq!(receiver.select_next_some().await, 'c');
-        // Ensure that we receive confirmation about 'd' being dropped and 'c' being delivered.
+        // Ensure that we receive confirmation about 'd' being dropped and 'c' being
+        // delivered.
         assert_eq!(ElementStatus::Dropped('d'), d_status_rx.await.unwrap());
         assert_eq!(ElementStatus::Dequeued, c_status_rx.await.unwrap());
         // Ensures that there is no other value which is ready

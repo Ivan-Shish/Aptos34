@@ -53,8 +53,8 @@ pub fn create_account_txn(
         .sign()
 }
 
-/// Returns a transaction to transfer coin from one account to another (possibly new) one, with the
-/// given arguments.
+/// Returns a transaction to transfer coin from one account to another (possibly
+/// new) one, with the given arguments.
 pub fn peer_to_peer_txn(
     sender: &Account,
     receiver: &Account,

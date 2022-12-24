@@ -4,13 +4,17 @@
 use bytes::BytesMut;
 use clap::Parser;
 use event_listener::Event;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use tokio::io;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
-use tokio::time::Duration;
-//use quanta::Clock;
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
+};
+use tokio::{
+    io,
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    time::Duration,
+};
+// use quanta::Clock;
 
 static STOP: AtomicBool = AtomicBool::new(false);
 static BYTESIN: AtomicU64 = AtomicU64::new(0);
@@ -104,7 +108,7 @@ async fn burst_target(addr: Arc<String>, burst: u16) {
             let curr = counter.fetch_add(1, Ordering::Relaxed);
 
             if n > 0 {
-                //this is ugly...
+                // this is ugly...
                 if n < 16 {
                     println!(
                         "{curr}/{}:{}: Got: {:?}",
@@ -119,9 +123,9 @@ async fn burst_target(addr: Arc<String>, burst: u16) {
                         ack.fetch_add(1, Ordering::Relaxed)
                     );
                 }
-            } /*else {
-                  println!("{curr}/{}:{}: Silent", burst, ack.load(Ordering::Relaxed));
-              }*/
+            } // else {
+              // println!("{curr}/{}:{}: Silent", burst, ack.load(Ordering::Relaxed));
+              // }
 
             if curr == burst.into() {
                 println!("{} cya cowboy!\n", curr);
@@ -145,7 +149,7 @@ async fn load_target(addr: Arc<String>, step: u64) {
     let con_at = inner_conn_counter.clone();
     let con_err = inner_err_counter.clone();
 
-    //let BYTESIN = BytesIN.clone();
+    // let BYTESIN = BytesIN.clone();
     tokio::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_millis(1000)).await;

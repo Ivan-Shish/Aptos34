@@ -11,7 +11,6 @@ use aptos_types::{
     account_config,
     transaction::{SignedTransaction, TransactionPayload},
 };
-
 use move_bytecode_utils::module_cache::SyncModuleCache;
 use move_core_types::{
     ident_str,
@@ -20,9 +19,8 @@ use move_core_types::{
     resolver::ModuleResolver,
     value::{serialize_values, MoveValue},
 };
-use read_write_set_dynamic::{ConcretizedFormals, NormalizedReadWriteSetAnalysis};
-
 use once_cell::sync::Lazy;
+use read_write_set_dynamic::{ConcretizedFormals, NormalizedReadWriteSetAnalysis};
 use std::ops::Deref;
 
 pub struct ReadWriteSetAnalysis<'a, R: ModuleResolver> {
@@ -57,8 +55,9 @@ pub fn add_on_functions_list() -> Vec<(ModuleId, Identifier)> {
 }
 
 impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
-    /// Create a Aptos transaction read/write set analysis from a generic Move module read/write set
-    /// analysis and a view of the current blockchain for module fetching and access concretization.
+    /// Create a Aptos transaction read/write set analysis from a generic Move
+    /// module read/write set analysis and a view of the current blockchain
+    /// for module fetching and access concretization.
     pub fn new(rw: &'a NormalizedReadWriteSetAnalysis, blockchain_view: &'a R) -> Self {
         ReadWriteSetAnalysis {
             normalized_analysis_result: rw,
@@ -67,27 +66,27 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
         }
     }
 
-    /// Returns an overapproximation of the `ResourceKey`'s in global storage that will be written
-    /// by `tx`
+    /// Returns an overapproximation of the `ResourceKey`'s in global storage
+    /// that will be written by `tx`
     pub fn get_keys_written(&self, tx: &SignedTransaction) -> Result<Vec<ResourceKey>> {
         Ok(self.get_keys_user_transaction(tx)?.1)
     }
 
-    /// Returns an overapproximation of the `ResourceKey`'s in global storage that will be read
-    /// by `tx`
+    /// Returns an overapproximation of the `ResourceKey`'s in global storage
+    /// that will be read by `tx`
     pub fn get_keys_read(&self, tx: &SignedTransaction) -> Result<Vec<ResourceKey>> {
         Ok(self.get_keys_user_transaction(tx)?.0)
     }
 
-    /// Returns an overapproximation of the `ResourceKey`'s in global storage that will be read
-    /// by `tx`. Secondary indexes will be fully resolved by using the global state at
-    /// `self.blockchain_view`.
+    /// Returns an overapproximation of the `ResourceKey`'s in global storage
+    /// that will be read by `tx`. Secondary indexes will be fully resolved
+    /// by using the global state at `self.blockchain_view`.
     ///
-    /// Return value will be a tuple where the first item is the read set and the second
-    /// item is the write set of this transaction.
+    /// Return value will be a tuple where the first item is the read set and
+    /// the second item is the write set of this transaction.
     ///
-    /// Note: this will return both writes performed by the transaction prologue/epilogue and by its
-    /// embedded payload.
+    /// Note: this will return both writes performed by the transaction
+    /// prologue/epilogue and by its embedded payload.
     pub fn get_keys_user_transaction(
         &self,
         tx: &SignedTransaction,
@@ -95,12 +94,13 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
         self.get_keys_user_transaction_impl(tx, true)
     }
 
-    /// Returns an overapproximation of the `ResourceKey`'s in global storage that will be read
-    /// by `tx`. Only formals and type arguments will be binded and secondary indexes will remain to
-    /// be unresolved for better speed performance.
+    /// Returns an overapproximation of the `ResourceKey`'s in global storage
+    /// that will be read by `tx`. Only formals and type arguments will be
+    /// binded and secondary indexes will remain to be unresolved for better
+    /// speed performance.
     ///
-    /// Note: this will return both writes performed by the transaction prologue/epilogue and by its
-    /// embedded payload.
+    /// Note: this will return both writes performed by the transaction
+    /// prologue/epilogue and by its embedded payload.
     pub fn get_partial_keys_user_transaction(
         &self,
         tx: &SignedTransaction,
@@ -124,12 +124,12 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
             ),
             TransactionPayload::Script(s) => {
                 bail!("Unsupported transaction script type {:?}", s)
-            }
+            },
             payload => {
                 // TODO: support tx scripts here. Slightly tricky since we will need to run
                 // analyzer on the fly
                 bail!("Unsupported transaction payload type {:?}", payload)
-            }
+            },
         }
     }
 
@@ -172,7 +172,7 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
         match tx {
             PreprocessedTransaction::UserTransaction(tx) => {
                 self.get_keys_user_transaction_impl(tx, concretize)
-            }
+            },
             PreprocessedTransaction::BlockMetadata(block_metadata) => {
                 let args = serialize_values(
                     &block_metadata
@@ -188,12 +188,12 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
                     &self.module_cache,
                 )?;
                 self.concretize_secondary_indexes(metadata_access, concretize)
-            }
+            },
             PreprocessedTransaction::InvalidSignature => Ok((vec![], vec![])),
             PreprocessedTransaction::StateCheckpoint => Ok((vec![], vec![])),
             PreprocessedTransaction::WaypointWriteSet(_) => {
                 bail!("Unsupported writeset transaction")
-            }
+            },
         }
     }
 
@@ -238,8 +238,8 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
             &self.module_cache,
         )?;
 
-        // If any error occurs while analyzing the body, skip the read/writeset result as only the
-        // prologue and epilogue will be run by this transaction.
+        // If any error occurs while analyzing the body, skip the read/writeset result
+        // as only the prologue and epilogue will be run by this transaction.
         let script_accesses = self
             .get_partially_concretized_summary(
                 module_name,
@@ -265,8 +265,9 @@ impl<'a, R: MoveResolverExt> ReadWriteSetAnalysis<'a, R> {
 
         keys_written.sort();
         keys_written.dedup();
-        // Hack: remove GasFees accesses from epilogue if gas_price is zero. This is sound
-        // to do as of Aptos 1.4, but should be re-evaluated if the epilogue changes
+        // Hack: remove GasFees accesses from epilogue if gas_price is zero. This is
+        // sound to do as of Aptos 1.4, but should be re-evaluated if the
+        // epilogue changes
         if tx.gas_unit_price() == 0 {
             let tx_fees_tag = StructTag {
                 address: account_config::CORE_CODE_ADDRESS,

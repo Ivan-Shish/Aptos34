@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::metrics::OTHER_TIMERS_SECONDS;
 use crate::{
     backup_types::{
         epoch_ending::restore::EpochHistory,
@@ -10,6 +9,7 @@ use crate::{
     metrics::{
         restore::{TRANSACTION_REPLAY_VERSION, TRANSACTION_SAVE_VERSION},
         verify::VERIFY_TRANSACTION_VERSION,
+        OTHER_TIMERS_SECONDS,
     },
     storage::{BackupStorage, FileHandle},
     utils::{
@@ -26,12 +26,12 @@ use aptos_executor::chunk_executor::ChunkExecutor;
 use aptos_executor_types::TransactionReplayer;
 use aptos_logger::prelude::*;
 use aptos_storage_interface::DbReaderWriter;
-use aptos_types::write_set::WriteSet;
 use aptos_types::{
     contract_event::ContractEvent,
     ledger_info::LedgerInfoWithSignatures,
     proof::{TransactionAccumulatorRangeProof, TransactionInfoListWithProof},
     transaction::{Transaction, TransactionInfo, TransactionListWithProof, Version},
+    write_set::WriteSet,
 };
 use aptos_vm::AptosVM;
 use clap::Parser;
@@ -61,8 +61,8 @@ pub struct TransactionRestoreOpt {
     #[clap(
         long = "replay-transactions-from-version",
         help = "Transactions with this version and above will be replayed so state and events are \
-        gonna pop up. Requires state at the version right before this to exist, either by \
-        recovering a state snapshot, or previous transaction replay."
+                gonna pop up. Requires state at the version right before this to exist, either by \
+                recovering a state snapshot, or previous transaction replay."
     )]
     pub replay_from_version: Option<Version>,
 }
@@ -111,7 +111,8 @@ impl LoadedChunk {
 
         ensure!(
             manifest.first_version + (txns.len() as Version) == manifest.last_version + 1,
-            "Number of items in chunks doesn't match that in manifest. first_version: {}, last_version: {}, items in chunk: {}",
+            "Number of items in chunks doesn't match that in manifest. first_version: {}, \
+             last_version: {}, items in chunk: {}",
             manifest.first_version,
             manifest.last_version,
             txns.len(),
@@ -181,7 +182,8 @@ impl TransactionRestoreController {
 
 impl TransactionRestoreController {}
 
-/// Takes a series of transaction backup manifests, preheat in parallel, then execute in order.
+/// Takes a series of transaction backup manifests, preheat in parallel, then
+/// execute in order.
 pub struct TransactionRestoreBatchController {
     global_opt: GlobalRestoreOptions,
     storage: Arc<dyn BackupStorage>,
@@ -284,7 +286,7 @@ impl TransactionRestoreBatchController {
                             *last_chunk_last_version = chunk.last_version;
                             Some(chunk_res)
                         }
-                    }
+                    },
                     Err(_) => Some(chunk_res),
                 };
                 future::ready(res)
@@ -349,9 +351,10 @@ impl TransactionRestoreBatchController {
         let restore_handler_clone = restore_handler.clone();
         // DB doesn't allow replaying anything before what's in DB already.
         //
-        // TODO: notice that ideals we detect and avoid calling rh.save_transactions() for txns
-        //       before `first_to_replay` calculated below, but we don't deal with it for now,
-        //       because unlike replaying, that's allowed by the DB. Need to follow up later.
+        // TODO: notice that ideals we detect and avoid calling rh.save_transactions()
+        // for txns       before `first_to_replay` calculated below, but we
+        // don't deal with it for now,       because unlike replaying, that's
+        // allowed by the DB. Need to follow up later.
         let first_to_replay = max(
             self.replay_from_version.unwrap_or(Version::MAX),
             next_expected_version,

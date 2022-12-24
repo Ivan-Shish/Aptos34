@@ -3,10 +3,12 @@
 
 #![forbid(unsafe_code)]
 
-use crate::metrics::increment_network_frame_overflow;
 use crate::{
     logging::{LogEntry, LogSchema},
-    metrics::{increment_counter, start_timer, LRU_CACHE_HIT, LRU_CACHE_PROBE},
+    metrics::{
+        increment_counter, increment_network_frame_overflow, start_timer, LRU_CACHE_HIT,
+        LRU_CACHE_PROBE,
+    },
     network::{ResponseSender, StorageServiceNetworkEvents},
 };
 use aptos_bounded_executor::BoundedExecutor;
@@ -15,16 +17,18 @@ use aptos_infallible::{Mutex, RwLock};
 use aptos_logger::prelude::*;
 use aptos_network::ProtocolId;
 use aptos_storage_interface::DbReader;
-use aptos_storage_service_types::requests::{
-    DataRequest, EpochEndingLedgerInfoRequest, StateValuesWithProofRequest, StorageServiceRequest,
-    TransactionOutputsWithProofRequest, TransactionsOrOutputsWithProofRequest,
-    TransactionsWithProofRequest,
+use aptos_storage_service_types::{
+    requests::{
+        DataRequest, EpochEndingLedgerInfoRequest, StateValuesWithProofRequest,
+        StorageServiceRequest, TransactionOutputsWithProofRequest,
+        TransactionsOrOutputsWithProofRequest, TransactionsWithProofRequest,
+    },
+    responses::{
+        CompleteDataRange, DataResponse, DataSummary, ProtocolMetadata, ServerProtocolVersion,
+        StorageServerSummary, StorageServiceResponse, TransactionOrOutputListWithProof,
+    },
+    Result, StorageServiceError,
 };
-use aptos_storage_service_types::responses::{
-    CompleteDataRange, DataResponse, DataSummary, ProtocolMetadata, ServerProtocolVersion,
-    StorageServerSummary, StorageServiceResponse, TransactionOrOutputListWithProof,
-};
-use aptos_storage_service_types::{Result, StorageServiceError};
 use aptos_time_service::{TimeService, TimeServiceTrait};
 use aptos_types::{
     account_address::AccountAddress,
@@ -149,7 +153,7 @@ impl DataSubscriptionRequest {
                     start_version,
                     end_version,
                 })
-            }
+            },
             DataRequest::GetNewTransactionsWithProof(request) => {
                 DataRequest::GetTransactionsWithProof(TransactionsWithProofRequest {
                     proof_version: target_version,
@@ -157,7 +161,7 @@ impl DataSubscriptionRequest {
                     end_version,
                     include_events: request.include_events,
                 })
-            }
+            },
             DataRequest::GetNewTransactionsOrOutputsWithProof(request) => {
                 DataRequest::GetTransactionsOrOutputsWithProof(
                     TransactionsOrOutputsWithProofRequest {
@@ -168,7 +172,7 @@ impl DataSubscriptionRequest {
                         max_num_output_reductions: request.max_num_output_reductions,
                     },
                 )
-            }
+            },
             request => unreachable!("Unexpected subscription request: {:?}", request),
         };
         let storage_request =
@@ -202,11 +206,11 @@ impl DataSubscriptionRequest {
         match &self.request.data_request {
             DataRequest::GetNewTransactionOutputsWithProof(_) => {
                 config.max_transaction_output_chunk_size
-            }
+            },
             DataRequest::GetNewTransactionsWithProof(_) => config.max_transaction_chunk_size,
             DataRequest::GetNewTransactionsOrOutputsWithProof(_) => {
                 config.max_transaction_output_chunk_size
-            }
+            },
             request => unreachable!("Unexpected subscription request: {:?}", request),
         }
     }
@@ -271,7 +275,8 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
         }
     }
 
-    /// Spawns a non-terminating task that refreshes the cached storage server summary
+    /// Spawns a non-terminating task that refreshes the cached storage server
+    /// summary
     async fn spawn_storage_summary_refresher(&mut self) {
         let cached_storage_server_summary = self.cached_storage_server_summary.clone();
         let config = self.config;
@@ -344,7 +349,7 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
                             error!(LogSchema::new(LogEntry::SubscriptionRefresh)
                                 .error(&Error::UnexpectedErrorEncountered(error.to_string())));
                             continue;
-                        }
+                        },
                     };
 
                     // Remove and handle the ready subscriptions
@@ -505,7 +510,7 @@ fn get_epoch_ending_ledger_info<T: StorageReaderInterface>(
                         "Empty change proof found!".into(),
                     ))
                 }
-            }
+            },
             data_response => Err(Error::StorageErrorEncountered(format!(
                 "Failed to get epoch ending ledger info! Got: {:?}",
                 data_response
@@ -551,13 +556,13 @@ fn notify_peer_of_new_data<T: StorageReaderInterface>(
                             transactions_with_proof,
                             target_ledger_info.clone(),
                         ))
-                    }
+                    },
                     Ok(DataResponse::TransactionOutputsWithProof(outputs_with_proof)) => {
                         DataResponse::NewTransactionOutputsWithProof((
                             outputs_with_proof,
                             target_ledger_info.clone(),
                         ))
-                    }
+                    },
                     Ok(DataResponse::TransactionsOrOutputsWithProof((
                         transactions_with_proof,
                         outputs_with_proof,
@@ -577,20 +582,20 @@ fn notify_peer_of_new_data<T: StorageReaderInterface>(
                                 "Failed to get a transaction or output response for peer!".into(),
                             ));
                         }
-                    }
+                    },
                     data_response => {
                         return Err(Error::UnexpectedErrorEncountered(format!(
                             "Failed to get appropriate data response for peer! Got: {:?}",
                             data_response
                         )))
-                    }
+                    },
                 },
                 response => {
                     return Err(Error::UnexpectedErrorEncountered(format!(
                         "Failed to fetch missing data for peer! {:?}",
                         response
                     )))
-                }
+                },
             };
             let storage_response =
                 match StorageServiceResponse::new(transformed_data_response, use_compression) {
@@ -600,7 +605,7 @@ fn notify_peer_of_new_data<T: StorageReaderInterface>(
                             "Failed to create transformed response! Error: {:?}",
                             error
                         )));
-                    }
+                    },
                 };
 
             // If the storage response has overflown the network frame size
@@ -615,7 +620,9 @@ fn notify_peer_of_new_data<T: StorageReaderInterface>(
                     num_bytes
                 );
                 return Err(Error::UnexpectedErrorEncountered(
-                    "Failed to notify the peer of new data! The response overflowed the network frame size!".into(),
+                    "Failed to notify the peer of new data! The response overflowed the network \
+                     frame size!"
+                        .into(),
                 ));
             }
 
@@ -626,7 +633,7 @@ fn notify_peer_of_new_data<T: StorageReaderInterface>(
                 subscription.response_sender,
             );
             Ok(())
-        }
+        },
         Err(error) => Err(error),
     }
 }
@@ -745,12 +752,12 @@ impl<T: StorageReaderInterface> Handler<T> {
                 let data_response = self.get_server_protocol_version();
                 StorageServiceResponse::new(data_response, request.use_compression)
                     .map_err(|error| error.into())
-            }
+            },
             DataRequest::GetStorageServerSummary => {
                 let data_response = self.get_storage_server_summary();
                 StorageServiceResponse::new(data_response, request.use_compression)
                     .map_err(|error| error.into())
-            }
+            },
             _ => self.process_cachable_request(protocol, &request),
         };
 
@@ -772,7 +779,7 @@ impl<T: StorageReaderInterface> Handler<T> {
                     Error::InvalidRequest(error) => Err(StorageServiceError::InvalidRequest(error)),
                     error => Err(StorageServiceError::InternalError(error.to_string())),
                 }
-            }
+            },
             Ok(response) => {
                 // The request was successful
                 increment_counter(
@@ -781,7 +788,7 @@ impl<T: StorageReaderInterface> Handler<T> {
                     response.get_label(),
                 );
                 Ok(response)
-            }
+            },
         }
     }
 
@@ -837,22 +844,22 @@ impl<T: StorageReaderInterface> Handler<T> {
         let data_response = match &request.data_request {
             DataRequest::GetStateValuesWithProof(request) => {
                 self.get_state_value_chunk_with_proof(request)
-            }
+            },
             DataRequest::GetEpochEndingLedgerInfos(request) => {
                 self.get_epoch_ending_ledger_infos(request)
-            }
+            },
             DataRequest::GetNumberOfStatesAtVersion(version) => {
                 self.get_number_of_states_at_version(*version)
-            }
+            },
             DataRequest::GetTransactionOutputsWithProof(request) => {
                 self.get_transaction_outputs_with_proof(request)
-            }
+            },
             DataRequest::GetTransactionsWithProof(request) => {
                 self.get_transactions_with_proof(request)
-            }
+            },
             DataRequest::GetTransactionsOrOutputsWithProof(request) => {
                 self.get_transactions_or_outputs_with_proof(request)
-            }
+            },
             _ => Err(Error::UnexpectedErrorEncountered(format!(
                 "Received an unexpected request: {:?}",
                 request
@@ -1108,7 +1115,8 @@ impl StorageReader {
         }
     }
 
-    /// Returns the transaction output range held in the database (lowest to highest).
+    /// Returns the transaction output range held in the database (lowest to
+    /// highest).
     fn fetch_transaction_output_range(
         &self,
         latest_version: Version,
@@ -1194,7 +1202,8 @@ impl StorageReaderInterface for StorageReader {
                 )
                 .map_err(|error| Error::StorageErrorEncountered(error.to_string()))?;
             if num_transactions_to_fetch == 1 {
-                return Ok(transaction_list_with_proof); // We cannot return less than a single item
+                return Ok(transaction_list_with_proof); // We cannot return less
+                                                        // than a single item
             }
 
             // Attempt to divide up the request if it overflows the message size
@@ -1209,16 +1218,19 @@ impl StorageReaderInterface for StorageReader {
                     DataResponse::TransactionsWithProof(transaction_list_with_proof).get_label(),
                 );
                 let new_num_transactions_to_fetch = num_transactions_to_fetch / 2;
-                debug!("The request for {:?} transactions was too large (num bytes: {:?}). Retrying with {:?}.",
-                    num_transactions_to_fetch, num_bytes, new_num_transactions_to_fetch);
+                debug!(
+                    "The request for {:?} transactions was too large (num bytes: {:?}). Retrying \
+                     with {:?}.",
+                    num_transactions_to_fetch, num_bytes, new_num_transactions_to_fetch
+                );
                 num_transactions_to_fetch = new_num_transactions_to_fetch; // Try again with half the amount of data
             }
         }
 
         Err(Error::UnexpectedErrorEncountered(format!(
-            "Unable to serve the get_transactions_with_proof request! Proof version: {:?}, \
-            start version: {:?}, end version: {:?}, include events: {:?}. The data cannot fit into \
-            a single network frame!",
+            "Unable to serve the get_transactions_with_proof request! Proof version: {:?}, start \
+             version: {:?}, end version: {:?}, include events: {:?}. The data cannot fit into a \
+             single network frame!",
             proof_version, start_version, end_version, include_events,
         )))
     }
@@ -1247,7 +1259,8 @@ impl StorageReaderInterface for StorageReader {
                 .get_epoch_ending_ledger_infos(start_epoch, end_epoch)
                 .map_err(|error| Error::StorageErrorEncountered(error.to_string()))?;
             if num_ledger_infos_to_fetch == 1 {
-                return Ok(epoch_change_proof); // We cannot return less than a single item
+                return Ok(epoch_change_proof); // We cannot return less than a
+                                               // single item
             }
 
             // Attempt to divide up the request if it overflows the message size
@@ -1262,15 +1275,18 @@ impl StorageReaderInterface for StorageReader {
                     DataResponse::EpochEndingLedgerInfos(epoch_change_proof).get_label(),
                 );
                 let new_num_ledger_infos_to_fetch = num_ledger_infos_to_fetch / 2;
-                debug!("The request for {:?} ledger infos was too large (num bytes: {:?}). Retrying with {:?}.",
-                    num_ledger_infos_to_fetch, num_bytes, new_num_ledger_infos_to_fetch);
+                debug!(
+                    "The request for {:?} ledger infos was too large (num bytes: {:?}). Retrying \
+                     with {:?}.",
+                    num_ledger_infos_to_fetch, num_bytes, new_num_ledger_infos_to_fetch
+                );
                 num_ledger_infos_to_fetch = new_num_ledger_infos_to_fetch; // Try again with half the amount of data
             }
         }
 
         Err(Error::UnexpectedErrorEncountered(format!(
             "Unable to serve the get_epoch_ending_ledger_infos request! Start epoch: {:?}, \
-            expected end epoch: {:?}. The data cannot fit into a single network frame!",
+             expected end epoch: {:?}. The data cannot fit into a single network frame!",
             start_epoch, expected_end_epoch
         )))
     }
@@ -1293,7 +1309,8 @@ impl StorageReaderInterface for StorageReader {
                 .get_transaction_outputs(start_version, num_outputs_to_fetch, proof_version)
                 .map_err(|error| Error::StorageErrorEncountered(error.to_string()))?;
             if num_outputs_to_fetch == 1 {
-                return Ok(output_list_with_proof); // We cannot return less than a single item
+                return Ok(output_list_with_proof); // We cannot return less than
+                                                   // a single item
             }
 
             // Attempt to divide up the request if it overflows the message size
@@ -1308,15 +1325,19 @@ impl StorageReaderInterface for StorageReader {
                     DataResponse::TransactionOutputsWithProof(output_list_with_proof).get_label(),
                 );
                 let new_num_outputs_to_fetch = num_outputs_to_fetch / 2;
-                debug!("The request for {:?} outputs was too large (num bytes: {:?}). Retrying with {:?}.",
-                    num_outputs_to_fetch, num_bytes, new_num_outputs_to_fetch);
+                debug!(
+                    "The request for {:?} outputs was too large (num bytes: {:?}). Retrying with \
+                     {:?}.",
+                    num_outputs_to_fetch, num_bytes, new_num_outputs_to_fetch
+                );
                 num_outputs_to_fetch = new_num_outputs_to_fetch; // Try again with half the amount of data
             }
         }
 
         Err(Error::UnexpectedErrorEncountered(format!(
             "Unable to serve the get_transaction_outputs_with_proof request! Proof version: {:?}, \
-            start version: {:?}, end version: {:?}. The data cannot fit into a single network frame!",
+             start version: {:?}, end version: {:?}. The data cannot fit into a single network \
+             frame!",
             proof_version, start_version, end_version
         )))
     }
@@ -1351,7 +1372,8 @@ impl StorageReaderInterface for StorageReader {
             if !overflow_frame {
                 return Ok((None, Some(output_list_with_proof)));
             } else if num_outputs_to_fetch == 1 {
-                break; // We cannot return less than a single item. Fallback to transactions
+                break; // We cannot return less than a single item. Fallback to
+                       // transactions
             } else {
                 increment_network_frame_overflow(
                     DataResponse::TransactionsOrOutputsWithProof((
@@ -1361,8 +1383,11 @@ impl StorageReaderInterface for StorageReader {
                     .get_label(),
                 );
                 let new_num_outputs_to_fetch = num_outputs_to_fetch / 2;
-                debug!("The request for {:?} outputs was too large (num bytes: {:?}). Current number of data reductions: {:?}",
-                    num_outputs_to_fetch, num_bytes, num_output_reductions);
+                debug!(
+                    "The request for {:?} outputs was too large (num bytes: {:?}). Current number \
+                     of data reductions: {:?}",
+                    num_outputs_to_fetch, num_bytes, num_output_reductions
+                );
                 num_outputs_to_fetch = new_num_outputs_to_fetch; // Try again with half the amount of data
                 num_output_reductions += 1;
             }
@@ -1408,7 +1433,9 @@ impl StorageReaderInterface for StorageReader {
                 )
                 .map_err(|error| Error::StorageErrorEncountered(error.to_string()))?;
             if num_state_values_to_fetch == 1 {
-                return Ok(state_value_chunk_with_proof); // We cannot return less than a single item
+                return Ok(state_value_chunk_with_proof); // We cannot return
+                                                         // less than a single
+                                                         // item
             }
 
             // Attempt to divide up the request if it overflows the message size
@@ -1424,15 +1451,18 @@ impl StorageReaderInterface for StorageReader {
                         .get_label(),
                 );
                 let new_num_state_values_to_fetch = num_state_values_to_fetch / 2;
-                debug!("The request for {:?} state values was too large (num bytes: {:?}). Retrying with {:?}.",
-                    num_state_values_to_fetch, num_bytes, new_num_state_values_to_fetch);
+                debug!(
+                    "The request for {:?} state values was too large (num bytes: {:?}). Retrying \
+                     with {:?}.",
+                    num_state_values_to_fetch, num_bytes, new_num_state_values_to_fetch
+                );
                 num_state_values_to_fetch = new_num_state_values_to_fetch; // Try again with half the amount of data
             }
         }
 
         Err(Error::UnexpectedErrorEncountered(format!(
-            "Unable to serve the get_state_value_chunk_with_proof request! Version: {:?}, \
-            start index: {:?}, end index: {:?}. The data cannot fit into a single network frame!",
+            "Unable to serve the get_state_value_chunk_with_proof request! Version: {:?}, start \
+             index: {:?}, end index: {:?}. The data cannot fit into a single network frame!",
             version, start_index, end_index
         )))
     }
@@ -1490,10 +1520,10 @@ fn log_storage_response(
                     }
                 );
             }
-        }
+        },
         Err(storage_error) => {
             let storage_error = format!("{:?}", storage_error);
             debug!(LogSchema::new(LogEntry::SentStorageResponse).response(&storage_error));
-        }
+        },
     };
 }

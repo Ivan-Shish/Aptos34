@@ -3,20 +3,22 @@
 
 //! Protocol used to ensure peer liveness
 //!
-//! The HealthChecker is responsible for ensuring liveness of all peers of a node.
-//! It does so by periodically selecting a random connected peer and sending a Ping probe. A
-//! healthy peer is expected to respond with a corresponding Pong message.
+//! The HealthChecker is responsible for ensuring liveness of all peers of a
+//! node. It does so by periodically selecting a random connected peer and
+//! sending a Ping probe. A healthy peer is expected to respond with a
+//! corresponding Pong message.
 //!
-//! If a certain number of successive liveness probes for a peer fail, the HealthChecker initiates a
-//! disconnect from the peer. It relies on ConnectivityManager or the remote peer to re-establish
-//! the connection.
+//! If a certain number of successive liveness probes for a peer fail, the
+//! HealthChecker initiates a disconnect from the peer. It relies on
+//! ConnectivityManager or the remote peer to re-establish the connection.
 //!
 //! Future Work
 //! -----------
 //! We can make a few other improvements to the health checker. These are:
 //! - Make the policy for interpreting ping failures pluggable
 //! - Use successful inbound pings as a sign of remote note being healthy
-//! - Ping a peer only in periods of no application-level communication with the peer
+//! - Ping a peer only in periods of no application-level communication with the
+//!   peer
 use crate::{
     application::interface::NetworkInterface,
     constants::NETWORK_CHANNEL_SIZE,
@@ -57,8 +59,8 @@ mod test;
 
 /// The interface from Network to HealthChecker layer.
 ///
-/// `HealthCheckerNetworkEvents` is a `Stream` of `PeerManagerNotification` where the
-/// raw `Bytes` rpc messages are deserialized into
+/// `HealthCheckerNetworkEvents` is a `Stream` of `PeerManagerNotification`
+/// where the raw `Bytes` rpc messages are deserialized into
 /// `HealthCheckerMsg` types. `HealthCheckerNetworkEvents` is a thin wrapper
 /// around an `channel::Receiver<PeerManagerNotification>`.
 pub type HealthCheckerNetworkEvents = NetworkEvents<HealthCheckerMsg>;
@@ -105,8 +107,8 @@ impl HealthCheckerNetworkSender {
 
 #[async_trait]
 impl ApplicationNetworkSender<HealthCheckerMsg> for HealthCheckerNetworkSender {
-    /// Send a HealthChecker Ping RPC request to remote peer `recipient`. Returns
-    /// the remote peer's future `Pong` reply.
+    /// Send a HealthChecker Ping RPC request to remote peer `recipient`.
+    /// Returns the remote peer's future `Pong` reply.
     ///
     /// The rpc request can be canceled at any point by dropping the returned
     /// future.
@@ -147,9 +149,9 @@ pub struct HealthChecker {
     ping_interval: Duration,
     /// Ping timeout duration.
     ping_timeout: Duration,
-    /// Number of successive ping failures we tolerate before declaring a node as unhealthy and
-    /// disconnecting from it. In the future, this can be replaced with a more general failure
-    /// detection policy.
+    /// Number of successive ping failures we tolerate before declaring a node
+    /// as unhealthy and disconnecting from it. In the future, this can be
+    /// replaced with a more general failure detection policy.
     ping_failures_tolerated: u64,
     /// Counter incremented in each round of health checks
     round: u64,
@@ -302,7 +304,7 @@ impl HealthChecker {
                     "{} Unable to serialize pong response: {}", self.network_context, e
                 );
                 return;
-            }
+            },
         };
         trace!(
             NetworkSchema::new(&self.network_context).remote_peer(&peer_id),
@@ -316,11 +318,11 @@ impl HealthChecker {
             match entry {
                 Entry::Vacant(..) => {
                     // Don't do anything if there isn't an entry
-                }
+                },
                 Entry::Occupied(inner) => {
                     let data = inner.get_mut();
                     data.failures = 0;
-                }
+                },
             };
             Ok(())
         });
@@ -352,7 +354,7 @@ impl HealthChecker {
                         match entry {
                             Entry::Vacant(..) => {
                                 // Don't do anything if there isn't an entry
-                            }
+                            },
                             Entry::Occupied(inner) => {
                                 let data = inner.get_mut();
                                 // Update state if it's a newer round
@@ -360,7 +362,7 @@ impl HealthChecker {
                                     data.round = round;
                                     data.failures = 0;
                                 }
-                            }
+                            },
                         };
                         Ok(())
                     });
@@ -376,7 +378,7 @@ impl HealthChecker {
                     );
                     debug_assert!(false, "Pong nonce doesn't match our challenge Ping nonce");
                 }
-            }
+            },
             Err(err) => {
                 warn!(
                     NetworkSchema::new(&self.network_context)
@@ -394,7 +396,7 @@ impl HealthChecker {
                     match entry {
                         Entry::Vacant(..) => {
                             // Don't do anything if there isn't an entry
-                        }
+                        },
                         Entry::Occupied(inner) => {
                             // If this is the result of an older ping, we ignore it.
                             // Increment num of failures.
@@ -402,7 +404,7 @@ impl HealthChecker {
                             if data.round <= round {
                                 data.failures += 1;
                             }
-                        }
+                        },
                     }
                     Ok(())
                 });
@@ -442,7 +444,7 @@ impl HealthChecker {
                         );
                     }
                 }
-            }
+            },
         }
     }
 

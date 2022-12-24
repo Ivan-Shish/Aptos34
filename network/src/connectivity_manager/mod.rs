@@ -69,15 +69,16 @@ mod test;
 
 /// In addition to the backoff strategy, we also add some small random jitter to
 /// the delay before each dial. This jitter helps reduce the probability of
-/// simultaneous dials, especially in non-production environments where most nodes
-/// are spun up around the same time. Similarly, it smears the dials out in time
-/// to avoid spiky load / thundering herd issues where all dial requests happen
-/// around the same time at startup.
+/// simultaneous dials, especially in non-production environments where most
+/// nodes are spun up around the same time. Similarly, it smears the dials out
+/// in time to avoid spiky load / thundering herd issues where all dial requests
+/// happen around the same time at startup.
 const MAX_CONNECTION_DELAY_JITTER: Duration = Duration::from_millis(100);
 
 /// The amount of time to try other peers until dialing this peer again.
 ///
-/// It's currently set to 5 minutes to ensure rotation through all (or most) peers
+/// It's currently set to 5 minutes to ensure rotation through all (or most)
+/// peers
 const TRY_DIAL_BACKOFF_TIME: Duration = Duration::from_secs(300);
 
 /// The ConnectivityManager actor.
@@ -97,8 +98,9 @@ pub struct ConnectivityManager<TBackoff> {
     connection_notifs_rx: conn_notifs_channel::Receiver,
     /// Channel over which we receive requests from other actors.
     requests_rx: aptos_channels::Receiver<ConnectivityRequest>,
-    /// Peers queued to be dialed, potentially with some delay. The dial can be canceled by
-    /// sending over (or dropping) the associated oneshot sender.
+    /// Peers queued to be dialed, potentially with some delay. The dial can be
+    /// canceled by sending over (or dropping) the associated oneshot
+    /// sender.
     dial_queue: HashMap<PeerId, oneshot::Sender<()>>,
     /// The state of any currently executing dials. Used to keep track of what
     /// the next dial delay and dial address should be for a given peer.
@@ -107,10 +109,11 @@ pub struct ConnectivityManager<TBackoff> {
     connectivity_check_interval: Duration,
     /// Backoff strategy.
     backoff_strategy: TBackoff,
-    /// Maximum delay b/w 2 consecutive attempts to connect with a disconnected peer.
+    /// Maximum delay b/w 2 consecutive attempts to connect with a disconnected
+    /// peer.
     max_delay: Duration,
-    /// A local counter incremented on receiving an incoming message. Printing this in debugging
-    /// allows for easy debugging.
+    /// A local counter incremented on receiving an incoming message. Printing
+    /// this in debugging allows for easy debugging.
     event_id: u32,
     /// A way to limit the number of connected peers by outgoing dials.
     outbound_connection_limit: Option<usize>,
@@ -139,20 +142,17 @@ impl fmt::Debug for DiscoverySource {
 
 impl fmt::Display for DiscoverySource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                DiscoverySource::OnChainValidatorSet => "OnChainValidatorSet",
-                DiscoverySource::File => "File",
-                DiscoverySource::Config => "Config",
-                DiscoverySource::Rest => "Rest",
-            }
-        )
+        write!(f, "{}", match self {
+            DiscoverySource::OnChainValidatorSet => "OnChainValidatorSet",
+            DiscoverySource::File => "File",
+            DiscoverySource::Config => "Config",
+            DiscoverySource::Rest => "Rest",
+        })
     }
 }
 
-/// Requests received by the [`ConnectivityManager`] manager actor from upstream modules.
+/// Requests received by the [`ConnectivityManager`] manager actor from upstream
+/// modules.
 #[derive(Debug, Serialize)]
 pub enum ConnectivityRequest {
     /// Update set of discovered peers and associated info
@@ -183,13 +183,14 @@ impl DiscoveredPeerSet {
                 } else {
                     false
                 }
-            }
+            },
             Entry::Vacant(_) => true,
         }
     }
 
-    /// Converts `DiscoveredPeerSet` into a `PeerSet`, however disregards the source of discovery
-    /// TODO: Provide smarter merging based on discovery source
+    /// Converts `DiscoveredPeerSet` into a `PeerSet`, however disregards the
+    /// source of discovery TODO: Provide smarter merging based on discovery
+    /// source
     pub fn to_eligible_peers(&self) -> PeerSet {
         self.0
             .iter()
@@ -218,6 +219,7 @@ impl DiscoveredPeer {
             last_dial_time: SystemTime::UNIX_EPOCH,
         }
     }
+
     /// Peers without keys are not able to be mutually authenticated to
     pub fn is_eligible(&self) -> bool {
         !self.keys.is_empty()
@@ -265,8 +267,8 @@ impl From<&DiscoveredPeer> for Peer {
     }
 }
 
-/// A set of `NetworkAddress`'s for a single peer, bucketed by DiscoverySource in
-/// priority order.
+/// A set of `NetworkAddress`'s for a single peer, bucketed by DiscoverySource
+/// in priority order.
 #[derive(Clone, Default, PartialEq, Serialize)]
 struct Addresses([Vec<NetworkAddress>; DiscoverySource::NUM_VARIANTS]);
 
@@ -288,8 +290,8 @@ enum DialResult {
 struct DialState<TBackoff> {
     /// The current state of this peer's backoff delay.
     backoff: TBackoff,
-    /// The index of the next address to dial. Index of an address in the `DiscoveredPeer`'s
-    /// `addrs` entry.
+    /// The index of the next address to dial. Index of an address in the
+    /// `DiscoveredPeer`'s `addrs` entry.
     addr_idx: usize,
 }
 
@@ -355,11 +357,11 @@ where
     /// Starts the [`ConnectivityManager`] actor.
     pub async fn start(mut self) {
         // The ConnectivityManager actor is interested in 3 kinds of events:
-        // 1. Ticks to trigger connecitvity check. These are implemented using a clock based
-        //    trigger in production.
+        // 1. Ticks to trigger connecitvity check. These are implemented using a clock
+        // based    trigger in production.
         // 2. Incoming requests to connect or disconnect with a peer.
-        // 3. Notifications from PeerManager when we establish a new connection or lose an existing
-        //    connection with a peer.
+        // 3. Notifications from PeerManager when we establish a new connection or lose
+        // an existing    connection with a peer.
         let mut pending_dials = FuturesUnordered::new();
 
         let ticker = self.time_service.interval(self.connectivity_check_interval);
@@ -411,8 +413,8 @@ where
     /// Disconnect from all peers that are no longer eligible.
     ///
     /// For instance, a validator might leave the validator set after a
-    /// reconfiguration. If we are currently connected to this validator, calling
-    /// this function will close our connection to it.
+    /// reconfiguration. If we are currently connected to this validator,
+    /// calling this function will close our connection to it.
     async fn close_stale_connections(&mut self) {
         let eligible = self.eligible.read().clone();
 
@@ -502,7 +504,8 @@ where
                 peer.is_eligible_to_be_dialed() // The node is eligible to dial
                     && !self.connected.contains_key(peer_id) // The node is not already connected.
                     && !self.dial_queue.contains_key(peer_id) // There is no pending dial to this node.
-                    && roles_to_dial.contains(&peer.role) // We can dial this role
+                    && roles_to_dial.contains(&peer.role) // We can dial this
+                                                          // role
             })
             .collect();
 
@@ -516,8 +519,8 @@ where
 
         // Limit the number of dialed connections from a Full Node
         // This does not limit the number of incoming connections
-        // It enforces that a full node cannot have more outgoing connections than `connection_limit`
-        // including in flight dials.
+        // It enforces that a full node cannot have more outgoing connections than
+        // `connection_limit` including in flight dials.
         let num_eligible = eligible.len();
         let to_connect = if let Some(conn_limit) = self.outbound_connection_limit {
             let outbound_connections = self
@@ -548,8 +551,9 @@ where
         peer: DiscoveredPeer,
         pending_dials: &'a mut FuturesUnordered<BoxFuture<'static, PeerId>>,
     ) {
-        // If we're attempting to dial a Peer we must not be connected to it. This ensures that
-        // newly eligible, but not connected to peers, have their counter initialized properly.
+        // If we're attempting to dial a Peer we must not be connected to it. This
+        // ensures that newly eligible, but not connected to peers, have their
+        // counter initialized properly.
         counters::peer_connected(&self.network_context, &peer_id, 0);
 
         let connection_reqs_tx = self.connection_reqs_tx.clone();
@@ -610,9 +614,9 @@ where
         self.dial_queue.insert(peer_id, cancel_tx);
     }
 
-    // Note: We do not check that the connections to older incarnations of a node are broken, and
-    // instead rely on the node moving to a new epoch to break connections made from older
-    // incarnations.
+    // Note: We do not check that the connections to older incarnations of a node
+    // are broken, and instead rely on the node moving to a new epoch to break
+    // connections made from older incarnations.
     async fn check_connectivity<'a>(
         &'a mut self,
         pending_dials: &'a mut FuturesUnordered<BoxFuture<'static, PeerId>>,
@@ -636,8 +640,8 @@ where
         self.cancel_stale_dials().await;
         // Disconnect from connected peers that are no longer eligible.
         self.close_stale_connections().await;
-        // Dial peers which are eligible but are neither connected nor queued for dialing in the
-        // future.
+        // Dial peers which are eligible but are neither connected nor queued for
+        // dialing in the future.
         self.dial_eligible_peers(pending_dials);
     }
 
@@ -664,13 +668,13 @@ where
                     src,
                 );
                 self.handle_update_discovered_peers(src, discovered_peers);
-            }
+            },
             ConnectivityRequest::GetDialQueueSize(sender) => {
                 sender.send(self.dial_queue.len()).unwrap();
-            }
+            },
             ConnectivityRequest::GetConnectedSize(sender) => {
                 sender.send(self.connected.len()).unwrap();
-            }
+            },
         }
     }
 
@@ -717,7 +721,8 @@ where
                 continue;
             }
 
-            // Create the new `DiscoveredPeer`, role is set when a `Peer` is first discovered
+            // Create the new `DiscoveredPeer`, role is set when a `Peer` is first
+            // discovered
             let peer = self
                 .discovered_peers
                 .0
@@ -793,7 +798,7 @@ where
                 // Cancel possible queued dial to this peer.
                 self.dial_states.remove(&peer_id);
                 self.dial_queue.remove(&peer_id);
-            }
+            },
             peer_manager::ConnectionNotification::LostPeer(metadata, _context, _reason) => {
                 let peer_id = metadata.remote_peer_id;
                 if let Some(stored_metadata) = self.connected.get(&peer_id) {
@@ -824,7 +829,7 @@ where
                         metadata.addr
                     );
                 }
-            }
+            },
         }
     }
 }
@@ -846,7 +851,7 @@ fn log_dial_result(
                 peer_id.short_str(),
                 addr
             );
-        }
+        },
         DialResult::Cancelled => {
             info!(
                 NetworkSchema::new(&network_context).remote_peer(&peer_id),
@@ -854,7 +859,7 @@ fn log_dial_result(
                 network_context,
                 peer_id.short_str()
             );
-        }
+        },
         DialResult::Failed(err) => match err {
             PeerManagerError::AlreadyConnected(a) => {
                 info!(
@@ -866,7 +871,7 @@ fn log_dial_result(
                     peer_id.short_str(),
                     a
                 );
-            }
+            },
             e => {
                 info!(
                     NetworkSchema::new(&network_context)
@@ -879,7 +884,7 @@ fn log_dial_result(
                     addr,
                     e
                 );
-            }
+            },
         },
     }
 }

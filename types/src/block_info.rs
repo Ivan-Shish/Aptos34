@@ -8,8 +8,8 @@ use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-/// The round of a block is a consensus-internal counter, which starts with 0 and increases
-/// monotonically.
+/// The round of a block is a consensus-internal counter, which starts with 0
+/// and increases monotonically.
 pub type Round = u64;
 
 // Constants for the initial genesis block.
@@ -26,7 +26,8 @@ pub const GENESIS_TIMESTAMP_USECS: u64 = 0;
 pub struct BlockInfo {
     /// The epoch to which the block belongs.
     epoch: u64,
-    /// The consensus protocol is executed in rounds, which monotonically increase per epoch.
+    /// The consensus protocol is executed in rounds, which monotonically
+    /// increase per epoch.
     round: Round,
     /// The identifier (hash) of the block.
     id: HashValue,
@@ -89,10 +90,12 @@ impl BlockInfo {
     /// Create a new genesis block. The genesis block is effectively the
     /// blockchain state after executing the initial genesis transaction.
     ///
-    /// * `genesis_state_root_hash` - the state tree root hash after executing the
+    /// * `genesis_state_root_hash` - the state tree root hash after executing
+    ///   the
     /// initial genesis transaction.
     ///
-    /// * `validator_set` - the initial validator set, configured when generating
+    /// * `validator_set` - the initial validator set, configured when
+    ///   generating
     /// the genesis transaction itself and emitted after executing the genesis
     /// transaction. Using this genesis block means transitioning to a new epoch
     /// (GENESIS_EPOCH + 1) with this `validator_set`.
@@ -129,10 +132,11 @@ impl BlockInfo {
         self.timestamp_usecs = timestamp;
     }
 
-    /// For reconfiguration suffix blocks only, with decoupled-execution proposal-generator can't
-    /// guarantee suffix blocks have the same timestamp as parent thus violate the invariant that
-    /// block.timestamp should always equal timestamp stored onchain.
-    /// We allow it to be updated backwards to the actual reconfiguration block's timestamp.
+    /// For reconfiguration suffix blocks only, with decoupled-execution
+    /// proposal-generator can't guarantee suffix blocks have the same
+    /// timestamp as parent thus violate the invariant that block.timestamp
+    /// should always equal timestamp stored onchain. We allow it to be
+    /// updated backwards to the actual reconfiguration block's timestamp.
     fn allow_timestamp_change(&self, timestamp: u64) -> bool {
         self.has_reconfiguration() && self.timestamp_usecs >= timestamp
     }
@@ -202,14 +206,17 @@ impl Display for BlockInfo {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(
             f,
-            "BlockInfo: [epoch: {}, round: {}, id: {}, executed_state_id: {}, version: {}, timestamp (us): {}, next_epoch_state: {}]",
+            "BlockInfo: [epoch: {}, round: {}, id: {}, executed_state_id: {}, version: {}, \
+             timestamp (us): {}, next_epoch_state: {}]",
             self.epoch(),
             self.round(),
             self.id(),
             self.executed_state_id(),
             self.version(),
             self.timestamp_usecs(),
-            self.next_epoch_state.as_ref().map_or("None".to_string(), |epoch_state| format!("{}", epoch_state)),
+            self.next_epoch_state
+                .as_ref()
+                .map_or("None".to_string(), |epoch_state| format!("{}", epoch_state)),
         )
     }
 }

@@ -7,13 +7,14 @@ use std::iter;
 
 /// An efficient representation of a vector with repeated elements inserted.
 ///
-/// Internally, this data structure stores one copy of each inserted element, along with data about
-/// how many times each element is repeated.
+/// Internally, this data structure stores one copy of each inserted element,
+/// along with data about how many times each element is repeated.
 ///
-/// This data structure does not do any sort of deduplication, so it isn't any sort of set (or
-/// multiset).
+/// This data structure does not do any sort of deduplication, so it isn't any
+/// sort of set (or multiset).
 ///
-/// This is useful for presenting a large logical vector for picking `proptest` indexes from.
+/// This is useful for presenting a large logical vector for picking `proptest`
+/// indexes from.
 ///
 /// # Examples
 ///
@@ -30,7 +31,8 @@ use std::iter;
 /// assert_eq!(repeat_vec.get(30), None); // past the end of the logical array
 /// ```
 ///
-/// The data structure doesn't care about whether the inserted items are equal or not.
+/// The data structure doesn't care about whether the inserted items are equal
+/// or not.
 ///
 /// ```
 /// use aptos_proptest_helpers::RepeatVec;
@@ -59,7 +61,8 @@ impl<T> RepeatVec<T> {
         }
     }
 
-    /// Creates a new, empty `RepeatVec` with the specified capacity to store physical elements.
+    /// Creates a new, empty `RepeatVec` with the specified capacity to store
+    /// physical elements.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             items: Vec::with_capacity(capacity),
@@ -98,7 +101,8 @@ impl<T> RepeatVec<T> {
         self.len == 0
     }
 
-    /// Extends this `RepeatVec` by logically adding `size` copies of `item` to the end of it.
+    /// Extends this `RepeatVec` by logically adding `size` copies of `item` to
+    /// the end of it.
     pub fn extend(&mut self, item: T, size: usize) {
         // Skip over zero-length elements to maintain the invariant on items.
         if size > 0 {
@@ -107,16 +111,16 @@ impl<T> RepeatVec<T> {
         }
     }
 
-    /// Removes the item specified by the given *logical* index, shifting all elements after it to
-    /// the left by updating start positions.
+    /// Removes the item specified by the given *logical* index, shifting all
+    /// elements after it to the left by updating start positions.
     ///
     /// Out of bounds indexes have no effect.
     pub fn remove(&mut self, index: usize) {
         self.remove_all(iter::once(index))
     }
 
-    /// Removes the items specified by the given *logical* indexes, shifting all elements after them
-    /// to the left by updating start positions.
+    /// Removes the items specified by the given *logical* indexes, shifting all
+    /// elements after them to the left by updating start positions.
     ///
     /// Ignores any out of bounds indexes.
     pub fn remove_all(&mut self, logical_indexes: impl IntoIterator<Item = usize>) {
@@ -129,12 +133,13 @@ impl<T> RepeatVec<T> {
     fn remove_all_impl(&mut self, logical_indexes: Vec<usize>) {
         // # Notes
         //
-        // * This looks pretty long and complicated, mostly because the logic is complex enough to
-        //   require manual loops and iteration.
-        // * This is unavoidably linear time in the number of physical elements. One way to make the
-        //   constant factors smaller would be to implement a ChunkedRepeatVec<T>, which can be done
-        //   by wrapping a RepeatVec<RepeatVec<T>> plus some glue logic. The idea would be similar
-        //   to skip-lists. 2 levels should be enough, but 3 or more would work as well.
+        // * This looks pretty long and complicated, mostly because the logic is complex
+        //   enough to require manual loops and iteration.
+        // * This is unavoidably linear time in the number of physical elements. One way
+        //   to make the constant factors smaller would be to implement a
+        //   ChunkedRepeatVec<T>, which can be done by wrapping a
+        //   RepeatVec<RepeatVec<T>> plus some glue logic. The idea would be similar to
+        //   skip-lists. 2 levels should be enough, but 3 or more would work as well.
 
         // Separate function to minimize the amount of monomorphized code.
         let first = match logical_indexes.first() {
@@ -142,7 +147,7 @@ impl<T> RepeatVec<T> {
             None => {
                 // No indexes to remove, nothing to do.
                 return;
-            }
+            },
         };
         if first >= self.len() {
             // First index is out of bounds, nothing to do.
@@ -153,16 +158,16 @@ impl<T> RepeatVec<T> {
             Ok(exact_idx) => {
                 // Logical copy 0 of the element at this position.
                 exact_idx
-            }
+            },
             Err(start_idx) => {
                 // This is the physical index after the logical item. Start reasoning from the
                 // previous index to match the Ok branch above.
                 start_idx - 1
-            }
+            },
         };
 
-        // This serves two purposes -- it represents the number of elements to decrease by and
-        // the current position in indexes.
+        // This serves two purposes -- it represents the number of elements to decrease
+        // by and the current position in indexes.
         let mut decrease = 0;
 
         let new_items = {
@@ -201,8 +206,9 @@ impl<T> RepeatVec<T> {
         self.len -= decrease;
     }
 
-    /// Returns the item at location `at`. The return value is a reference to the stored item, plus
-    /// the offset from the start (logically, which copy of the item is being returned).
+    /// Returns the item at location `at`. The return value is a reference to
+    /// the stored item, plus the offset from the start (logically, which
+    /// copy of the item is being returned).
     pub fn get(&self, at: usize) -> Option<(&T, usize)> {
         if at >= self.len {
             return None;
@@ -210,23 +216,25 @@ impl<T> RepeatVec<T> {
         match self.binary_search(at) {
             Ok(exact_idx) => Some((&self.items[exact_idx].1, 0)),
             Err(start_idx) => {
-                // start_idx can never be 0 because usize starts from 0 and items[0].0 is always 0.
-                // So start_idx is always at least 1.
+                // start_idx can never be 0 because usize starts from 0 and items[0].0 is always
+                // 0. So start_idx is always at least 1.
                 let start_val = &self.items[start_idx - 1];
                 let offset = at - start_val.0;
                 Some((&start_val.1, offset))
-            }
+            },
         }
     }
 
-    /// Picks out indexes uniformly randomly from this `RepeatVec`, using the provided
-    /// [`Index`](proptest::sample::Index) instances as sources of randomness.
+    /// Picks out indexes uniformly randomly from this `RepeatVec`, using the
+    /// provided [`Index`](proptest::sample::Index) instances as sources of
+    /// randomness.
     pub fn pick_uniform_indexes(&self, indexes: &[impl AsRef<Index>]) -> Vec<usize> {
         pick_slice_idxs(self.len(), indexes)
     }
 
-    /// Picks out elements uniformly randomly from this `RepeatVec`, using the provided
-    /// [`Index`](proptest::sample::Index) instances as sources of randomness.
+    /// Picks out elements uniformly randomly from this `RepeatVec`, using the
+    /// provided [`Index`](proptest::sample::Index) instances as sources of
+    /// randomness.
     pub fn pick_uniform(&self, indexes: &[impl AsRef<Index>]) -> Vec<(&T, usize)> {
         pick_slice_idxs(self.len(), indexes)
             .into_iter()
@@ -258,15 +266,15 @@ impl<T> RepeatVec<T> {
                     idx < self.len,
                     "length must be greater than last element's start"
                 );
-            }
+            },
             None => {
                 assert_eq!(self.len, 0, "empty RepeatVec");
-            }
+            },
         }
     }
 }
 
-// Note that RepeatVec cannot implement `std::ops::Index<usize>` because the return type of Index
-// has to be a reference (in this case it would be &(T, usize)). But RepeatVec computes the result
-// of get() (as (&T, usize)) instead of merely returning a reference. This is a subtle but
-// important point.
+// Note that RepeatVec cannot implement `std::ops::Index<usize>` because the
+// return type of Index has to be a reference (in this case it would be &(T,
+// usize)). But RepeatVec computes the result of get() (as (&T, usize)) instead
+// of merely returning a reference. This is a subtle but important point.

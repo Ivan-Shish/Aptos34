@@ -62,7 +62,8 @@ fn verify_multi_agent_invalid_sender_signature() {
 
     let private_key = Ed25519PrivateKey::generate_for_testing();
 
-    // Sign using the wrong key for the sender, and correct key for the secondary signer.
+    // Sign using the wrong key for the sender, and correct key for the secondary
+    // signer.
     let signed_txn = transaction_test_helpers::get_test_unchecked_multi_agent_txn(
         *sender.address(),
         vec![*secondary_signer.address()],
@@ -92,7 +93,8 @@ fn verify_multi_agent_invalid_secondary_signature() {
 
     let private_key = Ed25519PrivateKey::generate_for_testing();
 
-    // Sign using the correct keys for the sender, but wrong keys for the secondary signer.
+    // Sign using the correct keys for the sender, but wrong keys for the secondary
+    // signer.
     let signed_txn = transaction_test_helpers::get_test_unchecked_multi_agent_txn(
         *sender.address(),
         vec![*secondary_signer.address()],
@@ -178,7 +180,8 @@ fn verify_reserved_sender() {
 #[test]
 fn verify_simple_payment() {
     let mut executor = FakeExecutor::from_head_genesis();
-    // create and publish a sender with 1_000_000 coins and a receiver with 100_000 coins
+    // create and publish a sender with 1_000_000 coins and a receiver with 100_000
+    // coins
     let sender = executor.create_raw_account_data(900_000, 10);
     let receiver = executor.create_raw_account_data(100_000, 10);
     executor.add_account_data(&sender);
@@ -275,12 +278,12 @@ fn verify_simple_payment() {
         StatusCode::SENDING_ACCOUNT_DOES_NOT_EXIST
     );
 
-    // The next couple tests test transaction size, and bounds on gas price and the number of
-    // gas units that can be submitted with a transaction.
+    // The next couple tests test transaction size, and bounds on gas price and the
+    // number of gas units that can be submitted with a transaction.
     //
-    // We test these in the reverse order that they appear in verify_transaction, and build up
-    // the errors one-by-one to make sure that we are both catching all of them, and
-    // that we are doing so in the specified order.
+    // We test these in the reverse order that they appear in verify_transaction,
+    // and build up the errors one-by-one to make sure that we are both catching
+    // all of them, and that we are doing so in the specified order.
     let txn_gas_params = TransactionGasParameters::initial();
 
     let txn = sender
@@ -374,11 +377,9 @@ fn verify_simple_payment() {
     let txn = sender
         .account()
         .transaction()
-        .script(Script::new(
-            empty_script.clone(),
-            vec![],
-            vec![TransactionArgument::U8(42)],
-        ))
+        .script(Script::new(empty_script.clone(), vec![], vec![
+            TransactionArgument::U8(42),
+        ]))
         .sequence_number(10)
         .max_gas_amount(100_000)
         .gas_unit_price(1)
@@ -402,8 +403,8 @@ pub fn test_arbitrary_script_execution() {
     let sender = executor.create_raw_account_data(1_000_000, 10);
     executor.add_account_data(&sender);
 
-    // If CustomScripts is on, result should be Keep(DeserializationError). If it's off, the
-    // result should be Keep(UnknownScript)
+    // If CustomScripts is on, result should be Keep(DeserializationError). If it's
+    // off, the result should be Keep(UnknownScript)
     let random_script = vec![];
     let txn = sender
         .account()
@@ -433,13 +434,13 @@ fn verify_expiration_time() {
     let private_key = &sender.account().privkey;
     let txn = transaction_test_helpers::get_test_signed_transaction(
         *sender.address(),
-        0, /* sequence_number */
+        0, // sequence_number
         private_key,
         private_key.public_key(),
-        None, /* script */
-        0,    /* expiration_time */
-        0,    /* gas_unit_price */
-        None, /* max_gas_amount */
+        None, // script
+        0,    // expiration_time
+        0,    // gas_unit_price
+        None, // max_gas_amount
     );
     assert_prologue_parity!(
         executor.verify_transaction(txn.clone()).status(),
@@ -451,13 +452,13 @@ fn verify_expiration_time() {
     // TRANSACTION_EXPIRED error.
     let txn = transaction_test_helpers::get_test_signed_transaction(
         *sender.address(),
-        10, /* sequence_number */
+        10, // sequence_number
         private_key,
         private_key.public_key(),
-        None, /* script */
-        0,    /* expiration_time */
-        0,    /* gas_unit_price */
-        None, /* max_gas_amount */
+        None, // script
+        0,    // expiration_time
+        0,    // gas_unit_price
+        None, // max_gas_amount
     );
     assert_prologue_parity!(
         executor.verify_transaction(txn.clone()).status(),
@@ -495,13 +496,13 @@ fn verify_max_sequence_number() {
     let private_key = &sender.account().privkey;
     let txn = transaction_test_helpers::get_test_signed_transaction(
         *sender.address(),
-        std::u64::MAX, /* sequence_number */
+        std::u64::MAX, // sequence_number
         private_key,
         private_key.public_key(),
-        None,     /* script */
-        u64::MAX, /* expiration_time */
-        0,        /* gas_unit_price */
-        None,     /* max_gas_amount */
+        None,     // script
+        u64::MAX, // expiration_time
+        0,        // gas_unit_price
+        None,     // max_gas_amount
     );
     assert_prologue_parity!(
         executor.verify_transaction(txn.clone()).status(),
@@ -560,12 +561,14 @@ pub fn test_open_publishing_invalid_address() {
     // let vm_status = executor.verify_transaction(txn.clone()).status().unwrap();
 
     // assert!(vm_status.is(StatusType::Verification));
-    // assert!(vm_status.major_status == StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER);
+    // assert!(vm_status.major_status ==
+    // StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER);
 
     // execute and fail for the same reason
     let output = executor.execute_transaction(txn);
     if let TransactionStatus::Keep(status) = output.status() {
-        // assert!(status.status_code() == StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER)
+        // assert!(status.status_code() ==
+        // StatusCode::MODULE_ADDRESS_DOES_NOT_MATCH_SENDER)
         assert!(
             status
                 == &ExecutionStatus::MiscellaneousError(Some(MODULE_ADDRESS_DOES_NOT_MATCH_SENDER))
@@ -729,7 +732,7 @@ fn test_script_dependency_fails_verification() {
     match executor.execute_transaction(txn).status() {
         TransactionStatus::Discard(status) => {
             assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
-        }
+        },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
 }
@@ -765,7 +768,7 @@ fn test_module_dependency_fails_verification() {
     match executor.execute_transaction(txn).status() {
         TransactionStatus::Discard(status) => {
             assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
-        }
+        },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
 }
@@ -817,7 +820,7 @@ fn test_type_tag_dependency_fails_verification() {
     match executor.execute_transaction(txn).status() {
         TransactionStatus::Discard(status) => {
             assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
-        }
+        },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
 }
@@ -868,7 +871,7 @@ fn test_script_transitive_dependency_fails_verification() {
     match executor.execute_transaction(txn).status() {
         TransactionStatus::Discard(status) => {
             assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
-        }
+        },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
 }
@@ -929,7 +932,7 @@ fn test_module_transitive_dependency_fails_verification() {
     match executor.execute_transaction(txn).status() {
         TransactionStatus::Discard(status) => {
             assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
-        }
+        },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
 }
@@ -986,7 +989,7 @@ fn test_type_tag_transitive_dependency_fails_verification() {
     match executor.execute_transaction(txn).status() {
         TransactionStatus::Discard(status) => {
             assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
-        }
+        },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
 }

@@ -1,17 +1,19 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::accept_type::AcceptType;
-use crate::context::Context;
-use crate::response::InternalError;
-use crate::response::ServiceUnavailableError;
-use crate::{generate_error_response, generate_success_response, ApiTags};
+use crate::{
+    accept_type::AcceptType,
+    context::Context,
+    generate_error_response, generate_success_response,
+    response::{InternalError, ServiceUnavailableError},
+    ApiTags,
+};
 use anyhow::Context as AnyhowContext;
 use aptos_api_types::AptosErrorCode;
 use poem_openapi::{param::Query, payload::Html, Object, OpenApi};
 use serde::{Deserialize, Serialize};
-use std::ops::Sub;
 use std::{
+    ops::Sub,
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -66,7 +68,8 @@ impl BasicApi {
     /// If the duration_secs param is provided, this endpoint will return a
     /// 200 if the following condition is true:
     ///
-    /// `server_latest_ledger_info_timestamp >= server_current_time_timestamp - duration_secs`
+    /// `server_latest_ledger_info_timestamp >= server_current_time_timestamp -
+    /// duration_secs`
     #[oai(
         path = "/-/healthy",
         method = "get",
@@ -76,14 +79,16 @@ impl BasicApi {
     async fn healthy(
         &self,
         accept_type: AcceptType,
-        /// Threshold in seconds that the server can be behind to be considered healthy
+        /// Threshold in seconds that the server can be behind to be considered
+        /// healthy
         ///
         /// If not provided, the healthcheck will always succeed
         duration_secs: Query<Option<u32>>,
     ) -> HealthCheckResult<HealthCheckSuccess> {
         let ledger_info = self.context.get_latest_ledger_info()?;
 
-        // If we have a duration, check that it's close to the current time, otherwise it's ok
+        // If we have a duration, check that it's close to the current time, otherwise
+        // it's ok
         if let Some(duration) = duration_secs.0 {
             let timestamp = ledger_info.timestamp();
 

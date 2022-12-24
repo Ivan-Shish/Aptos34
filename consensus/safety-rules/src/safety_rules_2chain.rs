@@ -61,7 +61,8 @@ impl SafetyRules {
         let mut safety_data = self.persistent_storage.safety_data()?;
 
         // if already voted on this round, send back the previous vote
-        // note: this needs to happen after verifying the epoch as we just check the round here
+        // note: this needs to happen after verifying the epoch as we just check the
+        // round here
         if let Some(vote) = safety_data.last_vote.clone() {
             if vote.vote_data().proposed().round() == proposed_block.round() {
                 return Ok(vote);
@@ -89,8 +90,8 @@ impl SafetyRules {
         Ok(vote)
     }
 
-    /// Core safety timeout rule for 2-chain protocol. Return success if 1 and 2 are true
-    /// 1. round == timeout.qc.round + 1 || round == tc.round + 1
+    /// Core safety timeout rule for 2-chain protocol. Return success if 1 and 2
+    /// are true 1. round == timeout.qc.round + 1 || round == tc.round + 1
     /// 2. timeout.qc.round >= one_chain_round
     fn safe_to_timeout(
         &self,
@@ -115,8 +116,8 @@ impl SafetyRules {
         }
     }
 
-    /// Core safety voting rule for 2-chain protocol. Return success if 1 or 2 is true
-    /// 1. block.round == block.qc.round + 1
+    /// Core safety voting rule for 2-chain protocol. Return success if 1 or 2
+    /// is true 1. block.round == block.qc.round + 1
     /// 2. block.round == tc.round + 1 && block.qc.round >= tc.highest_hqc.round
     fn safe_to_vote(
         &self,
@@ -145,9 +146,9 @@ impl SafetyRules {
     }
 
     /// Produces a LedgerInfo that either commits a block based upon the 2-chain
-    /// commit rule or an empty LedgerInfo for no commit. The 2-chain commit rule is: B0 and its
-    /// prefixes can be committed if there exist certified block B1 that satisfy:
-    /// 1) B0 <- B1 <--
+    /// commit rule or an empty LedgerInfo for no commit. The 2-chain commit
+    /// rule is: B0 and its prefixes can be committed if there exist
+    /// certified block B1 that satisfy: 1) B0 <- B1 <--
     /// 2) round(B0) + 1 = round(B1)
     fn construct_ledger_info_2chain(
         &self,

@@ -30,8 +30,9 @@ pub const DEFAULT_EXPIRATION_TIME: u64 = 4_000_000;
 
 /// Details about a Aptos account.
 ///
-/// Tests will typically create a set of `Account` instances to run transactions on. This type
-/// encodes the logic to operate on and verify operations on any Aptos account.
+/// Tests will typically create a set of `Account` instances to run transactions
+/// on. This type encodes the logic to operate on and verify operations on any
+/// Aptos account.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Account {
     addr: AccountAddress,
@@ -44,9 +45,9 @@ pub struct Account {
 impl Account {
     /// Creates a new account in memory.
     ///
-    /// The account returned by this constructor is a purely logical entity, meaning that it does
-    /// not automatically get added to the Aptos store. To add an account to the store, use
-    /// [`AccountData`] instances with
+    /// The account returned by this constructor is a purely logical entity,
+    /// meaning that it does not automatically get added to the Aptos store.
+    /// To add an account to the store, use [`AccountData`] instances with
     /// [`FakeExecutor::add_account_data`][crate::executor::FakeExecutor::add_account_data].
     /// This function returns distinct values upon every call.
     pub fn new() -> Self {
@@ -62,8 +63,8 @@ impl Account {
 
     /// Creates a new account with the given keypair.
     ///
-    /// Like with [`Account::new`], the account returned by this constructor is a purely logical
-    /// entity.
+    /// Like with [`Account::new`], the account returned by this constructor is
+    /// a purely logical entity.
     pub fn with_keypair(privkey: Ed25519PrivateKey, pubkey: Ed25519PublicKey) -> Self {
         let addr = aptos_types::account_address::from_public_key(&pubkey);
         Account {
@@ -75,8 +76,8 @@ impl Account {
 
     /// Creates a new account with the given addr and key pair
     ///
-    /// Like with [`Account::new`], the account returned by this constructor is a purely logical
-    /// entity.
+    /// Like with [`Account::new`], the account returned by this constructor is
+    /// a purely logical entity.
     pub fn new_validator(
         addr: AccountAddress,
         privkey: Ed25519PrivateKey,
@@ -89,10 +90,12 @@ impl Account {
         }
     }
 
-    /// Creates a new account in memory representing an account created in the genesis transaction.
+    /// Creates a new account in memory representing an account created in the
+    /// genesis transaction.
     ///
-    /// The address will be [`address`], which should be an address for a genesis account and
-    /// the account will use [`GENESIS_KEYPAIR`][struct@GENESIS_KEYPAIR] as its keypair.
+    /// The address will be [`address`], which should be an address for a
+    /// genesis account and the account will use
+    /// [`GENESIS_KEYPAIR`][struct@GENESIS_KEYPAIR] as its keypair.
     pub fn new_genesis_account(address: AccountAddress) -> Self {
         Account {
             addr: address,
@@ -103,16 +106,19 @@ impl Account {
 
     /// Creates a new account representing the aptos root account in memory.
     ///
-    /// The address will be [`aptos_test_root_address`][account_config::aptos_test_root_address], and
-    /// the account will use [`GENESIS_KEYPAIR`][struct@GENESIS_KEYPAIR] as its keypair.
+    /// The address will be
+    /// [`aptos_test_root_address`][account_config::aptos_test_root_address],
+    /// and the account will use [`GENESIS_KEYPAIR`][struct@GENESIS_KEYPAIR]
+    /// as its keypair.
     pub fn new_aptos_root() -> Self {
         Self::new_genesis_account(account_config::aptos_test_root_address())
     }
 
-    /// Returns the address of the account. This is a hash of the public key the account was created
-    /// with.
+    /// Returns the address of the account. This is a hash of the public key the
+    /// account was created with.
     ///
-    /// The address does not change if the account's [keys are rotated][Account::rotate_key].
+    /// The address does not change if the account's [keys are
+    /// rotated][Account::rotate_key].
     pub fn address(&self) -> &AccountAddress {
         &self.addr
     }
@@ -124,7 +130,8 @@ impl Account {
         self.make_access_path(AccountResource::struct_tag())
     }
 
-    /// Returns the AccessPath that describes the Account's CoinStore resource instance.
+    /// Returns the AccessPath that describes the Account's CoinStore resource
+    /// instance.
     ///
     /// Use this to retrieve or publish the Account CoinStore blob.
     pub fn make_coin_store_access_path(&self) -> AccessPath {
@@ -142,9 +149,11 @@ impl Account {
         self.pubkey = pubkey;
     }
 
-    /// Computes the authentication key for this account, as stored on the chain.
+    /// Computes the authentication key for this account, as stored on the
+    /// chain.
     ///
-    /// This is the same as the account's address if the keys have never been rotated.
+    /// This is the same as the account's address if the keys have never been
+    /// rotated.
     pub fn auth_key(&self) -> Vec<u8> {
         AuthenticationKey::ed25519(&self.pubkey).to_vec()
     }
@@ -339,7 +348,8 @@ impl CoinStore {
 
 /// Represents an account along with initial state about it.
 ///
-/// `AccountData` captures the initial state needed to create accounts for tests.
+/// `AccountData` captures the initial state needed to create accounts for
+/// tests.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountData {
     account: Account,
@@ -356,7 +366,8 @@ fn new_event_handle(count: u64, address: AccountAddress) -> EventHandle {
 impl AccountData {
     /// Creates a new `AccountData` with a new account.
     ///
-    /// This constructor is non-deterministic and should not be used against golden file.
+    /// This constructor is non-deterministic and should not be used against
+    /// golden file.
     pub fn new(balance: u64, sequence_number: u64) -> Self {
         Self::with_account(Account::new(), balance, sequence_number)
     }
@@ -411,7 +422,8 @@ impl AccountData {
         self.account.rotate_key(privkey, pubkey)
     }
 
-    /// Creates and returns the top-level resources to be published under the account
+    /// Creates and returns the top-level resources to be published under the
+    /// account
     pub fn to_bytes(&self) -> Vec<u8> {
         let account = AccountResource::new(
             self.sequence_number,
@@ -429,15 +441,16 @@ impl AccountData {
         self.account.make_account_access_path()
     }
 
-    /// Returns the AccessPath that describes the Account's CoinStore resource instance.
+    /// Returns the AccessPath that describes the Account's CoinStore resource
+    /// instance.
     ///
     /// Use this to retrieve or publish the Account's CoinStore blob.
     pub fn make_coin_store_access_path(&self) -> AccessPath {
         self.account.make_coin_store_access_path()
     }
 
-    /// Creates a writeset that contains the account data and can be patched to the storage
-    /// directly.
+    /// Creates a writeset that contains the account data and can be patched to
+    /// the storage directly.
     pub fn to_writeset(&self) -> WriteSet {
         let write_set = vec![
             (
@@ -453,10 +466,11 @@ impl AccountData {
         WriteSetMut::new(write_set).freeze().unwrap()
     }
 
-    /// Returns the address of the account. This is a hash of the public key the account was created
-    /// with.
+    /// Returns the address of the account. This is a hash of the public key the
+    /// account was created with.
     ///
-    /// The address does not change if the account's [keys are rotated][AccountData::rotate_key].
+    /// The address does not change if the account's [keys are
+    /// rotated][AccountData::rotate_key].
     pub fn address(&self) -> &AccountAddress {
         self.account.address()
     }

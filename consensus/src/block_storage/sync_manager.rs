@@ -42,7 +42,8 @@ pub enum NeedFetchResult {
 
 impl BlockStore {
     /// Check if we're far away from this ledger info and need to sync.
-    /// This ensures that the block referred by the ledger info is not in buffer manager.
+    /// This ensures that the block referred by the ledger info is not in buffer
+    /// manager.
     pub fn need_sync_for_ledger_info(&self, li: &LedgerInfoWithSignatures) -> bool {
         (self.ordered_root().round() < li.commit_info().round()
             && !self.block_exists(li.commit_info().id()))
@@ -117,7 +118,8 @@ impl BlockStore {
                     .network
                     .broadcast_epoch_change(EpochChangeProof::new(
                         vec![qc.ledger_info().clone()],
-                        /* more = */ false,
+                        // more =
+                        false,
                     ))
                     .await;
             }
@@ -125,10 +127,11 @@ impl BlockStore {
         Ok(())
     }
 
-    /// Insert the quorum certificate separately from the block, used to split the processing of
-    /// updating the consensus state(with qc) and deciding whether to vote(with block)
-    /// The missing ancestors are going to be retrieved from the given peer. If a given peer
-    /// fails to provide the missing ancestors, the qc is not going to be added.
+    /// Insert the quorum certificate separately from the block, used to split
+    /// the processing of updating the consensus state(with qc) and deciding
+    /// whether to vote(with block) The missing ancestors are going to be
+    /// retrieved from the given peer. If a given peer fails to provide the
+    /// missing ancestors, the qc is not going to be added.
     async fn fetch_quorum_cert(
         &self,
         qc: QuorumCert,
@@ -157,13 +160,14 @@ impl BlockStore {
         self.insert_single_quorum_cert(qc)
     }
 
-    /// Check the highest ordered cert sent by peer to see if we're behind and start a fast
-    /// forward sync if the committed block doesn't exist in our tree.
-    /// It works as follows:
-    /// 1. request the gap blocks from the peer (from highest_ledger_info to highest_ordered_cert)
-    /// 2. We persist the gap blocks to storage before start sync to ensure we could restart if we
-    /// crash in the middle of the sync.
-    /// 3. We prune the old tree and replace with a new tree built with the 3-chain.
+    /// Check the highest ordered cert sent by peer to see if we're behind and
+    /// start a fast forward sync if the committed block doesn't exist in
+    /// our tree. It works as follows:
+    /// 1. request the gap blocks from the peer (from highest_ledger_info to
+    /// highest_ordered_cert) 2. We persist the gap blocks to storage before
+    /// start sync to ensure we could restart if we crash in the middle of
+    /// the sync. 3. We prune the old tree and replace with a new tree built
+    /// with the 3-chain.
     async fn sync_to_highest_ordered_cert(
         &self,
         highest_ordered_cert: QuorumCert,
@@ -195,7 +199,8 @@ impl BlockStore {
                 .network
                 .send_epoch_change(EpochChangeProof::new(
                     vec![highest_ordered_cert.ledger_info().clone()],
-                    /* more = */ false,
+                    // more =
+                    false,
                 ))
                 .await;
         }
@@ -240,7 +245,8 @@ impl BlockStore {
             blocks.first().expect("blocks are empty").id(),
         );
 
-        // Confirm retrival ended when it hit the last block we care about, even if it didn't reach all num_blocks blocks.
+        // Confirm retrival ended when it hit the last block we care about, even if it
+        // didn't reach all num_blocks blocks.
         assert_eq!(
             blocks.last().expect("blocks are empty").id(),
             highest_commit_cert.commit_info().id()
@@ -277,7 +283,8 @@ impl BlockStore {
             assert_eq!(
                 block.id(),
                 highest_commit_cert.certified_block().id(),
-                "Expecting in the retrieval response, for commit certificate fork, first block should be {}, but got {}",
+                "Expecting in the retrieval response, for commit certificate fork, first block \
+                 should be {}, but got {}",
                 highest_commit_cert.certified_block().id(),
                 block.id(),
             );
@@ -291,7 +298,8 @@ impl BlockStore {
             assert_eq!(block.id(), quorum_certs[i].certified_block().id());
         }
 
-        // Check early that recovery will succeed, and return before corrupting our state in case it will not.
+        // Check early that recovery will succeed, and return before corrupting our
+        // state in case it will not.
         LedgerRecoveryData::new(highest_commit_cert.ledger_info().clone())
             .find_root(&mut blocks.clone(), &mut quorum_certs.clone())
             .with_context(|| {
@@ -330,7 +338,8 @@ impl BlockStore {
         Ok(recovery_data)
     }
 
-    /// Fast forward in the decoupled-execution pipeline if the block exists there
+    /// Fast forward in the decoupled-execution pipeline if the block exists
+    /// there
     async fn sync_to_highest_commit_cert(
         &self,
         ledger_info: &LedgerInfoWithSignatures,
@@ -349,8 +358,8 @@ impl BlockStore {
     /// an initial parent id, returning with <n (as many as possible) if
     /// id or its ancestors can not be found.
     ///
-    /// The current version of the function is not really async, but keeping it this way for
-    /// future possible changes.
+    /// The current version of the function is not really async, but keeping it
+    /// this way for future possible changes.
     pub async fn process_block_retrieval(
         &self,
         request: IncomingBlockRetrievalRequest,
@@ -413,12 +422,14 @@ impl BlockRetriever {
     /// Retrieve n blocks for given block_id from peers
     ///
     /// Returns Result with Vec that if succeeded. This method will
-    /// continue until the quorum certificate members all fail to return the missing chain.
+    /// continue until the quorum certificate members all fail to return the
+    /// missing chain.
     ///
-    /// The first attempt of block retrieval will always be sent to preferred_peer to allow the
-    /// leader to drive quorum certificate creation The other peers from the quorum certificate
-    /// will be randomly tried next.  If all members of the quorum certificate are exhausted, an
-    /// error is returned
+    /// The first attempt of block retrieval will always be sent to
+    /// preferred_peer to allow the leader to drive quorum certificate
+    /// creation The other peers from the quorum certificate
+    /// will be randomly tried next.  If all members of the quorum certificate
+    /// are exhausted, an error is returned
     async fn retrieve_block_for_id(
         &mut self,
         block_id: HashValue,
@@ -470,7 +481,7 @@ impl BlockRetriever {
                     progress += batch.len() as u64;
                     last_block_id = batch.last().unwrap().parent_id();
                     result_blocks.extend(batch);
-                }
+                },
                 Ok(result)
                     if matches!(result.status(), BlockRetrievalStatus::SucceededWithTarget) =>
                 {
@@ -478,7 +489,7 @@ impl BlockRetriever {
                     let batch = result.blocks().clone();
                     result_blocks.extend(batch);
                     break;
-                }
+                },
                 e => {
                     warn!(
                         remote_peer = peer,
@@ -496,7 +507,7 @@ impl BlockRetriever {
                     }
                     failed_attempt += 1;
                     peer = self.pick_peer(failed_attempt, peers);
-                }
+                },
             }
         }
         assert_eq!(result_blocks.last().unwrap().id(), target_block_id);

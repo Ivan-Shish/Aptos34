@@ -12,8 +12,9 @@ use aptos_config::{
 use aptos_logger::prelude::*;
 use aptos_netcore::transport::ConnectionOrigin;
 use aptos_network::application::storage::PeerMetadataStorage;
-use aptos_storage_service_types::requests::StorageServiceRequest;
-use aptos_storage_service_types::responses::StorageServerSummary;
+use aptos_storage_service_types::{
+    requests::StorageServiceRequest, responses::StorageServerSummary,
+};
 use itertools::Itertools;
 use std::{
     cmp::min,
@@ -48,7 +49,7 @@ impl From<ResponseError> for ErrorType {
         match error {
             ResponseError::InvalidData | ResponseError::InvalidPayloadDataType => {
                 ErrorType::NotUseful
-            }
+            },
             ResponseError::ProofVerificationError => ErrorType::Malicious,
         }
     }
@@ -78,7 +79,8 @@ impl PeerState {
         self.storage_summary = Some(storage_summary);
     }
 
-    /// Returns the storage summary iff the peer is not below the ignore threshold
+    /// Returns the storage summary iff the peer is not below the ignore
+    /// threshold
     fn storage_summary_if_not_ignored(&self) -> Option<&StorageServerSummary> {
         if self.score <= IGNORE_PEER_THRESHOLD {
             None
@@ -102,8 +104,8 @@ impl PeerState {
     }
 }
 
-/// Contains all of the unbanned peers' most recent [`StorageServerSummary`] data
-/// advertisements and data-client internal metadata for scoring.
+/// Contains all of the unbanned peers' most recent [`StorageServerSummary`]
+/// data advertisements and data-client internal metadata for scoring.
 // TODO(philiphayes): this map needs to be garbage collected
 #[derive(Debug)]
 pub(crate) struct PeerStates {
@@ -247,7 +249,8 @@ impl PeerStates {
 
     /// Returns true iff the given peer is high-priority.
     ///
-    /// TODO(joshlind): make this less hacky using network topological awareness.
+    /// TODO(joshlind): make this less hacky using network topological
+    /// awareness.
     pub fn is_priority_peer(&self, peer: &PeerNetworkId) -> bool {
         // Validators should only prioritize other validators
         let peer_network_id = peer.network_id();
@@ -264,7 +267,8 @@ impl PeerStates {
             return peer_network_id.is_vfn_network();
         }
 
-        // PFNs should only prioritize outbound connections (this targets seed peers and VFNs)
+        // PFNs should only prioritize outbound connections (this targets seed peers and
+        // VFNs)
         if let Some(peer_info) = self.peer_metadata_storage.read(*peer) {
             if peer_info.active_connection.origin == ConnectionOrigin::Outbound {
                 return true;

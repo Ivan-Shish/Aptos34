@@ -9,20 +9,18 @@ pub mod transaction_executor;
 pub mod transaction_generator;
 
 use crate::{
-    transaction_committer::TransactionCommitter, transaction_executor::TransactionExecutor,
-    transaction_generator::TransactionGenerator,
+    pipeline::Pipeline, transaction_committer::TransactionCommitter,
+    transaction_executor::TransactionExecutor, transaction_generator::TransactionGenerator,
 };
 use aptos_config::config::{
     NodeConfig, PrunerConfig, RocksdbConfigs, BUFFERED_STATE_TARGET_ITEMS,
     DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD, NO_OP_STORAGE_PRUNER_CONFIG,
 };
 use aptos_db::AptosDB;
+use aptos_executor::block_executor::BlockExecutor;
 use aptos_jellyfish_merkle::metrics::{
     APTOS_JELLYFISH_INTERNAL_ENCODED_BYTES, APTOS_JELLYFISH_LEAF_ENCODED_BYTES,
 };
-
-use crate::pipeline::Pipeline;
-use aptos_executor::block_executor::BlockExecutor;
 use aptos_storage_interface::DbReaderWriter;
 use aptos_vm::AptosVM;
 use std::{fs, path::Path};
@@ -31,7 +29,7 @@ pub fn init_db_and_executor(config: &NodeConfig) -> (DbReaderWriter, BlockExecut
     let db = DbReaderWriter::new(
         AptosDB::open(
             &config.storage.dir(),
-            false, /* readonly */
+            false, // readonly
             config.storage.storage_pruner_config,
             RocksdbConfigs::default(),
             false,
@@ -55,8 +53,8 @@ fn create_checkpoint(source_dir: impl AsRef<Path>, checkpoint_dir: impl AsRef<Pa
 
     AptosDB::open(
         &source_dir,
-        false,                       /* readonly */
-        NO_OP_STORAGE_PRUNER_CONFIG, /* pruner */
+        false,                       // readonly
+        NO_OP_STORAGE_PRUNER_CONFIG, // pruner
         RocksdbConfigs::default(),
         false,
         BUFFERED_STATE_TARGET_ITEMS,
@@ -163,7 +161,8 @@ fn add_accounts_impl(
 
     if verify_sequence_numbers {
         println!("Verifying sequence numbers...");
-        // Do a sanity check on the sequence number to make sure all transactions are committed.
+        // Do a sanity check on the sequence number to make sure all transactions are
+        // committed.
         generator.verify_sequence_numbers(db.reader);
     }
 
@@ -198,18 +197,18 @@ mod tests {
         let checkpoint_dir = TempPath::new();
 
         crate::db_generator::run(
-            25, /* num_accounts */
+            25, // num_accounts
             // TODO(Gas): double check if this is correct
-            100_000_000, /* init_account_balance */
-            5,           /* block_size */
+            100_000_000, // init_account_balance
+            5,           // block_size
             storage_dir.as_ref(),
-            NO_OP_STORAGE_PRUNER_CONFIG, /* prune_window */
+            NO_OP_STORAGE_PRUNER_CONFIG, // prune_window
             true,
         );
 
         super::run_benchmark(
-            5, /* block_size */
-            5, /* num_transfer_blocks */
+            5, // block_size
+            5, // num_transfer_blocks
             storage_dir.as_ref(),
             checkpoint_dir,
             true,

@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils::OutputFallbackHandler;
 use crate::{
     bootstrapper::Bootstrapper,
     continuous_syncer::ContinuousSyncer,
@@ -18,12 +17,12 @@ use crate::{
     },
     storage_synchronizer::StorageSynchronizerInterface,
     utils,
-    utils::PENDING_DATA_LOG_FREQ_SECS,
+    utils::{OutputFallbackHandler, PENDING_DATA_LOG_FREQ_SECS},
 };
 use aptos_config::config::{RoleType, StateSyncDriverConfig};
-use aptos_consensus_notifications::ConsensusCommitNotification;
-use aptos_consensus_notifications::ConsensusNotification;
-use aptos_consensus_notifications::ConsensusSyncNotification;
+use aptos_consensus_notifications::{
+    ConsensusCommitNotification, ConsensusNotification, ConsensusSyncNotification,
+};
 use aptos_data_client::AptosDataClient;
 use aptos_data_streaming_service::streaming_client::{
     DataStreamingClient, NotificationAndFeedback, NotificationFeedback,
@@ -33,14 +32,14 @@ use aptos_infallible::Mutex;
 use aptos_logger::prelude::*;
 use aptos_mempool_notifications::MempoolNotificationSender;
 use aptos_storage_interface::DbReader;
-use aptos_time_service::TimeService;
-use aptos_time_service::TimeServiceTrait;
+use aptos_time_service::{TimeService, TimeServiceTrait};
 use aptos_types::waypoint::Waypoint;
 use futures::StreamExt;
-use std::sync::Arc;
-use std::time::Instant;
-use tokio::task::yield_now;
-use tokio::time::{interval, Duration};
+use std::{sync::Arc, time::Instant};
+use tokio::{
+    task::yield_now,
+    time::{interval, Duration},
+};
 use tokio_stream::wrappers::IntervalStream;
 
 // Useful constants for the driver
@@ -237,13 +236,13 @@ impl<
                         .consensus_notification_handler
                         .respond_to_commit_notification(commit_notification, Err(error.clone()))
                         .await;
-                }
+                },
                 ConsensusNotification::SyncToTarget(sync_notification) => {
                     let _ = self
                         .consensus_notification_handler
                         .respond_to_sync_notification(sync_notification, Err(error.clone()))
                         .await;
-                }
+                },
             }
             warn!(LogSchema::new(LogEntry::ConsensusNotification)
                 .error(&error)
@@ -256,11 +255,11 @@ impl<
             ConsensusNotification::NotifyCommit(commit_notification) => {
                 self.handle_consensus_commit_notification(commit_notification)
                     .await
-            }
+            },
             ConsensusNotification::SyncToTarget(sync_notification) => {
                 self.handle_consensus_sync_notification(sync_notification)
                     .await
-            }
+            },
         };
 
         // Log any errors from notification handling
@@ -352,8 +351,9 @@ impl<
         let latest_synced_version = utils::fetch_latest_synced_version(self.storage.clone())?;
         info!(
             LogSchema::new(LogEntry::ConsensusNotification).message(&format!(
-            "Received a consensus sync notification! Target version: {:?}. Latest synced version: {:?}",
-            sync_notification.target, latest_synced_version,
+                "Received a consensus sync notification! Target version: {:?}. Latest synced \
+                 version: {:?}",
+                sync_notification.target, latest_synced_version,
             ))
         );
         metrics::increment_counter(
@@ -378,8 +378,8 @@ impl<
             metrics::DRIVER_CLIENT_NOTIFICATION,
         );
 
-        // TODO(joshlind): refactor this if the client only supports one notification type!
-        // Extract the bootstrap notifier channel
+        // TODO(joshlind): refactor this if the client only supports one notification
+        // type! Extract the bootstrap notifier channel
         let DriverNotification::NotifyOnceBootstrapped(notifier_channel) = notification;
 
         // Subscribe the bootstrap notifier channel
@@ -401,7 +401,7 @@ impl<
         info!(
             LogSchema::new(LogEntry::SynchronizerNotification).message(&format!(
                 "Received a state snapshot commit notification from the storage synchronizer. \
-                        Snapshot version: {:?}. Last committed index: {:?}.",
+                 Snapshot version: {:?}. Last committed index: {:?}.",
                 committed_snapshot.version, committed_snapshot.last_committed_state_index,
             ))
         );
@@ -434,11 +434,13 @@ impl<
                 ))
                 .await
             {
-                error!(LogSchema::new(LogEntry::SynchronizerNotification)
-                    .message(&format!(
-                        "Failed to terminate the active stream for the continuous syncer! Error: {:?}",
+                error!(
+                    LogSchema::new(LogEntry::SynchronizerNotification).message(&format!(
+                        "Failed to terminate the active stream for the continuous syncer! Error: \
+                         {:?}",
                         error
-                    )));
+                    ))
+                );
             }
         } else if let Err(error) = self
             .bootstrapper
@@ -503,7 +505,8 @@ impl<
         // so that in the event another sync request occurs, we have fresh state.
         if !self.active_sync_request() {
             self.continuous_syncer.reset_active_stream(None).await?;
-            self.storage_synchronizer.finish_chunk_executor(); // Consensus is now in control
+            self.storage_synchronizer.finish_chunk_executor(); // Consensus is
+                                                               // now in control
         }
         Ok(())
     }

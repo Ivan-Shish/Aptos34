@@ -26,14 +26,13 @@ pub struct IndexerConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub processor: Option<String>,
 
-    /// If set, will ignore database contents and start processing from the specified version.
-    /// This will not delete any database contents, just transactions as it reprocesses them.
-    /// Alternatively can set the `STARTING_VERSION` env var
+    /// If set, will ignore database contents and start processing from the
+    /// specified version. This will not delete any database contents, just
+    /// transactions as it reprocesses them. Alternatively can set the
+    /// `STARTING_VERSION` env var
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub starting_version: Option<u64>,
 
-    ///////////////////
-    ///////////////////
     ///////////////////
     /// If set, don't run any migrations
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -55,18 +54,19 @@ pub struct IndexerConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub processor_tasks: Option<u8>,
 
-    /// How many versions to process before logging a "processed X versions" message.
-    /// This will only be checked every `batch_size` number of versions.
-    /// Set to 0 to disable.
+    /// How many versions to process before logging a "processed X versions"
+    /// message. This will only be checked every `batch_size` number of
+    /// versions. Set to 0 to disable.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emit_every: Option<u64>,
 
-    /// Indicates how many versions we should look back for gaps (default 1.5M versions, meaning
-    /// we will only find gaps within MAX - 1.5M versions)
+    /// Indicates how many versions we should look back for gaps (default 1.5M
+    /// versions, meaning we will only find gaps within MAX - 1.5M versions)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gap_lookback_versions: Option<u64>,
 
-    /// Which address does the ans contract live at. Only available for token_processor. If null, disable ANS indexing
+    /// Which address does the ans contract live at. Only available for
+    /// token_processor. If null, disable ANS indexing
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ans_contract_address: Option<String>,
 }
@@ -102,7 +102,7 @@ pub fn default_if_zero(value: Option<u64>, default: u64) -> Option<u64> {
             } else {
                 Some(value)
             }
-        }
+        },
     }
 }
 

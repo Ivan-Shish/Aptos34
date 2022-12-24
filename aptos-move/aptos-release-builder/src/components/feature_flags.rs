@@ -98,7 +98,8 @@ impl From<FeatureFlag> for AptosFeatureFlag {
     }
 }
 
-// We don't need this implementation. Just to make sure we have an exhaustive 1-1 mapping between the two structs.
+// We don't need this implementation. Just to make sure we have an exhaustive
+// 1-1 mapping between the two structs.
 impl From<AptosFeatureFlag> for FeatureFlag {
     fn from(f: AptosFeatureFlag) -> Self {
         match f {
@@ -110,7 +111,8 @@ impl From<AptosFeatureFlag> for FeatureFlag {
 }
 
 impl Features {
-    // Compare if the current feature set is different from features that has been enabled on chain.
+    // Compare if the current feature set is different from features that has been
+    // enabled on chain.
     pub(crate) fn has_modified(&self, on_chain_features: &AptosFeatures) -> bool {
         self.enabled
             .iter()

@@ -1,9 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-///! This is a copy of `futures::try_stream::try_buffered` from `futures 0.3.16`, except that it uses
-///! `FuturesOrderedX` which provides concurrency control. So we can buffer more results without
-///! too many futures driven at the same time.
+/// ! This is a copy of `futures::try_stream::try_buffered` from `futures
+/// 0.3.16`, except that it uses ! `FuturesOrderedX` which provides concurrency
+/// control. So we can buffer more results without ! too many futures driven at
+/// the same time.
 use crate::utils::stream::futures_ordered_x::FuturesOrderedX;
 use core::pin::Pin;
 use futures::{
@@ -65,7 +66,7 @@ where
         // Attempt to pull the next value from the in_progress_queue
         match this.in_progress_queue.poll_next_unpin(cx) {
             x @ Poll::Pending | x @ Poll::Ready(Some(_)) => return x,
-            Poll::Ready(None) => {}
+            Poll::Ready(None) => {},
         }
 
         // If more values are still coming from the stream, we're not done yet

@@ -5,19 +5,20 @@
 //!
 //! ## Modules
 //!
-//! This SDK provides all the necessary components for building on top of the Aptos Blockchain. Some of the important modules are:
+//! This SDK provides all the necessary components for building on top of the
+//! Aptos Blockchain. Some of the important modules are:
 //!
 //! * `crypto` - Types used for signing and verifying
 //! * `move_types` - Includes types used when interacting with the Move VM
-//! * `rest_client` - The Aptos API Client, used for sending requests to the Aptos Blockchain.
+//! * `rest_client` - The Aptos API Client, used for sending requests to the
+//!   Aptos Blockchain.
 //! * `transaction_builder` - Includes helpers for constructing transactions
 //! * `types` - Includes types for Aptos on-chain data structures
 //!
 //! ## Example
 //!
-//! Here is a simple example to show how to create two accounts and do a P2p transfer on testnet:
-//! todo(davidiw) bring back example using rest
-//!
+//! Here is a simple example to show how to create two accounts and do a P2p
+//! transfer on testnet: todo(davidiw) bring back example using rest
 
 pub use bcs;
 

@@ -2,21 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{CryptoStorage, Error, KVStorage, Storage};
-
 use aptos_crypto::{
     ed25519::Ed25519PrivateKey, test_utils::TestAptosCrypto, HashValue, PrivateKey, Signature,
     Uniform,
 };
 
-/// This suite contains tests for secure storage backends. We test the correct functionality
-/// of both key/value and cryptographic operations for storage implementations. All storage backend
-/// implementations should be tested using the tests in this suite.
+/// This suite contains tests for secure storage backends. We test the correct
+/// functionality of both key/value and cryptographic operations for storage
+/// implementations. All storage backend implementations should be tested using
+/// the tests in this suite.
 
-/// This holds the canonical list of secure storage tests. It allows different callers
-/// of the test suite to ensure they're executing all tests.
-/// Note: this is required because: (i) vault tests cannot be run in the usual fashion (i.e., vault
-/// tests rely on first running the vault docker script in `docker/testutils/start_vault_container.sh`); and (ii) vault
-/// tests cannot currently be run in parallel, as each test uses the same vault instance.
+/// This holds the canonical list of secure storage tests. It allows different
+/// callers of the test suite to ensure they're executing all tests.
+/// Note: this is required because: (i) vault tests cannot be run in the usual
+/// fashion (i.e., vault tests rely on first running the vault docker script in
+/// `docker/testutils/start_vault_container.sh`); and (ii) vault tests cannot
+/// currently be run in parallel, as each test uses the same vault instance.
 const STORAGE_TESTS: &[fn(&mut Storage)] = &[
     test_set_reset_get,
     test_create_and_get_non_existent_version,
@@ -61,8 +62,8 @@ fn test_set_reset_get(storage: &mut Storage) {
     );
 }
 
-/// This test tries to get and set non-existent keys in storage and asserts that the correct
-/// errors are returned on these operations.
+/// This test tries to get and set non-existent keys in storage and asserts that
+/// the correct errors are returned on these operations.
 fn test_get_non_existent(storage: &mut Storage) {
     assert_eq!(
         storage.get::<Ed25519PrivateKey>(CRYPTO_KEY).unwrap_err(),
@@ -74,9 +75,9 @@ fn test_get_non_existent(storage: &mut Storage) {
     );
 }
 
-/// This test tries to get previous versions of the public key after multiple rotations have
-/// occurred. It also checks that the previous versions returned can be used to fetch the correct
-/// private keys.
+/// This test tries to get previous versions of the public key after multiple
+/// rotations have occurred. It also checks that the previous versions returned
+/// can be used to fetch the correct private keys.
 fn test_get_public_key_previous_version(storage: &mut Storage) {
     let num_rotations = 10;
 
@@ -99,7 +100,8 @@ fn test_get_public_key_previous_version(storage: &mut Storage) {
         assert_eq!(public_key, public_key_previous_version);
         assert_eq!(private_key.public_key(), public_key_previous_version);
 
-        // Verify the previous public key can be used to fetch the corresponding public key
+        // Verify the previous public key can be used to fetch the corresponding public
+        // key
         let private_key_previous_version = storage
             .export_private_key_for_version(CRYPTO_NAME, public_key_previous_version)
             .unwrap();
@@ -110,8 +112,8 @@ fn test_get_public_key_previous_version(storage: &mut Storage) {
     }
 }
 
-/// This test stores various key/value pairs in storage, updates them, retrieves the values to
-/// ensure the correct value types are returned.
+/// This test stores various key/value pairs in storage, updates them, retrieves
+/// the values to ensure the correct value types are returned.
 fn test_get_set(storage: &mut Storage) {
     let crypto_private_1 = Ed25519PrivateKey::generate_for_testing();
     let crypto_private_2 = Ed25519PrivateKey::generate_for_testing();
@@ -189,8 +191,9 @@ fn test_import_key(storage: &mut Storage) {
     assert_ne!(message_signature, rotated_message_signature);
 }
 
-/// This test stores different types of values into storage, retrieves them, and asserts
-/// that the value unwrap functions return an unexpected type error on an incorrect unwrap.
+/// This test stores different types of values into storage, retrieves them, and
+/// asserts that the value unwrap functions return an unexpected type error on
+/// an incorrect unwrap.
 fn test_verify_incorrect_value_types(storage: &mut Storage) {
     storage.set(U64_KEY, 10).unwrap();
     storage
@@ -201,17 +204,17 @@ fn test_verify_incorrect_value_types(storage: &mut Storage) {
     storage.get::<u64>(CRYPTO_KEY).unwrap_err();
 }
 
-/// This test: (i) creates a new named test key pair; (ii) retrieves the public key for
-/// the created key pair; (iii) compares the public keys returned by the create call and the
-/// retrieval call.
+/// This test: (i) creates a new named test key pair; (ii) retrieves the public
+/// key for the created key pair; (iii) compares the public keys returned by the
+/// create call and the retrieval call.
 fn test_create_get_key_pair(storage: &mut Storage) {
     let public_key = storage.create_key(CRYPTO_NAME).unwrap();
     let retrieved_public_key_response = storage.get_public_key(CRYPTO_NAME).unwrap();
     assert_eq!(public_key, retrieved_public_key_response.public_key);
 }
 
-/// This test tries to get the public key of a key pair that has not yet been created. As
-/// such, it asserts that this attempt fails.
+/// This test tries to get the public key of a key pair that has not yet been
+/// created. As such, it asserts that this attempt fails.
 fn test_get_uncreated_key_pair(storage: &mut Storage) {
     let key_pair_name = "Non-existent Key";
     assert!(
@@ -235,8 +238,8 @@ fn test_ensure_storage_is_available(storage: &mut Storage) {
     storage.available().unwrap();
 }
 
-/// This test creates a new named key pair and attempts to get a non-existent version of the public
-/// and private keys. As such, these calls should fail.
+/// This test creates a new named key pair and attempts to get a non-existent
+/// version of the public and private keys. As such, these calls should fail.
 fn test_create_and_get_non_existent_version(storage: &mut Storage) {
     // Create new named key pair
     let _ = storage.create_key(CRYPTO_NAME).unwrap();
@@ -244,13 +247,16 @@ fn test_create_and_get_non_existent_version(storage: &mut Storage) {
     // Get a non-existent version of the new key pair and verify failure
     let non_existent_public_key = Ed25519PrivateKey::generate_for_testing().public_key();
     assert!(
-        storage.export_private_key_for_version(CRYPTO_NAME, non_existent_public_key).is_err(),
-        "We have tried to retrieve a non-existent private key version -- the call should have failed!",
+        storage
+            .export_private_key_for_version(CRYPTO_NAME, non_existent_public_key)
+            .is_err(),
+        "We have tried to retrieve a non-existent private key version -- the call should have \
+         failed!",
     );
 }
 
-/// This test creates a new key pair and performs multiple key rotations, ensuring that
-/// storage updates key pair versions appropriately.
+/// This test creates a new key pair and performs multiple key rotations,
+/// ensuring that storage updates key pair versions appropriately.
 fn test_create_key_pair_and_perform_rotations(storage: &mut Storage) {
     let num_rotations = 10;
 
@@ -272,9 +278,9 @@ fn test_create_key_pair_and_perform_rotations(storage: &mut Storage) {
     }
 }
 
-/// This test creates a new key pair, signs a message using the key pair, rotates the key pair,
-/// re-signs the message using the previous key pair version, and asserts the same signature is
-/// produced.
+/// This test creates a new key pair, signs a message using the key pair,
+/// rotates the key pair, re-signs the message using the previous key pair
+/// version, and asserts the same signature is produced.
 fn test_create_sign_rotate_sign(storage: &mut Storage) {
     // Generate new key pair
     let public_key = storage.create_key(CRYPTO_NAME).unwrap();
@@ -284,7 +290,8 @@ fn test_create_sign_rotate_sign(storage: &mut Storage) {
     let message_signature = storage.sign(CRYPTO_NAME, &message).unwrap();
     assert!(message_signature.verify(&message, &public_key).is_ok());
 
-    // Rotate the key pair and sign the message again using the previous key pair version
+    // Rotate the key pair and sign the message again using the previous key pair
+    // version
     let _ = storage.rotate_key(CRYPTO_NAME).unwrap();
     let message_signature_previous = storage
         .sign_using_version(CRYPTO_NAME, public_key, &message)

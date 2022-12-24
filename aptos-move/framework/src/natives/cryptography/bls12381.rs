@@ -15,24 +15,25 @@ use aptos_crypto::SigningKey;
 #[cfg(feature = "testing")]
 use aptos_crypto::Uniform;
 use aptos_crypto::{bls12381, traits};
-use move_binary_format::errors::PartialVMError;
-use move_binary_format::errors::PartialVMResult;
-use move_core_types::gas_algebra::{
-    InternalGas, InternalGasPerArg, InternalGasPerByte, NumArgs, NumBytes,
+use move_binary_format::errors::{PartialVMError, PartialVMResult};
+use move_core_types::{
+    gas_algebra::{InternalGas, InternalGasPerArg, InternalGasPerByte, NumArgs, NumBytes},
+    vm_status::StatusCode,
 };
-use move_core_types::vm_status::StatusCode;
 use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
-use move_vm_types::values::Struct;
 use move_vm_types::{
-    loaded_data::runtime_types::Type, natives::function::NativeResult, pop_arg, values::Value,
+    loaded_data::runtime_types::Type,
+    natives::function::NativeResult,
+    pop_arg,
+    values::{Struct, Value},
 };
 #[cfg(feature = "testing")]
 use rand_core::OsRng;
 use smallvec::smallvec;
 use std::{collections::VecDeque, convert::TryFrom};
 
-/// Pops a Vec<T> off the argument stack and converts it to a Vec<Vec<u8>> by reading the first
-/// field of T, which is a Vec<u8> field named `bytes`.
+/// Pops a Vec<T> off the argument stack and converts it to a Vec<Vec<u8>> by
+/// reading the first field of T, which is a Vec<u8> field named `bytes`.
 fn pop_vec_of_vec_u8(arguments: &mut VecDeque<Value>) -> PartialVMResult<Vec<Vec<u8>>> {
     let structs = pop_vec_arg!(arguments, Struct);
     let mut v = Vec::with_capacity(structs.len());
@@ -67,7 +68,8 @@ pub struct GasParameters {
     pub per_pairing: InternalGasPerArg, // a size-n BLS aggregate signature requires n+1 pairings
 
     pub per_msg_hashing: InternalGasPerArg,
-    pub per_byte_hashing: InternalGasPerByte, // signature verification involves signing |msg| bytes
+    pub per_byte_hashing: InternalGasPerByte, /* signature verification involves signing |msg|
+                                               * bytes */
 }
 
 impl GasParameters {
@@ -107,7 +109,8 @@ impl GasParameters {
         }
     }
 
-    /// Deserializes a vector of signature bytes into bls12381::Signature structs.
+    /// Deserializes a vector of signature bytes into bls12381::Signature
+    /// structs.
     fn bls12381_deserialize_sigs(
         &self,
         sigs_serialized: Vec<Vec<u8>>,
@@ -190,19 +193,22 @@ impl GasParameters {
         sig.verify_arbitrary_msg(&msg[..], pk).is_ok()
     }
 
-    /// This is a helper function called by our `bls12381_verify_*` functions for:
+    /// This is a helper function called by our `bls12381_verify_*` functions
+    /// for:
     ///  * normal (non-aggregated) signatures,
-    ///  * signature shares (in the multisignature scheme & the aggregate signature scheme)
+    ///  * signature shares (in the multisignature scheme & the aggregate
+    ///    signature scheme)
     ///  * multisignatures
     ///
     /// Gas cost: base_cost + per_pubkey_deserialize_cost
-    ///                     +? ( per_pubkey_subgroup_check_cost * check_pk_subgroup
-    ///                          +? ( per_sig_deserialize_cost
-    ///                              +? ( per_sig_verify_cost + per_msg_hashing_cost
-    ///                                   + per_byte_hashing_cost * |msg| ) ) )
+    ///                     +? ( per_pubkey_subgroup_check_cost *
+    /// check_pk_subgroup                          +? (
+    /// per_sig_deserialize_cost                              +? (
+    /// per_sig_verify_cost + per_msg_hashing_cost                          
+    /// + per_byte_hashing_cost * |msg| ) ) )
     ///
-    /// where +? indicates that the expression stops evaluating there if the previous gas-charging step
-    /// failed.
+    /// where +? indicates that the expression stops evaluating there if the
+    /// previous gas-charging step failed.
     pub fn bls12381_verify_signature_helper(
         &self,
         _context: &mut NativeContext,
@@ -222,7 +228,7 @@ impl GasParameters {
             Some(pk) => pk,
             None => {
                 return Ok(NativeResult::ok(cost, smallvec![Value::bool(false)]));
-            }
+            },
         };
 
         if check_pk_subgroup && !self.bls12381_pk_subgroub_check(&pk, &mut cost) {
@@ -233,37 +239,40 @@ impl GasParameters {
             Some(sig) => sig,
             None => {
                 return Ok(NativeResult::ok(cost, smallvec![Value::bool(false)]));
-            }
+            },
         };
 
         // NOTE(Gas): 2 bilinear pairings and a hash-to-curve
         let verify_result = self.signature_verify(&sig, &pk, msg_bytes, &mut cost);
 
-        Ok(NativeResult::ok(
-            cost,
-            smallvec![Value::bool(verify_result)],
-        ))
+        Ok(NativeResult::ok(cost, smallvec![Value::bool(
+            verify_result
+        )]))
     }
 }
 
-/***************************************************************************************************
- * native fun bls12381_aggregate_pop_verified_pubkeys
- *
- *   gas cost: base_cost + per_pubkey_deserialize_cost * min(num_validatable_pubkeys + 1, num_pubkeys)
- *                       +? per_pubkey_aggregate_cost * num_pubkeys
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed, num_pubkeys is the # of public keys given as input, and num_validatable_pubkeys is the
- * # of public keys that deserialize successfully.
- *
- * NOTE(ValidatablePK): We refer to the public keys that deserialize correctly as "validatable"
- * above, since successful deserialization is not a sufficient criteria for the "validatability"
- * of a PK: e.g., the PK could still be susceptible to small-subgroup attacks or rogue-key attacks.
- *
- * NOTE: If all PKs deserialize, then per_pubkey_deserialize_cost is charged num_pubkeys times.
- * Otherwise, if only num_validatable_pubkeys deserialize correctly, an extra per_pubkey_deserialize_cost
- * must be charged for the failed deserialization.
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_aggregate_pop_verified_pubkeys
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost *
+/// min(num_validatable_pubkeys + 1, num_pubkeys)                       +?
+/// per_pubkey_aggregate_cost * num_pubkeys
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed, num_pubkeys is the # of public keys given
+/// as input, and num_validatable_pubkeys is the # of public keys that
+/// deserialize successfully.
+///
+/// NOTE(ValidatablePK): We refer to the public keys that deserialize correctly
+/// as "validatable" above, since successful deserialization is not a sufficient
+/// criteria for the "validatability" of a PK: e.g., the PK could still be
+/// susceptible to small-subgroup attacks or rogue-key attacks.
+///
+/// NOTE: If all PKs deserialize, then per_pubkey_deserialize_cost is charged
+/// num_pubkeys times. Otherwise, if only num_validatable_pubkeys deserialize
+/// correctly, an extra per_pubkey_deserialize_cost must be charged for the
+/// failed deserialization. ****************************************************
+/// ******************************************
 fn native_bls12381_aggregate_pubkeys(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -280,21 +289,22 @@ fn native_bls12381_aggregate_pubkeys(
 
     // If zero PKs were given as input, return None.
     if pks_bytes.is_empty() {
-        return Ok(NativeResult::ok(
-            cost,
-            smallvec![Value::vector_u8(vec![]), Value::bool(false)],
-        ));
+        return Ok(NativeResult::ok(cost, smallvec![
+            Value::vector_u8(vec![]),
+            Value::bool(false)
+        ]));
     }
 
     let pks = gas_params.bls12381_deserialize_pks(pks_bytes, &mut cost);
     debug_assert!(pks.len() <= num_pks);
 
-    // If not all PKs were successfully deserialized, return None and only charge for the actual work done
+    // If not all PKs were successfully deserialized, return None and only charge
+    // for the actual work done
     if pks.len() != num_pks {
-        return Ok(NativeResult::ok(
-            cost,
-            smallvec![Value::vector_u8(vec![]), Value::bool(false)],
-        ));
+        return Ok(NativeResult::ok(cost, smallvec![
+            Value::vector_u8(vec![]),
+            Value::bool(false)
+        ]));
     }
 
     // Aggregate the public keys (this will NOT subgroup-check the individual PKs)
@@ -304,36 +314,35 @@ fn native_bls12381_aggregate_pubkeys(
         match bls12381::PublicKey::aggregate(pks.iter().collect::<Vec<&bls12381::PublicKey>>()) {
             Ok(aggpk) => aggpk,
             Err(_) => {
-                return Ok(NativeResult::ok(
-                    cost,
-                    smallvec![Value::vector_u8(vec![]), Value::bool(false)],
-                ))
-            }
+                return Ok(NativeResult::ok(cost, smallvec![
+                    Value::vector_u8(vec![]),
+                    Value::bool(false)
+                ]))
+            },
         };
 
-    Ok(NativeResult::ok(
-        cost,
-        smallvec![
-            Value::vector_u8(aggpk.to_bytes().to_vec()),
-            Value::bool(true)
-        ],
-    ))
+    Ok(NativeResult::ok(cost, smallvec![
+        Value::vector_u8(aggpk.to_bytes().to_vec()),
+        Value::bool(true)
+    ]))
 }
 
-/***************************************************************************************************
- * native fun bls12381_aggregate_signatures
- *
- *   gas cost: base_cost + num_viable_sigs * per_sig_deserialize_cost
- *                       +? num_sigs * per_sig_aggregate_cost
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- *
- * NOTE(ViableSig): We refer to the signatures that deserialize correctly as "viable" above, since
- * successful deserialization is not a sufficient criteria for the "viability" of a signature: e.g.,
- * the signature might not verify under the desired (message, public key) pair, or the signature
- * could lie in a small-order subgroup.
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_aggregate_signatures
+///
+///   gas cost: base_cost + num_viable_sigs * per_sig_deserialize_cost
+///                       +? num_sigs * per_sig_aggregate_cost
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+///
+/// NOTE(ViableSig): We refer to the signatures that deserialize correctly as
+/// "viable" above, since successful deserialization is not a sufficient
+/// criteria for the "viability" of a signature: e.g., the signature might not
+/// verify under the desired (message, public key) pair, or the signature
+/// could lie in a small-order subgroup.
+/// ****************************************************************************
+/// ******************
 pub fn native_bls12381_aggregate_signatures(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -351,51 +360,50 @@ pub fn native_bls12381_aggregate_signatures(
 
     // If zero signatures were given as input, return None.
     if sigs_serialized.is_empty() {
-        return Ok(NativeResult::ok(
-            cost,
-            smallvec![Value::vector_u8(vec![]), Value::bool(false)],
-        ));
+        return Ok(NativeResult::ok(cost, smallvec![
+            Value::vector_u8(vec![]),
+            Value::bool(false)
+        ]));
     }
 
     let sigs = gas_params.bls12381_deserialize_sigs(sigs_serialized, &mut cost);
 
     if sigs.len() != num_sigs {
-        return Ok(NativeResult::ok(
-            cost,
-            smallvec![Value::vector_u8(vec![]), Value::bool(false)],
-        ));
+        return Ok(NativeResult::ok(cost, smallvec![
+            Value::vector_u8(vec![]),
+            Value::bool(false)
+        ]));
     }
 
-    // Aggregate the signatures (this will NOT group-check the individual signatures)
-    // NOTE(Gas): |sigs| elliptic curve additions
+    // Aggregate the signatures (this will NOT group-check the individual
+    // signatures) NOTE(Gas): |sigs| elliptic curve additions
     cost += gas_params.per_sig_aggregate * NumArgs::new(sigs.len() as u64);
     let aggsig = match bls12381::Signature::aggregate(sigs) {
         Ok(aggsig) => aggsig,
         Err(_) => {
-            return Ok(NativeResult::ok(
-                cost,
-                smallvec![Value::vector_u8(vec![]), Value::bool(false)],
-            ))
-        }
+            return Ok(NativeResult::ok(cost, smallvec![
+                Value::vector_u8(vec![]),
+                Value::bool(false)
+            ]))
+        },
     };
 
-    Ok(NativeResult::ok(
-        cost,
-        smallvec![
-            Value::vector_u8(aggsig.to_bytes().to_vec()),
-            Value::bool(true)
-        ],
-    ))
+    Ok(NativeResult::ok(cost, smallvec![
+        Value::vector_u8(aggsig.to_bytes().to_vec()),
+        Value::bool(true)
+    ]))
 }
 
-/***************************************************************************************************
- * native fun bls12381_signature_subgroup_check
- *
- *   gas cost: base_cost + per_sig_deserialize_cost +? per_sig_subgroup_check_cost
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_signature_subgroup_check
+///
+///   gas cost: base_cost + per_sig_deserialize_cost +?
+/// per_sig_subgroup_check_cost
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+/// ****************************************************************************
+/// ******************
 pub fn native_bls12381_signature_subgroup_check(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -419,14 +427,16 @@ pub fn native_bls12381_signature_subgroup_check(
     Ok(NativeResult::ok(cost, smallvec![Value::bool(valid)]))
 }
 
-/***************************************************************************************************
- * native fun bls12381_validate_pubkey
- *
- *   gas cost: base_cost + per_pubkey_deserialize_cost +? per_pubkey_subgroup_check_cost
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_validate_pubkey
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost +?
+/// per_pubkey_subgroup_check_cost
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+/// ****************************************************************************
+/// ******************
 fn native_bls12381_validate_pubkey(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -449,35 +459,41 @@ fn native_bls12381_validate_pubkey(
     Ok(NativeResult::ok(cost, smallvec![Value::bool(valid)]))
 }
 
-/***************************************************************************************************
-* native fun native_bls12381_verify_aggregate_signature
-*
-*   gas cost: base_cost + per_pubkey_deserialize_cost * min(num_validatable_pubkeys + 1, num_pubkeys)
-*                       +? ( per_sig_deserialize_cost * min(num_viable_sigs + 1, num_sigs)
-*                            +? ( per_pairing_cost + per_msg_hashing_cost ) * num_msgs
-*                                 + per_byte_hashing_cost * total_msg_bytes )
-*
-* where:
-*    +? indicates the expression stops evaluating there if the previous gas-charging step failed,
-*    num_pubkeys is the # of public keys given as input,
-*    num_validatable_pubkeys is the # of public keys that deserialize successfully (i.e., "validatable"),
-*    num_sigs is the # of signatures given as input,
-*    num_viable_sigs is the # of signatures that deserialize successfully (i.e., "viable"),
-*    total_msg_bytes is the cumulative size in bytes of all messages.
-*
-* NOTE(ValidatablePK): We refer to the public keys that deserialize correctly as "validatable"
-* above, since successful deserialization is not a sufficient criteria for the "validatability"
-* of a PK: e.g., the PK could still be susceptible to small-subgroup attacks or rogue-key attacks.
-*
-* NOTE(ViableSig): We refer to the signatures that deserialize correctly as "viable" above, since
-* successful deserialization is not a sufficient criteria for the "viability" of a signature: e.g.,
-* the signature might not verify under the desired (message, public key) pair, or the signature
-* could lie in a small-order subgroup.
-
-* NOTE: If all PKs deserialize, then per_pubkey_deserialize_cost is charged num_pubkeys times.
-* Otherwise, if only num_validatable_pubkeys deserialize correctly, an extra per_pubkey_deserialize_cost
-* must be charged for the failed deserialization. We proceed similarly for per_sig_deserialize_cost.
-**************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun native_bls12381_verify_aggregate_signature
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost *
+/// min(num_validatable_pubkeys + 1, num_pubkeys)                       +? (
+/// per_sig_deserialize_cost * min(num_viable_sigs + 1, num_sigs)               
+/// +? ( per_pairing_cost + per_msg_hashing_cost ) * num_msgs                   
+/// + per_byte_hashing_cost * total_msg_bytes )
+///
+/// where:
+///    +? indicates the expression stops evaluating there if the previous
+/// gas-charging step failed,    num_pubkeys is the # of public keys given as
+/// input,    num_validatable_pubkeys is the # of public keys that deserialize
+/// successfully (i.e., "validatable"),    num_sigs is the # of signatures given
+/// as input,    num_viable_sigs is the # of signatures that deserialize
+/// successfully (i.e., "viable"),    total_msg_bytes is the cumulative size in
+/// bytes of all messages.
+///
+/// NOTE(ValidatablePK): We refer to the public keys that deserialize correctly
+/// as "validatable" above, since successful deserialization is not a sufficient
+/// criteria for the "validatability" of a PK: e.g., the PK could still be
+/// susceptible to small-subgroup attacks or rogue-key attacks.
+///
+/// NOTE(ViableSig): We refer to the signatures that deserialize correctly as
+/// "viable" above, since successful deserialization is not a sufficient
+/// criteria for the "viability" of a signature: e.g., the signature might not
+/// verify under the desired (message, public key) pair, or the signature
+/// could lie in a small-order subgroup.
+///
+/// NOTE: If all PKs deserialize, then per_pubkey_deserialize_cost is charged
+/// num_pubkeys times. Otherwise, if only num_validatable_pubkeys deserialize
+/// correctly, an extra per_pubkey_deserialize_cost must be charged for the
+/// failed deserialization. We proceed similarly for per_sig_deserialize_cost.
+/// ****************************************************************************
+/// *******************
 pub fn native_bls12381_verify_aggregate_signature(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -522,8 +538,9 @@ pub fn native_bls12381_verify_aggregate_signature(
         .collect::<Vec<&[u8]>>();
     let pks_refs = pks.iter().collect::<Vec<&bls12381::PublicKey>>();
 
-    // The cost of verifying a size-n aggregate signatures involves n+1 parings and hashing all
-    // the messages to elliptic curve points (proportional to sum of all message lengths).
+    // The cost of verifying a size-n aggregate signatures involves n+1 parings and
+    // hashing all the messages to elliptic curve points (proportional to sum of
+    // all message lengths).
     cost += gas_params.per_pairing * NumArgs::new((messages.len() + 1) as u64)
         + gas_params.per_msg_hashing * NumArgs::new(messages.len() as u64)
         + gas_params.per_byte_hashing
@@ -535,23 +552,23 @@ pub fn native_bls12381_verify_aggregate_signature(
         .verify_aggregate_arbitrary_msg(&msgs_refs, &pks_refs)
         .is_ok();
 
-    Ok(NativeResult::ok(
-        cost,
-        smallvec![Value::bool(verify_result)],
-    ))
+    Ok(NativeResult::ok(cost, smallvec![Value::bool(
+        verify_result
+    )]))
 }
 
-/***************************************************************************************************
- * native fun bls12381_verify_multisignature
- *
- *   gas cost: base_cost + per_pubkey_deserialize_cost
- *                       +? ( per_sig_deserialize_cost
- *                            +? ( per_sig_verify_cost + per_msg_hashing_cost
- *                                 + per_byte_hashing_cost * |msg| ) )
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_verify_multisignature
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost
+///                       +? ( per_sig_deserialize_cost
+///                            +? ( per_sig_verify_cost + per_msg_hashing_cost
+///                                 + per_byte_hashing_cost * |msg| ) )
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+/// ****************************************************************************
+/// ******************
 pub fn native_bls12381_verify_multisignature(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -562,41 +579,44 @@ pub fn native_bls12381_verify_multisignature(
     gas_params.bls12381_verify_signature_helper(_context, _ty_args, arguments, check_pk_subgroup)
 }
 
-/***************************************************************************************************
- * native fun bls12381_verify_normal_signature
- *
- *   gas cost: base_cost + per_pubkey_deserialize_cost
- *                       +? ( per_sig_deserialize_cost
- *                            +? ( per_pubkey_subgroup_check_cost
- *                                 +? ( per_sig_verify_cost + per_msg_hashing_cost
- *                                     + per_byte_hashing_cost * |msg| ) ) )
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_verify_normal_signature
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost
+///                       +? ( per_sig_deserialize_cost
+///                            +? ( per_pubkey_subgroup_check_cost
+///                                 +? ( per_sig_verify_cost +
+/// per_msg_hashing_cost                                     +
+/// per_byte_hashing_cost * |msg| ) ) )
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+/// ****************************************************************************
+/// ******************
 pub fn native_bls12381_verify_normal_signature(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
     _ty_args: Vec<Type>,
     arguments: VecDeque<Value>,
 ) -> PartialVMResult<NativeResult> {
-    // For normal (non-aggregated) signatures, PK's typically don't come with PoPs and the caller
-    // might forget to check prime-order subgroup membership of the PK. Therefore, we always enforce
-    // it here.
+    // For normal (non-aggregated) signatures, PK's typically don't come with PoPs
+    // and the caller might forget to check prime-order subgroup membership of
+    // the PK. Therefore, we always enforce it here.
     let check_pk_subgroup = true;
     gas_params.bls12381_verify_signature_helper(_context, _ty_args, arguments, check_pk_subgroup)
 }
 
-/***************************************************************************************************
- * native fun bls12381_verify_proof_of_possession
- *
- *   gas cost: base_cost + per_pubkey_deserialize_cost
- *                       +? ( per_sig_deserialize_cost
- *                            +? per_pop_verify_cost )
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_verify_proof_of_possession
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost
+///                       +? ( per_sig_deserialize_cost
+///                            +? per_pop_verify_cost )
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+/// ****************************************************************************
+/// ******************
 fn native_bls12381_verify_proof_of_possession(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
@@ -627,25 +647,26 @@ fn native_bls12381_verify_proof_of_possession(
     Ok(NativeResult::ok(cost, smallvec![Value::bool(valid)]))
 }
 
-/***************************************************************************************************
- * native fun bls12381_verify_signature_share
- *
- *   gas cost: base_cost + per_pubkey_deserialize_cost
- *                       +? ( per_sig_deserialize_cost
- *                            +? ( per_sig_verify_cost + per_msg_hashing_cost
- *                                 + per_byte_hashing_cost * |msg| ) )
- *
- * where +? indicates that the expression stops evaluating there if the previous gas-charging step
- * failed
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun bls12381_verify_signature_share
+///
+///   gas cost: base_cost + per_pubkey_deserialize_cost
+///                       +? ( per_sig_deserialize_cost
+///                            +? ( per_sig_verify_cost + per_msg_hashing_cost
+///                                 + per_byte_hashing_cost * |msg| ) )
+///
+/// where +? indicates that the expression stops evaluating there if the
+/// previous gas-charging step failed
+/// ****************************************************************************
+/// ******************
 pub fn native_bls12381_verify_signature_share(
     gas_params: &GasParameters,
     _context: &mut NativeContext,
     _ty_args: Vec<Type>,
     arguments: VecDeque<Value>,
 ) -> PartialVMResult<NativeResult> {
-    // For signature shares, the caller is REQUIRED to check the PK's PoP, and thus the PK is in the
-    // prime-order subgroup.
+    // For signature shares, the caller is REQUIRED to check the PK's PoP, and thus
+    // the PK is in the prime-order subgroup.
     let check_pk_subgroup = false;
     gas_params.bls12381_verify_signature_helper(_context, _ty_args, arguments, check_pk_subgroup)
 }
@@ -657,13 +678,10 @@ pub fn native_generate_keys(
     mut _arguments: VecDeque<Value>,
 ) -> PartialVMResult<NativeResult> {
     let key_pair = KeyPair::<PrivateKey, PublicKey>::generate(&mut OsRng);
-    Ok(NativeResult::ok(
-        InternalGas::zero(),
-        smallvec![
-            Value::vector_u8(key_pair.private_key.to_bytes()),
-            Value::vector_u8(key_pair.public_key.to_bytes()),
-        ],
-    ))
+    Ok(NativeResult::ok(InternalGas::zero(), smallvec![
+        Value::vector_u8(key_pair.private_key.to_bytes()),
+        Value::vector_u8(key_pair.public_key.to_bytes()),
+    ]))
 }
 
 #[cfg(feature = "testing")]
@@ -676,10 +694,9 @@ pub fn native_sign(
     let sk_bytes = pop_arg!(arguments, Vec<u8>);
     let sk = PrivateKey::try_from(sk_bytes.as_slice()).unwrap();
     let sig = sk.sign_arbitrary_message(msg.as_slice());
-    Ok(NativeResult::ok(
-        InternalGas::zero(),
-        smallvec![Value::vector_u8(sig.to_bytes()),],
-    ))
+    Ok(NativeResult::ok(InternalGas::zero(), smallvec![
+        Value::vector_u8(sig.to_bytes()),
+    ]))
 }
 
 #[cfg(feature = "testing")]
@@ -691,16 +708,16 @@ pub fn native_generate_proof_of_possession(
     let sk_bytes = pop_arg!(arguments, Vec<u8>);
     let sk = PrivateKey::try_from(sk_bytes.as_slice()).unwrap();
     let pop = ProofOfPossession::create(&sk);
-    Ok(NativeResult::ok(
-        InternalGas::zero(),
-        smallvec![Value::vector_u8(pop.to_bytes()),],
-    ))
+    Ok(NativeResult::ok(InternalGas::zero(), smallvec![
+        Value::vector_u8(pop.to_bytes()),
+    ]))
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 pub fn make_all(gas_params: GasParameters) -> impl Iterator<Item = (String, NativeFunction)> {
     let mut natives = vec![];
     natives.append(&mut vec![

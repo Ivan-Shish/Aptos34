@@ -24,10 +24,12 @@ pub struct ViewFunctionApi {
 impl ViewFunctionApi {
     /// Execute view function of a module
     ///
-    /// Execute the Move function with the given parameters and return its execution result.
+    /// Execute the Move function with the given parameters and return its
+    /// execution result.
     ///
-    /// The Aptos nodes prune account state history, via a configurable time window.
-    /// If the requested ledger version has been pruned, the server responds with a 410.
+    /// The Aptos nodes prune account state history, via a configurable time
+    /// window. If the requested ledger version has been pruned, the server
+    /// responds with a 410.
     #[oai(
         path = "/view",
         method = "post",
@@ -91,7 +93,7 @@ impl ViewFunctionApi {
         match accept_type {
             AcceptType::Bcs => {
                 BasicResponse::try_from_bcs((return_vals, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
             AcceptType::Json => {
                 let return_types = resolver
                     .as_converter(self.context.db.clone())
@@ -127,7 +129,7 @@ impl ViewFunctionApi {
                     })?;
 
                 BasicResponse::try_from_json((move_vals, &ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 }

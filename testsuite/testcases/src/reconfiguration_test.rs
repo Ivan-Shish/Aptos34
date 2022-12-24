@@ -20,7 +20,8 @@ impl NetworkTest for ReconfigurationTest {
     //     let rt = Runtime::new()?;
     //
     //     let mut rng = StdRng::from_seed(OsRng.gen());
-    //     let client = OperationalTool::new(ctx.swarm().chain_info().rest_api().to_owned());
+    //     let client =
+    // OperationalTool::new(ctx.swarm().chain_info().rest_api().to_owned());
     //     let validator_info = rt
     //         .block_on(client.validator_set(None))
     //         .expect("Unable to fetch validator set");
@@ -36,11 +37,12 @@ impl NetworkTest for ReconfigurationTest {
     //         .validators()
     //         .map(|n| n.rest_client())
     //         .collect::<Vec<_>>();
-    //     let tx_factory = TransactionFactory::new(ctx.swarm().chain_info().chain_id);
-    //     let mut aptos_root_account = ctx.swarm().chain_info().root_account;
+    //     let tx_factory =
+    // TransactionFactory::new(ctx.swarm().chain_info().chain_id);     let mut
+    // aptos_root_account = ctx.swarm().chain_info().root_account;
     //     let allowed_nonce = 0;
-    //     let full_node_client = validator_clients.iter().choose(&mut rng).unwrap();
-    //     let timer = Instant::now();
+    //     let full_node_client = validator_clients.iter().choose(&mut
+    // rng).unwrap();     let timer = Instant::now();
     //     let count = 101;
     //
     //     rt.block_on(async {
@@ -48,10 +50,10 @@ impl NetworkTest for ReconfigurationTest {
     //         {
     //             println!("Remove and add back {}.", affected_pod_name);
     //             let validator_name = affected_pod_name.as_bytes().to_vec();
-    //             let remove_txn = aptos_root_account.sign_with_transaction_builder(
-    //                 tx_factory.remove_validator_and_reconfigure(
-    //                     allowed_nonce,
-    //                     validator_name.clone(),
+    //             let remove_txn =
+    // aptos_root_account.sign_with_transaction_builder(
+    // tx_factory.remove_validator_and_reconfigure(
+    // allowed_nonce,                     validator_name.clone(),
     //                     affected_peer_id,
     //                 ),
     //             );
@@ -82,19 +84,19 @@ impl NetworkTest for ReconfigurationTest {
     //
     //         {
     //             println!("Switch decoupled-execution on and off repetitively.");
-    //             let upgrade_config = OnChainConsensusConfig::V2(ConsensusConfigV2 {
-    //                 two_chain: true,
+    //             let upgrade_config = OnChainConsensusConfig::V2(ConsensusConfigV2
+    // {                 two_chain: true,
     //                 decoupled_execution: true,
     //                 back_pressure_limit: 10,
     //                 exclude_round: 20,
     //             });
     //             let downgrade_config = OnChainConsensusConfig::default();
     //             for i in 1..count / 2 {
-    //                 let upgrade_txn = aptos_root_account.sign_with_transaction_builder(
-    //                     tx_factory.update_aptos_consensus_config(
-    //                         allowed_nonce,
-    //                         bcs::to_bytes(&upgrade_config).unwrap(),
-    //                     ),
+    //                 let upgrade_txn =
+    // aptos_root_account.sign_with_transaction_builder(
+    // tx_factory.update_aptos_consensus_config(
+    // allowed_nonce,
+    // bcs::to_bytes(&upgrade_config).unwrap(),                     ),
     //                 );
     //                 execute_and_wait_transactions(
     //                     full_node_client,
@@ -104,11 +106,11 @@ impl NetworkTest for ReconfigurationTest {
     //                 .await
     //                 .unwrap();
     //                 expect_epoch(full_node_client, (i + 1) * 2).await.unwrap();
-    //                 let downgrade_txn = aptos_root_account.sign_with_transaction_builder(
-    //                     tx_factory.update_aptos_consensus_config(
-    //                         allowed_nonce,
-    //                         bcs::to_bytes(&downgrade_config).unwrap(),
-    //                     ),
+    //                 let downgrade_txn =
+    // aptos_root_account.sign_with_transaction_builder(
+    // tx_factory.update_aptos_consensus_config(
+    // allowed_nonce,
+    // bcs::to_bytes(&downgrade_config).unwrap(),                     ),
     //                 );
     //                 execute_and_wait_transactions(
     //                     full_node_client,
@@ -126,10 +128,10 @@ impl NetworkTest for ReconfigurationTest {
     //         if count % 2 == 1 {
     //             let magic_number = 42;
     //             println!("Bump Version to {}", magic_number);
-    //             let update_txn = aptos_root_account.sign_with_transaction_builder(
-    //                 tx_factory.update_aptos_version(allowed_nonce, magic_number),
-    //             );
-    //             execute_and_wait_transactions(
+    //             let update_txn =
+    // aptos_root_account.sign_with_transaction_builder(
+    // tx_factory.update_aptos_version(allowed_nonce, magic_number),
+    // );             execute_and_wait_transactions(
     //                 full_node_client,
     //                 &mut aptos_root_account,
     //                 vec![update_txn],
@@ -151,8 +153,9 @@ impl NetworkTest for ReconfigurationTest {
     // }
 }
 
-// async fn expect_epoch(client: &RestClient, expected_epoch: u64) -> anyhow::Result<()> {
-//     let config = client.get_epoch_configuration().await?.into_inner();
+// async fn expect_epoch(client: &RestClient, expected_epoch: u64) ->
+// anyhow::Result<()> {     let config =
+// client.get_epoch_configuration().await?.into_inner();
 //     let next_block_epoch = *config.next_block_epoch.inner();
 //     ensure!(
 //         next_block_epoch == expected_epoch,

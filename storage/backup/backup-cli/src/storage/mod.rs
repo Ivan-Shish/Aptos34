@@ -25,25 +25,28 @@ use std::convert::TryInto;
 use std::{convert::TryFrom, ops::Deref, str::FromStr, sync::Arc};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-/// String returned by a specific storage implementation to identify a backup, probably a folder name
-/// which is exactly the same with the backup name we pass into `create_backup()`
-/// This is created and returned by the storage when `create_backup()`, passed back to the storage
-/// when `create_for_write()` and persisted nowhere (once a backup is created, files are referred to
+/// String returned by a specific storage implementation to identify a backup,
+/// probably a folder name which is exactly the same with the backup name we
+/// pass into `create_backup()` This is created and returned by the storage when
+/// `create_backup()`, passed back to the storage when `create_for_write()` and
+/// persisted nowhere (once a backup is created, files are referred to
 /// by `FileHandle`s).
 pub type BackupHandle = String;
 pub type BackupHandleRef = str;
 
 /// URI pointing to a file in a backup storage, like "s3:///bucket/path/file".
-/// These are created by the storage when `create_for_write()`, stored in manifests by the backup
-/// controller, and passed back to the storage when `open_for_read()` by the restore controller
-/// to retrieve a file referred to in the manifest.
+/// These are created by the storage when `create_for_write()`, stored in
+/// manifests by the backup controller, and passed back to the storage when
+/// `open_for_read()` by the restore controller to retrieve a file referred to
+/// in the manifest.
 pub type FileHandle = String;
 pub type FileHandleRef = str;
 
-/// Through this, the backup controller promises to the storage the names passed to
-/// `create_backup()` and `create_for_write()` don't contain funny characters tricky to deal with
-/// in shell commands.
-/// Specifically, names follow the pattern "\A[a-zA-Z0-9][a-zA-Z0-9._-]{2,126}\z"
+/// Through this, the backup controller promises to the storage the names passed
+/// to `create_backup()` and `create_for_write()` don't contain funny characters
+/// tricky to deal with in shell commands.
+/// Specifically, names follow the pattern
+/// "\A[a-zA-Z0-9][a-zA-Z0-9._-]{2,126}\z"
 #[cfg_attr(test, derive(Hash, Eq, PartialEq))]
 #[derive(Debug)]
 pub struct ShellSafeName(String);
@@ -133,14 +136,15 @@ impl Arbitrary for TextLine {
 
 #[async_trait]
 pub trait BackupStorage: Send + Sync {
-    /// Hint that a bunch of files are gonna be created related to a backup identified by `name`,
-    /// which is unique to the content of the backup, i.e. it won't be the same name unless you are
-    /// backing up exactly the same thing.
-    /// Storage can choose to take actions like create a dedicated folder or do nothing.
-    /// Returns a string to identify this operation in potential succeeding file creation requests.
+    /// Hint that a bunch of files are gonna be created related to a backup
+    /// identified by `name`, which is unique to the content of the backup,
+    /// i.e. it won't be the same name unless you are backing up exactly the
+    /// same thing. Storage can choose to take actions like create a
+    /// dedicated folder or do nothing. Returns a string to identify this
+    /// operation in potential succeeding file creation requests.
     async fn create_backup(&self, name: &ShellSafeName) -> Result<BackupHandle>;
-    /// Ask to create a file for write, `backup_handle` was returned by `create_backup` to identify
-    /// the current backup.
+    /// Ask to create a file for write, `backup_handle` was returned by
+    /// `create_backup` to identify the current backup.
     async fn create_for_write(
         &self,
         backup_handle: &BackupHandleRef,
@@ -152,20 +156,22 @@ pub trait BackupStorage: Send + Sync {
         file_handle: &FileHandleRef,
     ) -> Result<Box<dyn AsyncRead + Send + Unpin>>;
     /// Asks to save a metadata entry. A metadata entry is one line of text.
-    /// The backup system doesn't expect a metadata entry to exclusively map to a single file
-    /// handle, or the same file handle when accessed later, so there's no need to return one. This
-    /// also means a local cache must download each metadata file from remote at least once, to
+    /// The backup system doesn't expect a metadata entry to exclusively map to
+    /// a single file handle, or the same file handle when accessed later,
+    /// so there's no need to return one. This also means a local cache must
+    /// download each metadata file from remote at least once, to
     /// uncover potential storage glitch sooner.
-    /// Behavior on duplicated names is undefined, overwriting the content upon an existing name
-    /// is straightforward and acceptable.
+    /// Behavior on duplicated names is undefined, overwriting the content upon
+    /// an existing name is straightforward and acceptable.
     /// See `list_metadata_files`.
     async fn save_metadata_line(&self, name: &ShellSafeName, content: &TextLine) -> Result<()>;
-    /// The backup system always asks for all metadata files and cache and build index on top of
-    /// the content of them. This means:
-    ///   1. The storage is free to reorganise the metadata files, like combining multiple ones to
-    /// reduce fragmentation.
-    ///   2. But the cache does expect the content stays the same for a file handle, so when
-    /// reorganising metadata files, give them new unique names.
+    /// The backup system always asks for all metadata files and cache and build
+    /// index on top of the content of them. This means:
+    ///   1. The storage is free to reorganise the metadata files, like
+    /// combining multiple ones to reduce fragmentation.
+    ///   2. But the cache does expect the content stays the same for a file
+    /// handle, so when reorganising metadata files, give them new unique
+    /// names.
     async fn list_metadata_files(&self) -> Result<Vec<FileHandle>>;
 }
 

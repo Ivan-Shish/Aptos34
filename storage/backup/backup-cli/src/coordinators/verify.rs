@@ -115,7 +115,7 @@ impl VerifyCoordinator {
             global_opt,
             self.storage,
             txn_manifests,
-            None, /* replay_from_version */
+            None, // replay_from_version
             Some(epoch_history),
             vec![],
         )

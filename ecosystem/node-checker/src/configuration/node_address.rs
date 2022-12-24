@@ -7,8 +7,7 @@ use aptos_rest_client::Client as AptosRestClient;
 use aptos_sdk::types::network_address::NetworkAddress;
 use reqwest::cookie::Jar;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use url::Url;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -136,13 +135,15 @@ impl NodeAddress {
         // Ensure this results in exactly one SocketAddr.
         if socket_addrs.is_empty() {
             bail!(
-                "NodeAddress {} did not resolve to any SocketAddrs. If DNS, ensure domain name is valid",
+                "NodeAddress {} did not resolve to any SocketAddrs. If DNS, ensure domain name is \
+                 valid",
                 self.url
             );
         }
         if socket_addrs.len() > 1 {
             aptos_logger::warn!(
-                "NodeAddress {} resolved to multiple SocketAddrs, but we're only checking the first one: {:?}",
+                "NodeAddress {} resolved to multiple SocketAddrs, but we're only checking the \
+                 first one: {:?}",
                 self.url,
                 socket_addrs,
             );

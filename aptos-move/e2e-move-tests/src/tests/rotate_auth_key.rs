@@ -4,13 +4,16 @@
 use crate::{assert_success, MoveHarness};
 use aptos::common::types::RotationProofChallenge;
 use aptos_cached_packages::aptos_stdlib;
-use aptos_crypto::multi_ed25519::{MultiEd25519PrivateKey, MultiEd25519PublicKey};
-use aptos_crypto::{Signature, SigningKey, Uniform, ValidCryptoMaterial};
+use aptos_crypto::{
+    multi_ed25519::{MultiEd25519PrivateKey, MultiEd25519PublicKey},
+    Signature, SigningKey, Uniform, ValidCryptoMaterial,
+};
 use aptos_language_e2e_tests::account::Account;
 use aptos_types::{
-    account_address::AccountAddress, account_config::AccountResource,
-    account_config::CORE_CODE_ADDRESS, state_store::state_key::StateKey,
-    state_store::table::TableHandle, transaction::authenticator::AuthenticationKey,
+    account_address::AccountAddress,
+    account_config::{AccountResource, CORE_CODE_ADDRESS},
+    state_store::{state_key::StateKey, table::TableHandle},
+    transaction::authenticator::AuthenticationKey,
 };
 use move_core_types::parser::parse_struct_tag;
 
@@ -20,7 +23,8 @@ fn rotate_auth_key_ed25519_to_ed25519() {
     let account1 = harness.new_account_with_key_pair();
 
     let account2 = harness.new_account_with_key_pair();
-    // assert that the payload is successfully processed (the signatures are correct)
+    // assert that the payload is successfully processed (the signatures are
+    // correct)
     assert_successful_key_rotation_transaction(
         0,
         0,
@@ -45,7 +49,8 @@ fn rotate_auth_key_ed25519_to_multi_ed25519() {
     let public_key = MultiEd25519PublicKey::from(&private_key);
     let auth_key = AuthenticationKey::multi_ed25519(&public_key);
 
-    // assert that the payload is successfully processed (the signatures are correct)
+    // assert that the payload is successfully processed (the signatures are
+    // correct)
     assert_successful_key_rotation_transaction(
         0,
         1,
@@ -67,7 +72,8 @@ fn rotate_auth_key_twice() {
     let mut account1 = harness.new_account_with_key_pair();
 
     let account2 = harness.new_account_with_key_pair();
-    // assert that the payload is successfully processed (the signatures are correct)
+    // assert that the payload is successfully processed (the signatures are
+    // correct)
     assert_successful_key_rotation_transaction(
         0,
         0,

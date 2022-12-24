@@ -1,8 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::time::Instant;
-
 use aptos_metrics_core::{exponential_buckets, HistogramVec};
 use once_cell::sync::Lazy;
 use prometheus::{
@@ -10,6 +8,7 @@ use prometheus::{
     histogram_opts,
     proto::MetricFamily,
 };
+use std::time::Instant;
 
 pub const NAMESPACE: &str = "node";
 
@@ -18,7 +17,13 @@ pub static LATENCY: Lazy<HistogramVec> = Lazy::new(|| {
         histogram_opts!(
             "node_resource_metrics_collect_latency_micros",
             "Latency to collect each node resource metric category.",
-            exponential_buckets(/*start=*/ 10.0, /*factor=*/ 2.0, /*count=*/ 12,).unwrap(),
+            exponential_buckets(
+                // start=
+                10.0, // factor=
+                2.0,  // count=
+                12,
+            )
+            .unwrap(),
         ),
         &["collector"],
     )

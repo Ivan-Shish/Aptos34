@@ -1,31 +1,24 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::built_package::BuiltPackage;
-use crate::natives::code::PackageMetadata;
-use crate::path_in_crate;
+use crate::{built_package::BuiltPackage, natives::code::PackageMetadata, path_in_crate};
 use anyhow::Context;
 use aptos_types::account_address::AccountAddress;
-use move_binary_format::access::ModuleAccess;
-use move_binary_format::errors::PartialVMError;
-use move_binary_format::CompiledModule;
+use move_binary_format::{access::ModuleAccess, errors::PartialVMError, CompiledModule};
 use move_command_line_common::files::{extension_equals, find_filenames, MOVE_EXTENSION};
 use move_core_types::language_storage::ModuleId;
-use move_model::code_writer::CodeWriter;
-use move_model::model::Loc;
-use move_model::{emit, emitln};
+use move_model::{code_writer::CodeWriter, emit, emitln, model::Loc};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 /// A release bundle consists of a list of release packages.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ReleaseBundle {
-    /// The packages in this release bundle. The order is bottom up regarding dependencies,
-    /// such the packages can be deployed in order as given.
+    /// The packages in this release bundle. The order is bottom up regarding
+    /// dependencies, such the packages can be deployed in order as given.
     pub packages: Vec<ReleasePackage>,
-    /// A set of paths to directories where Move sources constituting this package are found.
-    /// This may or not may be populated.
+    /// A set of paths to directories where Move sources constituting this
+    /// package are found. This may or not may be populated.
     pub source_dirs: Vec<String>,
 }
 
@@ -37,9 +30,9 @@ pub struct ReleasePackage {
 }
 
 impl ReleaseBundle {
-    /// Create a bundle from the list of packages. No path information is available.
-    /// If the `source_dirs` is empty, the `files` function will not be available for the
-    /// bundle.
+    /// Create a bundle from the list of packages. No path information is
+    /// available. If the `source_dirs` is empty, the `files` function will
+    /// not be available for the bundle.
     pub fn new(packages: Vec<ReleasePackage>, source_dirs: Vec<String>) -> Self {
         Self {
             packages,
@@ -87,8 +80,8 @@ impl ReleaseBundle {
             .collect()
     }
 
-    /// Some legacy usages of code require a full copy. This is a helper for those cases.
-    /// TODO: remove unnecessary use of this function
+    /// Some legacy usages of code require a full copy. This is a helper for
+    /// those cases. TODO: remove unnecessary use of this function
     pub fn legacy_copy_code(&self) -> Vec<Vec<u8>> {
         self.code().into_iter().map(|v| v.to_vec()).collect()
     }
@@ -125,7 +118,8 @@ impl ReleasePackage {
         &self.metadata.name
     }
 
-    /// Returns a vector of code slices representing the bytecode of modules in this bundle.
+    /// Returns a vector of code slices representing the bytecode of modules in
+    /// this bundle.
     pub fn code(&self) -> Vec<&[u8]> {
         self.code.iter().map(|v| v.as_slice()).collect()
     }
@@ -145,7 +139,8 @@ impl ReleasePackage {
         &mut self.metadata
     }
 
-    /// Returns code and compiled modules, topological sorted regarding dependencies.
+    /// Returns code and compiled modules, topological sorted regarding
+    /// dependencies.
     pub fn sorted_code_and_modules(&self) -> Vec<(&[u8], CompiledModule)> {
         let mut map = self
             .code
@@ -239,7 +234,8 @@ impl ReleasePackage {
             writer.indent();
             emitln!(
                 writer,
-                "let framework_signer = aptos_governance::get_signer_testnet_only(core_resources, @{});",
+                "let framework_signer = aptos_governance::get_signer_testnet_only(core_resources, \
+                 @{});",
                 for_address
             );
         } else if !is_multi_step {
@@ -265,10 +261,10 @@ impl ReleasePackage {
             emitln!(writer, "vector::push_back(&mut code, chunk{});", i);
         }
 
-        // The package metadata can be larger than 64k, which is the max for Move constants.
-        // We therefore have to split it into chunks. Three chunks should be large enough
-        // to cover any current and future needs. We then dynamically append them to obtain
-        // the result.
+        // The package metadata can be larger than 64k, which is the max for Move
+        // constants. We therefore have to split it into chunks. Three chunks
+        // should be large enough to cover any current and future needs. We then
+        // dynamically append them to obtain the result.
         let mut metadata = bcs::to_bytes(&self.metadata)?;
         let chunk_size = (u16::MAX / 2) as usize;
         let num_of_chunks = (metadata.len() / chunk_size) as usize + 1;
@@ -323,7 +319,8 @@ impl ReleasePackage {
         if next_execution_hash == "vector::empty<u8>()" {
             emitln!(
                 writer,
-                "let framework_signer = aptos_governance::resolve_multi_step_proposal(proposal_id, @{}, {});\n",
+                "let framework_signer = \
+                 aptos_governance::resolve_multi_step_proposal(proposal_id, @{}, {});\n",
                 for_address,
                 next_execution_hash,
             );

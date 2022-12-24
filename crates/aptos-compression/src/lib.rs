@@ -62,12 +62,12 @@ pub fn compress(
                 "Failed to compress the data: {}",
                 error
             )));
-        }
+        },
     };
 
-    // Ensure that the compressed data size is not greater than the max bytes limit. This can
-    // happen in case of uncompressible data, where the compression size will be more than the
-    // uncompressed size.
+    // Ensure that the compressed data size is not greater than the max bytes limit.
+    // This can happen in case of uncompressible data, where the compression
+    // size will be more than the uncompressed size.
     if compressed_data.len() > max_bytes {
         return Err(CompressionError(format!(
             "Compressed size greater than max. size: {}, max: {}",
@@ -112,7 +112,7 @@ pub fn decompress(
                 "Failed to get decompressed size: {}",
                 error
             )));
-        }
+        },
     };
     let mut raw_data = vec![0u8; size];
 
@@ -139,8 +139,8 @@ pub fn decompress(
     Ok(raw_data)
 }
 
-/// Derived from lz4-rs crate, which starts the compressed payload with the original data size as i32
-/// see: https://github.com/10XGenomics/lz4-rs/blob/0abc0a52af1f6010f9a57640b1dc8eb8d2d697aa/src/block/mod.rs#L162
+/// Derived from lz4-rs crate, which starts the compressed payload with the
+/// original data size as i32 see: https://github.com/10XGenomics/lz4-rs/blob/0abc0a52af1f6010f9a57640b1dc8eb8d2d697aa/src/block/mod.rs#L162
 fn get_decompressed_size(src: &CompressedData, max_size: usize) -> std::io::Result<usize> {
     if src.len() < 4 {
         return Err(Error::new(

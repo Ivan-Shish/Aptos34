@@ -9,7 +9,8 @@
 //!
 //! This is broken down in the following flow:
 //!
-//! * Preprocess (based on operations) gets information to fetch from metadata (onchchain)
+//! * Preprocess (based on operations) gets information to fetch from metadata
+//!   (onchchain)
 //! * Metadata fetches onchain information e.g. sequence number
 //! * Payloads generates an unsigned transaction
 //! * Application outside signs the payload from the transactino
@@ -20,15 +21,14 @@
 //! * Derive (get an account from the private key)
 //! * Hash (get a hash of the transaction to lookup in mempool)
 //!
-//! Note: there is an "online" mode and an "offline" mode.  The offline APIs can run without
-//! a connection to a full node.  The online ones need a connection to a full node.
-//!
+//! Note: there is an "online" mode and an "offline" mode.  The offline APIs can
+//! run without a connection to a full node.  The online ones need a connection
+//! to a full node.
 
-use crate::common::parse_currency;
 use crate::{
     common::{
         check_network, decode_bcs, decode_key, encode_bcs, get_account, handle_request,
-        native_coin, with_context,
+        native_coin, parse_currency, with_context,
     },
     error::{ApiError, ApiResult},
     types::{InternalOperation, *},
@@ -44,16 +44,18 @@ use aptos_sdk::{
     move_types::language_storage::{StructTag, TypeTag},
     transaction_builder::TransactionFactory,
 };
-use aptos_types::chain_id::ChainId;
 use aptos_types::{
     account_address::AccountAddress,
+    chain_id::ChainId,
     transaction::{
         authenticator::AuthenticationKey, RawTransaction, SignedTransaction, TransactionPayload,
     },
 };
 use serde::de::DeserializeOwned;
-use std::convert::TryFrom;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    convert::TryFrom,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use warp::Filter;
 
 pub fn combine_route(
@@ -181,8 +183,8 @@ async fn construction_combine(
 /// Construction derive command (OFFLINE)
 ///
 /// Derive account address from Public key
-/// Note: This only works for new accounts.  After the account is created, all APIs should provide
-/// both account and key.
+/// Note: This only works for new accounts.  After the account is created, all
+/// APIs should provide both account and key.
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/ConstructionApi.html#constructionderive)
 async fn construction_derive(
@@ -255,7 +257,7 @@ async fn fill_in_operator(
                     );
                 }
             }
-        }
+        },
         InternalOperation::SetVoter(op) => {
             // If there was no operator set, and there is only one, we should use that
             if op.operator.is_none() {
@@ -284,8 +286,8 @@ async fn fill_in_operator(
                     );
                 }
             }
-        }
-        _ => {}
+        },
+        _ => {},
     }
 
     Ok(internal_operation)
@@ -307,7 +309,8 @@ async fn simulate_transaction(
     } else {
         let gas_estimation = rest_client.estimate_gas_price().await?.into_inner();
 
-        // Get the priorities, for backwards compatibility, if the API doesn't have the prioritized ones, use the normal one
+        // Get the priorities, for backwards compatibility, if the API doesn't have the
+        // prioritized ones, use the normal one
         let mut gas_price = match options.gas_price_priority.unwrap_or_default() {
             GasPricePriority::Low => gas_estimation
                 .deprioritized_gas_estimate
@@ -318,7 +321,8 @@ async fn simulate_transaction(
                 .unwrap_or(gas_estimation.gas_estimate),
         };
 
-        // We can also provide the multiplier at this point, we mulitply times it, and divide by 100
+        // We can also provide the multiplier at this point, we mulitply times it, and
+        // divide by 100
         if let Some(gas_multiplier) = options.gas_price_multiplier {
             let gas_multiplier = gas_multiplier as u64;
             if let Some(multiplied_price) = gas_price.checked_mul(gas_multiplier) {
@@ -358,7 +362,8 @@ async fn simulate_transaction(
             )));
         };
 
-    // Sign the transaction with a dummy signature of all zeros as required by the API
+    // Sign the transaction with a dummy signature of all zeros as required by the
+    // API
     let signed_transaction = SignedTransaction::new(
         unsigned_transaction,
         public_key,
@@ -367,8 +372,9 @@ async fn simulate_transaction(
 
     // Simulate, filling in the fields that aren't being currently handled
     // This API will always succeed unless 2 conditions
-    // 1. The API was going to fail anyways due to a bad transaction e.g. wrong signer, insufficient balance, etc.
-    // 2. The used gas price (provided or estimated) * the maximum possible gas is can't be paid e.g. there is no
+    // 1. The API was going to fail anyways due to a bad transaction e.g. wrong
+    // signer, insufficient balance, etc. 2. The used gas price (provided or
+    // estimated) * the maximum possible gas is can't be paid e.g. there is no
     //    way for this user to ever pay for this transaction (at that gas price)
     let response = rest_client
         .simulate_bcs_with_gas_estimation(&signed_transaction, true, false)
@@ -387,8 +393,8 @@ async fn simulate_transaction(
         }
     }
 
-    // Handle any other messages, including out of gas, which means the user has not enough
-    // funds to complete the transaction (e.g. the gas price is too high)
+    // Handle any other messages, including out of gas, which means the user has not
+    // enough funds to complete the transaction (e.g. the gas price is too high)
     let simulation_status = simulated_txn.info.status();
     if !simulation_status.is_success() {
         // TODO: Fix case for not enough gas to be a better message
@@ -399,10 +405,12 @@ async fn simulate_transaction(
     }
 
     if let Ok(user_txn) = simulated_txn.transaction.as_signed_user_txn() {
-        // This gas price came from the simulation (would be the one from the input if provided)
+        // This gas price came from the simulation (would be the one from the input if
+        // provided)
         let simulated_gas_unit_price = user_txn.gas_unit_price();
 
-        // These two will either be estimated or the original value, so we can just use them exactly
+        // These two will either be estimated or the original value, so we can just use
+        // them exactly
         let max_gas_amount = if let Some(max_gas_amount) = options.max_gas_amount.as_ref() {
             max_gas_amount.0
         } else {
@@ -415,7 +423,8 @@ async fn simulate_transaction(
 
         Ok((suggested_fee, simulated_gas_unit_price, max_gas_amount))
     } else {
-        // This should never happen, because the underlying API can't run a non-user transaction
+        // This should never happen, because the underlying API can't run a non-user
+        // transaction
         Err(ApiError::InternalError(Some(format!(
             "Transaction returned by API was not a user transaction: {:?}",
             simulated_txn.transaction
@@ -482,7 +491,8 @@ async fn construction_metadata(
 
 /// Construction parse command (OFFLINE)
 ///
-/// Parses operations from a transaction, used for verifying transaction construction
+/// Parses operations from a transaction, used for verifying transaction
+/// construction
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/ConstructionApi.html#constructionparse)
 async fn construction_parse(
@@ -531,13 +541,13 @@ async fn construction_parse(
             ) {
                 (AccountAddress::ONE, COIN_MODULE, TRANSFER_FUNCTION) => {
                     parse_transfer_operation(sender, &type_args, &args)?
-                }
+                },
                 (AccountAddress::ONE, APTOS_ACCOUNT_MODULE, TRANSFER_FUNCTION) => {
                     parse_account_transfer_operation(sender, &type_args, &args)?
-                }
+                },
                 (AccountAddress::ONE, APTOS_ACCOUNT_MODULE, CREATE_ACCOUNT_FUNCTION) => {
                     parse_create_account_operation(sender, &type_args, &args)?
-                }
+                },
                 (
                     AccountAddress::ONE,
                     STAKING_CONTRACT_MODULE,
@@ -545,7 +555,7 @@ async fn construction_parse(
                 ) => parse_set_operator_operation(sender, &type_args, &args)?,
                 (AccountAddress::ONE, STAKING_CONTRACT_MODULE, UPDATE_VOTER_FUNCTION) => {
                     parse_set_voter_operation(sender, &type_args, &args)?
-                }
+                },
                 (
                     AccountAddress::ONE,
                     STAKING_CONTRACT_MODULE,
@@ -553,7 +563,7 @@ async fn construction_parse(
                 ) => parse_create_stake_pool_operation(sender, &type_args, &args)?,
                 (AccountAddress::ONE, STAKING_CONTRACT_MODULE, RESET_LOCKUP_FUNCTION) => {
                     parse_reset_lockup_operation(sender, &type_args, &args)?
-                }
+                },
                 _ => {
                     return Err(ApiError::TransactionParseError(Some(format!(
                         "Unsupported entry function type {:x}::{}::{}",
@@ -561,15 +571,15 @@ async fn construction_parse(
                         module.name(),
                         function_name
                     ))));
-                }
+                },
             }
-        }
+        },
         payload => {
             return Err(ApiError::TransactionParseError(Some(format!(
                 "Unsupported transaction payload type {:?}",
                 payload
             ))))
-        }
+        },
     };
 
     Ok(ConstructionParseResponse {
@@ -628,12 +638,12 @@ fn parse_transfer_operation(
             } = &**struct_tag;
 
             parse_currency(*address, module.as_str(), name.as_str())?
-        }
+        },
         _ => {
             return Err(ApiError::TransactionParseError(Some(
                 "No coin type in transfer".to_string(),
             )))
-        }
+        },
     };
 
     // Retrieve the args for the operations
@@ -848,7 +858,8 @@ async fn construction_payloads(
         return Err(ApiError::MissingPayloadMetadata);
     };
 
-    // This is a hack to ensure that the payloads actually have overridden operators if not provided
+    // This is a hack to ensure that the payloads actually have overridden operators
+    // if not provided
     match &mut operation {
         InternalOperation::CreateAccount(_) => {
             if operation != metadata.internal_operation {
@@ -857,7 +868,7 @@ async fn construction_payloads(
                     operation, metadata.internal_operation
                 ))));
             }
-        }
+        },
         InternalOperation::Transfer(_) => {
             if operation != metadata.internal_operation {
                 return Err(ApiError::InvalidInput(Some(format!(
@@ -865,7 +876,7 @@ async fn construction_payloads(
                     operation, metadata.internal_operation
                 ))));
             }
-        }
+        },
         InternalOperation::SetOperator(inner) => {
             if let InternalOperation::SetOperator(ref metadata_op) = metadata.internal_operation {
                 if inner.owner == metadata_op.owner
@@ -886,7 +897,7 @@ async fn construction_payloads(
                     inner, metadata.internal_operation
                 ))));
             }
-        }
+        },
         InternalOperation::SetVoter(inner) => {
             if let InternalOperation::SetVoter(ref metadata_op) = metadata.internal_operation {
                 if inner.owner == metadata_op.owner && inner.new_voter == metadata_op.new_voter {
@@ -905,7 +916,7 @@ async fn construction_payloads(
                     inner, metadata.internal_operation
                 ))));
             }
-        }
+        },
         InternalOperation::InitializeStakePool(_) => {
             if operation != metadata.internal_operation {
                 return Err(ApiError::InvalidInput(Some(format!(
@@ -913,7 +924,7 @@ async fn construction_payloads(
                     operation, metadata.internal_operation
                 ))));
             }
-        }
+        },
         InternalOperation::ResetLockup(inner) => {
             if let InternalOperation::ResetLockup(ref metadata_op) = metadata.internal_operation {
                 if inner.owner != metadata_op.owner || inner.operator != metadata_op.operator {
@@ -928,7 +939,7 @@ async fn construction_payloads(
                     inner, metadata.internal_operation
                 ))));
             }
-        }
+        },
     }
 
     // Encode operation

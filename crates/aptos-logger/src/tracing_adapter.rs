@@ -153,7 +153,7 @@ where
                     event.metadata().level()
                 );
                 return;
-            }
+            },
         };
 
         let mut acc = BTreeMap::new();
@@ -171,9 +171,10 @@ where
         let data = SpanValues { pairs: values };
 
         // `tracing::Event` contains an implicit field named "message".
-        // However I couldn't figure out a way to convert it to `fmt::Arguments` due to lifetime issues.
-        // Therefore I'm omitting message argument to `Event::dispatch`.
-        // This should generally be fine since the message will be translated as a normal record.
+        // However I couldn't figure out a way to convert it to `fmt::Arguments` due to
+        // lifetime issues. Therefore I'm omitting message argument to
+        // `Event::dispatch`. This should generally be fine since the message
+        // will be translated as a normal record.
         if dl::logger::enabled(&metadata) {
             dl::Event::dispatch(&metadata, None, &[&EventKeyValueAdapter { event }, &data]);
         }

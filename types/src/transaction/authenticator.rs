@@ -33,11 +33,12 @@ pub enum AuthenticationError {
     MaxSignaturesExceeded,
 }
 
-/// Each transaction submitted to the Aptos blockchain contains a `TransactionAuthenticator`. During
-/// transaction execution, the executor will check if every `AccountAuthenticator`'s signature on
-/// the transaction hash is well-formed and whether the sha3 hash of the
-/// `AccountAuthenticator`'s `AuthenticationKeyPreimage` matches the `AuthenticationKey` stored
-/// under the participating signer's account address.
+/// Each transaction submitted to the Aptos blockchain contains a
+/// `TransactionAuthenticator`. During transaction execution, the executor will
+/// check if every `AccountAuthenticator`'s signature on the transaction hash is
+/// well-formed and whether the sha3 hash of the `AccountAuthenticator`'s
+/// `AuthenticationKeyPreimage` matches the `AuthenticationKey` stored under the
+/// participating signer's account address.
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum TransactionAuthenticator {
@@ -92,7 +93,8 @@ impl TransactionAuthenticator {
         }
     }
 
-    /// Return Ok if all AccountAuthenticator's public keys match their signatures, Err otherwise
+    /// Return Ok if all AccountAuthenticator's public keys match their
+    /// signatures, Err otherwise
     pub fn verify(&self, raw_txn: &RawTransaction) -> Result<()> {
         let num_sigs: usize = self.sender().number_of_signatures()
             + self
@@ -126,7 +128,7 @@ impl TransactionAuthenticator {
                     signer.verify(&message)?;
                 }
                 Ok(())
-            }
+            },
         }
     }
 
@@ -190,7 +192,7 @@ impl fmt::Display for TransactionAuthenticator {
                     "TransactionAuthenticator[scheme: Ed25519, sender: {}]",
                     self.sender()
                 )
-            }
+            },
             Self::MultiEd25519 {
                 public_key: _,
                 signature: _,
@@ -200,7 +202,7 @@ impl fmt::Display for TransactionAuthenticator {
                     "TransactionAuthenticator[scheme: MultiEd25519, sender: {}]",
                     self.sender()
                 )
-            }
+            },
             Self::MultiAgent {
                 sender,
                 secondary_signer_addresses,
@@ -216,24 +218,21 @@ impl fmt::Display for TransactionAuthenticator {
                 }
                 write!(
                     f,
-                    "TransactionAuthenticator[\n\
-                        \tscheme: MultiAgent, \n\
-                        \tsender: {}\n\
-                        \tsecondary signer addresses: {}\n\
-                        \tsecondary signers: {}]",
+                    "TransactionAuthenticator[\n\tscheme: MultiAgent, \n\tsender: {}\n\tsecondary \
+                     signer addresses: {}\n\tsecondary signers: {}]",
                     sender, sec_addrs, sec_signers,
                 )
-            }
+            },
         }
     }
 }
 
-/// An `AccountAuthenticator` is an an abstraction of a signature scheme. It must know:
-/// (1) How to check its signature against a message and public key
-/// (2) How to convert its public key into an `AuthenticationKeyPreimage` structured as
-/// (public_key | signaure_scheme_id).
-/// Each on-chain `Account` must store an `AuthenticationKey` (computed via a sha3 hash of an
-/// `AuthenticationKeyPreimage`).
+/// An `AccountAuthenticator` is an an abstraction of a signature scheme. It
+/// must know: (1) How to check its signature against a message and public key
+/// (2) How to convert its public key into an `AuthenticationKeyPreimage`
+/// structured as (public_key | signaure_scheme_id).
+/// Each on-chain `Account` must store an `AuthenticationKey` (computed via a
+/// sha3 hash of an `AuthenticationKeyPreimage`).
 
 // TODO: in the future, can tie these to the AccountAuthenticator enum directly with https://github.com/rust-lang/rust/issues/60553
 #[derive(Debug)]
@@ -242,11 +241,13 @@ pub enum Scheme {
     Ed25519 = 0,
     MultiEd25519 = 1,
     // ... add more schemes here
-    /// Scheme identifier used when hashing an account's address together with a seed to derive the
-    /// address (not the authentication key) of a resource account. This is an abuse of the notion
-    /// of a scheme identifier which, for now, serves to domain separate hashes used to derive
-    /// resource account addresses from hashes used to derive authentication keys. Without such
-    /// separation, an adversary could create (and get a signer for) a resource account whose
+    /// Scheme identifier used when hashing an account's address together with a
+    /// seed to derive the address (not the authentication key) of a
+    /// resource account. This is an abuse of the notion of a scheme
+    /// identifier which, for now, serves to domain separate hashes used to
+    /// derive resource account addresses from hashes used to derive
+    /// authentication keys. Without such separation, an adversary could
+    /// create (and get a signer for) a resource account whose
     /// address matches an existing address of a MultiEd25519 wallet.
     DeriveResourceAccountAddress = 255,
 }
@@ -273,8 +274,7 @@ pub enum AccountAuthenticator {
     MultiEd25519 {
         public_key: MultiEd25519PublicKey,
         signature: MultiEd25519Signature,
-    },
-    // ... add more schemes here
+    }, // ... add more schemes here
 }
 
 impl AccountAuthenticator {
@@ -305,7 +305,8 @@ impl AccountAuthenticator {
         }
     }
 
-    /// Return Ok if the authenticator's public key matches its signature, Err otherwise
+    /// Return Ok if the authenticator's public key matches its signature, Err
+    /// otherwise
     pub fn verify<T: Serialize + CryptoHash>(&self, message: &T) -> Result<()> {
         match self {
             Self::Ed25519 {
@@ -335,12 +336,14 @@ impl AccountAuthenticator {
         }
     }
 
-    /// Return an authentication key preimage derived from `self`'s public key and scheme id
+    /// Return an authentication key preimage derived from `self`'s public key
+    /// and scheme id
     pub fn authentication_key_preimage(&self) -> AuthenticationKeyPreimage {
         AuthenticationKeyPreimage::new(self.public_key_bytes(), self.scheme())
     }
 
-    /// Return an authentication key derived from `self`'s public key and scheme id
+    /// Return an authentication key derived from `self`'s public key and scheme
+    /// id
     pub fn authentication_key(&self) -> AuthenticationKey {
         AuthenticationKey::from_preimage(&self.authentication_key_preimage())
     }
@@ -354,8 +357,8 @@ impl AccountAuthenticator {
     }
 }
 
-/// A struct that represents an account authentication key. An account's address is the last 32
-/// bytes of authentication key used to create it
+/// A struct that represents an account authentication key. An account's address
+/// is the last 32 bytes of authentication key used to create it
 #[derive(
     Clone,
     Copy,
@@ -373,19 +376,19 @@ impl AccountAuthenticator {
 pub struct AuthenticationKey([u8; AuthenticationKey::LENGTH]);
 
 impl AuthenticationKey {
+    /// The number of bytes in an authentication key.
+    pub const LENGTH: usize = 32;
+
     /// Create an authentication key from `bytes`
     pub const fn new(bytes: [u8; Self::LENGTH]) -> Self {
         Self(bytes)
     }
 
-    /// Return an authentication key that is impossible (in expectation) to sign for--useful for
-    /// intentionally relinquishing control of an account.
+    /// Return an authentication key that is impossible (in expectation) to sign
+    /// for--useful for intentionally relinquishing control of an account.
     pub const fn zero() -> Self {
         Self([0; 32])
     }
-
-    /// The number of bytes in an authentication key.
-    pub const LENGTH: usize = 32;
 
     /// Create an authentication key from a preimage by taking its sha3 hash
     pub fn from_preimage(preimage: &AuthenticationKeyPreimage) -> AuthenticationKey {
@@ -402,8 +405,8 @@ impl AuthenticationKey {
         Self::from_preimage(&AuthenticationKeyPreimage::multi_ed25519(public_key))
     }
 
-    /// Return an address derived from the last `AccountAddress::LENGTH` bytes of this
-    /// authentication key.
+    /// Return an address derived from the last `AccountAddress::LENGTH` bytes
+    /// of this authentication key.
     pub fn derived_address(&self) -> AccountAddress {
         // keep only last AccountAddress::LENGTH bytes
         let mut array = [0u8; AccountAddress::LENGTH];
@@ -411,7 +414,8 @@ impl AuthenticationKey {
         AccountAddress::new(array)
     }
 
-    /// Return the first self::LENGTH - AccountAddress::LENGTH bytes of this authentication key
+    /// Return the first self::LENGTH - AccountAddress::LENGTH bytes of this
+    /// authentication key
     pub fn prefix(&self) -> [u8; AuthenticationKey::LENGTH - AccountAddress::LENGTH] {
         let mut array = [0u8; AuthenticationKey::LENGTH - AccountAddress::LENGTH];
         array.copy_from_slice(&self.0[..(AuthenticationKey::LENGTH - AccountAddress::LENGTH)]);

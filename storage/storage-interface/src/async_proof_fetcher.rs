@@ -1,9 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{proof_fetcher::ProofFetcher, DbReader};
-
-use crate::metrics::TIMER;
+use crate::{metrics::TIMER, proof_fetcher::ProofFetcher, DbReader};
 use anyhow::{anyhow, Result};
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_logger::{error, sample, sample::SampleRate};
@@ -58,7 +56,8 @@ impl AsyncProofFetcher {
 
     // Waits scheduled proof read to finish, and returns all read proofs.
     //
-    // This is only expected to be called in a single thread, after all reads being scheduled.
+    // This is only expected to be called in a single thread, after all reads being
+    // scheduled.
     fn wait(&self) -> HashMap<HashValue, SparseMerkleProofExt> {
         let _timer = TIMER.with_label_values(&["wait_async_proof"]).start_timer();
         // TODO(grao): Find a way to verify the proof.
@@ -101,7 +100,8 @@ impl AsyncProofFetcher {
                     .verify_by_hash(root_hash, state_key.hash(), value_hash)
                     .map_err(|err| {
                         anyhow!(
-                            "Proof is invalid for key {:?} with state root hash {:?}, at version {}: {}.",
+                            "Proof is invalid for key {:?} with state root hash {:?}, at version \
+                             {}: {}.",
                             state_key,
                             root_hash,
                             version,
@@ -114,13 +114,13 @@ impl AsyncProofFetcher {
                 state_key_hash: state_key.hash(),
                 proof,
             }) {
-                Ok(_) => {}
+                Ok(_) => {},
                 Err(_) => {
                     sample!(
                         SampleRate::Duration(Duration::from_secs(5)),
                         error!("Failed to send proof, something is wrong in execution.")
                     );
-                }
+                },
             }
         });
     }

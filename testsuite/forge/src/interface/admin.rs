@@ -7,9 +7,10 @@ use aptos_rest_client::Client as RestClient;
 use aptos_sdk::types::LocalAccount;
 use reqwest::Url;
 
-/// The testing interface which defines a test written from the perspective of the Admin of the
-/// network. This means that the test will have access to the Root account but do not control any
-/// of the validators or full nodes running on the network.
+/// The testing interface which defines a test written from the perspective of
+/// the Admin of the network. This means that the test will have access to the
+/// Root account but do not control any of the validators or full nodes running
+/// on the network.
 pub trait AdminTest: Test {
     /// Executes the test against the given context.
     fn run<'t>(&self, ctx: &mut AdminContext<'t>) -> Result<()>;

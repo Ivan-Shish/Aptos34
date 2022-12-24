@@ -79,7 +79,7 @@ impl PeerMonitoringServiceNetworkEvents {
             ) => {
                 let response_tx = ResponseSender::new(response_tx);
                 Some((peer_id, protocol_id, request, response_tx))
-            }
+            },
             _ => None, // We don't use DirectSend and don't care about connection events
         }
     }
@@ -94,7 +94,8 @@ impl Stream for PeerMonitoringServiceNetworkEvents {
 }
 
 /// A channel for fulfilling a pending PeerMonitoringService RPC request.
-/// Provides a more strongly typed interface around the raw RPC response channel.
+/// Provides a more strongly typed interface around the raw RPC response
+/// channel.
 pub struct ResponseSender {
     response_sender: oneshot::Sender<Result<Bytes, RpcError>>,
 }

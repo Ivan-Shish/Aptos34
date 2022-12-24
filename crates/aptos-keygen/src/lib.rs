@@ -54,6 +54,7 @@ impl KeyGen {
         let ed25519_private_key = self.generate_ed25519_private_key();
         x25519::PrivateKey::from_ed25519_private_bytes(&ed25519_private_key.to_bytes())
     }
+
     /// Generate a x25519 key pair.
     pub fn generate_x25519_keypair(
         &mut self,
@@ -63,7 +64,8 @@ impl KeyGen {
         Ok((private_key, public_key))
     }
 
-    /// Same as `generate_keypair`, but returns a tuple of (private_key, auth_key, account_addr) instead.
+    /// Same as `generate_keypair`, but returns a tuple of (private_key,
+    /// auth_key, account_addr) instead.
     pub fn generate_credentials_for_account_creation(
         &mut self,
     ) -> (Ed25519PrivateKey, Vec<u8>, AccountAddress) {

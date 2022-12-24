@@ -1,9 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-///! This file contains utilities that are helpful for performing
-///! database restore operations, as required by db-restore and
-///! state sync v2.
+/// ! This file contains utilities that are helpful for performing
+/// ! database restore operations, as required by db-restore and
+/// ! state sync v2.
 use crate::{
     event_store::EventStore, ledger_store::LedgerStore,
     schema::transaction_accumulator::TransactionAccumulatorSchema,
@@ -12,17 +12,20 @@ use crate::{
 use anyhow::{ensure, Result};
 use aptos_crypto::HashValue;
 use aptos_schemadb::{SchemaBatch, DB};
-use aptos_types::proof::position::Position;
 use aptos_types::{
     contract_event::ContractEvent,
     ledger_info::LedgerInfoWithSignatures,
-    proof::{definition::LeafCount, position::FrozenSubTreeIterator},
+    proof::{
+        definition::LeafCount,
+        position::{FrozenSubTreeIterator, Position},
+    },
     transaction::{Transaction, TransactionInfo, TransactionOutput, Version},
 };
 use std::sync::Arc;
 
-/// Saves the given ledger infos to the ledger store. If a change set is provided,
-/// a batch of db alterations will be added to the change set without writing them to the db.
+/// Saves the given ledger infos to the ledger store. If a change set is
+/// provided, a batch of db alterations will be added to the change set without
+/// writing them to the db.
 pub fn save_ledger_infos(
     db: Arc<DB>,
     ledger_store: Arc<LedgerStore>,
@@ -43,7 +46,8 @@ pub fn save_ledger_infos(
     Ok(())
 }
 
-/// Updates the latest ledger info iff a ledger info with a higher epoch is found
+/// Updates the latest ledger info iff a ledger info with a higher epoch is
+/// found
 pub fn update_latest_ledger_info(
     ledger_store: Arc<LedgerStore>,
     ledger_infos: &[LedgerInfoWithSignatures],
@@ -60,7 +64,8 @@ pub fn update_latest_ledger_info(
 }
 
 /// Confirms or saves the frozen subtrees. If a change set is provided, a batch
-/// of db alterations will be added to the change set without writing them to the db.
+/// of db alterations will be added to the change set without writing them to
+/// the db.
 pub fn confirm_or_save_frozen_subtrees(
     db: Arc<DB>,
     num_leaves: LeafCount,
@@ -87,7 +92,8 @@ pub fn confirm_or_save_frozen_subtrees(
 }
 
 /// Saves the given transactions to the db. If a change set is provided, a batch
-/// of db alterations will be added to the change set without writing them to the db.
+/// of db alterations will be added to the change set without writing them to
+/// the db.
 pub fn save_transactions(
     db: Arc<DB>,
     ledger_store: Arc<LedgerStore>,
@@ -128,8 +134,9 @@ pub fn save_transactions(
     Ok(())
 }
 
-/// Saves the given transaction outputs to the db. If a change set is provided, a batch
-/// of db alterations will be added to the change set without writing them to the db.
+/// Saves the given transaction outputs to the db. If a change set is provided,
+/// a batch of db alterations will be added to the change set without writing
+/// them to the db.
 pub fn save_transaction_outputs(
     db: Arc<DB>,
     transaction_store: Arc<TransactionStore>,
@@ -206,7 +213,8 @@ pub fn save_transaction_outputs_impl(
     Ok(())
 }
 
-/// A helper function that confirms or saves the frozen subtrees to the given change set
+/// A helper function that confirms or saves the frozen subtrees to the given
+/// change set
 fn confirm_or_save_frozen_subtrees_impl(
     db: Arc<DB>,
     frozen_subtrees: &[HashValue],
@@ -219,11 +227,12 @@ fn confirm_or_save_frozen_subtrees_impl(
         .map(|(p, h)| {
             if let Some(_h) = db.get::<TransactionAccumulatorSchema>(p)? {
                 ensure!(
-                        h == &_h,
-                        "Frozen subtree root does not match that already in DB. Provided: {}, in db: {}.",
-                        h,
-                        _h,
-                    );
+                    h == &_h,
+                    "Frozen subtree root does not match that already in DB. Provided: {}, in db: \
+                     {}.",
+                    h,
+                    _h,
+                );
             } else {
                 batch.put::<TransactionAccumulatorSchema>(p, h)?;
             }

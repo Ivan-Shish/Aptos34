@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::natives::transaction_context::NativeTransactionContext;
 use move_binary_format::errors::PartialVMResult;
 use move_core_types::{
     gas_algebra::{InternalGas, InternalGasPerByte, NumBytes},
@@ -12,8 +13,6 @@ use move_vm_types::{
     natives::function::NativeResult,
     values::{Struct, Value},
 };
-
-use crate::natives::transaction_context::NativeTransactionContext;
 use smallvec::{smallvec, SmallVec};
 use std::{collections::VecDeque, fmt::Write, sync::Arc};
 
@@ -36,14 +35,15 @@ fn type_of_internal(struct_tag: &StructTag) -> Result<SmallVec<[Value; 1]>, std:
     Ok(smallvec![Value::struct_(struct_value)])
 }
 
-/***************************************************************************************************
- * native fun type_of
- *
- *   Returns the structs Module Address, Module Name and the Structs Name.
- *
- *   gas cost: base_cost + unit_cost * type_size
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun type_of
+///
+///   Returns the structs Module Address, Module Name and the Structs Name.
+///
+///   gas cost: base_cost + unit_cost * type_size
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct TypeOfGasParameters {
     pub base: InternalGas,
@@ -83,14 +83,15 @@ pub fn make_native_type_of(gas_params: TypeOfGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_type_of(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * native fun type_name
- *
- *   Returns a string representing the TypeTag of the parameter.
- *
- *   gas cost: base_cost + unit_cost * type_size
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun type_name
+///
+///   Returns a string representing the TypeTag of the parameter.
+///
+///   gas cost: base_cost + unit_cost * type_size
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct TypeNameGasParameters {
     pub base: InternalGas,
@@ -111,26 +112,24 @@ fn native_type_name(
 
     let cost = gas_params.base + gas_params.per_byte_in_str * NumBytes::new(type_name.len() as u64);
 
-    Ok(NativeResult::ok(
-        cost,
-        smallvec![Value::struct_(Struct::pack(vec![Value::vector_u8(
-            type_name.as_bytes().to_vec()
-        )]))],
-    ))
+    Ok(NativeResult::ok(cost, smallvec![Value::struct_(
+        Struct::pack(vec![Value::vector_u8(type_name.as_bytes().to_vec())])
+    )]))
 }
 
 pub fn make_native_type_name(gas_params: TypeNameGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_type_name(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * native fun chain_id
- *
- *   Returns the chain ID
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun chain_id
+///
+///   Returns the chain ID
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct ChainIdGasParameters {
     pub base: InternalGas,
@@ -159,10 +158,11 @@ fn make_native_chain_id(gas_params: ChainIdGasParameters) -> NativeFunction {
     Arc::new(move |context, ty_args, args| native_chain_id(&gas_params, context, ty_args, args))
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub type_of: TypeOfGasParameters,

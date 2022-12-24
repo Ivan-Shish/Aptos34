@@ -104,7 +104,8 @@ impl Stream for ValidatorSetStream {
     }
 }
 
-/// Extracts a set of ConnectivityRequests from a ValidatorSet which are appropriate for a network with type role.
+/// Extracts a set of ConnectivityRequests from a ValidatorSet which are
+/// appropriate for a network with type role.
 pub(crate) fn extract_validator_set_updates(
     network_context: NetworkContext,
     node_set: ValidatorSet,
@@ -202,7 +203,8 @@ mod tests {
         );
 
         let listener_future = async move {
-            // Run the test, ensuring we actually stop after a couple seconds in case it fails to fail
+            // Run the test, ensuring we actually stop after a couple seconds in case it
+            // fails to fail
             timeout_at(
                 tokio::time::Instant::from(Instant::now() + Duration::from_secs(1)),
                 Box::pin(listener).run(),
@@ -260,13 +262,10 @@ mod tests {
         );
         let payload = OnChainConfigPayload::new(1, Arc::new(configs));
         reconfig_tx
-            .push(
-                (),
-                ReconfigNotification {
-                    version: 1,
-                    on_chain_configs: payload,
-                },
-            )
+            .push((), ReconfigNotification {
+                version: 1,
+                on_chain_configs: payload,
+            })
             .unwrap();
     }
 

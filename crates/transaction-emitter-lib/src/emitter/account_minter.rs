@@ -1,14 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::emitter::wait_for_single_account_sequence;
 use crate::{
-    emitter::{RETRY_POLICY, SEND_AMOUNT},
+    emitter::{wait_for_single_account_sequence, RETRY_POLICY, SEND_AMOUNT},
     query_sequence_number, EmitJobRequest, EmitModeParams,
 };
 use anyhow::{anyhow, format_err, Context, Result};
-use aptos::common::types::EncodingType;
-use aptos::common::utils::prompt_yes;
+use aptos::common::{types::EncodingType, utils::prompt_yes};
 use aptos_crypto::ed25519::{Ed25519PrivateKey, Ed25519PublicKey};
 use aptos_infallible::Mutex;
 use aptos_logger::{debug, info, sample, sample::SampleRate, warn};
@@ -30,9 +28,12 @@ use core::{
 use futures::StreamExt;
 use rand::{rngs::StdRng, seq::SliceRandom};
 use rand_core::SeedableRng;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Duration;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
+};
 
 #[derive(Debug)]
 pub struct AccountMinter<'t> {
@@ -53,14 +54,15 @@ impl<'t> AccountMinter<'t> {
             rng,
         }
     }
+
     /// workflow of create accounts:
     /// 1. Use given source_account as the money source
     /// 1a. Optionally, and if it is root account, mint balance to that account
-    /// 2. load tc account to create seed accounts, one seed account for each endpoint
-    /// 3. mint coins from faucet to new created seed accounts
+    /// 2. load tc account to create seed accounts, one seed account for each
+    /// endpoint 3. mint coins from faucet to new created seed accounts
     /// 4. split number of requested accounts into equally size of groups
-    /// 5. each seed account take responsibility to create one size of group requested accounts and mint coins to them
-    /// example:
+    /// 5. each seed account take responsibility to create one size of group
+    /// requested accounts and mint coins to them example:
     /// requested totally 100 new accounts with 10 endpoints
     /// will create 10 seed accounts, each seed account create 10 new accounts
     pub async fn create_accounts(
@@ -133,8 +135,11 @@ impl<'t> AccountMinter<'t> {
                     .expected_max_txns
                     .checked_mul(req.expected_gas_per_txn)
                     .unwrap();
-                assert!(coins_for_source <= max_allowed,
-                    "Estimated total coins needed for load test ({}) are larger than expected_max_txns * expected_gas_per_txn, multiplied by 2 to account for rounding up ({})",
+                assert!(
+                    coins_for_source <= max_allowed,
+                    "Estimated total coins needed for load test ({}) are larger than \
+                     expected_max_txns * expected_gas_per_txn, multiplied by 2 to account for \
+                     rounding up ({})",
                     coins_for_source,
                     max_allowed,
                 );
@@ -151,8 +156,8 @@ impl<'t> AccountMinter<'t> {
         }
 
         let failed_requests = AtomicUsize::new(0);
-        // Create seed accounts with which we can create actual accounts concurrently. Adding
-        // additional fund for paying gas fees later.
+        // Create seed accounts with which we can create actual accounts concurrently.
+        // Adding additional fund for paying gas fees later.
         let seed_accounts = self
             .create_and_fund_seed_accounts(
                 &req.rest_clients,
@@ -178,7 +183,8 @@ impl<'t> AccountMinter<'t> {
 
         let seed_rngs = gen_rng_for_reusable_account(actual_num_seed_accounts);
         let failed_requests = AtomicUsize::new(0);
-        // For each seed account, create a future and transfer coins from that seed account to new accounts
+        // For each seed account, create a future and transfer coins from that seed
+        // account to new accounts
         let account_futures = seed_accounts
             .into_iter()
             .enumerate()
@@ -342,8 +348,8 @@ fn gen_rng_for_reusable_account(count: usize) -> Vec<StdRng> {
     rngs
 }
 
-/// Create `num_new_accounts` by transferring coins from `source_account`. Return Vec of created
-/// accounts
+/// Create `num_new_accounts` by transferring coins from `source_account`.
+/// Return Vec of created accounts
 async fn create_and_fund_new_accounts<R>(
     mut source_account: LocalAccount,
     num_new_accounts: usize,
@@ -361,8 +367,9 @@ where
     let mut i = 0;
     let mut accounts = vec![];
 
-    // Wait for source account to exist, this can happen because the corresponding REST endpoint might
-    // not be up to date with the latest ledger state and requires some time for syncing.
+    // Wait for source account to exist, this can happen because the corresponding
+    // REST endpoint might not be up to date with the latest ledger state and
+    // requires some time for syncing.
     wait_for_single_account_sequence(&client, &source_account, Duration::from_secs(60)).await?;
     while i < num_new_accounts {
         let batch_size = min(max_num_accounts_per_batch, num_new_accounts - i);
@@ -491,11 +498,15 @@ pub async fn execute_and_wait_transactions(
         let results = match response {
             Err(e) => {
                 warn!(
-                    "[{:?}] Submitting transactions connection refused: {:?}, num txns: {}, first txn: {:?}",
-                    client.path_prefix_string(), e, txns.len(), txns.first()
+                    "[{:?}] Submitting transactions connection refused: {:?}, num txns: {}, first \
+                     txn: {:?}",
+                    client.path_prefix_string(),
+                    e,
+                    txns.len(),
+                    txns.first()
                 );
                 return Err(format_err!("{:?}", e));
-            }
+            },
             Ok(result) => result.into_inner(),
         };
         let mut failures = results
@@ -568,13 +579,15 @@ pub async fn execute_and_wait_transactions(
         );
         failure_counter.fetch_add(local_failures, Ordering::Relaxed);
     }
-    // Log error, but not return, because timeout or other errors can commit the transaction in the background,
-    // and the wait for transaction below will fail if transaction is not there.
+    // Log error, but not return, because timeout or other errors can commit the
+    // transaction in the background, and the wait for transaction below will
+    // fail if transaction is not there.
     if let Err(e) = result {
         sample!(
             SampleRate::Duration(Duration::from_secs(120)),
             warn!(
-                "[{:?}] Appears that we couldn't submit all transactions, rechecking. Details: {:?}",
+                "[{:?}] Appears that we couldn't submit all transactions, rechecking. Details: \
+                 {:?}",
                 client.path_prefix_string(),
                 e
             )
@@ -594,7 +607,8 @@ pub async fn execute_and_wait_transactions(
             .await
             .map_err(|e| {
                 warn!(
-                    "Failed to wait for transactions: {:?}, txn: {:?}. [{:?}] We were submitting transactions for account {}: from {} - {}, now at {}",
+                    "Failed to wait for transactions: {:?}, txn: {:?}. [{:?}] We were submitting \
+                     transactions for account {}: from {} - {}, now at {}",
                     e,
                     txn,
                     client.path_prefix_string(),
@@ -609,13 +623,10 @@ pub async fn execute_and_wait_transactions(
                 // It it sporadically happens in forge, and we need to debug why.
                 // By default, we end the test and stop the nodes, before the next
                 // counters poll happens after this.
-                // Wait for 30s here, to make sure Grafana counters for expired transactions, etc,
-                // get pulled from all the nodes, so we can investigate.
+                // Wait for 30s here, to make sure Grafana counters for expired transactions,
+                // etc, get pulled from all the nodes, so we can investigate.
                 std::thread::sleep(Duration::from_secs(30));
-                format_err!(
-                    "Failed to wait for transactions: {:?}",
-                    e,
-                )
+                format_err!("Failed to wait for transactions: {:?}", e,)
             })?;
     }
 

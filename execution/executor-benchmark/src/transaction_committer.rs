@@ -12,8 +12,8 @@ use aptos_executor::{
 };
 use aptos_executor_types::BlockExecutorTrait;
 use aptos_logger::prelude::*;
-use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::{
+    aggregate_signature::AggregateSignature,
     block_info::BlockInfo,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
     transaction::Version,
@@ -30,19 +30,19 @@ pub(crate) fn gen_li_with_sigs(
     version: Version,
 ) -> LedgerInfoWithSignatures {
     let block_info = BlockInfo::new(
-        1,        /* epoch */
-        0,        /* round, doesn't matter */
-        block_id, /* id, doesn't matter */
-        root_hash, version, 0,    /* timestamp_usecs, doesn't matter */
-        None, /* next_epoch_state */
+        1,        // epoch
+        0,        // round, doesn't matter
+        block_id, // id, doesn't matter
+        root_hash, version, 0,    // timestamp_usecs, doesn't matter
+        None, // next_epoch_state
     );
     let ledger_info = LedgerInfo::new(
         block_info,
-        HashValue::zero(), /* consensus_data_hash, doesn't matter */
+        HashValue::zero(), // consensus_data_hash, doesn't matter
     );
     LedgerInfoWithSignatures::new(
         ledger_info,
-        AggregateSignature::empty(), /* signatures */
+        AggregateSignature::empty(), // signatures
     )
 }
 
@@ -109,31 +109,44 @@ fn report_block(
 ) {
     let total_versions = (version - start_version) as f64;
     info!(
-        "Version: {}. latency: {} ms, execute time: {} ms. commit time: {} ms. TPS: {:.0}. Accumulative TPS: {:.0}",
+        "Version: {}. latency: {} ms, execute time: {} ms. commit time: {} ms. TPS: {:.0}. \
+         Accumulative TPS: {:.0}",
         version,
-        Instant::now().duration_since(execution_start_time).as_millis(),
+        Instant::now()
+            .duration_since(execution_start_time)
+            .as_millis(),
         execution_time.as_millis(),
         commit_time.as_millis(),
         block_size as f64 / (std::cmp::max(execution_time, commit_time)).as_secs_f64(),
         total_versions / global_start_time.elapsed().as_secs_f64(),
     );
     info!(
-            "Accumulative total: VM time: {:.0} secs, executor time: {:.0} secs, commit time: {:.0} secs, DB commit time: {:.0} secs",
-            APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum(),
-            APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS.get_sample_sum() - APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum(),
-            APTOS_EXECUTOR_COMMIT_BLOCKS_SECONDS.get_sample_sum(),
-            API_LATENCY_SECONDS.get_metric_with_label_values(&["save_transactions", "Ok"]).expect("must exist.").get_sample_sum(),
-        );
+        "Accumulative total: VM time: {:.0} secs, executor time: {:.0} secs, commit time: {:.0} \
+         secs, DB commit time: {:.0} secs",
+        APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum(),
+        APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS.get_sample_sum()
+            - APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum(),
+        APTOS_EXECUTOR_COMMIT_BLOCKS_SECONDS.get_sample_sum(),
+        API_LATENCY_SECONDS
+            .get_metric_with_label_values(&["save_transactions", "Ok"])
+            .expect("must exist.")
+            .get_sample_sum(),
+    );
     const NANOS_PER_SEC: f64 = 1_000_000_000.0;
     info!(
-            "Accumulative per transaction: VM time: {:.0} ns, executor time: {:.0} ns, commit time: {:.0} ns, DB commit time: {:.0} ns",
-            APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum() * NANOS_PER_SEC
-                / total_versions,
-            (APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS.get_sample_sum() - APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum()) * NANOS_PER_SEC
-                / total_versions,
-            APTOS_EXECUTOR_COMMIT_BLOCKS_SECONDS.get_sample_sum() * NANOS_PER_SEC
-                / total_versions,
-            API_LATENCY_SECONDS.get_metric_with_label_values(&["save_transactions", "Ok"]).expect("must exist.").get_sample_sum() * NANOS_PER_SEC
-                / total_versions,
-        );
+        "Accumulative per transaction: VM time: {:.0} ns, executor time: {:.0} ns, commit time: \
+         {:.0} ns, DB commit time: {:.0} ns",
+        APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum() * NANOS_PER_SEC / total_versions,
+        (APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS.get_sample_sum()
+            - APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum())
+            * NANOS_PER_SEC
+            / total_versions,
+        APTOS_EXECUTOR_COMMIT_BLOCKS_SECONDS.get_sample_sum() * NANOS_PER_SEC / total_versions,
+        API_LATENCY_SECONDS
+            .get_metric_with_label_values(&["save_transactions", "Ok"])
+            .expect("must exist.")
+            .get_sample_sum()
+            * NANOS_PER_SEC
+            / total_versions,
+    );
 }

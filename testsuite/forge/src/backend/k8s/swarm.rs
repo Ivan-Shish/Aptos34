@@ -82,9 +82,10 @@ impl K8sSwarm {
         let prom_client = match prometheus::get_prometheus_client().await {
             Ok(p) => Some(p),
             Err(e) => {
-                // Fail fast if prometheus is not configured. A test is meaningless if we do not have observability
+                // Fail fast if prometheus is not configured. A test is meaningless if we do not
+                // have observability
                 bail!("Could not build prometheus client: {}", e);
-            }
+            },
         };
 
         let swarm = K8sSwarm {
@@ -193,7 +194,8 @@ impl Swarm for K8sSwarm {
         .await?;
 
         // To ensure that the validator is fully spun back up
-        // If port-forward is enabled, this ensures that the pod is back before attempting a port-forward
+        // If port-forward is enabled, this ensures that the pod is back before
+        // attempting a port-forward
         validator.start().await?;
         Ok(())
     }
@@ -399,20 +401,23 @@ fn get_k8s_node_from_stateful_set(
     use_port_forward: bool,
 ) -> K8sNode {
     let stateful_set_name = sts.metadata.name.as_ref().unwrap();
-    // If HAProxy is enabled, use its Service name. Otherwise the Service name matches the StatefulSet name
+    // If HAProxy is enabled, use its Service name. Otherwise the Service name
+    // matches the StatefulSet name
     let mut service_name =
         parse_service_name_from_stateful_set_name(stateful_set_name, enable_haproxy);
 
     // the full service name includes the namespace
     let namespace = sts.metadata.namespace.as_ref().unwrap();
 
-    // if we're not using port-forward and expecting to hit the service directly, we should use the full service name
-    // since the test runner may be in a separate namespace
+    // if we're not using port-forward and expecting to hit the service directly, we
+    // should use the full service name since the test runner may be in a
+    // separate namespace
     if !use_port_forward {
         service_name = format!("{}.{}.svc", &service_name, &namespace);
     }
 
-    // If HAProxy is enabled, use the port on its Service. Otherwise use the port on the validator Service
+    // If HAProxy is enabled, use the port on its Service. Otherwise use the port on
+    // the validator Service
     let mut rest_api_port = if enable_haproxy {
         REST_API_HAPROXY_SERVICE_PORT
     } else {
@@ -483,8 +488,8 @@ pub(crate) async fn get_fullnodes(
     Ok(fullnodes)
 }
 
-/// Given a string like the StatefulSet name or Service name, parse the node type,
-/// whether it's a validator or fullnode
+/// Given a string like the StatefulSet name or Service name, parse the node
+/// type, whether it's a validator or fullnode
 fn parse_node_type(s: &str) -> String {
     let re = Regex::new(r"(validator|fullnode)").unwrap();
     let cap = re.captures(s).unwrap();
@@ -533,12 +538,12 @@ pub async fn nodes_healthcheck(nodes: Vec<&K8sNode>) -> Result<Vec<String>> {
                             "Node {} unhealthy: REST API returned version 0",
                             node.name()
                         );
-                    }
+                    },
                     Err(err) => {
                         let err = anyhow::Error::from(err);
                         info!("Node {} unhealthy: {}", node.name(), &err);
                         Err(err)
-                    }
+                    },
                 }
             })
         })

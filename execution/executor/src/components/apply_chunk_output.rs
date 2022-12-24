@@ -106,7 +106,8 @@ impl ApplyChunkOutput {
             vec![]
         };
 
-        // N.B. Transaction status after the epoch marker are ignored and set to Retry forcibly.
+        // N.B. Transaction status after the epoch marker are ignored and set to Retry
+        // forcibly.
         let status = transaction_outputs
             .iter()
             .map(|t| t.status())
@@ -133,8 +134,8 @@ impl ApplyChunkOutput {
                 // VM shouldn't have output anything for discarded transactions, log if it did.
                 if !o.write_set().is_empty() || !o.events().is_empty() {
                     error!(
-                        "Discarded transaction has non-empty write set or events. \
-                     Transaction: {:?}. Status: {:?}.",
+                        "Discarded transaction has non-empty write set or events. Transaction: \
+                         {:?}. Status: {:?}.",
                         t,
                         o.status(),
                     );

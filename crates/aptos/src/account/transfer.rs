@@ -3,9 +3,8 @@
 
 use crate::common::types::{CliCommand, CliTypedResult, TransactionOptions};
 use aptos_cached_packages::aptos_stdlib;
-use aptos_rest_client::aptos_api_types::HashValue;
 use aptos_rest_client::{
-    aptos_api_types::{WriteResource, WriteSetChange},
+    aptos_api_types::{HashValue, WriteResource, WriteSetChange},
     Transaction,
 };
 use aptos_types::account_address::AccountAddress;
@@ -17,7 +16,6 @@ use std::collections::BTreeMap;
 // TODO: Add ability to transfer non-APT coins
 // TODO: Add ability to not create account by default
 /// Transfer APT between accounts
-///
 #[derive(Debug, Parser)]
 pub struct TransferCoins {
     /// Address of account to send APT to
@@ -88,7 +86,7 @@ impl From<Transaction> for TransferSummary {
                         } else {
                             None
                         }
-                    }
+                    },
                     _ => None,
                 })
                 .collect();

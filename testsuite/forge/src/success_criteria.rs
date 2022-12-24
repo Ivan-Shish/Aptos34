@@ -1,14 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::{system_metrics::SystemMetricsThreshold, Swarm, SwarmExt};
 use anyhow::{bail, Context};
 use aptos::node::analyze::fetch_metadata::FetchMetadata;
 use aptos_sdk::types::PeerId;
 use aptos_transaction_emitter_lib::{TxnStats, TxnStatsRate};
 use std::time::Duration;
-
-use crate::system_metrics::SystemMetricsThreshold;
-use crate::{Swarm, SwarmExt};
 
 #[derive(Clone, Debug)]
 pub struct StateProgressThreshold {
@@ -88,7 +86,8 @@ impl SuccessCriteriaChecker {
         end_version: u64,
     ) -> anyhow::Result<()> {
         let stats_rate = stats.rate(window);
-        // TODO: Add more success criteria like expired transactions, CPU, memory usage etc
+        // TODO: Add more success criteria like expired transactions, CPU, memory usage
+        // etc
         let avg_tps = stats_rate.committed;
         if avg_tps < success_criteria.avg_tps as u64 {
             bail!(
@@ -118,8 +117,9 @@ impl SuccessCriteriaChecker {
                 .context("Failed ensuring no fullnode restarted")?;
         }
 
-        // TODO(skedia) Add end-to-end latency from counters after we have support for querying prometheus
-        // latency (in addition to checking latency from txn-emitter)
+        // TODO(skedia) Add end-to-end latency from counters after we have support for
+        // querying prometheus latency (in addition to checking latency from
+        // txn-emitter)
 
         if let Some(system_metrics_threshold) = success_criteria.system_metrics_threshold.clone() {
             swarm
@@ -217,7 +217,8 @@ impl SuccessCriteriaChecker {
             || max_time_gap_secs > chain_progress_threshold.max_no_progress_secs as f32
         {
             bail!(
-                "Failed chain progress check. Max round gap was {} [limit {}] at version {}. Max no progress secs was {} [limit {}] at version {}.",
+                "Failed chain progress check. Max round gap was {} [limit {}] at version {}. Max \
+                 no progress secs was {} [limit {}] at version {}.",
                 max_round_gap,
                 chain_progress_threshold.max_round_gap,
                 max_round_gap_version,
@@ -227,7 +228,8 @@ impl SuccessCriteriaChecker {
             )
         } else {
             println!(
-                "Passed progress check. Max round gap was {} [limit {}] at version {}. Max no progress secs was {} [limit {}] at version {}.",
+                "Passed progress check. Max round gap was {} [limit {}] at version {}. Max no \
+                 progress secs was {} [limit {}] at version {}.",
                 max_round_gap,
                 chain_progress_threshold.max_round_gap,
                 max_round_gap_version,

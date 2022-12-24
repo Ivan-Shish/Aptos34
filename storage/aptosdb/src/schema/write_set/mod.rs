@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! This module defines physical storage schema for write set emitted by each transaction
-//! saved to storage.
+//! This module defines physical storage schema for write set emitted by each
+//! transaction saved to storage.
 //!
 //! Serialized signed transaction bytes identified by version.
 //! ```text
@@ -10,8 +10,8 @@
 //! | version | write_set bytes |
 //! ```
 //!
-//! `Version` is serialized in big endian so that records in RocksDB will be in order of it's
-//! numeric value.
+//! `Version` is serialized in big endian so that records in RocksDB will be in
+//! order of it's numeric value.
 
 use crate::schema::{ensure_slice_len_eq, WRITE_SET_CF_NAME};
 use anyhow::Result;

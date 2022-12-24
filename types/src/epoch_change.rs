@@ -10,22 +10,24 @@ use proptest::{collection::vec, prelude::*};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-/// The verification of the epoch change proof starts with verifier that is trusted by the
-/// client: could be either a waypoint (upon startup) or a known epoch info.
+/// The verification of the epoch change proof starts with verifier that is
+/// trusted by the client: could be either a waypoint (upon startup) or a known
+/// epoch info.
 pub trait Verifier: Debug + Send + Sync {
     /// Verify if the ledger_info is trust worthy.
     fn verify(&self, ledger_info: &LedgerInfoWithSignatures) -> Result<()>;
 
-    /// Returns true in case the given epoch is larger than the existing verifier can support.
-    /// In this case the EpochChangeProof should be verified and the verifier updated.
+    /// Returns true in case the given epoch is larger than the existing
+    /// verifier can support. In this case the EpochChangeProof should be
+    /// verified and the verifier updated.
     fn epoch_change_verification_required(&self, epoch: u64) -> bool;
 
     /// Returns true if the given [`LedgerInfo`] is stale and probably in our
     /// trusted prefix.
     ///
-    /// For example, if we have a waypoint with version 5, an epoch change ledger
-    /// info with version 3 < 5 is already in our trusted prefix and so we can
-    /// ignore it.
+    /// For example, if we have a waypoint with version 5, an epoch change
+    /// ledger info with version 3 < 5 is already in our trusted prefix and
+    /// so we can ignore it.
     ///
     /// Likewise, if we're in epoch 10 with the corresponding validator set, an
     /// epoch change ledger info with epoch 6 can be safely ignored.
@@ -33,8 +35,8 @@ pub trait Verifier: Debug + Send + Sync {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-/// A vector of LedgerInfo with contiguous increasing epoch numbers to prove a sequence of
-/// epoch changes from the first LedgerInfo's epoch.
+/// A vector of LedgerInfo with contiguous increasing epoch numbers to prove a
+/// sequence of epoch changes from the first LedgerInfo's epoch.
 pub struct EpochChangeProof {
     pub ledger_info_with_sigs: Vec<LedgerInfoWithSignatures>,
     pub more: bool,
@@ -47,7 +49,8 @@ impl EpochChangeProof {
         }
     }
 
-    /// The first/lowest epoch of the proof to indicate which epoch this proof is helping with
+    /// The first/lowest epoch of the proof to indicate which epoch this proof
+    /// is helping with
     pub fn epoch(&self) -> Result<u64> {
         self.ledger_info_with_sigs
             .first()
@@ -56,7 +59,8 @@ impl EpochChangeProof {
     }
 
     /// Verify the proof is correctly chained with known epoch and validator
-    /// verifier and return the [`LedgerInfoWithSignatures`] to start target epoch.
+    /// verifier and return the [`LedgerInfoWithSignatures`] to start target
+    /// epoch.
     ///
     /// In case a waypoint is present, it's going to be used for verifying the
     /// very first epoch change (it's the responsibility of the caller to not
@@ -71,8 +75,8 @@ impl EpochChangeProof {
         ensure!(
             !verifier
                 .is_ledger_info_stale(self.ledger_info_with_sigs.last().unwrap().ledger_info()),
-            "The EpochChangeProof is stale as our verifier is already ahead \
-             of the entire EpochChangeProof"
+            "The EpochChangeProof is stale as our verifier is already ahead of the entire \
+             EpochChangeProof"
         );
         let mut verifier_ref = verifier;
 
@@ -121,20 +125,24 @@ impl EpochChangeProof {
 #[cfg(any(test, feature = "fuzzing"))]
 impl Arbitrary for EpochChangeProof {
     type Parameters = ();
+    type Strategy = BoxedStrategy<Self>;
+
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         (vec(any::<LedgerInfoWithSignatures>(), 0..10), any::<bool>())
             .prop_map(|(ledger_infos_with_sigs, more)| Self::new(ledger_infos_with_sigs, more))
             .boxed()
     }
-
-    type Strategy = BoxedStrategy<Self>;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aggregate_signature::{AggregateSignature, PartialSignatures};
-    use crate::{block_info::BlockInfo, epoch_state::EpochState, waypoint::Waypoint};
+    use crate::{
+        aggregate_signature::{AggregateSignature, PartialSignatures},
+        block_info::BlockInfo,
+        epoch_state::EpochState,
+        waypoint::Waypoint,
+    };
 
     #[test]
     fn verify_epoch_change_proof() {
@@ -145,8 +153,8 @@ mod tests {
         let mut valid_ledger_info = vec![];
         let mut validator_verifier = vec![];
 
-        // We generate end-epoch ledger info for epoch 1 to 10, each signed by the current
-        // validator set and carrying the next epoch info.
+        // We generate end-epoch ledger info for epoch 1 to 10, each signed by the
+        // current validator set and carrying the next epoch info.
         let (mut current_signers, mut current_verifier) = random_validator_verifier(1, None, true);
         let mut current_version = 123;
         for epoch in &all_epoch {
@@ -194,7 +202,7 @@ mod tests {
         assert!(proof_1
             .verify(&EpochState {
                 epoch: all_epoch[0],
-                verifier: validator_verifier[0].clone(),
+                verifier: validator_verifier[0].clone()
             })
             .is_ok());
 
@@ -252,7 +260,8 @@ mod tests {
                 valid_ledger_info[0].ledger_info().clone(),
                 AggregateSignature::empty(),
             )],
-            /* more = */ false,
+            // more =
+            false,
         );
         assert!(proof_6
             .verify(&EpochState {

@@ -8,7 +8,6 @@ use aptos_transaction_benchmarks::{
 use criterion::{criterion_group, criterion_main, measurement::Measurement, Criterion};
 use proptest::prelude::*;
 
-//
 // Transaction benchmarks
 //
 

@@ -31,7 +31,7 @@ impl SecureBackend {
             | SecureBackend::OnDiskStorage(OnDiskStorageConfig { namespace, .. })
             | SecureBackend::RocksDbStorage(RocksDbStorageConfig { namespace, .. }) => {
                 namespace.as_deref()
-            }
+            },
             SecureBackend::InMemoryStorage => None,
         }
     }
@@ -43,8 +43,8 @@ impl SecureBackend {
             | SecureBackend::OnDiskStorage(OnDiskStorageConfig { namespace, .. })
             | SecureBackend::RocksDbStorage(RocksDbStorageConfig { namespace, .. }) => {
                 *namespace = None;
-            }
-            SecureBackend::InMemoryStorage => {}
+            },
+            SecureBackend::InMemoryStorage => {},
         }
     }
 }
@@ -60,24 +60,26 @@ pub struct GitHubConfig {
     pub branch: Option<String>,
     /// The authorization token for accessing the repository
     pub token: Token,
-    /// A namespace is an optional portion of the path to a key stored within GitHubConfig. For
-    /// example, a key, S, without a namespace would be available in S, with a namespace, N, it
-    /// would be in N/S.
+    /// A namespace is an optional portion of the path to a key stored within
+    /// GitHubConfig. For example, a key, S, without a namespace would be
+    /// available in S, with a namespace, N, it would be in N/S.
     pub namespace: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct VaultConfig {
-    /// Optional SSL Certificate for the vault host, this is expected to be a full path.
+    /// Optional SSL Certificate for the vault host, this is expected to be a
+    /// full path.
     pub ca_certificate: Option<PathBuf>,
-    /// A namespace is an optional portion of the path to a key stored within Vault. For example,
-    /// a secret, S, without a namespace would be available in secret/data/S, with a namespace, N, it
-    /// would be in secret/data/N/S.
+    /// A namespace is an optional portion of the path to a key stored within
+    /// Vault. For example, a secret, S, without a namespace would be
+    /// available in secret/data/S, with a namespace, N, it would be in
+    /// secret/data/N/S.
     pub namespace: Option<String>,
-    /// Vault leverages leases on many tokens, specify this to automatically have your lease
-    /// renewed up to that many seconds more. If this is not specified, the lease will not
-    /// automatically be renewed.
+    /// Vault leverages leases on many tokens, specify this to automatically
+    /// have your lease renewed up to that many seconds more. If this is not
+    /// specified, the lease will not automatically be renewed.
     pub renew_ttl_secs: Option<u32>,
     /// Vault's URL, note: only HTTP is currently supported.
     pub server: String,
@@ -87,7 +89,8 @@ pub struct VaultConfig {
     pub disable_cas: Option<bool>,
     /// Timeout for new vault socket connections, in milliseconds.
     pub connection_timeout_ms: Option<u64>,
-    /// Timeout for generic vault operations (e.g., reads and writes), in milliseconds.
+    /// Timeout for generic vault operations (e.g., reads and writes), in
+    /// milliseconds.
     pub response_timeout_ms: Option<u64>,
 }
 
@@ -106,15 +109,16 @@ impl VaultConfig {
 pub struct OnDiskStorageConfig {
     // Required path for on disk storage
     pub path: PathBuf,
-    /// A namespace is an optional portion of the path to a key stored within OnDiskStorage. For
-    /// example, a key, S, without a namespace would be available in S, with a namespace, N, it
-    /// would be in N/S.
+    /// A namespace is an optional portion of the path to a key stored within
+    /// OnDiskStorage. For example, a key, S, without a namespace would be
+    /// available in S, with a namespace, N, it would be in N/S.
     pub namespace: Option<String>,
     #[serde(skip)]
     data_dir: PathBuf,
 }
 
-/// Tokens can either be directly within this config or stored somewhere on disk.
+/// Tokens can either be directly within this config or stored somewhere on
+/// disk.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Token {
@@ -173,9 +177,9 @@ impl OnDiskStorageConfig {
 pub struct RocksDbStorageConfig {
     // Required path for on disk storage
     pub path: PathBuf,
-    /// A namespace is an optional portion of the path to a key stored within OnDiskStorage. For
-    /// example, a key, S, without a namespace would be available in S, with a namespace, N, it
-    /// would be in N/S.
+    /// A namespace is an optional portion of the path to a key stored within
+    /// OnDiskStorage. For example, a key, S, without a namespace would be
+    /// available in S, with a namespace, N, it would be in N/S.
     pub namespace: Option<String>,
     #[serde(skip)]
     data_dir: PathBuf,
@@ -233,7 +237,7 @@ impl From<&SecureBackend> for Storage {
                 } else {
                     storage
                 }
-            }
+            },
             SecureBackend::InMemoryStorage => Storage::from(InMemoryStorage::new()),
             SecureBackend::OnDiskStorage(config) => {
                 let storage = Storage::from(OnDiskStorage::new(config.path()));
@@ -242,7 +246,7 @@ impl From<&SecureBackend> for Storage {
                 } else {
                     storage
                 }
-            }
+            },
             SecureBackend::RocksDbStorage(config) => {
                 let storage = Storage::from(RocksDbStorage::new(config.path()));
                 if let Some(namespace) = &config.namespace {
@@ -250,7 +254,7 @@ impl From<&SecureBackend> for Storage {
                 } else {
                     storage
                 }
-            }
+            },
             SecureBackend::Vault(config) => {
                 let storage = Storage::from(VaultStorage::new(
                     config.server.clone(),
@@ -269,7 +273,7 @@ impl From<&SecureBackend> for Storage {
                 } else {
                     storage
                 }
-            }
+            },
         }
     }
 }

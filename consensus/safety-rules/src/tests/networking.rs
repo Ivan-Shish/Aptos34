@@ -12,7 +12,8 @@ fn test_reconnect() {
     let network_timeout = 5_000;
     let safety_rules_manager = SafetyRulesManager::new_thread(storage, network_timeout);
 
-    // Verify that after a client has disconnected a new client will connect and resume operations
+    // Verify that after a client has disconnected a new client will connect and
+    // resume operations
     let state0 = safety_rules_manager.client().consensus_state().unwrap();
     let state1 = safety_rules_manager.client().consensus_state().unwrap();
     assert_eq!(state0, state1);

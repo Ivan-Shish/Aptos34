@@ -19,11 +19,11 @@ use std::{
 pub struct MemoryTransport;
 
 impl Transport for MemoryTransport {
-    type Output = MemorySocket;
     type Error = io::Error;
-    type Listener = Listener;
     type Inbound = future::Ready<Result<Self::Output, Self::Error>>;
+    type Listener = Listener;
     type Outbound = future::Ready<Result<Self::Output, Self::Error>>;
+    type Output = MemorySocket;
 
     fn listen_on(
         &self,
@@ -35,12 +35,12 @@ impl Transport for MemoryTransport {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     format!(
-                        "Unexpected listening network address: '{}', \
-                         expected format: '/memory/<port>'",
+                        "Unexpected listening network address: '{}', expected format: \
+                         '/memory/<port>'",
                         addr
                     ),
                 ))
-            }
+            },
         };
 
         let listener = MemoryListener::bind(port)?;
@@ -55,8 +55,8 @@ impl Transport for MemoryTransport {
             io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!(
-                    "Unexpected dialing network address: '{}', \
-                     expected format: '/memory/<port>/..'",
+                    "Unexpected dialing network address: '{}', expected format: \
+                     '/memory/<port>/..'",
                     addr
                 ),
             )
@@ -90,7 +90,7 @@ impl Stream for Listener {
                 // so use port 0 to ensure they aren't used as an address to dial.
                 let dialer_addr = NetworkAddress::from(Protocol::Memory(0));
                 Poll::Ready(Some(Ok((future::ready(Ok(socket)), dialer_addr))))
-            }
+            },
             Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,

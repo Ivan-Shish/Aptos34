@@ -25,7 +25,8 @@ impl FuzzTargetImpl for CompiledModuleTarget {
 
     fn fuzz(&self, data: &[u8]) {
         // Errors are OK -- the fuzzer cares about panics and OOMs. Note that
-        // `CompiledModule::deserialize` also runs the bounds checker, which is desirable here.
+        // `CompiledModule::deserialize` also runs the bounds checker, which is
+        // desirable here.
         let _ = CompiledModule::deserialize(data);
     }
 }

@@ -1,13 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::block_storage::tracing::{observe_block, BlockStage};
-use crate::quorum_store::types::{Batch, Fragment};
 use crate::{
+    block_storage::tracing::{observe_block, BlockStage},
     counters,
     logging::LogEvent,
     monitor,
     network_interface::{ConsensusMsg, ConsensusNetworkEvents, ConsensusNetworkSender},
+    quorum_store::types::{Batch, Fragment},
 };
 use anyhow::{anyhow, ensure};
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
@@ -40,8 +40,8 @@ use std::{
     time::Duration,
 };
 
-/// The block retrieval request is used internally for implementing RPC: the callback is executed
-/// for carrying the response
+/// The block retrieval request is used internally for implementing RPC: the
+/// callback is executed for carrying the response
 #[derive(Debug)]
 pub struct IncomingBlockRetrievalRequest {
     pub req: BlockRetrievalRequest,
@@ -49,8 +49,8 @@ pub struct IncomingBlockRetrievalRequest {
     pub response_sender: oneshot::Sender<Result<Bytes, RpcError>>,
 }
 
-/// Just a convenience struct to keep all the network proxy receiving queues in one place.
-/// Will be returned by the NetworkTask upon startup.
+/// Just a convenience struct to keep all the network proxy receiving queues in
+/// one place. Will be returned by the NetworkTask upon startup.
 pub struct NetworkReceivers {
     /// Provide a LIFO buffer for each (Author, MessageType) key
     pub consensus_messages: aptos_channel::Receiver<
@@ -103,8 +103,9 @@ impl NetworkSender {
         }
     }
 
-    /// Tries to retrieve num of blocks backwards starting from id from the given peer: the function
-    /// returns a future that is fulfilled with BlockRetrievalResponse.
+    /// Tries to retrieve num of blocks backwards starting from id from the
+    /// given peer: the function returns a future that is fulfilled with
+    /// BlockRetrievalResponse.
     pub async fn request_block(
         &mut self,
         retrieval_request: BlockRetrievalRequest,
@@ -147,10 +148,11 @@ impl NetworkSender {
 
     /// Tries to send the given msg to all the participants.
     ///
-    /// The future is fulfilled as soon as the message put into the mpsc channel to network
-    /// internal(to provide back pressure), it does not indicate the message is delivered or sent
-    /// out. It does not give indication about when the message is delivered to the recipients,
-    /// as well as there is no indication about the network failures.
+    /// The future is fulfilled as soon as the message put into the mpsc channel
+    /// to network internal(to provide back pressure), it does not indicate
+    /// the message is delivered or sent out. It does not give indication
+    /// about when the message is delivered to the recipients, as well as
+    /// there is no indication about the network failures.
     async fn broadcast(&mut self, msg: ConsensusMsg) {
         fail_point!("consensus::send::any", |_| ());
         // Directly send the message to ourself without going through network.
@@ -248,14 +250,16 @@ impl NetworkSender {
         self.send(msg, vec![recipient]).await
     }
 
-    /// Sends the vote to the chosen recipients (typically that would be the recipients that
-    /// we believe could serve as proposers in the next round). The recipients on the receiving
-    /// end are going to be notified about a new vote in the vote queue.
+    /// Sends the vote to the chosen recipients (typically that would be the
+    /// recipients that we believe could serve as proposers in the next
+    /// round). The recipients on the receiving end are going to be notified
+    /// about a new vote in the vote queue.
     ///
-    /// The future is fulfilled as soon as the message put into the mpsc channel to network
-    /// internal(to provide back pressure), it does not indicate the message is delivered or sent
-    /// out. It does not give indication about when the message is delivered to the recipients,
-    /// as well as there is no indication about the network failures.
+    /// The future is fulfilled as soon as the message put into the mpsc channel
+    /// to network internal(to provide back pressure), it does not indicate
+    /// the message is delivered or sent out. It does not give indication
+    /// about when the message is delivered to the recipients, as well as
+    /// there is no indication about the network failures.
     pub async fn send_vote(&self, vote_msg: VoteMsg, recipients: Vec<Author>) {
         fail_point!("consensus::send::vote", |_| ());
         let msg = ConsensusMsg::VoteMsg(Box::new(vote_msg));
@@ -279,7 +283,8 @@ impl NetworkSender {
     pub async fn send_commit_proof(&self, ledger_info: LedgerInfoWithSignatures) {
         fail_point!("consensus::send::commit_proof", |_| ());
 
-        // this requires re-verification of the ledger info we can probably optimize it later
+        // this requires re-verification of the ledger info we can probably optimize it
+        // later
         let msg = ConsensusMsg::CommitDecisionMsg(Box::new(CommitDecision::new(ledger_info)));
         self.send(msg, vec![self.author]).await
     }
@@ -337,7 +342,8 @@ pub struct NetworkTask {
 }
 
 impl NetworkTask {
-    /// Establishes the initial connections with the peers and returns the receivers.
+    /// Establishes the initial connections with the peers and returns the
+    /// receivers.
     pub fn new(
         network_events: ConsensusNetworkEvents,
         self_receiver: aptos_channels::Receiver<Event<ConsensusMsg>>,
@@ -405,7 +411,7 @@ impl NetworkTask {
                                 quorum_store_msg,
                                 &self.quorum_store_messages_tx,
                             );
-                        }
+                        },
                         consensus_msg => {
                             if let ConsensusMsg::ProposalMsg(proposal) = &consensus_msg {
                                 observe_block(
@@ -414,9 +420,9 @@ impl NetworkTask {
                                 );
                             }
                             Self::push_msg(peer_id, consensus_msg, &self.consensus_messages_tx);
-                        }
+                        },
                     }
-                }
+                },
                 Event::RpcRequest(peer_id, msg, protocol, callback) => match msg {
                     ConsensusMsg::BlockRetrievalRequest(request) => {
                         counters::CONSENSUS_RECEIVED_MSGS
@@ -447,15 +453,15 @@ impl NetworkTask {
                         {
                             warn!(error = ?e, "aptos channel closed");
                         }
-                    }
+                    },
                     _ => {
                         warn!(remote_peer = peer_id, "Unexpected msg: {:?}", msg);
                         continue;
-                    }
+                    },
                 },
                 _ => {
                     // Ignore `NewPeer` and `LostPeer` events
-                }
+                },
             }
         }
     }

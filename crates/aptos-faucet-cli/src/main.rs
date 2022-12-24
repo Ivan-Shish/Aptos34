@@ -41,9 +41,10 @@ pub struct FaucetCliArgs {
     #[clap(long, parse(try_from_str = AccountAddress::from_hex_literal))]
     pub mint_account_address: Option<AccountAddress>,
     /// Chain ID of the network this client is connecting to.
-    /// For mainnet: "MAINNET" or 1, testnet: "TESTNET" or 2, devnet: "DEVNET" or 3,
-    /// local swarm: "TESTING" or 4
-    /// Note: Chain ID of 0 is not allowed; Use number if chain id is not predefined.
+    /// For mainnet: "MAINNET" or 1, testnet: "TESTNET" or 2, devnet: "DEVNET"
+    /// or 3, local swarm: "TESTING" or 4
+    /// Note: Chain ID of 0 is not allowed; Use number if chain id is not
+    /// predefined.
     #[clap(long, default_value = "3")]
     pub chain_id: ChainId,
     /// Amount of coins to mint
@@ -91,28 +92,29 @@ impl FaucetCliArgs {
 
         // Iterate through accounts to mint the tokens
         for account in accounts {
-            let response = mint::process(
-                &service,
-                MintParams {
-                    amount: self.amount,
-                    auth_key: None,
-                    address: Some(account.to_hex_literal()),
-                    pub_key: None,
-                    return_txns: None,
-                },
-            )
+            let response = mint::process(&service, MintParams {
+                amount: self.amount,
+                auth_key: None,
+                address: Some(account.to_hex_literal()),
+                pub_key: None,
+                return_txns: None,
+            })
             .await;
             match response {
-                Ok(response) => println!(
-                    "SUCCESS: Account: {} Response: {:?}",
-                    account.to_hex_literal(),
-                    response
-                ),
-                Err(response) => println!(
-                    "FAILURE: Account: {} Response: {:?}",
-                    account.to_hex_literal(),
-                    response
-                ),
+                Ok(response) => {
+                    println!(
+                        "SUCCESS: Account: {} Response: {:?}",
+                        account.to_hex_literal(),
+                        response
+                    )
+                },
+                Err(response) => {
+                    println!(
+                        "FAILURE: Account: {} Response: {:?}",
+                        account.to_hex_literal(),
+                        response
+                    )
+                },
             }
         }
     }

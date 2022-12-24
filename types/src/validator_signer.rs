@@ -10,9 +10,9 @@ use rand::{rngs::StdRng, SeedableRng};
 use serde::ser::Serialize;
 use std::convert::TryFrom;
 
-/// ValidatorSigner associates an author with public and private keys with helpers for signing and
-/// validating. This struct can be used for all signing operations including block and network
-/// signing, respectively.
+/// ValidatorSigner associates an author with public and private keys with
+/// helpers for signing and validating. This struct can be used for all signing
+/// operations including block and network signing, respectively.
 #[derive(Debug)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Clone))]
 pub struct ValidatorSigner {
@@ -46,7 +46,8 @@ impl ValidatorSigner {
         self.private_key.public_key()
     }
 
-    /// Returns the private key associated with this signer. Only available for testing purposes.
+    /// Returns the private key associated with this signer. Only available for
+    /// testing purposes.
     #[cfg(any(test, feature = "fuzzing"))]
     pub fn private_key(&self) -> &bls12381::PrivateKey {
         &self.private_key
@@ -66,8 +67,8 @@ impl ValidatorSigner {
         )
     }
 
-    /// For test only - makes signer with nicely looking account address that has specified integer
-    /// as fist byte, and rest are zeroes
+    /// For test only - makes signer with nicely looking account address that
+    /// has specified integer as fist byte, and rest are zeroes
     pub fn from_int(num: u8) -> Self {
         let mut address = [0; AccountAddress::LENGTH];
         address[0] = num;

@@ -30,7 +30,8 @@ impl DriverClient {
         }
     }
 
-    /// Notifies the caller once the driver has successfully bootstrapped the node
+    /// Notifies the caller once the driver has successfully bootstrapped the
+    /// node
     pub fn notify_once_bootstrapped(&self) -> impl Future<Output = Result<(), Error>> {
         let mut notification_sender = self.notification_sender.clone();
         let (callback_sender, callback_receiver) = oneshot::channel();

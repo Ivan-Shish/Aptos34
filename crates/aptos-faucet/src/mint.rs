@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-// README: The aptos-faucet is deprecated in favor of the tap. Do not add new code
-// to this until you've spoken with the Ecosystem Platform team + dport.
+// README: The aptos-faucet is deprecated in favor of the tap. Do not add new
+// code to this until you've spoken with the Ecosystem Platform team + dport.
 
 use crate::Service;
 use anyhow::Result;
@@ -58,10 +58,10 @@ impl std::fmt::Display for Response {
         match self {
             Response::SubmittedTxns(value) => {
                 write!(f, "{}", hex::encode(bcs::to_bytes(&value).unwrap()))
-            }
+            },
             Response::SubmittedTxnsHashes(value) => {
                 write!(f, "{}", serde_json::to_string(&value).unwrap())
-            }
+            },
         }
     }
 }
@@ -136,8 +136,9 @@ pub async fn process(service: &Service, params: MintParams) -> Result<Response> 
     // We shouldn't have too many outstanding txns
     for _ in 0..60 {
         if our_faucet_seq < faucet_seq + 50 {
-            // Enforce a stronger ordering of priorities based upon the MintParams that arrived
-            // first. Then put the other folks to sleep to try again until the queue fills up.
+            // Enforce a stronger ordering of priorities based upon the MintParams that
+            // arrived first. Then put the other folks to sleep to try again
+            // until the queue fills up.
             if !set_outstanding {
                 let mut requests = service.outstanding_requests.write().unwrap();
                 requests.push(params.clone());
@@ -145,9 +146,9 @@ pub async fn process(service: &Service, params: MintParams) -> Result<Response> 
             }
 
             if service.outstanding_requests.read().unwrap().first() == Some(&params) {
-                // There might have been two requests with the same parameters, so we ensure that
-                // we only pop off one of them. We do a read lock first since that is cheap,
-                // followed by a write lock.
+                // There might have been two requests with the same parameters, so we ensure
+                // that we only pop off one of them. We do a read lock first
+                // since that is cheap, followed by a write lock.
                 let mut requests = service.outstanding_requests.write().unwrap();
                 if requests.first() == Some(&params) {
                     requests.remove(0);
@@ -187,21 +188,17 @@ pub async fn process(service: &Service, params: MintParams) -> Result<Response> 
     let txn = {
         let mut faucet_account = service.faucet_account.lock().await;
         faucet_account.sign_with_transaction_builder(service.transaction_factory.script(
-            Script::new(
-                MINTER_SCRIPT.to_vec(),
-                vec![],
-                vec![
-                    TransactionArgument::Address(receiver_address),
-                    TransactionArgument::U64(amount),
-                ],
-            ),
+            Script::new(MINTER_SCRIPT.to_vec(), vec![], vec![
+                TransactionArgument::Address(receiver_address),
+                TransactionArgument::U64(amount),
+            ]),
         ))
     };
 
     let response = service.client.submit(&txn).await;
 
-    // If there was an issue submitting a transaction we should just reset our sequence_numbers
-    // to what was on chain
+    // If there was an issue submitting a transaction we should just reset our
+    // sequence_numbers to what was on chain
     if response.is_err() {
         *service.faucet_account.lock().await.sequence_number_mut() = faucet_seq;
         response?;

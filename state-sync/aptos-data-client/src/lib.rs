@@ -3,8 +3,10 @@
 
 #![forbid(unsafe_code)]
 
-use aptos_storage_service_types::responses::TransactionOrOutputListWithProof;
-use aptos_storage_service_types::{responses::CompleteDataRange, Epoch};
+use aptos_storage_service_types::{
+    responses::{CompleteDataRange, TransactionOrOutputListWithProof},
+    Epoch,
+};
 use aptos_types::{
     ledger_info::LedgerInfoWithSignatures,
     state_store::state_value::StateValueChunkWithProof,
@@ -22,7 +24,8 @@ pub mod aptosnet;
 
 pub type Result<T, E = Error> = ::std::result::Result<T, E>;
 
-// TODO(philiphayes): a Error { kind: ErrorKind, inner: BoxError } would be more convenient
+// TODO(philiphayes): a Error { kind: ErrorKind, inner: BoxError } would be more
+// convenient
 /// An error returned by the Aptos Data Client for failed API calls.
 #[derive(Clone, Debug, Deserialize, Error, PartialEq, Eq, Serialize)]
 pub enum Error {
@@ -197,12 +200,13 @@ pub enum ResponseError {
 /// to verify all proofs).
 ///
 /// This trait provides a simple feedback mechanism for users of the Data Client
-/// to alert it to bad responses so that the peers responsible for providing this
-/// data can be penalized.
+/// to alert it to bad responses so that the peers responsible for providing
+/// this data can be penalized.
 pub trait ResponseCallback: fmt::Debug + Send + Sync + 'static {
     // TODO(philiphayes): ideally this would take a `self: Box<Self>`, i.e.,
     // consume the callback, which better communicates that you should only report
-    // an error once. however, the current state-sync-v2 code makes this difficult...
+    // an error once. however, the current state-sync-v2 code makes this
+    // difficult...
     fn notify_bad_response(&self, error: ResponseError);
 }
 
@@ -458,13 +462,19 @@ impl fmt::Debug for AdvertisedData {
             .join(", ");
         write!(
             f,
-            "epoch_ending_ledger_infos: {:?}, states: {:?}, synced_ledger_infos: [{}], transactions: {:?}, transaction_outputs: {:?}",
-            &self.epoch_ending_ledger_infos, &self.states, synced_ledger_infos, &self.transactions, &self.transaction_outputs
+            "epoch_ending_ledger_infos: {:?}, states: {:?}, synced_ledger_infos: [{}], \
+             transactions: {:?}, transaction_outputs: {:?}",
+            &self.epoch_ending_ledger_infos,
+            &self.states,
+            synced_ledger_infos,
+            &self.transactions,
+            &self.transaction_outputs
         )
     }
 }
 
-/// Provides an aggregated version of all advertised data (i.e, highest and lowest)
+/// Provides an aggregated version of all advertised data (i.e, highest and
+/// lowest)
 impl Display for AdvertisedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Calculate the highest advertised data
@@ -482,10 +492,15 @@ impl Display for AdvertisedData {
 
         write!(
             f,
-            "AdvertisedData {{ Highest epoch ending ledger info, epoch: {:?}. Highest synced ledger info, epoch: {:?}, version: {:?}. \
-            Lowest transaction version: {:?}, Lowest transaction output version: {:?}, Lowest states version: {:?} }}",
-            highest_epoch_ending_ledger_info, highest_synced_epoch, highest_synced_version,
-            lowest_transaction_version, lowest_output_version, lowest_states_version
+            "AdvertisedData {{ Highest epoch ending ledger info, epoch: {:?}. Highest synced \
+             ledger info, epoch: {:?}, version: {:?}. Lowest transaction version: {:?}, Lowest \
+             transaction output version: {:?}, Lowest states version: {:?} }}",
+            highest_epoch_ending_ledger_info,
+            highest_synced_epoch,
+            highest_synced_version,
+            lowest_transaction_version,
+            lowest_output_version,
+            lowest_states_version
         )
     }
 }

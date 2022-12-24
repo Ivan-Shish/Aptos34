@@ -24,7 +24,8 @@ enum TxnEmitterCommand {
     EmitTx(EmitTx),
 
     /// This runs the transaction emitter in diag mode, where the focus is on
-    /// FullNodes instead of ValidatorNodes. This performs a simple health check.
+    /// FullNodes instead of ValidatorNodes. This performs a simple health
+    /// check.
     Diag(Diag),
 }
 
@@ -61,13 +62,13 @@ pub async fn main() -> Result<()> {
                 stats.rate(Duration::from_secs(args.emit_args.duration))
             );
             Ok(())
-        }
+        },
         TxnEmitterCommand::Diag(args) => {
             let cluster = Cluster::try_from_cluster_args(&args.cluster_args)
                 .await
                 .context("Failed to build cluster")?;
             diag(&cluster).await.context("Diag failed")?;
             Ok(())
-        }
+        },
     }
 }

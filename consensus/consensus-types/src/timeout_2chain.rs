@@ -5,24 +5,29 @@ use crate::{common::Author, quorum_cert::QuorumCert};
 use anyhow::ensure;
 use aptos_crypto::{bls12381, CryptoMaterialError};
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
-use aptos_types::account_address::AccountAddress;
-use aptos_types::aggregate_signature::{AggregateSignature, PartialSignatures};
-use aptos_types::validator_verifier::VerifyError;
 use aptos_types::{
-    block_info::Round, validator_signer::ValidatorSigner, validator_verifier::ValidatorVerifier,
+    account_address::AccountAddress,
+    aggregate_signature::{AggregateSignature, PartialSignatures},
+    block_info::Round,
+    validator_signer::ValidatorSigner,
+    validator_verifier::{ValidatorVerifier, VerifyError},
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::{Display, Formatter};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::{Display, Formatter},
+};
 
-/// This structure contains all the information necessary to construct a signature
-/// on the equivalent of a AptosBFT v4 timeout message.
+/// This structure contains all the information necessary to construct a
+/// signature on the equivalent of a AptosBFT v4 timeout message.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TwoChainTimeout {
-    /// Epoch number corresponds to the set of validators that are active for this round.
+    /// Epoch number corresponds to the set of validators that are active for
+    /// this round.
     epoch: u64,
-    /// The consensus protocol executes proposals (blocks) in rounds, which monotonically increase per epoch.
+    /// The consensus protocol executes proposals (blocks) in rounds, which
+    /// monotonically increase per epoch.
     round: Round,
     /// The highest quorum cert the signer has seen.
     quorum_cert: QuorumCert,
@@ -90,8 +95,9 @@ impl Display for TwoChainTimeout {
     }
 }
 
-/// Validators sign this structure that allows the TwoChainTimeoutCertificate to store a round number
-/// instead of a quorum cert per validator in the signatures field.
+/// Validators sign this structure that allows the TwoChainTimeoutCertificate to
+/// store a round number instead of a quorum cert per validator in the
+/// signatures field.
 #[derive(Serialize, Deserialize, Debug, CryptoHasher, BCSCryptoHash)]
 pub struct TimeoutSigningRepr {
     pub epoch: u64,
@@ -100,8 +106,9 @@ pub struct TimeoutSigningRepr {
 }
 
 /// TimeoutCertificate is a proof that 2f+1 participants in epoch i
-/// have voted in round r and we can now move to round r+1. AptosBFT v4 requires signature to sign on
-/// the TimeoutSigningRepr and carry the TimeoutWithHighestQC with highest quorum cert among 2f+1.
+/// have voted in round r and we can now move to round r+1. AptosBFT v4 requires
+/// signature to sign on the TimeoutSigningRepr and carry the
+/// TimeoutWithHighestQC with highest quorum cert among 2f+1.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct TwoChainTimeoutCertificate {
     timeout: TwoChainTimeout,
@@ -128,12 +135,13 @@ impl TwoChainTimeoutCertificate {
             signatures_with_rounds: AggregateSignatureWithRounds::empty(),
         }
     }
-    /// Verifies the signatures for each validator, the signature is on the TimeoutSigningRepr where the
-    /// hqc_round is in the signature map.
+
+    /// Verifies the signatures for each validator, the signature is on the
+    /// TimeoutSigningRepr where the hqc_round is in the signature map.
     /// We verify the following:
     /// 1. the highest quorum cert is valid
-    /// 2. all signatures are properly formed (timeout.epoch, timeout.round, round)
-    /// 3. timeout.hqc_round == max(signed round)
+    /// 2. all signatures are properly formed (timeout.epoch, timeout.round,
+    /// round) 3. timeout.hqc_round == max(signed round)
     pub fn verify(&self, validators: &ValidatorVerifier) -> anyhow::Result<()> {
         // Verify the highest timeout validity.
         self.timeout.verify(validators)?;
@@ -192,8 +200,8 @@ impl TwoChainTimeoutCertificate {
     }
 }
 
-/// Contains two chain timout with partial signatures from the validators. This is only used during
-/// signature aggregation and does not go through the wire.
+/// Contains two chain timout with partial signatures from the validators. This
+/// is only used during signature aggregation and does not go through the wire.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TwoChainTimeoutWithPartialSignatures {
     timeout: TwoChainTimeout,
@@ -228,7 +236,8 @@ impl TwoChainTimeoutWithPartialSignatures {
         self.signatures.signatures().iter().map(|(k, _)| k)
     }
 
-    /// Add a new timeout message from author, the timeout should already be verified in upper layer.
+    /// Add a new timeout message from author, the timeout should already be
+    /// verified in upper layer.
     pub fn add(
         &mut self,
         author: Author,
@@ -252,8 +261,8 @@ impl TwoChainTimeoutWithPartialSignatures {
         self.signatures.add_signature(author, hqc_round, signature);
     }
 
-    /// Aggregates the partial signature into `TwoChainTimeoutCertificate`. This is done when we
-    /// have quorum voting power in the partial signature.
+    /// Aggregates the partial signature into `TwoChainTimeoutCertificate`. This
+    /// is done when we have quorum voting power in the partial signature.
     pub fn aggregate_signatures(
         &self,
         verifier: &ValidatorVerifier,
@@ -272,8 +281,8 @@ impl TwoChainTimeoutWithPartialSignatures {
     }
 }
 
-/// This struct represents partial signatures along with corresponding rounds collected during
-/// timeout aggregation.
+/// This struct represents partial signatures along with corresponding rounds
+/// collected during timeout aggregation.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct PartialSignaturesWithRound {
     signatures: BTreeMap<AccountAddress, (Round, bls12381::Signature)>,
@@ -283,6 +292,7 @@ impl PartialSignaturesWithRound {
     pub fn new(signatures: BTreeMap<AccountAddress, (Round, bls12381::Signature)>) -> Self {
         Self { signatures }
     }
+
     pub fn empty() -> Self {
         Self::new(BTreeMap::new())
     }
@@ -317,8 +327,8 @@ impl PartialSignaturesWithRound {
             .or_insert((round, signature));
     }
 
-    /// Returns partial signature and a vector of rounds ordered by validator index in the validator
-    /// verifier.
+    /// Returns partial signature and a vector of rounds ordered by validator
+    /// index in the validator verifier.
     pub fn get_partial_sig_with_rounds(
         &self,
         address_to_validator_index: &HashMap<AccountAddress, usize>,
@@ -335,10 +345,12 @@ impl PartialSignaturesWithRound {
     }
 }
 
-/// This struct stores the aggregated signatures and corresponding rounds for timeout messages. Please
-/// note that the order of the round is same as the bitmask in the aggregated signature i.e.,
-/// first entry in the rounds corresponds to validator address with the first bitmask set in the
-/// aggregated signature and so on. The ordering is crucial for verification of the timeout messages.
+/// This struct stores the aggregated signatures and corresponding rounds for
+/// timeout messages. Please note that the order of the round is same as the
+/// bitmask in the aggregated signature i.e., first entry in the rounds
+/// corresponds to validator address with the first bitmask set in the
+/// aggregated signature and so on. The ordering is crucial for verification of
+/// the timeout messages.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AggregateSignatureWithRounds {
     sig: AggregateSignature,
@@ -387,8 +399,10 @@ impl AggregateSignatureWithRounds {
 
 #[cfg(test)]
 mod tests {
-    use crate::quorum_cert::QuorumCert;
-    use crate::timeout_2chain::{TwoChainTimeout, TwoChainTimeoutWithPartialSignatures};
+    use crate::{
+        quorum_cert::QuorumCert,
+        timeout_2chain::{TwoChainTimeout, TwoChainTimeoutWithPartialSignatures},
+    };
     use aptos_crypto::bls12381;
 
     #[test]

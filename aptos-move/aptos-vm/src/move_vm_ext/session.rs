@@ -34,8 +34,10 @@ use move_core_types::{
 use move_table_extension::{NativeTableContext, TableChange, TableChangeSet};
 use move_vm_runtime::session::Session;
 use serde::{Deserialize, Serialize};
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 #[derive(BCSCryptoHash, CryptoHasher, Deserialize, Serialize)]
 pub enum SessionId {
@@ -154,10 +156,11 @@ fn squash_table_change_sets(
     for removed_table in &base.removed_tables {
         base.new_tables.remove(removed_table);
     }
-    // There's chance that a table is added in `self`, and an item is added to that table in
-    // `self`, and later the item is deleted in `other`, netting to a NOOP for that item,
-    // but this is an tricky edge case that we don't expect to happen too much, it doesn't hurt
-    // too much to just keep the deletion. It's safe as long as we do it that way consistently.
+    // There's chance that a table is added in `self`, and an item is added to that
+    // table in `self`, and later the item is deleted in `other`, netting to a
+    // NOOP for that item, but this is an tricky edge case that we don't expect
+    // to happen too much, it doesn't hurt too much to just keep the deletion.
+    // It's safe as long as we do it that way consistently.
     base.removed_tables.extend(other.removed_tables.into_iter());
     for (handle, changes) in other.changes.into_iter() {
         let my_changes = base.changes.entry(handle).or_insert(TableChange {
@@ -197,7 +200,7 @@ impl SessionOutput {
                         } else {
                             WriteOp::Creation(blob)
                         }
-                    }
+                    },
                     Modify(blob) => WriteOp::Modification(blob),
                 };
                 write_set_mut.insert((StateKey::AccessPath(ap), op))
@@ -223,7 +226,7 @@ impl SessionOutput {
                     New(bytes) => write_set_mut.insert((state_key, WriteOp::Creation(bytes))),
                     Modify(bytes) => {
                         write_set_mut.insert((state_key, WriteOp::Modification(bytes)))
-                    }
+                    },
                 }
             }
         }
@@ -237,12 +240,12 @@ impl SessionOutput {
                 AggregatorChange::Write(value) => {
                     let write_op = WriteOp::Modification(serialize(&value));
                     write_set_mut.insert((state_key, write_op));
-                }
+                },
                 AggregatorChange::Merge(delta_op) => delta_change_set.insert((state_key, delta_op)),
                 AggregatorChange::Delete => {
                     let write_op = WriteOp::Deletion;
                     write_set_mut.insert((state_key, write_op));
-                }
+                },
             }
         }
 

@@ -1,24 +1,28 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::accept_type::AcceptType;
-use crate::accounts::Account;
-use crate::context::Context;
-use crate::failpoint::fail_point_poem;
-use crate::page::Page;
-use crate::response::BadRequestError;
-use crate::response::{
-    BasicErrorWith404, BasicResponse, BasicResponseStatus, BasicResultWith404, InternalError,
+use crate::{
+    accept_type::AcceptType,
+    accounts::Account,
+    context::Context,
+    failpoint::fail_point_poem,
+    page::Page,
+    response::{
+        BadRequestError, BasicErrorWith404, BasicResponse, BasicResponseStatus, BasicResultWith404,
+        InternalError,
+    },
+    ApiTags,
 };
-use crate::ApiTags;
 use anyhow::Context as AnyhowContext;
 use aptos_api_types::{
     verify_field_identifier, Address, AptosErrorCode, AsConverter, IdentifierWrapper, LedgerInfo,
     MoveStructTag, VerifyInputWithRecursion, VersionedEvent, U64,
 };
 use aptos_types::event::EventKey;
-use poem_openapi::param::Query;
-use poem_openapi::{param::Path, OpenApi};
+use poem_openapi::{
+    param::{Path, Query},
+    OpenApi,
+};
 use std::sync::Arc;
 
 pub struct EventsApi {
@@ -42,10 +46,10 @@ impl EventsApi {
     async fn get_events_by_creation_number(
         &self,
         accept_type: AcceptType,
-        /// Hex-encoded 32 byte Aptos account, with or without a `0x` prefix, for
-        /// which events are queried. This refers to the account that events were
-        /// emitted to, not the account hosting the move module that emits that
-        /// event type.
+        /// Hex-encoded 32 byte Aptos account, with or without a `0x` prefix,
+        /// for which events are queried. This refers to the account
+        /// that events were emitted to, not the account hosting the
+        /// move module that emits that event type.
         address: Path<Address>,
         /// Creation number corresponding to the event stream originating
         /// from the given account.
@@ -81,9 +85,10 @@ impl EventsApi {
 
     /// Get events by event handle
     ///
-    /// This API uses the given account `address`, `eventHandle`, and `fieldName`
-    /// to build a key that can globally identify an event types. It then uses this
-    /// key to return events emitted to the given account matching that event type.
+    /// This API uses the given account `address`, `eventHandle`, and
+    /// `fieldName` to build a key that can globally identify an event
+    /// types. It then uses this key to return events emitted to the given
+    /// account matching that event type.
     #[oai(
         path = "/accounts/:address/events/:event_handle/:field_name",
         method = "get",
@@ -93,10 +98,10 @@ impl EventsApi {
     async fn get_events_by_event_handle(
         &self,
         accept_type: AcceptType,
-        /// Hex-encoded 32 byte Aptos account, with or without a `0x` prefix, for
-        /// which events are queried. This refers to the account that events were
-        /// emitted to, not the account hosting the move module that emits that
-        /// event type.
+        /// Hex-encoded 32 byte Aptos account, with or without a `0x` prefix,
+        /// for which events are queried. This refers to the account
+        /// that events were emitted to, not the account hosting the
+        /// move module that emits that event type.
         address: Path<Address>,
         /// Name of struct to lookup event handle e.g. `0x1::account::Account`
         event_handle: Path<MoveStructTag>,
@@ -180,10 +185,10 @@ impl EventsApi {
                     })?;
 
                 BasicResponse::try_from_json((events, &latest_ledger_info, BasicResponseStatus::Ok))
-            }
+            },
             AcceptType::Bcs => {
                 BasicResponse::try_from_bcs((events, &latest_ledger_info, BasicResponseStatus::Ok))
-            }
+            },
         }
     }
 }

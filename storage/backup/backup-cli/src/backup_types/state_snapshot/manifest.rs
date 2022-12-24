@@ -21,12 +21,14 @@ pub struct StateSnapshotChunk {
     /// Repeated `len(record) + record` where `record` is BCS serialized tuple
     /// `(key, state_value)`
     pub blobs: FileHandle,
-    /// BCS serialized `SparseMerkleRangeProof` that proves this chunk adds up to the root hash
-    /// indicated in the backup (`StateSnapshotBackup::root_hash`).
+    /// BCS serialized `SparseMerkleRangeProof` that proves this chunk adds up
+    /// to the root hash indicated in the backup
+    /// (`StateSnapshotBackup::root_hash`).
     pub proof: FileHandle,
 }
 
-/// State snapshot backup manifest, representing a complete state view at specified version.
+/// State snapshot backup manifest, representing a complete state view at
+/// specified version.
 #[derive(Deserialize, Serialize)]
 pub struct StateSnapshotBackup {
     /// Version at which this state snapshot is taken.
@@ -39,13 +41,17 @@ pub struct StateSnapshotBackup {
     pub chunks: Vec<StateSnapshotChunk>,
     /// BCS serialized
     /// `Tuple(TransactionInfoWithProof, LedgerInfoWithSignatures)`.
-    ///   - The `TransactionInfoWithProof` is at `Version` above, and carries the same `root_hash`
-    /// above; It proves that at specified version the root hash is as specified in a chain
-    /// represented by the LedgerInfo below.
-    ///   - The signatures on the `LedgerInfoWithSignatures` has a version greater than or equal to
-    /// the version of this backup but is within the same epoch, so the signatures on it can be
-    /// verified by the validator set in the same epoch, which can be provided by an
-    /// `EpochStateBackup` recovered prior to this to the DB; Requiring it to be in the same epoch
-    /// limits the requirement on such `EpochStateBackup` to no older than the same epoch.
+    ///   - The `TransactionInfoWithProof` is at `Version` above, and carries
+    ///     the same `root_hash`
+    /// above; It proves that at specified version the root hash is as specified
+    /// in a chain represented by the LedgerInfo below.
+    ///   - The signatures on the `LedgerInfoWithSignatures` has a version
+    ///     greater than or equal to
+    /// the version of this backup but is within the same epoch, so the
+    /// signatures on it can be verified by the validator set in the same
+    /// epoch, which can be provided by an `EpochStateBackup` recovered
+    /// prior to this to the DB; Requiring it to be in the same epoch limits
+    /// the requirement on such `EpochStateBackup` to no older than the same
+    /// epoch.
     pub proof: FileHandle,
 }

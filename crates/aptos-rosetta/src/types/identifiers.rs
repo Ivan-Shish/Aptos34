@@ -5,20 +5,21 @@
 //!
 //! [Spec](https://www.rosetta-api.org/docs/api_identifiers.html)
 
-use crate::common::BlockHash;
 use crate::{
-    common::{to_hex_lower, BLOCKCHAIN},
+    common::{to_hex_lower, BlockHash, BLOCKCHAIN},
     error::{ApiError, ApiResult},
 };
-use aptos_types::transaction::TransactionInfo;
-use aptos_types::{account_address::AccountAddress, chain_id::ChainId};
+use aptos_types::{
+    account_address::AccountAddress, chain_id::ChainId, transaction::TransactionInfo,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
 };
 
-/// Account identifier, specified as a hex encoded account address (with leading 0x)
+/// Account identifier, specified as a hex encoded account address (with leading
+/// 0x)
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/AccountIdentifier.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -63,6 +64,7 @@ impl AccountIdentifier {
     pub fn is_base_account(&self) -> bool {
         self.sub_account.is_none()
     }
+
     pub fn is_total_stake(&self) -> bool {
         if let Some(ref inner) = self.sub_account {
             inner.is_total_stake()
@@ -142,8 +144,8 @@ impl SubAccountIdentifier {
     }
 }
 
-/// Identifier for a "block".  In aptos, we use a transaction model, so the index
-/// represents multiple transactions in a "block" grouping of transactions
+/// Identifier for a "block".  In aptos, we use a transaction model, so the
+/// index represents multiple transactions in a "block" grouping of transactions
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/BlockIdentifier.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -213,8 +215,8 @@ pub struct OperationIdentifier {
     pub index: u64,
 }
 
-/// Partial block identifier for querying by version or by hash.  Both should not be
-/// provided at the same time.
+/// Partial block identifier for querying by version or by hash.  Both should
+/// not be provided at the same time.
 ///
 /// [API Spec](https://www.rosetta-api.org/docs/models/PartialBlockIdentifier.html)
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

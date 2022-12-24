@@ -15,8 +15,9 @@ use std::{
     sync::Arc,
 };
 
-/// Metadata storage for peers across all of networking.  Splits storage of information across
-/// networks to prevent different networks from affecting each other
+/// Metadata storage for peers across all of networking.  Splits storage of
+/// information across networks to prevent different networks from affecting
+/// each other
 #[derive(Debug)]
 pub struct PeerMetadataStorage {
     storage: HashMap<NetworkId, LockingHashMap<PeerId, PeerInfo>>,
@@ -28,7 +29,8 @@ impl PeerMetadataStorage {
         PeerMetadataStorage::new(&[NetworkId::Validator])
     }
 
-    /// Create a new `PeerMetadataStorage` `NetworkId`s must be known at construction time
+    /// Create a new `PeerMetadataStorage` `NetworkId`s must be known at
+    /// construction time
     pub fn new(network_ids: &[NetworkId]) -> Arc<PeerMetadataStorage> {
         let mut peer_metadata_storage = PeerMetadataStorage {
             storage: HashMap::new(),
@@ -93,7 +95,8 @@ impl PeerMetadataStorage {
             .remove(&peer_network_id.peer_id())
     }
 
-    /// Take in a function to modify the data, must handle concurrency control with the input function
+    /// Take in a function to modify the data, must handle concurrency control
+    /// with the input function
     pub fn write<F: FnOnce(&mut Entry<PeerId, PeerInfo>) -> Result<(), PeerError>>(
         &self,
         peer_network_id: PeerNetworkId,
@@ -103,9 +106,9 @@ impl PeerMetadataStorage {
             .write(peer_network_id.peer_id(), modifier)
     }
 
-    /// Get the underlying `RwLock` of the map.  Usage is discouraged as it leads to the possiblity of
-    /// leaving the lock held for a long period of time.  However, not everything fits into the `write`
-    /// model.
+    /// Get the underlying `RwLock` of the map.  Usage is discouraged as it
+    /// leads to the possiblity of leaving the lock held for a long period
+    /// of time.  However, not everything fits into the `write` model.
     pub fn write_lock(
         &self,
         network_id: NetworkId,
@@ -133,7 +136,8 @@ impl PeerMetadataStorage {
 
         // Don't remove the peer if the connection doesn't match!
         if let Entry::Occupied(entry) = map.entry(connection_metadata.remote_peer_id) {
-            // For now, remove the peer entirely, we could in the future have multiple connections for a peer
+            // For now, remove the peer entirely, we could in the future have multiple
+            // connections for a peer
             if entry.get().active_connection.connection_id == connection_metadata.connection_id {
                 entry.remove();
             }
@@ -209,7 +213,8 @@ where
         map.remove(key);
     }
 
-    /// Take in a function to modify the data, must handle concurrency control with the input function
+    /// Take in a function to modify the data, must handle concurrency control
+    /// with the input function
     pub fn write<F: FnOnce(&mut Entry<Key, Value>) -> Result<(), PeerError>>(
         &self,
         key: Key,
@@ -219,9 +224,9 @@ where
         modifier(&mut map.entry(key))
     }
 
-    /// Get the underlying `RwLock` of the map.  Usage is discouraged as it leads to the possiblity of
-    /// leaving the lock held for a long period of time.  However, not everything fits into the `write`
-    /// model.
+    /// Get the underlying `RwLock` of the map.  Usage is discouraged as it
+    /// leads to the possiblity of leaving the lock held for a long period
+    /// of time.  However, not everything fits into the `write` model.
     pub fn write_lock(&self) -> RwLockWriteGuard<'_, HashMap<Key, Value>> {
         self.map.write()
     }

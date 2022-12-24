@@ -213,7 +213,8 @@ pub trait TestNode: ApplicationNode + Sync {
         self.peer_network_ids().keys().copied().collect()
     }
 
-    /// Connects a node to another node.  The other's inbound handle must already be added.
+    /// Connects a node to another node.  The other's inbound handle must
+    /// already be added.
     fn connect(&self, network_id: NetworkId, metadata: ConnectionMetadata) {
         assert_eq!(ConnectionOrigin::Outbound, metadata.origin);
         let self_metadata = self.conn_metadata(network_id, ConnectionOrigin::Inbound, &[]);
@@ -300,8 +301,9 @@ pub trait TestNode: ApplicationNode + Sync {
         )
     }
 
-    /// Gets the next queued network message on `Node`'s network [`NetworkId`].  Doesn't propagate
-    /// to downstream node.  If dropping a message use [`TestNode::drop_next_network_msg`]
+    /// Gets the next queued network message on `Node`'s network [`NetworkId`].
+    /// Doesn't propagate to downstream node.  If dropping a message use
+    /// [`TestNode::drop_next_network_msg`]
     async fn get_next_network_msg(&mut self, network_id: NetworkId) -> PeerManagerRequest {
         self.get_outbound_handle(network_id)
             .next()
@@ -322,8 +324,9 @@ pub trait TestNode: ApplicationNode + Sync {
         }
     }
 
-    /// Drop a network message.  This is required over [`TestNode::get_network_msg`] because the
-    /// oneshot channel must be dropped.
+    /// Drop a network message.  This is required over
+    /// [`TestNode::get_network_msg`] because the oneshot channel must be
+    /// dropped.
     async fn drop_next_network_msg(
         &mut self,
         network_id: NetworkId,
@@ -339,13 +342,14 @@ pub trait TestNode: ApplicationNode + Sync {
                     ..
                 },
             ) => {
-                // Forcefully close the oneshot channel, otherwise listening task will hang forever.
+                // Forcefully close the oneshot channel, otherwise listening task will hang
+                // forever.
                 drop(res_tx);
                 (peer_id, protocol_id, data)
-            }
+            },
             PeerManagerRequest::SendDirectSend(peer_id, message) => {
                 (peer_id, message.protocol_id, message.mdata)
-            }
+            },
         }
     }
 
@@ -362,7 +366,7 @@ pub trait TestNode: ApplicationNode + Sync {
             ),
             PeerManagerRequest::SendDirectSend(peer_id, msg) => {
                 (peer_id, msg.protocol_id, msg.mdata, None)
-            }
+            },
         };
 
         let sender_peer_network_id = self.peer_network_id(network_id);
@@ -372,22 +376,16 @@ pub trait TestNode: ApplicationNode + Sync {
 
         // TODO: Add timeout functionality
         let peer_manager_notif = if let Some((_timeout, res_tx)) = maybe_rpc_info {
-            PeerManagerNotification::RecvRpc(
-                sender_peer_id,
-                InboundRpcRequest {
-                    protocol_id,
-                    data,
-                    res_tx,
-                },
-            )
+            PeerManagerNotification::RecvRpc(sender_peer_id, InboundRpcRequest {
+                protocol_id,
+                data,
+                res_tx,
+            })
         } else {
-            PeerManagerNotification::RecvMessage(
-                sender_peer_id,
-                Message {
-                    protocol_id,
-                    mdata: data,
-                },
-            )
+            PeerManagerNotification::RecvMessage(sender_peer_id, Message {
+                protocol_id,
+                mdata: data,
+            })
         };
         receiver_handle
             .inbound_message_sender

@@ -51,7 +51,8 @@ fn execute_and_commit_chunk(
     db: &DbReaderWriter,
     executor: &ChunkExecutor<MockVM>,
 ) {
-    // Execute the first chunk. After that we should still get the genesis ledger info from DB.
+    // Execute the first chunk. After that we should still get the genesis ledger
+    // info from DB.
     executor
         .execute_chunk(chunks[0].clone(), &ledger_info, None)
         .unwrap();
@@ -60,7 +61,8 @@ fn execute_and_commit_chunk(
     assert_eq!(li.ledger_info().version(), 0);
     assert_eq!(li.ledger_info().consensus_block_id(), HashValue::zero());
 
-    // Execute the second chunk. After that we should still get the genesis ledger info from DB.
+    // Execute the second chunk. After that we should still get the genesis ledger
+    // info from DB.
     executor
         .execute_chunk(chunks[1].clone(), &ledger_info, None)
         .unwrap();
@@ -69,7 +71,8 @@ fn execute_and_commit_chunk(
     assert_eq!(li.ledger_info().version(), 0);
     assert_eq!(li.ledger_info().consensus_block_id(), HashValue::zero());
 
-    // Execute an empty chunk. After that we should still get the genesis ledger info from DB.
+    // Execute an empty chunk. After that we should still get the genesis ledger
+    // info from DB.
     executor
         .execute_chunk(TransactionListWithProof::new_empty(), &ledger_info, None)
         .unwrap();
@@ -78,7 +81,8 @@ fn execute_and_commit_chunk(
     assert_eq!(li.ledger_info().version(), 0);
     assert_eq!(li.ledger_info().consensus_block_id(), HashValue::zero());
 
-    // Execute the second chunk again. After that we should still get the same thing.
+    // Execute the second chunk again. After that we should still get the same
+    // thing.
     executor
         .execute_chunk(chunks[1].clone(), &ledger_info, None)
         .unwrap();
@@ -114,7 +118,8 @@ fn test_executor_execute_or_apply_and_commit_chunk() {
             third_batch_start..third_batch_start + third_batch_size,
         ])
     };
-    // First test with transactions only and reset chunks to be `Vec<TransactionOutputListWithProof>`.
+    // First test with transactions only and reset chunks to be
+    // `Vec<TransactionOutputListWithProof>`.
     let chunks = {
         let TestExecutor {
             _path,
@@ -145,7 +150,8 @@ fn test_executor_execute_or_apply_and_commit_chunk() {
         db,
         executor,
     } = TestExecutor::new();
-    // Execute the first chunk. After that we should still get the genesis ledger info from DB.
+    // Execute the first chunk. After that we should still get the genesis ledger
+    // info from DB.
     executor.reset().unwrap();
     executor
         .apply_chunk(chunks[0].clone(), &ledger_info, None)
@@ -155,7 +161,8 @@ fn test_executor_execute_or_apply_and_commit_chunk() {
     assert_eq!(li.ledger_info().version(), 0);
     assert_eq!(li.ledger_info().consensus_block_id(), HashValue::zero());
 
-    // Execute the second chunk. After that we should still get the genesis ledger info from DB.
+    // Execute the second chunk. After that we should still get the genesis ledger
+    // info from DB.
     executor
         .apply_chunk(chunks[1].clone(), &ledger_info, None)
         .unwrap();
@@ -164,7 +171,8 @@ fn test_executor_execute_or_apply_and_commit_chunk() {
     assert_eq!(li.ledger_info().version(), 0);
     assert_eq!(li.ledger_info().consensus_block_id(), HashValue::zero());
 
-    // Execute an empty chunk. After that we should still get the genesis ledger info from DB.
+    // Execute an empty chunk. After that we should still get the genesis ledger
+    // info from DB.
     executor
         .apply_chunk(
             TransactionOutputListWithProof::new_empty(),
@@ -177,7 +185,8 @@ fn test_executor_execute_or_apply_and_commit_chunk() {
     assert_eq!(li.ledger_info().version(), 0);
     assert_eq!(li.ledger_info().consensus_block_id(), HashValue::zero());
 
-    // Execute the second chunk again. After that we should still get the same thing.
+    // Execute the second chunk again. After that we should still get the same
+    // thing.
     executor
         .apply_chunk(chunks[1].clone(), &ledger_info, None)
         .unwrap();

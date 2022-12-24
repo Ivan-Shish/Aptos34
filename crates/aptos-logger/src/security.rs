@@ -1,7 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//!
 //! The security module gathers security-related logs:
 //! logs to detect malicious behavior from other validators.
 //!
@@ -15,7 +14,6 @@
 //!     "some_key" = "some data",
 //! );
 //! ```
-//!
 
 use crate::{Key, Schema, Value, Visitor};
 use serde::{Deserialize, Serialize};
@@ -23,10 +21,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityEvent {
-    //
     // Mempool
-    //
-    /// Mempool received a transaction from another peer with an invalid signature
+    /// Mempool received a transaction from another peer with an invalid
+    /// signature
     InvalidTransactionMempool,
 
     /// Mempool received an invalid network event
@@ -34,7 +31,8 @@ pub enum SecurityEvent {
 
     // Consensus
     // ---------
-    /// Consensus received an invalid message (not well-formed, invalid vote data or incorrect signature)
+    /// Consensus received an invalid message (not well-formed, invalid vote
+    /// data or incorrect signature)
     ConsensusInvalidMessage,
 
     /// Consensus received an equivocating vote

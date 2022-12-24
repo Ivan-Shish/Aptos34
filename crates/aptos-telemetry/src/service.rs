@@ -3,6 +3,12 @@
 
 #![forbid(unsafe_code)]
 
+use crate::{
+    constants::*, core_metrics::create_core_metric_telemetry_event, metrics,
+    network_metrics::create_network_metric_telemetry_event, sender::TelemetrySender,
+    system_information::create_system_info_telemetry_event,
+    telemetry_log_sender::TelemetryLogSender, utils::create_build_info_telemetry_event,
+};
 use aptos_config::config::NodeConfig;
 use aptos_logger::{
     aptos_logger::RUST_LOG_TELEMETRY, prelude::*, telemetry_log_writer::TelemetryLog,
@@ -28,13 +34,6 @@ use tokio::{
     time,
 };
 use uuid::Uuid;
-
-use crate::{
-    constants::*, core_metrics::create_core_metric_telemetry_event, metrics,
-    network_metrics::create_network_metric_telemetry_event, sender::TelemetrySender,
-    system_information::create_system_info_telemetry_event,
-    telemetry_log_sender::TelemetryLogSender, utils::create_build_info_telemetry_event,
-};
 
 // The chain ID key
 const CHAIN_ID_KEY: &str = "CHAIN_ID";
@@ -161,9 +160,10 @@ async fn spawn_telemetry_service(
 
     if !force_enable_telemetry() && !telemetry_sender.check_chain_access(chain_id).await {
         warn!(
-                "Aptos telemetry is not sent to the telemetry service because the service is not configured for chain ID {}",
-                chain_id
-            );
+            "Aptos telemetry is not sent to the telemetry service because the service is not \
+             configured for chain ID {}",
+            chain_id
+        );
         // Spawn the custom event sender to send to GA4 only.
         // This is a temporary workaround while we deprecate and remove GA4 completely.
         let peer_id = fetch_peer_id(&node_config);
@@ -182,7 +182,11 @@ async fn spawn_telemetry_service(
             interval.tick().await;
             if telemetry_sender.check_chain_access(chain_id).await {
                 handle.abort();
-                info!("Aptos telemetry service is now configured for Chain ID {}. Starting telemetry service...", chain_id);
+                info!(
+                    "Aptos telemetry service is now configured for Chain ID {}. Starting \
+                     telemetry service...",
+                    chain_id
+                );
                 break;
             }
         }
@@ -248,7 +252,8 @@ fn try_spawn_custom_event_sender(
 fn try_spawn_metrics_sender(telemetry_sender: TelemetrySender) {
     if enable_prometheus_push_metrics() {
         tokio::spawn(async move {
-            // Periodically send ALL prometheus metrics (This replaces the previous core and network metrics implementation)
+            // Periodically send ALL prometheus metrics (This replaces the previous core and
+            // network metrics implementation)
             let mut interval =
                 time::interval(Duration::from_secs(PROMETHEUS_PUSH_METRICS_FREQ_SECS));
             loop {
@@ -536,14 +541,14 @@ fn spawn_telemetry_event_sender(
                     debug!("Failed telemetry response: {:?}", response.text().await);
                     metrics::increment_telemetry_failures(&event_name);
                 }
-            }
+            },
             Err(error) => {
                 debug!(
                     "Failed to send telemetry event: {}. Error: {:?}",
                     event_name, error
                 );
                 metrics::increment_telemetry_failures(&event_name);
-            }
+            },
         }
     })
 }

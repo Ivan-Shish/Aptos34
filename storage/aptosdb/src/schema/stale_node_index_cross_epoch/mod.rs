@@ -1,16 +1,17 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! Similar to `state_node_index`, this records the same node replacement information except that
-//! the stale nodes here are the latest in at least one epoch.
+//! Similar to `state_node_index`, this records the same node replacement
+//! information except that the stale nodes here are the latest in at least one
+//! epoch.
 //!
 //! ```text
 //! |<--------------key-------------->|
 //! | stale_since_version | node_key |
 //! ```
 //!
-//! `stale_since_version` is serialized in big endian so that records in RocksDB will be in order of
-//! its numeric value.
+//! `stale_since_version` is serialized in big endian so that records in RocksDB
+//! will be in order of its numeric value.
 
 use crate::schema::{
     ensure_slice_len_eq, ensure_slice_len_gt, STALE_NODE_INDEX_CROSS_EPOCH_CF_NAME,

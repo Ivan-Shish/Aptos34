@@ -9,8 +9,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// A simple wrapper for creating a temporary directory that is automatically deleted when it's
-/// dropped. Used in lieu of tempfile due to the large number of dependencies.
+/// A simple wrapper for creating a temporary directory that is automatically
+/// deleted when it's dropped. Used in lieu of tempfile due to the large number
+/// of dependencies.
 #[derive(Debug, PartialEq, Eq)]
 pub struct TempPath {
     path_buf: PathBuf,

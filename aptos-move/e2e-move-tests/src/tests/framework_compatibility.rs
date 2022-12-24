@@ -11,7 +11,8 @@ fn can_upgrade_framework_on_testnet() {
     let mut h = MoveHarness::new_testnet();
     h.increase_transaction_size();
 
-    // Upgrade all frameworks in bottom up order as they may have dependencies from each other
+    // Upgrade all frameworks in bottom up order as they may have dependencies from
+    // each other
     let acc1 = h.aptos_framework_account();
     publish(&acc1, &mut h, "move-stdlib");
     publish(&acc1, &mut h, "aptos-stdlib");
@@ -22,9 +23,9 @@ fn can_upgrade_framework_on_testnet() {
 
 fn publish(acc: &Account, h: &mut MoveHarness, path: &str) {
     match h.publish_package(acc, &common::framework_dir_path(path)) {
-        TransactionStatus::Keep(ExecutionStatus::Success) => {}
+        TransactionStatus::Keep(ExecutionStatus::Success) => {},
         s => {
             panic!("cannot publish `{}`: {:?}", path, s)
-        }
+        },
     }
 }

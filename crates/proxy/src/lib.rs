@@ -11,13 +11,14 @@ enum Ip {
     Network(IpNet),
 }
 
-/// A wrapper around a list of IP cidr blocks or addresses with a [IpMatcher::contains] method for
-/// checking if an IP address is contained within the matcher
+/// A wrapper around a list of IP cidr blocks or addresses with a
+/// [IpMatcher::contains] method for checking if an IP address is contained
+/// within the matcher
 #[derive(Clone, Debug, Default)]
 struct IpMatcher(Vec<Ip>);
 
-/// A wrapper around a list of domains with a [DomainMatcher::contains] method for checking if a
-/// domain is contained within the matcher
+/// A wrapper around a list of domains with a [DomainMatcher::contains] method
+/// for checking if a domain is contained within the matcher
 #[derive(Clone, Debug, Default)]
 struct DomainMatcher(Vec<String>);
 
@@ -71,8 +72,8 @@ impl Proxy {
 }
 
 impl NoProxy {
-    /// Returns a new no proxy configration if the no_proxy/NO_PROXY environment variable is set.
-    /// Returns None otherwise
+    /// Returns a new no proxy configration if the no_proxy/NO_PROXY environment
+    /// variable is set. Returns None otherwise
     fn new() -> Option<Self> {
         let raw = env::var("no_proxy")
             .or_else(|_| env::var("NO_PROXY"))
@@ -85,7 +86,8 @@ impl NoProxy {
         let parts = raw.split(',');
         for part in parts {
             match part.parse::<IpNet>() {
-                // If we can parse an IP net or address, then use it, otherwise, assume it is a domain
+                // If we can parse an IP net or address, then use it, otherwise, assume it is a
+                // domain
                 Ok(ip) => ips.push(Ip::Network(ip)),
                 Err(_) => match part.parse::<IpAddr>() {
                     Ok(addr) => ips.push(Ip::Address(addr)),
@@ -100,8 +102,8 @@ impl NoProxy {
     }
 
     fn contains(&self, host: &str) -> bool {
-        // According to RFC3986, raw IPv6 hosts will be wrapped in []. So we need to strip those off
-        // the end in order to parse correctly
+        // According to RFC3986, raw IPv6 hosts will be wrapped in []. So we need to
+        // strip those off the end in order to parse correctly
         let host = if host.starts_with('[') {
             let x: &[_] = &['[', ']'];
             host.trim_matches(x)
@@ -124,12 +126,12 @@ impl IpMatcher {
                     if &addr == address {
                         return true;
                     }
-                }
+                },
                 Ip::Network(net) => {
                     if net.contains(&addr) {
                         return true;
                     }
-                }
+                },
             }
         }
         false

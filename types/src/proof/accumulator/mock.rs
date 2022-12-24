@@ -12,14 +12,15 @@ use std::{cell::RefCell, collections::HashMap};
 
 type Children = (HashValue, Option<HashValue>);
 
-/// An immutable transaction accumulator (not a summary, since it stores all leaf
-/// nodes and caches internal nodes) that allows for easily computing root hashes,
-/// consistency proofs, etc... at any versions in the range `0..=self.version()`.
+/// An immutable transaction accumulator (not a summary, since it stores all
+/// leaf nodes and caches internal nodes) that allows for easily computing root
+/// hashes, consistency proofs, etc... at any versions in the range
+/// `0..=self.version()`.
 ///
-/// This implementation intentionally eschews the existing storage implementation
-/// and `Position` APIs to be as different as possible so we can better guarantee
-/// correctness across implementations. Here, we mostly use "naive" recursive
-/// algorithms (with internal caches).
+/// This implementation intentionally eschews the existing storage
+/// implementation and `Position` APIs to be as different as possible so we can
+/// better guarantee correctness across implementations. Here, we mostly use
+/// "naive" recursive algorithms (with internal caches).
 ///
 /// Note: intended for test-only code; panics whenever something goes wrong.
 #[derive(Clone, Debug)]
@@ -43,7 +44,8 @@ impl MockTransactionAccumulator {
         }
     }
 
-    /// Create an accumulator with some mock leaf hash values at the given version.
+    /// Create an accumulator with some mock leaf hash values at the given
+    /// version.
     pub fn with_version(version: Version) -> Self {
         Self::from_leaves(mock_txn_hashes(version))
     }
@@ -70,8 +72,8 @@ impl MockTransactionAccumulator {
         parent
     }
 
-    /// Get the accumulator root hash at a specific version. Note that this method
-    /// has the side effect of seeding the parent<->child caches.
+    /// Get the accumulator root hash at a specific version. Note that this
+    /// method has the side effect of seeding the parent<->child caches.
     pub fn get_root_hash(&self, version: Version) -> HashValue {
         assert!(version <= self.version());
         let leaves_view = &self.leaves[0..=version as usize];
@@ -101,9 +103,10 @@ impl MockTransactionAccumulator {
         }
     }
 
-    /// A node is frozen if it is complete. A node is complete if it's a leaf node
-    /// or both of its children are complete. Note that a complete right child
-    /// also implies that the left child is complete (since this is an accumulator).
+    /// A node is frozen if it is complete. A node is complete if it's a leaf
+    /// node or both of its children are complete. Note that a complete
+    /// right child also implies that the left child is complete (since this
+    /// is an accumulator).
     fn is_frozen(&self, subtree_root: HashValue) -> bool {
         // assert: subtree_root in internal node set
         match self.children(subtree_root) {
@@ -165,10 +168,11 @@ impl MockTransactionAccumulator {
     /// subtrees at the old subtree to the frozen subtrees at the new subtree.
     ///
     /// This method is recursive, typically starting at the root hashes for the
-    /// old and new accumulators. Note that the new accumulator root can start at
-    /// a greater height. After recursing left `height_diff` times, the old and
-    /// new subtree roots will be tracking the same position. When old and new
-    /// subtrees are tracking the same position, `height_diff == 0`.
+    /// old and new accumulators. Note that the new accumulator root can start
+    /// at a greater height. After recursing left `height_diff` times, the
+    /// old and new subtree roots will be tracking the same position. When
+    /// old and new subtrees are tracking the same position, `height_diff ==
+    /// 0`.
     ///
     /// The old subtree parameter is an Option; when None, it means there is no
     /// subtree at this position in the old accumulator.
@@ -232,9 +236,10 @@ impl MockTransactionAccumulator {
             // the new subtree is still above the old subtree (which is somewhere
             // in the new subtree's left descendents).
 
-            let (left, maybe_right) = self
-                .children(new_subtree)
-                .expect("non-zero height_diff implies new_subtree is an internal node, which must have children");
+            let (left, maybe_right) = self.children(new_subtree).expect(
+                "non-zero height_diff implies new_subtree is an internal node, which must have \
+                 children",
+            );
             let right = maybe_right
                 .expect("non-zero height_diff implies new subtree must have a right child");
             // recurse to the left
@@ -276,11 +281,12 @@ mod tests {
 
         let end_li = mock_ledger_info(end, accumulator.get_root_hash(end));
 
-        // check for { m1, m2 : 0 <= m1 <= m2 <= end } that accumulators A and B have the same root hash
-        // |------------------------------------------->|        A: accumulator
-        // |--------------->|------------>|------------>|        B: B_{None,m1}.extend(B_{m1,m2}).extend(B_{m2,end})
-        // 0               m1            m2            end
-        //    B_{None,m1}      B_{m1,m2}     B_{m2,end}    B_{i,j}: accumulator.consistency_proof(i, j)
+        // check for { m1, m2 : 0 <= m1 <= m2 <= end } that accumulators A and B have
+        // the same root hash |------------------------------------------->|
+        // A: accumulator |--------------->|------------>|------------>|
+        // B: B_{None,m1}.extend(B_{m1,m2}).extend(B_{m2,end}) 0
+        // m1            m2            end    B_{None,m1}      B_{m1,m2}
+        // B_{m2,end}    B_{i,j}: accumulator.consistency_proof(i, j)
         proptest!(|((m1, m2) in (0..=end).prop_flat_map(|m1| (Just(m1), m1..=end)))| {
             // B_{None,m1}
             let accumulator_summary = accumulator.get_accumulator_summary(m1);

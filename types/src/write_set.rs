@@ -1,8 +1,9 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! For each transaction the VM executes, the VM will output a `WriteSet` that contains each access
-//! path it updates. For each access path, the VM can either give its new value or delete it.
+//! For each transaction the VM executes, the VM will output a `WriteSet` that
+//! contains each access path it updates. For each access path, the VM can
+//! either give its new value or delete it.
 
 use crate::state_store::state_key::StateKey;
 use anyhow::{bail, Result};
@@ -60,22 +61,26 @@ impl TransactionWrite for WriteOp {
 impl std::fmt::Debug for WriteOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            WriteOp::Modification(value) => write!(
-                f,
-                "Modification({})",
-                value
-                    .iter()
-                    .map(|byte| format!("{:02x}", byte))
-                    .collect::<String>()
-            ),
-            WriteOp::Creation(value) => write!(
-                f,
-                "Creation({})",
-                value
-                    .iter()
-                    .map(|byte| format!("{:02x}", byte))
-                    .collect::<String>()
-            ),
+            WriteOp::Modification(value) => {
+                write!(
+                    f,
+                    "Modification({})",
+                    value
+                        .iter()
+                        .map(|byte| format!("{:02x}", byte))
+                        .collect::<String>()
+                )
+            },
+            WriteOp::Creation(value) => {
+                write!(
+                    f,
+                    "Creation({})",
+                    value
+                        .iter()
+                        .map(|byte| format!("{:02x}", byte))
+                        .collect::<String>()
+                )
+            },
             WriteOp::Deletion => write!(f, "Deletion"),
         }
     }
@@ -112,9 +117,10 @@ impl Deref for WriteSet {
     }
 }
 
-/// `WriteSet` contains all access paths that one transaction modifies. Each of them is a `WriteOp`
-/// where `Value(val)` means that serialized representation should be updated to `val`, and
-/// `Deletion` means that we are going to delete this access path.
+/// `WriteSet` contains all access paths that one transaction modifies. Each of
+/// them is a `WriteOp` where `Value(val)` means that serialized representation
+/// should be updated to `val`, and `Deletion` means that we are going to delete
+/// this access path.
 #[derive(
     BCSCryptoHash, Clone, CryptoHasher, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize,
 )]
@@ -138,7 +144,8 @@ impl WriteSetV0 {
 
 /// A mutable version of `WriteSet`.
 ///
-/// This is separate because it goes through validation before becoming an immutable `WriteSet`.
+/// This is separate because it goes through validation before becoming an
+/// immutable `WriteSet`.
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct WriteSetMut {
     write_set: BTreeMap<StateKey, WriteOp>,
@@ -189,19 +196,19 @@ impl WriteSetMut {
                         (Modification(_) | Creation(_), Creation(_))
                         | (Deletion, Deletion | Modification(_)) => {
                             bail!("The given change sets cannot be squashed")
-                        }
+                        },
                         (Modification(_), Modification(data)) => *r = Modification(data),
                         (Creation(_), Modification(data)) => *r = Creation(data),
                         (Modification(_), Deletion) => *r = Deletion,
                         (Deletion, Creation(data)) => *r = Modification(data),
                         (Creation(_), Deletion) => {
                             entry.remove();
-                        }
+                        },
                     }
-                }
+                },
                 Vacant(entry) => {
                     entry.insert(op);
-                }
+                },
             }
         }
 
@@ -220,8 +227,8 @@ impl ::std::iter::FromIterator<(StateKey, WriteOp)> for WriteSetMut {
 }
 
 impl<'a> IntoIterator for &'a WriteSet {
-    type Item = (&'a StateKey, &'a WriteOp);
     type IntoIter = btree_map::Iter<'a, StateKey, WriteOp>;
+    type Item = (&'a StateKey, &'a WriteOp);
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
@@ -231,8 +238,8 @@ impl<'a> IntoIterator for &'a WriteSet {
 }
 
 impl ::std::iter::IntoIterator for WriteSet {
-    type Item = (StateKey, WriteOp);
     type IntoIter = btree_map::IntoIter<StateKey, WriteOp>;
+    type Item = (StateKey, WriteOp);
 
     fn into_iter(self) -> Self::IntoIter {
         match self {

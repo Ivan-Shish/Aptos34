@@ -15,8 +15,10 @@ use move_core_types::{account_address::AccountAddress, value::MoveValue, vm_stat
 use move_vm_runtime::session::LoadedFunctionInstantiation;
 use move_vm_types::loaded_data::runtime_types::Type;
 use once_cell::sync::Lazy;
-use std::collections::BTreeMap;
-use std::io::{Cursor, Read};
+use std::{
+    collections::BTreeMap,
+    io::{Cursor, Read},
+};
 
 // A map which contains the structs allowed as transaction input and the
 // validation function for those, if one was needed (None otherwise).
@@ -37,7 +39,8 @@ static ALLOWED_STRUCTS: Lazy<BTreeMap<String, Option<ValidateArg>>> = Lazy::new(
 /// 2. number of signers is same as the number of senders
 /// 3. check arg types are allowed after signers
 ///
-/// after validation, add senders and non-signer arguments to generate the final args
+/// after validation, add senders and non-signer arguments to generate the final
+/// args
 pub(crate) fn validate_combine_signer_and_txn_args<S: MoveResolverExt>(
     session: &SessionExt<S>,
     senders: Vec<AccountAddress>,
@@ -57,7 +60,7 @@ pub(crate) fn validate_combine_signer_and_txn_args<S: MoveResolverExt>(
                 if matches!(&**inner_type, Type::Signer) {
                     signer_param_cnt += 1;
                 }
-            }
+            },
             _ => (),
         }
     }
@@ -101,7 +104,8 @@ pub(crate) fn validate_combine_signer_and_txn_args<S: MoveResolverExt>(
 }
 
 // Return whether the argument is valid/allowed and whether it needs validation.
-// Validation is only needed for String arguments at the moment and vectors of them.
+// Validation is only needed for String arguments at the moment and vectors of
+// them.
 pub(crate) fn is_valid_txn_arg<S: MoveResolverExt>(
     session: &SessionExt<S>,
     typ: &Type,
@@ -121,7 +125,7 @@ pub(crate) fn is_valid_txn_arg<S: MoveResolverExt>(
             } else {
                 (false, false)
             }
-        }
+        },
         Signer | Reference(_) | MutableReference(_) | TyParam(_) => (false, false),
     }
 }
@@ -149,8 +153,8 @@ pub(crate) fn validate_args<S: MoveResolverExt>(
     Ok(())
 }
 
-// Validate a single arg. A Cursor is used to walk the serialized arg manually and correctly.
-// Only Strings and nested vector of them are validated.
+// Validate a single arg. A Cursor is used to walk the serialized arg manually
+// and correctly. Only Strings and nested vector of them are validated.
 fn validate_arg<S: MoveResolverExt>(
     session: &SessionExt<S>,
     ty: &Type,
@@ -167,7 +171,7 @@ fn validate_arg<S: MoveResolverExt>(
                 validate_arg(session, inner, cursor, arg_len)?;
                 len -= 1;
             }
-        }
+        },
         // only strings are validated, and given we are here only if one was present
         // (`is_valid_txn_arg`), this match arm must be for a string
         Struct(idx) | StructInstantiation(idx, _) => {
@@ -180,7 +184,7 @@ fn validate_arg<S: MoveResolverExt>(
                     if size > arg_len {
                         return Err(VMStatus::Error(StatusCode::FAILED_TO_DESERIALIZE_ARGUMENT));
                     }
-                }
+                },
                 None => return Err(VMStatus::Error(StatusCode::FAILED_TO_DESERIALIZE_ARGUMENT)),
             }
             // load the serialized string
@@ -200,19 +204,20 @@ fn validate_arg<S: MoveResolverExt>(
             if let Some(validator) = option_validator {
                 validator(&s)?;
             }
-        }
+        },
         // this is unreachable given the check in `is_valid_txn_arg` and the
         // fact we collect all arguments that involve strings and we validate
         // them and them only
         Bool | U8 | U16 | U32 | U64 | U128 | U256 | Address | Signer | Reference(_)
         | MutableReference(_) | TyParam(_) => {
             unreachable!("Validation is only for arguments with String")
-        }
+        },
     })
 }
 
-// String is a vector of bytes, so both string and vector carry a length in the serialized format.
-// Length of vectors in BCS uses uleb128 as a compression format.
+// String is a vector of bytes, so both string and vector carry a length in the
+// serialized format. Length of vectors in BCS uses uleb128 as a compression
+// format.
 fn get_len(cursor: &mut Cursor<&[u8]>) -> Result<usize, VMStatus> {
     match read_uleb128_as_u64(cursor) {
         Err(_) => Err(VMStatus::Error(StatusCode::FAILED_TO_DESERIALIZE_ARGUMENT)),
@@ -220,12 +225,12 @@ fn get_len(cursor: &mut Cursor<&[u8]>) -> Result<usize, VMStatus> {
     }
 }
 
-//
 // Argument validation functions
 //
 
 // Check if a string is valid. This code is copied from string.rs in the stdlib.
-// TODO: change the move VM code (string.rs) to expose a function that does validation.
+// TODO: change the move VM code (string.rs) to expose a function that does
+// validation.
 fn check_string(s: &[u8]) -> Result<(), VMStatus> {
     match std::str::from_utf8(s) {
         Ok(_) => Ok(()),

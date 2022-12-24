@@ -47,8 +47,8 @@ impl MockSharedStorage {
     }
 }
 
-/// A storage that simulates the operations in-memory, used in the tests that cares about storage
-/// consistency.
+/// A storage that simulates the operations in-memory, used in the tests that
+/// cares about storage consistency.
 pub struct MockStorage {
     pub shared_storage: Arc<MockSharedStorage>,
     storage_ledger: Mutex<LedgerInfo>,
@@ -154,10 +154,10 @@ impl MockStorage {
 // A impl that always start from genesis.
 impl PersistentLivenessStorage for MockStorage {
     fn save_tree(&self, blocks: Vec<Block>, quorum_certs: Vec<QuorumCert>) -> Result<()> {
-        // When the shared storage is empty, we are expected to not able to construct an block tree
-        // from it. During test we will intentionally clear shared_storage to simulate the situation
-        // of restarting from an empty consensusDB
-        // info!("step 1.3.4.2.3.1");
+        // When the shared storage is empty, we are expected to not able to construct an
+        // block tree from it. During test we will intentionally clear
+        // shared_storage to simulate the situation of restarting from an empty
+        // consensusDB info!("step 1.3.4.2.3.1");
         let should_check_for_consistency = !(self.shared_storage.block.lock().is_empty()
             && self.shared_storage.qc.lock().is_empty());
         for block in blocks {
@@ -236,7 +236,8 @@ impl PersistentLivenessStorage for MockStorage {
     }
 }
 
-/// A storage that ignores any requests, used in the tests that don't care about the storage.
+/// A storage that ignores any requests, used in the tests that don't care about
+/// the storage.
 pub struct EmptyStorage;
 
 impl EmptyStorage {
@@ -287,7 +288,7 @@ impl PersistentLivenessStorage for EmptyStorage {
             Err(e) => {
                 eprintln!("{}", e);
                 panic!("Construct recovery data during genesis should never fail");
-            }
+            },
         }
     }
 

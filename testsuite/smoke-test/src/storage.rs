@@ -1,8 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::smoke_test_environment::SwarmBuilder;
 use crate::{
+    smoke_test_environment::SwarmBuilder,
     test_utils::{
         assert_balance, create_and_fund_account, swarm_utils::insert_waypoint,
         transfer_and_reconfig, transfer_coins,
@@ -49,8 +49,8 @@ async fn test_db_restore() {
     let account_1 = create_and_fund_account(&mut swarm, 1000000).await;
 
     info!("---------- 1.2 wait for nodes to catch up.");
-    // we need to wait for all nodes to see it, as client_1 is different node from the
-    // one creating accounts above
+    // we need to wait for all nodes to see it, as client_1 is different node from
+    // the one creating accounts above
     swarm
         .wait_for_all_nodes_to_catchup(Duration::from_secs(MAX_WAIT_SECS))
         .await

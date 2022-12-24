@@ -92,23 +92,27 @@ fn delta_chains() {
                     vec![],
                     keys.iter()
                         .enumerate()
-                        .filter_map(|(j, k)| match (i + j) % 2 == 0 {
-                            true => Some((
-                                *k,
-                                // Deterministic pattern for adds/subtracts.
-                                DeltaOp::new(
-                                    if (i % 2 == 0) == (j < 5) {
-                                        DeltaUpdate::Plus(10)
-                                    } else {
-                                        DeltaUpdate::Minus(1)
-                                    },
-                                    // below params irrelevant for this test.
-                                    u128::MAX,
-                                    0,
-                                    0,
-                                ),
-                            )),
-                            false => None,
+                        .filter_map(|(j, k)| {
+                            match (i + j) % 2 == 0 {
+                                true => {
+                                    Some((
+                                        *k,
+                                        // Deterministic pattern for adds/subtracts.
+                                        DeltaOp::new(
+                                            if (i % 2 == 0) == (j < 5) {
+                                                DeltaUpdate::Plus(10)
+                                            } else {
+                                                DeltaUpdate::Minus(1)
+                                            },
+                                            // below params irrelevant for this test.
+                                            u128::MAX,
+                                            0,
+                                            0,
+                                        ),
+                                    ))
+                                },
+                                false => None,
+                            }
                         })
                         .collect(),
                 )],
@@ -125,8 +129,8 @@ const WRITES_PER_KEY: u64 = 100;
 #[test]
 fn cycle_transactions() {
     let mut transactions = vec![];
-    // For every key in `TOTAL_KEY_NUM`, generate a series of transactions that will assign a
-    // value to this key.
+    // For every key in `TOTAL_KEY_NUM`, generate a series of transactions that will
+    // assign a value to this key.
     for _ in 0..TOTAL_KEY_NUM {
         let key = random::<[u8; 32]>();
         for _ in 0..WRITES_PER_KEY {
@@ -157,7 +161,8 @@ fn one_reads_all_barrier() {
                 writes_and_deltas: vec![(vec![(*key, random_value(false))], vec![])],
             })
         }
-        // One transaction reading the write results of every prior transactions in the block.
+        // One transaction reading the write results of every prior transactions in the
+        // block.
         transactions.push(Transaction::Write {
             incarnation: Arc::new(AtomicUsize::new(0)),
             reads: vec![keys.clone()],
@@ -181,7 +186,8 @@ fn one_writes_all_barrier() {
                 writes_and_deltas: vec![(vec![(*key, random_value(false))], vec![])],
             })
         }
-        // One transaction writing to the write results of every prior transactions in the block.
+        // One transaction writing to the write results of every prior transactions in
+        // the block.
         transactions.push(Transaction::Write {
             incarnation: Arc::new(AtomicUsize::new(0)),
             reads: vec![keys.clone()],
@@ -263,8 +269,8 @@ fn scheduler_tasks() {
         s.finish_execution(2, 0, true, TaskGuard::new(&fake_counter)),
         SchedulerTask::NoTask
     ));
-    // txn 2's finish validation pulled back validation index, so 4 will get validated
-    // and no need to return a validation task.
+    // txn 2's finish validation pulled back validation index, so 4 will get
+    // validated and no need to return a validation task.
     assert!(matches!(
         s.finish_execution(4, 0, false, TaskGuard::new(&fake_counter)),
         SchedulerTask::NoTask
@@ -464,7 +470,8 @@ fn scheduler_incarnation() {
         SchedulerTask::ValidationTask((3, 0), _)
     ));
 
-    // validation index is 4, so finish execution doesn't return validation task, next task does.
+    // validation index is 4, so finish execution doesn't return validation task,
+    // next task does.
     assert!(matches!(
         s.finish_execution(4, 1, false, TaskGuard::new(&fake_counter)),
         SchedulerTask::NoTask

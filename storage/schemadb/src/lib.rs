@@ -4,14 +4,15 @@
 #![forbid(unsafe_code)]
 
 //! This library implements a schematized DB on top of [RocksDB](https://rocksdb.org/). It makes
-//! sure all data passed in and out are structured according to predefined schemas and prevents
-//! access to raw keys and values. This library also enforces a set of specific DB options,
-//! like custom comparators and schema-to-column-family mapping.
+//! sure all data passed in and out are structured according to predefined
+//! schemas and prevents access to raw keys and values. This library also
+//! enforces a set of specific DB options, like custom comparators and
+//! schema-to-column-family mapping.
 //!
-//! It requires that different kinds of key-value pairs be stored in separate column
-//! families.  To use this library to store a kind of key-value pairs, the user needs to use the
-//! [`define_schema!`] macro to define the schema name, the types of key and value, and name of the
-//! column family.
+//! It requires that different kinds of key-value pairs be stored in separate
+//! column families.  To use this library to store a kind of key-value pairs,
+//! the user needs to use the [`define_schema!`] macro to define the schema
+//! name, the types of key and value, and name of the column family.
 
 mod metrics;
 #[macro_use]
@@ -30,14 +31,13 @@ use crate::{
 use anyhow::{format_err, Result};
 use aptos_infallible::Mutex;
 use aptos_logger::prelude::*;
-use std::{collections::HashMap, iter::Iterator, path::Path};
-
 use iterator::{ScanDirection, SchemaIterator};
 /// Type alias to `rocksdb::ReadOptions`. See [`rocksdb doc`](https://github.com/pingcap/rust-rocksdb/blob/master/src/rocksdb_options.rs)
 pub use rocksdb::{
     BlockBasedOptions, Cache, ColumnFamilyDescriptor, DBCompressionType, Options, ReadOptions,
     SliceTransform, DEFAULT_COLUMN_FAMILY_NAME,
 };
+use std::{collections::HashMap, iter::Iterator, path::Path};
 
 pub type ColumnFamilyName = &'static str;
 
@@ -47,8 +47,9 @@ enum WriteOp {
     Deletion { key: Vec<u8> },
 }
 
-/// `SchemaBatch` holds a collection of updates that can be applied to a DB atomically. The updates
-/// will be applied in the order in which they are added to the `SchemaBatch`.
+/// `SchemaBatch` holds a collection of updates that can be applied to a DB
+/// atomically. The updates will be applied in the order in which they are added
+/// to the `SchemaBatch`.
 #[derive(Debug)]
 pub struct SchemaBatch {
     rows: Mutex<HashMap<ColumnFamilyName, Vec<WriteOp>>>,
@@ -97,8 +98,8 @@ impl SchemaBatch {
     }
 }
 
-/// This DB is a schematized RocksDB wrapper where all data passed in and out are typed according to
-/// [`Schema`]s.
+/// This DB is a schematized RocksDB wrapper where all data passed in and out
+/// are typed according to [`Schema`]s.
 #[derive(Debug)]
 pub struct DB {
     name: &'static str, // for logging
@@ -139,8 +140,8 @@ impl DB {
     }
 
     /// Open db in readonly mode
-    /// Note that this still assumes there's only one process that opens the same DB.
-    /// See `open_as_secondary`
+    /// Note that this still assumes there's only one process that opens the
+    /// same DB. See `open_as_secondary`
     pub fn open_cf_readonly(
         opts: &rocksdb::Options,
         path: impl AsRef<Path>,
@@ -248,10 +249,10 @@ impl DB {
                         APTOS_SCHEMADB_PUT_BYTES
                             .with_label_values(&[cf_name])
                             .observe((key.len() + value.len()) as f64);
-                    }
+                    },
                     WriteOp::Deletion { key: _ } => {
                         APTOS_SCHEMADB_DELETES.with_label_values(&[cf_name]).inc();
-                    }
+                    },
                 }
             }
         }
@@ -271,8 +272,8 @@ impl DB {
         })
     }
 
-    /// Flushes memtable data. This is only used for testing `get_approximate_sizes_cf` in unit
-    /// tests.
+    /// Flushes memtable data. This is only used for testing
+    /// `get_approximate_sizes_cf` in unit tests.
     pub fn flush_cf(&self, cf_name: &str) -> Result<()> {
         Ok(self.inner.flush_cf(self.get_cf_handle(cf_name)?)?)
     }
@@ -296,9 +297,10 @@ impl DB {
     }
 }
 
-/// For now we always use synchronous writes. This makes sure that once the operation returns
-/// `Ok(())` the data is persisted even if the machine crashes. In the future we might consider
-/// selectively turning this off for some non-critical writes to improve performance.
+/// For now we always use synchronous writes. This makes sure that once the
+/// operation returns `Ok(())` the data is persisted even if the machine
+/// crashes. In the future we might consider selectively turning this off for
+/// some non-critical writes to improve performance.
 fn default_write_options() -> rocksdb::WriteOptions {
     let mut opts = rocksdb::WriteOptions::default();
     opts.set_sync(true);

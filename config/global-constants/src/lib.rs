@@ -1,11 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-//! The purpose of this crate is to offer a single source of truth for the definitions of shared
-//! constants within the codebase. This is useful because many different components within
-//! Aptos often require access to global constant definitions (e.g., Safety Rules,
-//! Key Manager, and Secure Storage). To avoid duplicating these definitions across crates
-//! (and better allow these constants to be updated in a single location), we define them here.
+//! The purpose of this crate is to offer a single source of truth for the
+//! definitions of shared constants within the codebase. This is useful because
+//! many different components within Aptos often require access to global
+//! constant definitions (e.g., Safety Rules, Key Manager, and Secure Storage).
+//! To avoid duplicating these definitions across crates (and better allow these
+//! constants to be updated in a single location), we define them here.
 #![forbid(unsafe_code)]
 
 /// Definitions of global cryptographic keys (e.g., as held in secure storage)
@@ -37,8 +38,8 @@ pub const MAX_GAS_AMOUNT: u64 = 1_000_000;
 pub const GAS_HEADROOM_NUMERATOR: u64 = 3;
 pub const GAS_HEADROOM_DENOMINATOR: u64 = 2;
 
-/// Gas costs are dynamic based on storage, so the simulation values need some headroom applied by
-/// the user if using it to estimate gas
+/// Gas costs are dynamic based on storage, so the simulation values need some
+/// headroom applied by the user if using it to estimate gas
 pub fn adjust_gas_headroom(gas_used: u64, max_possible_gas: u64) -> u64 {
     std::cmp::min(
         max_possible_gas,

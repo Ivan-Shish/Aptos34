@@ -13,13 +13,13 @@ use crate::{
 };
 use anyhow::{anyhow, ensure, Context, Result};
 use aptos_crypto::hash::HashValue;
-use aptos_types::write_set::WriteSet;
 use aptos_types::{
     contract_event::ContractEvent,
     ledger_info::LedgerInfoWithSignatures,
     proof::{SparseMerkleRangeProof, TransactionAccumulatorRangeProof, TransactionInfoWithProof},
     state_store::{state_key::StateKey, state_value::StateValue},
     transaction::{Transaction, TransactionInfo, Version},
+    write_set::WriteSet,
 };
 use serde::{Deserialize, Serialize};
 use std::{fmt, sync::Arc};
@@ -92,7 +92,8 @@ impl BackupHandler {
     }
 
     /// Gets the proof for a transaction chunk.
-    /// N.B. the `LedgerInfo` returned will always be in the same epoch of the `last_version`.
+    /// N.B. the `LedgerInfo` returned will always be in the same epoch of the
+    /// `last_version`.
     pub fn get_transaction_range_proof(
         &self,
         first_version: Version,
@@ -154,7 +155,8 @@ impl BackupHandler {
     }
 
     /// Gets the proof of the state root at specified version.
-    /// N.B. the `LedgerInfo` returned will always be in the same epoch of the version.
+    /// N.B. the `LedgerInfo` returned will always be in the same epoch of the
+    /// version.
     pub fn get_state_root_proof(
         &self,
         version: Version,

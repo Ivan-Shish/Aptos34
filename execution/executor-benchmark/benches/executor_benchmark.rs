@@ -16,7 +16,6 @@ pub const MEDIUM_BLOCK_SIZE: usize = 1000;
 pub const LARGE_BLOCK_SIZE: usize = 1000;
 pub const INITIAL_BALANCE: u64 = 1000000;
 
-//
 // Transaction benchmarks
 //
 
@@ -43,7 +42,8 @@ fn executor_benchmark<M: Measurement + 'static>(c: &mut Criterion<M>) {
     }
 
     let txns = generator.create_and_fund_accounts(
-        /*num_existing_accounts=*/ 0,
+        // num_existing_accounts=
+        0,
         NUM_ACCOUNTS,
         INITIAL_BALANCE,
         SMALL_BLOCK_SIZE,

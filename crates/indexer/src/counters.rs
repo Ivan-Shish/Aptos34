@@ -37,7 +37,8 @@ pub static PROCESSOR_SUCCESSES: Lazy<IntCounterVec> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Number of times the connection pool has timed out when trying to get a connection
+/// Number of times the connection pool has timed out when trying to get a
+/// connection
 pub static UNABLE_TO_GET_CONNECTION: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
         "indexer_connection_pool_err",
@@ -55,7 +56,8 @@ pub static GOT_CONNECTION: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Number of times the indexer has been unable to fetch a transaction. Ideally zero.
+/// Number of times the indexer has been unable to fetch a transaction. Ideally
+/// zero.
 pub static UNABLE_TO_FETCH_TRANSACTION: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
         "indexer_unable_to_fetch_transaction_count",

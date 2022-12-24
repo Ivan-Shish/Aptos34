@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 // The maximum message size per state sync message
-pub const MAX_MESSAGE_SIZE: usize = 4 * 1024 * 1024; /* 4 MiB */
+pub const MAX_MESSAGE_SIZE: usize = 4 * 1024 * 1024; // 4 MiB
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -20,9 +20,11 @@ pub struct StateSyncConfig {
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub enum BootstrappingMode {
     ApplyTransactionOutputsFromGenesis, // Applies transaction outputs (starting at genesis)
-    DownloadLatestStates, // Downloads the state keys and values (at the latest version)
+    DownloadLatestStates,               /* Downloads the state keys and values (at the latest
+                                         * version) */
     ExecuteTransactionsFromGenesis, // Executes transactions (starting at genesis)
-    ExecuteOrApplyFromGenesis, // Executes transactions or applies outputs from genesis (whichever is faster)
+    ExecuteOrApplyFromGenesis,      /* Executes transactions or applies outputs from genesis
+                                     * (whichever is faster) */
 }
 
 impl BootstrappingMode {
@@ -30,11 +32,11 @@ impl BootstrappingMode {
         match self {
             BootstrappingMode::ApplyTransactionOutputsFromGenesis => {
                 "apply_transaction_outputs_from_genesis"
-            }
+            },
             BootstrappingMode::DownloadLatestStates => "download_latest_states",
             BootstrappingMode::ExecuteTransactionsFromGenesis => {
                 "execute_transactions_from_genesis"
-            }
+            },
             BootstrappingMode::ExecuteOrApplyFromGenesis => "execute_or_apply_from_genesis",
         }
     }
@@ -47,7 +49,8 @@ impl BootstrappingMode {
 pub enum ContinuousSyncingMode {
     ApplyTransactionOutputs, // Applies transaction outputs to stay up-to-date
     ExecuteTransactions,     // Executes transactions to stay up-to-date
-    ExecuteTransactionsOrApplyOutputs, // Executes transactions or applies outputs to stay up-to-date (whichever is faster)
+    ExecuteTransactionsOrApplyOutputs, /* Executes transactions or applies outputs to stay
+                              * up-to-date (whichever is faster) */
 }
 
 impl ContinuousSyncingMode {
@@ -57,7 +60,7 @@ impl ContinuousSyncingMode {
             ContinuousSyncingMode::ExecuteTransactions => "execute_transactions",
             ContinuousSyncingMode::ExecuteTransactionsOrApplyOutputs => {
                 "execute_transactions_or_apply_outputs"
-            }
+            },
         }
     }
 }
@@ -66,17 +69,25 @@ impl ContinuousSyncingMode {
 #[serde(default, deny_unknown_fields)]
 pub struct StateSyncDriverConfig {
     pub bootstrapping_mode: BootstrappingMode, // The mode by which to bootstrap
-    pub commit_notification_timeout_ms: u64, // The max time taken to process a commit notification
-    pub continuous_syncing_mode: ContinuousSyncingMode, // The mode by which to sync after bootstrapping
-    pub enable_auto_bootstrapping: bool, // Enable auto-bootstrapping if no peers are found after `max_connection_deadline_secs`
-    pub fallback_to_output_syncing_secs: u64, // The duration to fallback to output syncing after an execution failure
+    pub commit_notification_timeout_ms: u64,   /* The max time taken to process a commit
+                                                * notification */
+    pub continuous_syncing_mode: ContinuousSyncingMode, /* The mode by which to sync after
+                                                         * bootstrapping */
+    pub enable_auto_bootstrapping: bool, /* Enable auto-bootstrapping if no peers are found
+                                          * after `max_connection_deadline_secs` */
+    pub fallback_to_output_syncing_secs: u64, /* The duration to fallback to output syncing
+                                               * after an execution failure */
     pub progress_check_interval_ms: u64, // The interval (ms) at which to check state sync progress
-    pub max_connection_deadline_secs: u64, // The max time (secs) to wait for connections from peers before auto-bootstrapping
-    pub max_consecutive_stream_notifications: u64, // The max number of notifications to process per driver loop
-    pub max_num_stream_timeouts: u64, // The max number of stream timeouts allowed before termination
+    pub max_connection_deadline_secs: u64, /* The max time (secs) to wait for connections from
+                                          * peers before auto-bootstrapping */
+    pub max_consecutive_stream_notifications: u64, /* The max number of notifications to process
+                                                    * per driver loop */
+    pub max_num_stream_timeouts: u64, /* The max number of stream timeouts allowed before
+                                       * termination */
     pub max_pending_data_chunks: u64, // The max number of data chunks pending execution or commit
     pub max_stream_wait_time_ms: u64, // The max time (ms) to wait for a data stream notification
-    pub num_versions_to_skip_snapshot_sync: u64, // The version lag we'll tolerate before snapshot syncing
+    pub num_versions_to_skip_snapshot_sync: u64, /* The version lag we'll tolerate before
+                                       * snapshot syncing */
 }
 
 /// The default state sync driver config will be the one that gets (and keeps)
@@ -95,7 +106,8 @@ impl Default for StateSyncDriverConfig {
             max_num_stream_timeouts: 12,
             max_pending_data_chunks: 100,
             max_stream_wait_time_ms: 5000,
-            num_versions_to_skip_snapshot_sync: 100_000_000, // At 5k TPS, this allows a node to fail for about 6 hours.
+            num_versions_to_skip_snapshot_sync: 100_000_000, /* At 5k TPS, this allows a node to
+                                                              * fail for about 6 hours. */
         }
     }
 }
@@ -112,7 +124,8 @@ pub struct StorageServiceConfig {
     pub max_subscription_period_ms: u64, // Max period (ms) of pending subscription requests
     pub max_transaction_chunk_size: u64, // Max num of transactions per chunk
     pub max_transaction_output_chunk_size: u64, // Max num of transaction outputs per chunk
-    pub storage_summary_refresh_interval_ms: u64, // The interval (ms) to refresh the storage summary
+    pub storage_summary_refresh_interval_ms: u64, /* The interval (ms) to refresh the storage
+                                       * summary */
 }
 
 impl Default for StorageServiceConfig {
@@ -180,12 +193,14 @@ impl Default for DataStreamingServiceConfig {
 pub struct AptosDataClientConfig {
     pub max_num_in_flight_priority_polls: u64, // Max num of in-flight polls for priority peers
     pub max_num_in_flight_regular_polls: u64,  // Max num of in-flight polls for regular peers
-    pub max_num_output_reductions: u64, // The max num of output reductions before transactions are returned
-    pub max_response_timeout_ms: u64, // Max timeout (in ms) when waiting for a response (after exponential increases)
-    pub response_timeout_ms: u64,     // First timeout (in ms) when waiting for a response
+    pub max_num_output_reductions: u64,        /* The max num of output reductions before
+                                                * transactions are returned */
+    pub max_response_timeout_ms: u64, /* Max timeout (in ms) when waiting for a response (after
+                                       * exponential increases) */
+    pub response_timeout_ms: u64, // First timeout (in ms) when waiting for a response
     pub subscription_timeout_ms: u64, // Timeout (in ms) when waiting for a subscription response
     pub summary_poll_interval_ms: u64, // Interval (in ms) between data summary polls
-    pub use_compression: bool,        // Whether or not to request compression for incoming data
+    pub use_compression: bool,    // Whether or not to request compression for incoming data
 }
 
 impl Default for AptosDataClientConfig {

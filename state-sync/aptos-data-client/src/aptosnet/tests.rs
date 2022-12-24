@@ -172,7 +172,7 @@ impl MockNetwork {
                 Entry::Occupied(inner) => {
                     inner.get_mut().status = state;
                     Ok(())
-                }
+                },
             })
             .unwrap();
     }
@@ -193,7 +193,7 @@ impl MockNetwork {
                 let response_sender = ResponseSender::new(res_tx);
 
                 Some((peer_id, protocol, request, response_sender))
-            }
+            },
             Some(PeerManagerRequest::SendDirectSend(_, _)) => panic!("Unexpected direct send msg"),
             None => None,
         }
@@ -257,7 +257,7 @@ async fn request_works_only_when_data_available() {
                 start_version: 50,
                 end_version: 100,
                 proof_version: 100,
-                include_events: false,
+                include_events: false
             })
         );
 
@@ -350,7 +350,8 @@ async fn fetch_peers_ordering() {
             .unwrap()
             .unwrap();
 
-        // Request another peer again and verify that it's different to the previous peer
+        // Request another peer again and verify that it's different to the previous
+        // peer
         let peer_to_poll_2 = fetch_peer_to_poll(client.clone(), is_priority_peer)
             .unwrap()
             .unwrap();
@@ -848,7 +849,8 @@ async fn all_peer_request_selection() {
         Ok(regular_peer_1)
     );
 
-    // Advertise the data for the priority peer and verify the priority peer is selected
+    // Advertise the data for the priority peer and verify the priority peer is
+    // selected
     client.update_summary(priority_peer_2, mock_storage_summary(100));
     let peer_for_request = client.choose_peer_for_request(&storage_request).unwrap();
     assert_eq!(peer_for_request, priority_peer_2);
@@ -863,12 +865,14 @@ async fn all_peer_request_selection() {
         Ok(regular_peer_1)
     );
 
-    // Advertise the data for priority peer 1 and verify the priority peer is selected
+    // Advertise the data for priority peer 1 and verify the priority peer is
+    // selected
     client.update_summary(priority_peer_1, mock_storage_summary(100));
     let peer_for_request = client.choose_peer_for_request(&storage_request).unwrap();
     assert_eq!(peer_for_request, priority_peer_1);
 
-    // Advertise the data for priority peer 2 and verify either priority peer is selected
+    // Advertise the data for priority peer 2 and verify either priority peer is
+    // selected
     client.update_summary(priority_peer_2, mock_storage_summary(100));
     let peer_for_request = client.choose_peer_for_request(&storage_request).unwrap();
     assert!(peer_for_request == priority_peer_1 || peer_for_request == priority_peer_2);
@@ -951,7 +955,8 @@ async fn pfn_peer_prioritization() {
 // 2. one advertises bad range, one advertises honest range
 // 3. sending a bunch of requests to the bad range (which will always go to the
 //    bad peer) should lower bad peer's score
-// 4. eventually bad peer score should hit threshold and we err with no available
+// 4. eventually bad peer score should hit threshold and we err with no
+// available
 #[tokio::test]
 async fn bad_peer_is_eventually_banned_internal() {
     ::aptos_logger::Logger::init_for_testing();
@@ -1072,10 +1077,10 @@ async fn bad_peer_is_eventually_banned_callback() {
                         .context
                         .response_callback
                         .notify_bad_response(crate::ResponseError::ProofVerificationError);
-                }
+                },
                 Err(Error::DataIsUnavailable(_)) => {
                     seen_data_unavailable_err = true;
-                }
+                },
                 Err(_) => panic!("unexpected result: {:?}", result),
             }
         } else {
@@ -1248,7 +1253,7 @@ async fn disable_compression() {
                 start_version: 50,
                 end_version: 100,
                 proof_version: 100,
-                include_events: false,
+                include_events: false
             })
         );
 
@@ -1288,7 +1293,7 @@ async fn bad_peer_is_eventually_added_back() {
                         request.use_compression,
                     )
                     .unwrap()));
-                }
+                },
                 DataRequest::GetStorageServerSummary => {
                     let data_response =
                         DataResponse::StorageServerSummary(mock_storage_summary(200));
@@ -1297,7 +1302,7 @@ async fn bad_peer_is_eventually_added_back() {
                         request.use_compression,
                     )
                     .unwrap()));
-                }
+                },
                 _ => panic!("unexpected: {:?}", request),
             }
         }

@@ -1,8 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::metrics::OTHER_TIMERS_SECONDS;
-use crate::utils::stream::StreamX;
 use crate::{
     backup_types::{
         epoch_ending::restore::EpochHistory, state_snapshot::manifest::StateSnapshotBackup,
@@ -15,11 +13,12 @@ use crate::{
             VERIFY_STATE_SNAPSHOT_LEAF_INDEX, VERIFY_STATE_SNAPSHOT_TARGET_LEAF_INDEX,
             VERIFY_STATE_SNAPSHOT_VERSION,
         },
+        OTHER_TIMERS_SECONDS,
     },
     storage::{BackupStorage, FileHandle},
     utils::{
-        read_record_bytes::ReadRecordBytes, storage_ext::BackupStorageExt, GlobalRestoreOptions,
-        RestoreRunMode,
+        read_record_bytes::ReadRecordBytes, storage_ext::BackupStorageExt, stream::StreamX,
+        GlobalRestoreOptions, RestoreRunMode,
     },
 };
 use anyhow::{anyhow, ensure, Result};
@@ -57,8 +56,9 @@ pub struct StateSnapshotRestoreController {
     /// State snapshot restores to this version.
     version: Version,
     manifest_handle: FileHandle,
-    /// Global "target_version" for the entire restore process, if `version` is newer than this,
-    /// nothing will be done, otherwise, this has no effect.
+    /// Global "target_version" for the entire restore process, if `version` is
+    /// newer than this, nothing will be done, otherwise, this has no
+    /// effect.
     target_version: Version,
     epoch_history: Option<Arc<EpochHistory>>,
     concurrent_downloads: usize,
@@ -104,9 +104,9 @@ impl StateSnapshotRestoreController {
     async fn run_impl(self) -> Result<()> {
         if self.version > self.target_version {
             warn!(
-                "Trying to restore state snapshot to version {}, which is newer than the target version {}, skipping.",
-                self.version,
-                self.target_version,
+                "Trying to restore state snapshot to version {}, which is newer than the target \
+                 version {}, skipping.",
+                self.version, self.target_version,
             );
             return Ok(());
         }

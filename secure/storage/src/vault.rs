@@ -12,6 +12,8 @@ use aptos_crypto::{
 use aptos_infallible::RwLock;
 use aptos_time_service::{TimeService, TimeServiceTrait};
 use aptos_vault_client::Client;
+#[cfg(any(test, feature = "testing"))]
+use aptos_vault_client::ReadResponse;
 use chrono::DateTime;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -19,18 +21,15 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-#[cfg(any(test, feature = "testing"))]
-use aptos_vault_client::ReadResponse;
-
 const TRANSIT_NAMESPACE_SEPARATOR: &str = "__";
 
-/// VaultStorage utilizes Vault for maintaining encrypted, authenticated data. This
-/// version currently matches the behavior of OnDiskStorage and InMemoryStorage. In the future,
-/// Vault will be able to create keys, sign messages, and handle permissions across different
-/// services. The specific vault service leveraged herein is called KV (Key Value) Secrets Engine -
-/// Version 2 (<https://www.vaultproject.io/api/secret/kv/kv-v2.html>). So while Secure Storage
-/// calls pointers to data keys, Vault has actually a secret that contains multiple key value
-/// pairs.
+/// VaultStorage utilizes Vault for maintaining encrypted, authenticated data.
+/// This version currently matches the behavior of OnDiskStorage and
+/// InMemoryStorage. In the future, Vault will be able to create keys, sign
+/// messages, and handle permissions across different services. The specific
+/// vault service leveraged herein is called KV (Key Value) Secrets Engine - Version 2 (<https://www.vaultproject.io/api/secret/kv/kv-v2.html>). So while Secure Storage
+/// calls pointers to data keys, Vault has actually a secret that contains
+/// multiple key value pairs.
 pub struct VaultStorage {
     client: Client,
     time_service: TimeService,
@@ -261,7 +260,7 @@ impl CryptoStorage for VaultStorage {
                     .ok_or_else(|| Error::KeyVersionNotFound(name, "previous version".into()))?
                     .value
                     .clone())
-            }
+            },
             None => Err(Error::KeyVersionNotFound(name, "previous version".into())),
         }
     }
@@ -315,13 +314,14 @@ pub mod policy {
 
     const APTOS_DEFAULT: &str = "aptos_default";
 
-    /// VaultStorage utilizes Vault for maintaining encrypted, authenticated data. This
-    /// version currently matches the behavior of OnDiskStorage and InMemoryStorage. In the future,
-    /// Vault will be able to create keys, sign messages, and handle permissions across different
-    /// services. The specific vault service leveraged herein is called KV (Key Value) Secrets Engine -
-    /// Version 2 (https://www.vaultproject.io/api/secret/kv/kv-v2.html). So while Secure Storage
-    /// calls pointers to data keys, Vault has actually a secret that contains multiple key value
-    /// pairs.
+    /// VaultStorage utilizes Vault for maintaining encrypted, authenticated
+    /// data. This version currently matches the behavior of OnDiskStorage
+    /// and InMemoryStorage. In the future, Vault will be able to create
+    /// keys, sign messages, and handle permissions across different
+    /// services. The specific vault service leveraged herein is called KV (Key
+    /// Value) Secrets Engine - Version 2 (https://www.vaultproject.io/api/secret/kv/kv-v2.html). So while Secure Storage
+    /// calls pointers to data keys, Vault has actually a secret that contains
+    /// multiple key value pairs.
     pub struct VaultPolicy {
         vault: VaultStorage,
         namespace: Option<String>,
@@ -368,9 +368,10 @@ pub mod policy {
             Ok(result)
         }
 
-        /// Create a new policy in Vault, see the explanation for Policy for how the data is
-        /// structured. Vault does not distingush a create and update. An update must first read the
-        /// existing policy, amend the contents,  and then be applied via this API.
+        /// Create a new policy in Vault, see the explanation for Policy for how
+        /// the data is structured. Vault does not distingush a create
+        /// and update. An update must first read the existing policy,
+        /// amend the contents,  and then be applied via this API.
         pub fn set_policy(
             &self,
             policy_name: &str,
@@ -388,18 +389,18 @@ pub mod policy {
                         let export_capability = vec![vault::Capability::Read];
                         let export_policy = format!("transit/export/signing-key/{}", key);
                         vault_policy.add_policy(&export_policy, export_capability);
-                    }
+                    },
                     Capability::Read => core_capabilities.push(vault::Capability::Read),
                     Capability::Rotate => {
                         let rotate_capability = vec![vault::Capability::Update];
                         let rotate_policy = format!("transit/keys/{}/rotate", key);
                         vault_policy.add_policy(&rotate_policy, rotate_capability);
-                    }
+                    },
                     Capability::Sign => {
                         let sign_capability = vec![vault::Capability::Update];
                         let sign_policy = format!("transit/sign/{}", key);
                         vault_policy.add_policy(&sign_policy, sign_capability);
-                    }
+                    },
                     Capability::Write => core_capabilities.push(vault::Capability::Update),
                 }
             }
@@ -421,7 +422,7 @@ pub mod policy {
                     Identity::User(id) => self.set_policy(id, engine, name, &perm.capabilities)?,
                     Identity::Anyone => {
                         self.set_policy(APTOS_DEFAULT, engine, name, &perm.capabilities)?
-                    }
+                    },
                     Identity::NoOne => (),
                 };
             }

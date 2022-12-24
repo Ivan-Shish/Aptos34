@@ -57,7 +57,8 @@ mod tests {
     /// 400 - params not provided or failed parsing
     /// 500 - endpoint handler raised error
     ///
-    /// And failure on one endpoint doesn't result in warp::Rejection which makes it fallback to other matches.
+    /// And failure on one endpoint doesn't result in warp::Rejection which
+    /// makes it fallback to other matches.
     #[test]
     fn routing_and_error_codes() {
         let tmpdir = TempPath::new();
@@ -98,9 +99,10 @@ mod tests {
         let resp = get(&format!("http://127.0.0.1:{}/state_root_proof/0", port)).unwrap();
         assert_eq!(resp.status(), 500);
 
-        // In an endpoint handled by `reply_with_async_channel_writer', connection terminates
-        // prematurely when the channel writer errors. However a 200 is either returned or not
-        // before the termination of the connection, resulting in slightly different behavior:
+        // In an endpoint handled by `reply_with_async_channel_writer', connection
+        // terminates prematurely when the channel writer errors. However a 200
+        // is either returned or not before the termination of the connection,
+        // resulting in slightly different behavior:
         let res = get(&format!("http://127.0.0.1:{}/state_snapshot/1", port));
         assert!(res.is_err() || res.unwrap().bytes().is_err());
     }

@@ -3,9 +3,9 @@
 
 //! This module defines physical storage schema for the event accumulator.
 //!
-//! Each version has its own event accumulator and a hash value is stored on each position within an
-//! accumulator. See `storage/accumulator/lib.rs` for details.
-//! ```text
+//! Each version has its own event accumulator and a hash value is stored on
+//! each position within an accumulator. See `storage/accumulator/lib.rs` for
+//! details. ```text
 //! |<--------key------->|<-value->|
 //! | version | position |  hash   |
 //! ```

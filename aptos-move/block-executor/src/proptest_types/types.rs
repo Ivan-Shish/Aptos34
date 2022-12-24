@@ -104,12 +104,14 @@ where
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct KeyType<K: Hash + Clone + Debug + PartialOrd + Ord + Eq>(
-    /// Wrapping the types used for testing to add ModulePath trait implementation (below).
+    /// Wrapping the types used for testing to add ModulePath trait
+    /// implementation (below).
     pub K,
-    /// The bool field determines for testing purposes, whether the key will be interpreted
-    /// as a module access path. In this case, if a module path is both read and written
-    /// during parallel execution, Error::ModulePathReadWrite must be returned and the
-    /// block execution must fall back to the sequential execution.
+    /// The bool field determines for testing purposes, whether the key will be
+    /// interpreted as a module access path. In this case, if a module path
+    /// is both read and written during parallel execution,
+    /// Error::ModulePathReadWrite must be returned and the block execution
+    /// must fall back to the sequential execution.
     pub bool,
 );
 
@@ -134,11 +136,13 @@ impl<K: Hash + Clone + Debug + Eq + PartialOrd + Ord> ModulePath for KeyType<K> 
 
 #[derive(Debug, Clone, PartialEq, Eq, Arbitrary)]
 pub struct ValueType<V: Into<Vec<u8>> + Debug + Clone + Eq + Arbitrary>(
-    /// Wrapping the types used for testing to add TransactionWrite trait implementation (below).
+    /// Wrapping the types used for testing to add TransactionWrite trait
+    /// implementation (below).
     pub V,
-    /// Determines whether V is going to contain a value (o.w. deletion). This is useful for
-    /// testing the bahavior of deleting aggregators, in which case we shouldn't panic
-    /// but let the Move-VM handle the read the same as for any deleted resource.
+    /// Determines whether V is going to contain a value (o.w. deletion). This
+    /// is useful for testing the bahavior of deleting aggregators, in which
+    /// case we shouldn't panic but let the Move-VM handle the read the same
+    /// as for any deleted resource.
     pub bool,
 );
 
@@ -158,48 +162,60 @@ impl<V: Into<Vec<u8>> + Debug + Clone + Eq + Send + Sync + Arbitrary> Transactio
 
 #[derive(Clone, Copy)]
 pub struct TransactionGenParams {
-    /// Each transaction's write-set consists of between 1 and write_size-1 many writes.
+    /// Each transaction's write-set consists of between 1 and write_size-1 many
+    /// writes.
     pub write_size: usize,
-    /// Each transaction's read-set consists of between 1 and read_size-1 many reads.
+    /// Each transaction's read-set consists of between 1 and read_size-1 many
+    /// reads.
     pub read_size: usize,
-    /// The number of different read- and write-sets that an execution of the transaction may have
-    /// is going to be between 1 and read_write_alternatives-1, i.e. read_write_alternatives = 2
-    /// corresponds to a static transaction, while read_write_alternatives > 1 may lead to dynamic
-    /// behavior when executing different incarnations of the transaction.
+    /// The number of different read- and write-sets that an execution of the
+    /// transaction may have is going to be between 1 and
+    /// read_write_alternatives-1, i.e. read_write_alternatives = 2
+    /// corresponds to a static transaction, while read_write_alternatives > 1
+    /// may lead to dynamic behavior when executing different incarnations
+    /// of the transaction.
     pub read_write_alternatives: usize,
 }
 
 #[derive(Arbitrary, Debug, Clone)]
 #[proptest(params = "TransactionGenParams")]
 pub struct TransactionGen<V: Into<Vec<u8>> + Arbitrary + Clone + Debug + Eq + 'static> {
-    /// Generate keys and values for possible write-sets based on above transaction gen parameters.
+    /// Generate keys and values for possible write-sets based on above
+    /// transaction gen parameters.
     #[proptest(
-        strategy = "vec(vec((any::<Index>(), any::<V>()), 1..params.write_size), 1..params.read_write_alternatives)"
+        strategy = "vec(vec((any::<Index>(), any::<V>()), 1..params.write_size), \
+                    1..params.read_write_alternatives)"
     )]
     keys_modified: Vec<Vec<(Index, V)>>,
-    /// Generate keys for possible read-sets of the transaction based on the above parameters.
-    #[proptest(
-        strategy = "vec(vec(any::<Index>(), 1..params.read_size), 1..params.read_write_alternatives)"
-    )]
+    /// Generate keys for possible read-sets of the transaction based on the
+    /// above parameters.
+    #[proptest(strategy = "vec(vec(any::<Index>(), 1..params.read_size), \
+                           1..params.read_write_alternatives)")]
     keys_read: Vec<Vec<Index>>,
 }
 
-/// A naive transaction that could be used to test the correctness and throughput of the system.
-/// To test transaction behavior where reads and writes might be dynamic (depend on previously
-/// read values), different read and writes sets are generated and used depending on the incarnation
-/// counter value. Each execution of the transaction increments the incarnation counter, and its
-/// value determines the index for choosing the read & write sets of the particular execution.
+/// A naive transaction that could be used to test the correctness and
+/// throughput of the system. To test transaction behavior where reads and
+/// writes might be dynamic (depend on previously read values), different read
+/// and writes sets are generated and used depending on the incarnation
+/// counter value. Each execution of the transaction increments the incarnation
+/// counter, and its value determines the index for choosing the read & write
+/// sets of the particular execution.
 #[derive(Debug, Clone)]
 pub enum Transaction<K, V> {
     Write {
-        /// Incarnation counter for dynamic behavior i.e. incarnations differ in reads and writes.
+        /// Incarnation counter for dynamic behavior i.e. incarnations differ in
+        /// reads and writes.
         incarnation: Arc<AtomicUsize>,
-        /// Vector of all possible write-sets and delta-sets of transaction execution (chosen round-robin
-        /// depending on the incarnation counter value). Each write set is a vector describing writes, each
-        /// to a key with a provided value. Each delta-set contains keys and the corresponding DeltaOps.
+        /// Vector of all possible write-sets and delta-sets of transaction
+        /// execution (chosen round-robin depending on the incarnation
+        /// counter value). Each write set is a vector describing writes, each
+        /// to a key with a provided value. Each delta-set contains keys and the
+        /// corresponding DeltaOps.
         writes_and_deltas: Vec<(Vec<(K, V)>, Vec<(K, DeltaOp)>)>,
-        /// Vector of all possible read-sets of the transaction execution (chosen round-robin depending
-        /// on the incarnation counter value). Each read set is a vector of keys that are read.
+        /// Vector of all possible read-sets of the transaction execution
+        /// (chosen round-robin depending on the incarnation counter
+        /// value). Each read set is a vector of keys that are read.
         reads: Vec<Vec<K>>,
     },
     /// Skip the execution of trailing transactions.
@@ -260,7 +276,7 @@ impl<V: Into<Vec<u8>> + Arbitrary + Clone + Debug + Eq + Sync + Send> Transactio
                                 KeyType(key, module_write_fn(i)),
                                 ValueType(value.clone(), !is_deletion),
                             ));
-                        }
+                        },
                     }
                 }
             }
@@ -406,10 +422,10 @@ where
     K: PartialOrd + Ord + Send + Sync + Clone + Hash + Eq + ModulePath + 'static,
     V: Send + Sync + Debug + Clone + TransactionWrite + 'static,
 {
-    type Txn = Transaction<K, V>;
-    type Output = Output<K, V>;
-    type Error = usize;
     type Argument = ();
+    type Error = usize;
+    type Output = Output<K, V>;
+    type Txn = Transaction<K, V>;
 
     fn init(_argument: Self::Argument) -> Self {
         Self::new()
@@ -447,7 +463,7 @@ where
                     writes_and_deltas[write_idx].1.clone(),
                     reads_result,
                 ))
-            }
+            },
             Transaction::SkipRest => ExecutionStatus::SkipRest(Output(vec![], vec![], vec![])),
             Transaction::Abort => ExecutionStatus::Abort(txn_idx),
         }
@@ -490,7 +506,8 @@ pub enum ExpectedOutput<V> {
 }
 
 impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
-    /// Must be invoked after parallel execution to work with dynamic read/writes.
+    /// Must be invoked after parallel execution to work with dynamic
+    /// read/writes.
     pub fn generate_baseline<K: Hash + Clone + Eq>(
         txns: &[Transaction<K, V>],
         resolved_deltas: Option<Vec<Vec<(K, WriteOp)>>>,
@@ -557,14 +574,14 @@ impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
                                         .unwrap()
                                         .into(),
                                 );
-                            }
+                            },
                             None => {
                                 let base = match (&latest_write, delta_world.remove(k)) {
                                     (Some(_), Some(_)) => {
                                         unreachable!(
                                             "Must record latest value or resolved delta, not both"
                                         );
-                                    }
+                                    },
                                     // Get base value from the latest write.
                                     (Some(w_value), None) => AggregatorValue::from_write(w_value)
                                         .map(|value| value.into()),
@@ -581,19 +598,19 @@ impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
                                             return Self::DeltaFailure(idx, result_vec);
                                         }
                                         delta_world.insert(k.clone(), applied_delta.unwrap());
-                                    }
+                                    },
                                     None => {
                                         // Latest write was a deletion, can't resolve any delta to
                                         // it, must keep the deletion as the latest Op.
                                         current_world.insert(k.clone(), latest_write.unwrap());
-                                    }
+                                    },
                                 }
-                            }
+                            },
                         }
                     }
 
                     result_vec.push(result)
-                }
+                },
                 Transaction::SkipRest => return Self::SkipRest(idx, result_vec),
             }
         }
@@ -608,31 +625,31 @@ impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
                 Some(value) => match expected_result {
                     (Some(v), None) => {
                         assert_eq!(v.extract_raw_bytes().unwrap(), *value);
-                    }
+                    },
                     (None, Some(v)) => {
                         assert_eq!(serialize(v), *value);
-                    }
+                    },
                     (Some(_), Some(_)) => unreachable!("A"),
                     (None, None) => {
                         assert_eq!(deserialize(value), STORAGE_AGGREGATOR_VALUE);
-                    }
+                    },
                 },
                 None => {
                     if let Some(val) = &expected_result.0 {
                         assert_none!(val.extract_raw_bytes());
                     }
                     assert_eq!(expected_result.1, None);
-                }
+                },
             })
     }
 
-    // Used for testing, hence the function asserts the correctness conditions within
-    // itself to be easily traceable in case of an error.
+    // Used for testing, hence the function asserts the correctness conditions
+    // within itself to be easily traceable in case of an error.
     pub fn assert_output<K>(&self, results: &Result<Vec<Output<K, V>>, usize>) {
         match (self, results) {
             (Self::Aborted(i), Err(Error::UserError(idx))) => {
                 assert_eq!(i, idx);
-            }
+            },
             (Self::SkipRest(skip_at, expected_results), Ok(results)) => {
                 // Check_result asserts internally, so no need to return a bool.
                 results
@@ -647,7 +664,7 @@ impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
                     .iter()
                     .skip(*skip_at)
                     .for_each(|Output(_, _, result)| assert!(result.is_empty()))
-            }
+            },
             (Self::DeltaFailure(fail_idx, expected_results), Ok(results)) => {
                 // Check_result asserts internally, so no need to return a bool.
                 results
@@ -657,7 +674,7 @@ impl<V: Debug + Clone + PartialEq + Eq + TransactionWrite> ExpectedOutput<V> {
                     .for_each(|(Output(_, _, result), expected_results)| {
                         Self::check_result(expected_results, result)
                     });
-            }
+            },
             (Self::Success(expected_results), Ok(results)) => results
                 .iter()
                 .zip(expected_results.iter())

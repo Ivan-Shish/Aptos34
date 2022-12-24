@@ -30,8 +30,9 @@ impl PollRateLimiter {
     }
 
     /// Poll and attempt to acquire the `requested` amount of tokens.
-    /// Keep trying until some amount of tokens are acquired.  Note: This doesn't provide
-    /// fairness so if two pollers hold the same bucket, one could continually lose.
+    /// Keep trying until some amount of tokens are acquired.  Note: This
+    /// doesn't provide fairness so if two pollers hold the same bucket, one
+    /// could continually lose.
     fn poll_acquire(&mut self, cx: &mut Context<'_>, requested: usize) -> Poll<usize> {
         loop {
             // Wait until the delay is finished.
@@ -47,14 +48,15 @@ impl PollRateLimiter {
                     self.delay = Some(Box::pin(sleep_until(tokio::time::Instant::from_std(
                         wait_time,
                     ))));
-                }
+                },
             }
         }
     }
 
-    /// Poll an inner reader or writer, rate limited by the `bucket`.  This will provide an amount
-    /// of bytes allowed ot be read including partial reads.  It will return unused tokens back to
-    /// the bucket on partial reads / writes.
+    /// Poll an inner reader or writer, rate limited by the `bucket`.  This will
+    /// provide an amount of bytes allowed ot be read including partial
+    /// reads.  It will return unused tokens back to the bucket on partial
+    /// reads / writes.
     pub fn poll_limited<
         T,
         Action: FnOnce(Pin<&mut T>, &mut Context<'_>, usize) -> Poll<io::Result<usize>>,
@@ -68,7 +70,8 @@ impl PollRateLimiter {
         let allowed = ready!(self.poll_acquire(cx, requested));
         let result = poll_resource(resource, cx, allowed);
 
-        // In order to have an accurate throttle rate, we remove tokens, and then add ones we don't use
+        // In order to have an accurate throttle rate, we remove tokens, and then add
+        // ones we don't use
         let tokens_to_return = match &result {
             Poll::Ready(Ok(actual)) => allowed.saturating_sub(*actual),
             _ => allowed,
@@ -79,9 +82,11 @@ impl PollRateLimiter {
     }
 }
 
-/// A rate limiter for `AsyncRead` or `AsyncWrite` interfaces to rate limit read/write bytes
+/// A rate limiter for `AsyncRead` or `AsyncWrite` interfaces to rate limit
+/// read/write bytes
 ///
-/// This will pause and wait to send any future bytes until it's permitted to in the future
+/// This will pause and wait to send any future bytes until it's permitted to in
+/// the future
 #[pin_project]
 pub struct AsyncRateLimiter<T> {
     #[pin]
@@ -142,31 +147,31 @@ impl<T: AsyncWrite> AsyncWrite for AsyncRateLimiter<T> {
 //     ) -> Poll<io::Result<usize>> {
 //         let this = self.project();
 //         this.rate_limiter
-//             .poll_limited(this.inner, cx, buf.len(), |resource, cx, allowed| {
-//                 resource.poll_read(cx, &mut buf[..allowed])
+//             .poll_limited(this.inner, cx, buf.len(), |resource, cx, allowed|
+// {                 resource.poll_read(cx, &mut buf[..allowed])
 //             })
 //     }
 // }
 
-// impl<T: tokio::io::AsyncWrite> tokio::io::AsyncWrite for AsyncRateLimiter<T> {
-//     fn poll_write(
+// impl<T: tokio::io::AsyncWrite> tokio::io::AsyncWrite for AsyncRateLimiter<T>
+// {     fn poll_write(
 //         self: Pin<&mut Self>,
 //         cx: &mut Context<'_>,
 //         buf: &[u8],
 //     ) -> Poll<io::Result<usize>> {
 //         let this = self.project();
 //         this.rate_limiter
-//             .poll_limited(this.inner, cx, buf.len(), |resource, cx, allowed| {
-//                 resource.poll_write(cx, &buf[..allowed])
+//             .poll_limited(this.inner, cx, buf.len(), |resource, cx, allowed|
+// {                 resource.poll_write(cx, &buf[..allowed])
 //             })
 //     }
 
-//     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-//         self.project().inner.poll_flush(cx)
+//     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) ->
+// Poll<io::Result<()>> {         self.project().inner.poll_flush(cx)
 //     }
 
-//     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Error>> {
-//         self.project().inner.poll_shutdown(cx)
+//     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) ->
+// Poll<Result<(), Error>> {         self.project().inner.poll_shutdown(cx)
 //     }
 // }
 

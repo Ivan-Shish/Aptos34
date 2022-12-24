@@ -16,9 +16,10 @@ use aptos_types::{
 };
 use std::sync::Arc;
 
-/// A local interface into SafetyRules. Constructed in such a way that the container / caller
-/// cannot distinguish this API from an actual client/server process without being exposed to
-/// the actual container instead the caller can access a Box<dyn TSafetyRules>.
+/// A local interface into SafetyRules. Constructed in such a way that the
+/// container / caller cannot distinguish this API from an actual client/server
+/// process without being exposed to the actual container instead the caller can
+/// access a Box<dyn TSafetyRules>.
 pub struct LocalClient {
     internal: Arc<RwLock<SafetyRules>>,
 }

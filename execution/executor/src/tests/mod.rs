@@ -1,10 +1,16 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::BTreeSet, iter::once, sync::Arc};
-
-use proptest::prelude::*;
-
+use crate::{
+    block_executor::BlockExecutor,
+    chunk_executor::ChunkExecutor,
+    components::chunk_output::ChunkOutput,
+    db_bootstrapper::{generate_waypoint, maybe_bootstrap},
+    mock_vm::{
+        encode_mint_transaction, encode_reconfiguration_transaction, encode_transfer_transaction,
+        MockVM, DISCARD_STATUS, KEEP_STATUS,
+    },
+};
 use aptos_crypto::{ed25519::Ed25519PrivateKey, HashValue, PrivateKey, SigningKey, Uniform};
 use aptos_db::AptosDB;
 use aptos_executor_types::{BlockExecutorTrait, ChunkExecutorTrait, TransactionReplayer};
@@ -12,9 +18,9 @@ use aptos_state_view::StateViewId;
 use aptos_storage_interface::{
     sync_proof_fetcher::SyncProofFetcher, DbReaderWriter, ExecutedTrees,
 };
-use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::{
     account_address::AccountAddress,
+    aggregate_signature::AggregateSignature,
     block_info::BlockInfo,
     chain_id::ChainId,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
@@ -28,17 +34,8 @@ use aptos_types::{
     },
     write_set::{WriteOp, WriteSet, WriteSetMut},
 };
-
-use crate::{
-    block_executor::BlockExecutor,
-    chunk_executor::ChunkExecutor,
-    components::chunk_output::ChunkOutput,
-    db_bootstrapper::{generate_waypoint, maybe_bootstrap},
-    mock_vm::{
-        encode_mint_transaction, encode_reconfiguration_transaction, encode_transfer_transaction,
-        MockVM, DISCARD_STATUS, KEEP_STATUS,
-    },
-};
+use proptest::prelude::*;
+use std::{collections::BTreeSet, iter::once, sync::Arc};
 
 mod chunk_executor_tests;
 
@@ -265,7 +262,8 @@ fn test_executor_execute_same_block_multiple_times() {
     assert_eq!(responses.len(), 1);
 }
 
-/// Generates a list of `TransactionListWithProof`s according to the given ranges.
+/// Generates a list of `TransactionListWithProof`s according to the given
+/// ranges.
 fn create_transaction_chunks(
     chunk_ranges: Vec<std::ops::Range<Version>>,
 ) -> (Vec<TransactionListWithProof>, LedgerInfoWithSignatures) {
@@ -279,8 +277,9 @@ fn create_transaction_chunks(
         assert!(previous_range.end <= range.end);
     }
 
-    // To obtain the batches of transactions, we first execute and save all these transactions in a
-    // separate DB. Then we call get_transactions to retrieve them.
+    // To obtain the batches of transactions, we first execute and save all these
+    // transactions in a separate DB. Then we call get_transactions to retrieve
+    // them.
     let TestExecutor { executor, .. } = TestExecutor::new();
 
     let mut txns = vec![];
@@ -310,7 +309,7 @@ fn create_transaction_chunks(
                     range.start,
                     range.end - range.start,
                     ledger_version,
-                    false, /* fetch_events */
+                    false, // fetch_events
                 )
                 .unwrap()
         })
@@ -408,7 +407,7 @@ fn apply_transaction_by_writeset(
             ledger_view.txn_accumulator().num_leaves(),
             ledger_view.state().base_version,
             None,
-            true, /* sync_commit */
+            true, // sync_commit
             executed.result_view.state().clone(),
         )
         .unwrap();
@@ -439,10 +438,10 @@ fn test_deleted_key_from_state_store() {
     .freeze()
     .unwrap();
 
-    apply_transaction_by_writeset(
-        db,
-        vec![(transaction1, write_set1), (transaction2, write_set2)],
-    );
+    apply_transaction_by_writeset(db, vec![
+        (transaction1, write_set1),
+        (transaction2, write_set2),
+    ]);
 
     let state_value1_from_db = db
         .reader
@@ -469,7 +468,8 @@ fn test_deleted_key_from_state_store() {
 
     apply_transaction_by_writeset(db, vec![(transaction3, write_set3)]);
 
-    // Ensure the latest version of the value in DB is None (which implies its deleted)
+    // Ensure the latest version of the value in DB is None (which implies its
+    // deleted)
     assert!(db
         .reader
         .get_state_value_with_proof_by_version(&dummy_state_key1, 5)
@@ -477,7 +477,8 @@ fn test_deleted_key_from_state_store() {
         .0
         .is_none());
 
-    // Ensure the key that was not touched by the transaction is not accidentally deleted
+    // Ensure the key that was not touched by the transaction is not accidentally
+    // deleted
     let state_value_from_db2 = db
         .reader
         .get_state_value_with_proof_by_version(&dummy_state_key2, 5)
@@ -521,8 +522,8 @@ impl TestBlock {
     }
 }
 
-// Executes a list of transactions by executing and immediately committing one at a time. Returns
-// the root hash after all transactions are committed.
+// Executes a list of transactions by executing and immediately committing one
+// at a time. Returns the root hash after all transactions are committed.
 fn run_transactions_naive(transactions: Vec<Transaction>) -> HashValue {
     let executor = TestExecutor::new();
     let db = &executor.db;
@@ -547,7 +548,7 @@ fn run_transactions_naive(transactions: Vec<Transaction>) -> HashValue {
                 ledger_view.txn_accumulator().num_leaves(),
                 ledger_view.state().base_version,
                 None,
-                true, /* sync_commit */
+                true, // sync_commit
                 executed.result_view.state().clone(),
             )
             .unwrap();

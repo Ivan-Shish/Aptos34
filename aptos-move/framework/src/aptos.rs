@@ -3,23 +3,20 @@
 
 #![forbid(unsafe_code)]
 
-use crate::docgen::DocgenOptions;
-use crate::release_builder::RELEASE_BUNDLE_EXTENSION;
-use crate::release_bundle::ReleaseBundle;
-use crate::{path_in_crate, BuildOptions, ReleaseOptions};
+use crate::{
+    docgen::DocgenOptions, path_in_crate, release_builder::RELEASE_BUNDLE_EXTENSION,
+    release_bundle::ReleaseBundle, BuildOptions, ReleaseOptions,
+};
 use clap::ArgEnum;
 use move_command_line_common::address::NumericalAddress;
 use once_cell::sync::Lazy;
-use std::collections::BTreeMap;
-use std::fmt::Display;
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{collections::BTreeMap, fmt::Display, path::PathBuf, str::FromStr};
 
 // ===============================================================================================
 // Release Targets
 
-/// Represents the available release targets. `Current` is in sync with the current client branch,
-/// which is ensured by tests.
+/// Represents the available release targets. `Current` is in sync with the
+/// current client branch, which is ensured by tests.
 #[derive(ArgEnum, Clone, Copy, Debug)]
 pub enum ReleaseTarget {
     Head,
@@ -71,12 +68,14 @@ impl ReleaseTarget {
                 Some("cached-packages/src/aptos_token_sdk_builder.rs"),
             ),
         ];
-        // Currently we don't have experimental packages only included in particular targets.
+        // Currently we don't have experimental packages only included in particular
+        // targets.
         result
     }
 
-    /// Returns the file name under which this particular target's release buundle is stored.
-    /// For example, for `Head` the file name will be `head.mrb`.
+    /// Returns the file name under which this particular target's release
+    /// buundle is stored. For example, for `Head` the file name will be
+    /// `head.mrb`.
     pub fn file_name(self) -> String {
         format!("{}.{}", self, RELEASE_BUNDLE_EXTENSION)
     }
@@ -145,9 +144,10 @@ impl ReleaseTarget {
         }
         #[cfg(windows)]
         {
-            // Windows requires to set the stack because the package compiler puts too much on the
-            // stack for the default size.  A quick internet search has shown the new thread with
-            // a custom stack size is the easiest course of action.
+            // Windows requires to set the stack because the package compiler puts too much
+            // on the stack for the default size.  A quick internet search has
+            // shown the new thread with a custom stack size is the easiest
+            // course of action.
             const STACK_SIZE: usize = 4 * 1024 * 1024;
             let child_thread = std::thread::Builder::new()
                 .name("Framework-release".to_string())
@@ -164,8 +164,8 @@ impl ReleaseTarget {
 // ===============================================================================================
 // Legacy Named Addresses
 
-// Some older Move tests work directly on sources, skipping the package system. For those
-// we define the relevant address aliases here.
+// Some older Move tests work directly on sources, skipping the package system.
+// For those we define the relevant address aliases here.
 
 static NAMED_ADDRESSES: Lazy<BTreeMap<String, NumericalAddress>> = Lazy::new(|| {
     let mut result = BTreeMap::new();

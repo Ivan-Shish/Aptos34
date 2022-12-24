@@ -125,7 +125,7 @@ fn script_none_existing_module_dep() {
     }
     assert_eq!(
         status.status(),
-        //StatusCode::LINKER_ERROR
+        // StatusCode::LINKER_ERROR
         Ok(ExecutionStatus::MiscellaneousError(Some(
             StatusCode::LINKER_ERROR
         )))

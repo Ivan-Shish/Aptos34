@@ -1,8 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::tests::common;
-use crate::{assert_success, MoveHarness};
+use crate::{assert_success, tests::common, MoveHarness};
 use aptos_package_builder::PackageBuilder;
 use aptos_types::account_address::AccountAddress;
 
@@ -22,7 +21,8 @@ fn vector_numeric_address() {
         "test",
         "
 module 0xcafe::test {
-    public entry fun some() { let v = vector[]; 0x1::vector::push_back(&mut v, 1); assert!(v == vector[1], 2) }
+    public entry fun some() { let v = vector[]; 0x1::vector::push_back(&mut v, 1); assert!(v == \
+         vector[1], 2) }
 }
     ",
     );

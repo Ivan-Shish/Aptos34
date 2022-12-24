@@ -9,16 +9,16 @@ use move_vm_runtime::native_functions::{NativeContext, NativeFunction};
 use move_vm_types::{
     loaded_data::runtime_types::Type, natives::function::NativeResult, pop_arg, values::Value,
 };
-
 use smallvec::smallvec;
 use std::{collections::VecDeque, sync::Arc};
 
-/***************************************************************************************************
- * native fun write_to_event_store
- *
- *   gas cost: base_cost
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* native fun write_to_event_store
+///
+///   gas cost: base_cost
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct WriteToEventStoreGasParameters {
     pub base: InternalGas,
@@ -68,10 +68,11 @@ pub fn make_native_write_to_event_store(
     )
 }
 
-/***************************************************************************************************
- * module
- *
- **************************************************************************************************/
+/// ****************************************************************************
+/// ********************* module
+///
+/// ****************************************************************************
+/// ******************
 #[derive(Debug, Clone)]
 pub struct GasParameters {
     pub write_to_event_store: WriteToEventStoreGasParameters,

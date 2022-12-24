@@ -50,14 +50,11 @@ impl<T: Hashable> Buffer<T> {
     pub fn push_back(&mut self, elem: T) {
         self.count = self.count.checked_add(1).unwrap();
         let t_hash = elem.hash();
-        self.map.insert(
-            t_hash,
-            LinkedItem {
-                elem: Some(elem),
-                index: self.count,
-                next: None,
-            },
-        );
+        self.map.insert(t_hash, LinkedItem {
+            elem: Some(elem),
+            index: self.count,
+            next: None,
+        });
         if let Some(tail) = self.tail {
             self.map.get_mut(&tail).unwrap().next = Some(t_hash);
         }
@@ -113,8 +110,9 @@ impl<T: Hashable> Buffer<T> {
         cursor.map_or(false, |key| self.map.contains_key(&key))
     }
 
-    /// find_elem returns the first item non-prior to `cursor` that compare(item) is true
-    /// if no such item exists, the function returns None
+    /// find_elem returns the first item non-prior to `cursor` that
+    /// compare(item) is true if no such item exists, the function returns
+    /// None
     pub fn find_elem_from<F: Fn(&T) -> bool>(&self, cursor: Cursor, compare: F) -> Cursor {
         let mut current = cursor;
         if !self.exist(&cursor) {

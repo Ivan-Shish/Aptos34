@@ -8,8 +8,8 @@ use aptos_types::validator_verifier::ValidatorVerifier;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// ProposalMsg contains the required information for the proposer election protocol to make its
-/// choice (typically depends on round and proposer info).
+/// ProposalMsg contains the required information for the proposer election
+/// protocol to make its choice (typically depends on round and proposer info).
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ProposalMsg {
     proposal: Block,

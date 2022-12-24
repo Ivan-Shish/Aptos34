@@ -125,7 +125,8 @@ async fn test_proposal_generation_parent() {
     assert_eq!(b1_child_res.round(), 15);
     assert_eq!(b1_child_res.quorum_cert().certified_block().id(), b1.id());
 
-    // test that we have authors for the skipped rounds (5,  .. 14), as the limit of 10 has been reached
+    // test that we have authors for the skipped rounds (5,  .. 14), as the limit of
+    // 10 has been reached
     assert_eq!(b1_child_res.failed_authors().unwrap().len(), 10);
     assert_eq!(b1_child_res.failed_authors().unwrap().first().unwrap().0, 5);
     assert_eq!(b1_child_res.failed_authors().unwrap().last().unwrap().0, 14);

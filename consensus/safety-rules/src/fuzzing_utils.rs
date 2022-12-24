@@ -39,7 +39,8 @@ const MAX_NUM_SUBTREE_ROOTS: usize = 20;
 const MAX_PROPOSAL_TRANSACTIONS: usize = 5;
 const NUM_UNIVERSE_ACCOUNTS: usize = 3;
 
-// This generates an arbitrary AccumulatorExtensionProof<TransactionAccumulatorHasher>.
+// This generates an arbitrary
+// AccumulatorExtensionProof<TransactionAccumulatorHasher>.
 prop_compose! {
     pub fn arb_accumulator_extension_proof(
     )(
@@ -282,8 +283,9 @@ pub mod fuzzing {
     }
 }
 
-// Note: these tests ensure that the various fuzzers are maintained (i.e., not broken
-// at some time in the future and only discovered when a fuzz test fails).
+// Note: these tests ensure that the various fuzzers are maintained (i.e., not
+// broken at some time in the future and only discovered when a fuzz test
+// fails).
 #[cfg(test)]
 mod tests {
     use crate::{

@@ -13,8 +13,8 @@ pub const DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD: usize = 1 << 13;
 
 pub const BUFFERED_STATE_TARGET_ITEMS: usize = 100_000;
 
-/// Port selected RocksDB options for tuning underlying rocksdb instance of AptosDB.
-/// see <https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h>
+/// Port selected RocksDB options for tuning underlying rocksdb instance of
+/// AptosDB. see <https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h>
 /// for detailed explanations.
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -77,20 +77,21 @@ pub struct StorageConfig {
     pub storage_pruner_config: PrunerConfig,
     #[serde(skip)]
     data_dir: PathBuf,
-    /// AptosDB persists the state authentication structure off the critical path
-    /// of transaction execution and batch up recent changes for performance. Once
-    /// the number of buffered state updates exceeds this config, a dump of all
-    /// buffered values into a snapshot is triggered. (Alternatively, if too many
-    /// transactions have been processed since last dump, a new dump is processed
-    /// as well.)
+    /// AptosDB persists the state authentication structure off the critical
+    /// path of transaction execution and batch up recent changes for
+    /// performance. Once the number of buffered state updates exceeds this
+    /// config, a dump of all buffered values into a snapshot is triggered.
+    /// (Alternatively, if too many transactions have been processed since
+    /// last dump, a new dump is processed as well.)
     pub buffered_state_target_items: usize,
     /// The max # of nodes for a lru cache shard.
     pub max_num_nodes_per_lru_cache_shard: usize,
     /// Rocksdb-specific configurations
     pub rocksdb_configs: RocksdbConfigs,
-    /// Try to enable the internal indexer. The indexer expects to have seen all transactions
-    /// since genesis. To recover operation after data loss, or to bootstrap a node in fast sync
-    /// mode, the indexer db needs to be copied in from another node.
+    /// Try to enable the internal indexer. The indexer expects to have seen all
+    /// transactions since genesis. To recover operation after data loss, or
+    /// to bootstrap a node in fast sync mode, the indexer db needs to be
+    /// copied in from another node.
     pub enable_indexer: bool,
 }
 
@@ -116,16 +117,18 @@ pub const NO_OP_STORAGE_PRUNER_CONFIG: PrunerConfig = PrunerConfig {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LedgerPrunerConfig {
-    /// Boolean to enable/disable the ledger pruner. The ledger pruner is responsible for pruning
-    /// everything else except for states (e.g. transactions, events etc.)
+    /// Boolean to enable/disable the ledger pruner. The ledger pruner is
+    /// responsible for pruning everything else except for states (e.g.
+    /// transactions, events etc.)
     pub enable: bool,
-    /// This is the default pruning window for any other store except for state store. State store
-    /// being big in size, we might want to configure a smaller window for state store vs other
-    /// store.
+    /// This is the default pruning window for any other store except for state
+    /// store. State store being big in size, we might want to configure a
+    /// smaller window for state store vs other store.
     pub prune_window: u64,
-    /// Batch size of the versions to be sent to the ledger pruner - this is to avoid slowdown due to
-    /// issuing too many DB calls and batch prune instead. For ledger pruner, this means the number
-    /// of versions to prune a time.
+    /// Batch size of the versions to be sent to the ledger pruner - this is to
+    /// avoid slowdown due to issuing too many DB calls and batch prune
+    /// instead. For ledger pruner, this means the number of versions to
+    /// prune a time.
     pub batch_size: usize,
     /// The offset for user pruning window to adjust
     pub user_pruning_window_offset: u64,
@@ -134,13 +137,14 @@ pub struct LedgerPrunerConfig {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StateMerklePrunerConfig {
-    /// Boolean to enable/disable the state store pruner. The state pruner is responsible for
-    /// pruning state tree nodes.
+    /// Boolean to enable/disable the state store pruner. The state pruner is
+    /// responsible for pruning state tree nodes.
     pub enable: bool,
-    /// The size of the window should be calculated based on disk space availability and system TPS.
+    /// The size of the window should be calculated based on disk space
+    /// availability and system TPS.
     pub prune_window: u64,
-    /// Similar to the variable above but for state store pruner. It means the number of stale
-    /// nodes to prune a time.
+    /// Similar to the variable above but for state store pruner. It means the
+    /// number of stale nodes to prune a time.
     pub batch_size: usize,
 }
 
@@ -148,16 +152,18 @@ pub struct StateMerklePrunerConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct EpochSnapshotPrunerConfig {
     pub enable: bool,
-    /// Window size in versions, but only the snapshots at epoch ending versions are kept, because
-    /// other snapshots are pruned by the state merkle pruner.
+    /// Window size in versions, but only the snapshots at epoch ending versions
+    /// are kept, because other snapshots are pruned by the state merkle
+    /// pruner.
     pub prune_window: u64,
     /// Number of stale nodes to prune a time.
     pub batch_size: usize,
 }
 
-// Config for the epoch ending state pruner is actually in the same format as the state merkle
-// pruner, but it has it's own type hence separate default values. This converts it to the same
-// type, to use the same pruner implementation (but parameterized on the stale node index DB schema).
+// Config for the epoch ending state pruner is actually in the same format as
+// the state merkle pruner, but it has it's own type hence separate default
+// values. This converts it to the same type, to use the same pruner
+// implementation (but parameterized on the stale node index DB schema).
 impl From<EpochSnapshotPrunerConfig> for StateMerklePrunerConfig {
     fn from(config: EpochSnapshotPrunerConfig) -> Self {
         Self {
@@ -270,7 +276,8 @@ mod test {
 
     #[test]
     pub fn tset_default_prune_window() {
-        // Not that these can't be changed, but think twice -- make them safe for mainnet
+        // Not that these can't be changed, but think twice -- make them safe for
+        // mainnet
 
         let config = PrunerConfig::default();
         assert!(config.ledger_pruner_config.prune_window >= 50_000_000);

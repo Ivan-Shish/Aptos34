@@ -8,17 +8,17 @@
 //! traits such as Object, Enum, Union, etc. However, in some cases, it is
 //! not feasible to use these derives.
 //!
-//!   - The type is outside of reach, e.g. in a crate in aptos-core that is
-//!     too unrelated, or even worse, in a totally different crate (the move
-//!     types are a great example of this).
-//!   - The type is not expressible via OpenAPI. For example, an enum that
-//!     has some enum variants with values and others without values.This is
-//!     not allowed in OpenAPI, types must be either unions (variants with
-//!     values) or enums (variants without values).
+//!   - The type is outside of reach, e.g. in a crate in aptos-core that is too
+//!     unrelated, or even worse, in a totally different crate (the move types
+//!     are a great example of this).
+//!   - The type is not expressible via OpenAPI. For example, an enum that has
+//!     some enum variants with values and others without values.This is not
+//!     allowed in OpenAPI, types must be either unions (variants with values)
+//!     or enums (variants without values).
 //!   - We would prefer to serialize the data differently than its standard
 //!     representation. HexEncodedBytes is a good example of this. Internally,
-//!     this is a Vec<u8>, but we know it is hex and prefer to represent it as
-//!     a 0x string.
+//!     this is a Vec<u8>, but we know it is hex and prefer to represent it as a
+//!     0x string.
 //!
 //! For those cases, we have these macros. We can use these to implement the
 //! necessary traits for using these types with poem-openapi, without using
@@ -49,8 +49,9 @@
 ///       "string",
 ///       (
 ///           example = Some(serde_json::Value::String(
-///               "0x88fbd33f54e1126269769780feb24480428179f552e2313fbe571b72e62a1ca1".to_string())),
-///           description = Some("A hex encoded string"),
+///               
+/// "0x88fbd33f54e1126269769780feb24480428179f552e2313fbe571b72e62a1ca1".
+/// to_string())),           description = Some("A hex encoded string"),
 ///       )
 ///   );
 ///
@@ -140,8 +141,9 @@ macro_rules! impl_poem_type {
 }
 
 /// This macro implements the traits necessary for using a type as a parameter
-/// in a poem-openapi endpoint handler, specifically as an argument like Path<T>.
-/// A type must impl FromStr for this to work, hence why it is a seperate macro.
+/// in a poem-openapi endpoint handler, specifically as an argument like
+/// Path<T>. A type must impl FromStr for this to work, hence why it is a
+/// seperate macro.
 #[macro_export]
 macro_rules! impl_poem_parameter {
     ($($ty:ty),*) => {

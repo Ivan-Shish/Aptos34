@@ -3,17 +3,16 @@
 
 use aptos_config::config::HANDSHAKE_VERSION;
 use aptos_crypto::{bls12381, ed25519::Ed25519PublicKey, x25519};
-use aptos_types::account_address::AccountAddressWithChecks;
 use aptos_types::{
-    account_address::AccountAddress,
+    account_address::{AccountAddress, AccountAddressWithChecks},
     chain_id::ChainId,
     network_address::{DnsName, NetworkAddress, Protocol},
     transaction::authenticator::AuthenticationKey,
 };
 use aptos_vm_genesis::{AccountBalance, EmployeePool, Validator, ValidatorWithCommissionRate};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::{BTreeMap, HashSet};
 use std::{
+    collections::{BTreeMap, HashSet},
     convert::TryFrom,
     fs::File,
     io::Read,
@@ -23,7 +22,6 @@ use std::{
 };
 
 /// Template for setting up Github for Genesis
-///
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Layout {
     /// Root key for the blockchain only for test chains
@@ -109,7 +107,6 @@ impl Default for Layout {
 }
 
 /// A set of configuration needed to add a Validator to genesis
-///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidatorConfiguration {
     /// Account address
@@ -142,9 +139,9 @@ pub struct ValidatorConfiguration {
     pub stake_amount: u64,
     /// Commission percentage for validator
     pub commission_percentage: u64,
-    /// Whether the validator should be joining the validator set during genesis.
-    /// If set to false, the validator will be fully initialized but won't be added to the
-    /// validator set.
+    /// Whether the validator should be joining the validator set during
+    /// genesis. If set to false, the validator will be fully initialized
+    /// but won't be added to the validator set.
     pub join_during_genesis: bool,
 }
 
@@ -521,14 +518,27 @@ impl TryFrom<EmployeePoolMap> for Vec<EmployeePool> {
                 }
             }
 
-            // Check vesting schedule adds up properly, we only have to check once, then check they are all the same
+            // Check vesting schedule adds up properly, we only have to check once, then
+            // check they are all the same
             if let Some((numerators, denominator)) = vesting_schedule_numbers.as_ref() {
                 if numerators != &pool.vesting_schedule_numerators {
-                    errors.push(anyhow::anyhow!("Numerators are not the same on every pool in employee pool #{}.  Expected: {:?}, got {:?}", i, numerators, pool.vesting_schedule_numerators));
+                    errors.push(anyhow::anyhow!(
+                        "Numerators are not the same on every pool in employee pool #{}.  \
+                         Expected: {:?}, got {:?}",
+                        i,
+                        numerators,
+                        pool.vesting_schedule_numerators
+                    ));
                 }
 
                 if denominator != &pool.vesting_schedule_denominator {
-                    errors.push(anyhow::anyhow!("Denominator are not the same on every pool in employee pool #{}.  Expected: {:?}, got {:?}", i, denominator, pool.vesting_schedule_denominator));
+                    errors.push(anyhow::anyhow!(
+                        "Denominator are not the same on every pool in employee pool #{}.  \
+                         Expected: {:?}, got {:?}",
+                        i,
+                        denominator,
+                        pool.vesting_schedule_denominator
+                    ));
                 }
             } else {
                 let mut numerators = 0;
@@ -554,7 +564,13 @@ impl TryFrom<EmployeePoolMap> for Vec<EmployeePool> {
                         i
                     ));
                 } else if (denominator - numerators) % last_numerator != 0 {
-                    errors.push(anyhow::anyhow!("Numerators don't add up to the denominator {} (with the last one {} being repeated for employee pool #{}", denominator, last_numerator, i));
+                    errors.push(anyhow::anyhow!(
+                        "Numerators don't add up to the denominator {} (with the last one {} \
+                         being repeated for employee pool #{}",
+                        denominator,
+                        last_numerator,
+                        i
+                    ));
                 }
 
                 vesting_schedule_numbers = Some((
@@ -575,23 +591,37 @@ impl TryFrom<EmployeePoolMap> for Vec<EmployeePool> {
             // If joining during genesis, it needs all the setup
             if pool.validator.join_during_genesis {
                 if pool.validator.consensus_public_key.is_none() {
-                    errors.push(anyhow::anyhow!("Employee pool #{} is setup to join during genesis but missing a consensus public key", i));
+                    errors.push(anyhow::anyhow!(
+                        "Employee pool #{} is setup to join during genesis but missing a \
+                         consensus public key",
+                        i
+                    ));
                 }
                 if pool.validator.proof_of_possession.is_none() {
-                    errors.push(anyhow::anyhow!("Employee pool #{} is setup to join during genesis but missing a proof of possession", i));
+                    errors.push(anyhow::anyhow!(
+                        "Employee pool #{} is setup to join during genesis but missing a proof of \
+                         possession",
+                        i
+                    ));
                 }
                 if pool.validator.validator_host.is_none() {
                     errors.push(anyhow::anyhow!(
-                        "Employee pool #{} is setup to join during genesis but missing a validator host",
+                        "Employee pool #{} is setup to join during genesis but missing a \
+                         validator host",
                         i
                     ));
                 }
                 if pool.validator.validator_network_public_key.is_none() {
-                    errors.push(anyhow::anyhow!("Employee pool #{} is setup to join during genesis but missing a validator network public key", i));
+                    errors.push(anyhow::anyhow!(
+                        "Employee pool #{} is setup to join during genesis but missing a \
+                         validator network public key",
+                        i
+                    ));
                 }
                 if pool.validator.stake_amount < 100000000000000 {
                     errors.push(anyhow::anyhow!(
-                        "Employee pool #{} is setup to join during genesis but has a low stake amount {} < 1000000 APT",
+                        "Employee pool #{} is setup to join during genesis but has a low stake \
+                         amount {} < 1000000 APT",
                         i,
                         pool.validator.stake_amount
                     ));
@@ -602,7 +632,8 @@ impl TryFrom<EmployeePoolMap> for Vec<EmployeePool> {
             if let Some(beneficiary_resetter) = beneficiary_resetter {
                 if beneficiary_resetter != pool_beneficiary_resetter {
                     errors.push(anyhow::anyhow!(
-                        "Employee pool #{} has the wrong beneficiary resetter.  Found {}, should have {}",
+                        "Employee pool #{} has the wrong beneficiary resetter.  Found {}, should \
+                         have {}",
                         i,
                         pool.beneficiary_resetter,
                         beneficiary_resetter

@@ -22,21 +22,23 @@ use std::{path::Path, sync::Arc, time::Instant};
 /// state to remain in the database on startup.
 pub trait MetadataStorageInterface {
     /// Returns true iff a state snapshot was successfully committed for the
-    /// specified target. If no snapshot progress is found, an error is returned.
+    /// specified target. If no snapshot progress is found, an error is
+    /// returned.
     fn is_snapshot_sync_complete(
         &self,
         target_ledger_info: &LedgerInfoWithSignatures,
     ) -> Result<bool, Error>;
 
     /// Gets the last persisted state value index for the snapshot sync at the
-    /// specified version. If no snapshot progress is found, an error is returned.
+    /// specified version. If no snapshot progress is found, an error is
+    /// returned.
     fn get_last_persisted_state_value_index(
         &self,
         target_ledger_info: &LedgerInfoWithSignatures,
     ) -> Result<u64, Error>;
 
-    /// Returns the target ledger info of any state snapshot sync that has previously
-    /// started. If no snapshot sync started, None is returned.
+    /// Returns the target ledger info of any state snapshot sync that has
+    /// previously started. If no snapshot sync started, None is returned.
     fn previous_snapshot_sync_target(&self) -> Result<Option<LedgerInfoWithSignatures>, Error>;
 
     /// Updates the last persisted state value index for the state snapshot
@@ -55,7 +57,8 @@ pub const STATE_SYNC_DB_NAME: &str = "state_sync_db";
 /// The name of the metadata column family
 const METADATA_CF_NAME: ColumnFamilyName = "metadata";
 
-/// A metadata storage implementation that uses a RocksDB backend to persist data
+/// A metadata storage implementation that uses a RocksDB backend to persist
+/// data
 #[derive(Clone)]
 pub struct PersistentMetadataStorage {
     database: Arc<DB>,
@@ -93,7 +96,8 @@ impl PersistentMetadataStorage {
         Self { database }
     }
 
-    /// Returns the existing snapshot sync progress. Returns None if no progress is found.
+    /// Returns the existing snapshot sync progress. Returns None if no progress
+    /// is found.
     fn get_snapshot_progress(&self) -> Result<Option<StateSnapshotProgress>, Error> {
         let metadata_key = MetadataKey::StateSnapshotSync;
         let maybe_metadata_value =
@@ -109,7 +113,7 @@ impl PersistentMetadataStorage {
             Some(metadata_value) => {
                 let MetadataValue::StateSnapshotSync(snapshot_progress) = metadata_value;
                 Ok(Some(snapshot_progress))
-            }
+            },
             None => Ok(None),
         }
     }
@@ -130,7 +134,7 @@ impl PersistentMetadataStorage {
                 } else {
                     Ok(snapshot_progress)
                 }
-            }
+            },
             None => Err(Error::StorageError(
                 "No state snapshot progress was found!".into(),
             )),
@@ -149,7 +153,9 @@ impl PersistentMetadataStorage {
             .put::<MetadataSchema>(&metadata_key, &metadata_value)
             .map_err(|error| {
                 Error::StorageError(format!(
-                    "Failed to batch put the metadata key and value. Key: {:?}, Value: {:?}. Error: {:?}", metadata_key, metadata_value, error
+                    "Failed to batch put the metadata key and value. Key: {:?}, Value: {:?}. \
+                     Error: {:?}",
+                    metadata_key, metadata_value, error
                 ))
             })?;
 
@@ -206,8 +212,10 @@ impl MetadataStorageInterface for PersistentMetadataStorage {
         // Ensure that if any previous snapshot progress exists, it has the same target
         if let Some(snapshot_progress) = self.get_snapshot_progress()? {
             if target_ledger_info != &snapshot_progress.target_ledger_info {
-                return Err(Error::StorageError(format!("Failed to update the last persisted state value index! \
-                The given target does not match the previously stored target. Given target: {:?}, stored target: {:?}",
+                return Err(Error::StorageError(format!(
+                    "Failed to update the last persisted state value index! The given target does \
+                     not match the previously stored target. Given target: {:?}, stored target: \
+                     {:?}",
                     target_ledger_info, snapshot_progress.target_ledger_info
                 )));
             }

@@ -13,7 +13,6 @@ use aptos_types::chain_id::ChainId;
 use futures::executor::block_on;
 use proptest::{collection::btree_map, prelude::*};
 
-//
 // Handshake Protocol Fuzzer
 // =========================
 //
@@ -46,8 +45,9 @@ pub fn fuzz_network_handshake_protocol_exchange(self_handshake: &HandshakeMsg, d
     });
 }
 
-/// Same function as fuzz_network_handshake_protocol_exchange except that the network exchange is skipped,
-/// letting us skip BCS deserialization (and potentially other logic) and fuzz the negotiation of protocols directly.
+/// Same function as fuzz_network_handshake_protocol_exchange except that the
+/// network exchange is skipped, letting us skip BCS deserialization (and
+/// potentially other logic) and fuzz the negotiation of protocols directly.
 pub fn fuzz_network_handshake_protocol_negotiation(
     self_handshake: &HandshakeMsg,
     remote_handshake: &HandshakeMsg,

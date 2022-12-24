@@ -1,10 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::chain_id::ChainId;
 use crate::{
     access_path::AccessPath,
     account_config::CORE_CODE_ADDRESS,
+    chain_id::ChainId,
     event::{EventHandle, EventKey},
 };
 use anyhow::{format_err, Result};
@@ -40,8 +40,8 @@ pub use self::{
 };
 
 /// To register an on-chain config in Rust:
-/// 1. Implement the `OnChainConfig` trait for the Rust representation of the config
-/// 2. Add the config's `ConfigID` to `ON_CHAIN_CONFIG_REGISTRY`
+/// 1. Implement the `OnChainConfig` trait for the Rust representation of the
+/// config 2. Add the config's `ConfigID` to `ON_CHAIN_CONFIG_REGISTRY`
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ConfigID(&'static str, &'static str, &'static str);
@@ -62,7 +62,8 @@ impl fmt::Display for ConfigID {
     }
 }
 
-/// State sync will panic if the value of any config in this registry is uninitialized
+/// State sync will panic if the value of any config in this registry is
+/// uninitialized
 pub const ON_CHAIN_CONFIG_REGISTRY: &[ConfigID] = &[
     ApprovedExecutionHashes::CONFIG_ID,
     ValidatorSet::CONFIG_ID,
@@ -113,13 +114,14 @@ impl fmt::Display for OnChainConfigPayload {
     }
 }
 
-/// Trait to be implemented by a storage type from which to read on-chain configs
+/// Trait to be implemented by a storage type from which to read on-chain
+/// configs
 pub trait ConfigStorage {
     fn fetch_config(&self, access_path: AccessPath) -> Option<Vec<u8>>;
 }
 
-/// Trait to be implemented by a Rust struct representation of an on-chain config
-/// that is stored in storage as a serialized byte array
+/// Trait to be implemented by a Rust struct representation of an on-chain
+/// config that is stored in storage as a serialized byte array
 pub trait OnChainConfig: Send + Sync + DeserializeOwned {
     const ADDRESS: &'static str = "0x1";
     const MODULE_IDENTIFIER: &'static str;
@@ -131,12 +133,13 @@ pub trait OnChainConfig: Send + Sync + DeserializeOwned {
     );
 
     // Single-round BCS deserialization from bytes to `Self`
-    // This is the expected deserialization pattern if the Rust representation lives natively in Move.
-    // but sometimes `deserialize_into_config` may need an extra customized round of deserialization
-    // when the data is represented as opaque vec<u8> in Move.
-    // In the override, we can reuse this default logic via this function
-    // Note: we cannot directly call the default `deserialize_into_config` implementation
-    // in its override - this will just refer to the override implementation itself
+    // This is the expected deserialization pattern if the Rust representation lives
+    // natively in Move. but sometimes `deserialize_into_config` may need an
+    // extra customized round of deserialization when the data is represented as
+    // opaque vec<u8> in Move. In the override, we can reuse this default logic
+    // via this function Note: we cannot directly call the default
+    // `deserialize_into_config` implementation in its override - this will just
+    // refer to the override implementation itself
     fn deserialize_default_impl(bytes: &[u8]) -> Result<Self> {
         bcs::from_bytes::<Self>(bytes)
             .map_err(|e| format_err!("[on-chain config] Failed to deserialize into config: {}", e))
@@ -144,8 +147,8 @@ pub trait OnChainConfig: Send + Sync + DeserializeOwned {
 
     // Function for deserializing bytes to `Self`
     // It will by default try one round of BCS deserialization directly to `Self`
-    // The implementation for the concrete type should override this function if this
-    // logic needs to be customized
+    // The implementation for the concrete type should override this function if
+    // this logic needs to be customized
     fn deserialize_into_config(bytes: &[u8]) -> Result<Self> {
         Self::deserialize_default_impl(bytes)
     }

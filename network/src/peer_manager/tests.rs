@@ -42,9 +42,10 @@ use tokio_util::compat::{
     FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt,
 };
 
-// Builds a concrete typed transport (instead of using impl Trait) for testing PeerManager.
-// Specifically this transport is compatible with the `build_test_connection` test helper making
-// it easy to build connections without going through the whole transport pipeline.
+// Builds a concrete typed transport (instead of using impl Trait) for testing
+// PeerManager. Specifically this transport is compatible with the
+// `build_test_connection` test helper making it easy to build connections
+// without going through the whole transport pipeline.
 pub fn build_test_transport(
 ) -> BoxedTransport<Connection<MemorySocket>, impl ::std::error::Error + Sync + Send + 'static> {
     let memory_transport = MemoryTransport::default();
@@ -167,16 +168,17 @@ async fn assert_peer_disconnected_event(
             assert_eq!(*actual_reason, reason);
             assert_eq!(actual_metadata.origin, origin);
             peer_manager.handle_connection_event(connection_event);
-        }
+        },
         event => {
             panic!("Expected a LostPeer event, received: {:?}", event);
-        }
+        },
     }
 }
 
-// This helper function is used to help identify that the expected connection was dropped due
-// to simultaneous dial tie-breaking.  It also checks the correct events were sent from the
-// Peer actors to PeerManager's internal_event_rx.
+// This helper function is used to help identify that the expected connection
+// was dropped due to simultaneous dial tie-breaking.  It also checks the
+// correct events were sent from the Peer actors to PeerManager's
+// internal_event_rx.
 async fn check_correct_connection_is_live(
     mut live_connection: MemorySocket,
     mut dropped_connection: MemorySocket,
@@ -189,8 +191,8 @@ async fn check_correct_connection_is_live(
         MemorySocket,
     >,
 ) {
-    // If PeerManager needed to kill the existing connection we'll see a Requested shutdown
-    // event
+    // If PeerManager needed to kill the existing connection we'll see a Requested
+    // shutdown event
     if requested_shutdown {
         assert_peer_disconnected_event(
             expected_peer_id,
@@ -200,8 +202,9 @@ async fn check_correct_connection_is_live(
         )
         .await;
     }
-    // TODO: There's a race here since the connection may not have actually been closed yet.
-    // We should not be able to send a ping on the dropped connection.
+    // TODO: There's a race here since the connection may not have actually been
+    // closed yet. We should not be able to send a ping on the dropped
+    // connection.
     let f_open_stream_on_dropped_conn: Result<(), PeerManagerError> = async move {
         // Send ping and wait for pong.
         ping_pong(&mut dropped_connection).await?;
@@ -254,13 +257,13 @@ fn peer_manager_simultaneous_dial_two_inbound() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_statux_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[1]);
 
     let test = async move {
-        //
         // Two inbound connections
         //
         let (outbound1, inbound1) = build_test_connection();
@@ -302,13 +305,13 @@ fn peer_manager_simultaneous_dial_inbound_outbound_remote_id_larger() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[0]);
 
     let test = async move {
-        //
         // Inbound first, outbound second with own_peer_id < remote_peer_id
         //
         let (outbound1, inbound1) = build_test_connection();
@@ -329,8 +332,8 @@ fn peer_manager_simultaneous_dial_inbound_outbound_remote_id_larger() {
             ConnectionId::from(1),
         ));
 
-        // inbound2 should be dropped because for outbound1 the remote peer has a greater
-        // PeerId and is the "dialer"
+        // inbound2 should be dropped because for outbound1 the remote peer has a
+        // greater PeerId and is the "dialer"
         check_correct_connection_is_live(
             outbound1,
             inbound2,
@@ -351,13 +354,13 @@ fn peer_manager_simultaneous_dial_inbound_outbound_own_id_larger() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[1]);
 
     let test = async move {
-        //
         // Inbound first, outbound second with remote_peer_id < own_peer_id
         //
         let (outbound1, inbound1) = build_test_connection();
@@ -378,8 +381,8 @@ fn peer_manager_simultaneous_dial_inbound_outbound_own_id_larger() {
             ConnectionId::from(1),
         ));
 
-        // outbound1 should be dropped because for inbound2 PeerManager's PeerId is greater and
-        // is the "dialer"
+        // outbound1 should be dropped because for inbound2 PeerManager's PeerId is
+        // greater and is the "dialer"
         check_correct_connection_is_live(
             inbound2,
             outbound1,
@@ -400,13 +403,13 @@ fn peer_manager_simultaneous_dial_outbound_inbound_remote_id_larger() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[0]);
 
     let test = async move {
-        //
         // Outbound first, inbound second with own_peer_id < remote_peer_id
         //
         let (outbound1, inbound1) = build_test_connection();
@@ -427,8 +430,8 @@ fn peer_manager_simultaneous_dial_outbound_inbound_remote_id_larger() {
             ConnectionId::from(1),
         ));
 
-        // inbound1 should be dropped because for outbound2 the remote peer has a greater
-        // PeerID and is the "dialer"
+        // inbound1 should be dropped because for outbound2 the remote peer has a
+        // greater PeerID and is the "dialer"
         check_correct_connection_is_live(
             outbound2,
             inbound1,
@@ -449,13 +452,13 @@ fn peer_manager_simultaneous_dial_outbound_inbound_own_id_larger() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[1]);
 
     let test = async move {
-        //
         // Outbound first, inbound second with remote_peer_id < own_peer_id
         //
         let (outbound1, inbound1) = build_test_connection();
@@ -476,8 +479,8 @@ fn peer_manager_simultaneous_dial_outbound_inbound_own_id_larger() {
             ConnectionId::from(1),
         ));
 
-        // outbound2 should be dropped because for inbound1 PeerManager's PeerId is greater and
-        // is the "dialer"
+        // outbound2 should be dropped because for inbound1 PeerManager's PeerId is
+        // greater and is the "dialer"
         check_correct_connection_is_live(
             inbound1,
             outbound2,
@@ -498,13 +501,13 @@ fn peer_manager_simultaneous_dial_two_outbound() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[1]);
 
     let test = async move {
-        //
         // Two Outbound connections
         //
         let (outbound1, inbound1) = build_test_connection();
@@ -543,7 +546,8 @@ fn peer_manager_simultaneous_dial_two_outbound() {
 fn peer_manager_simultaneous_dial_disconnect_event() {
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, _conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[1]);
@@ -558,9 +562,9 @@ fn peer_manager_simultaneous_dial_disconnect_event() {
             ConnectionId::from(1),
         ));
 
-        // Create a PeerDisconnect event with an older connection_id.  This would happen if the
-        // Disconnected event from a closed connection arrives after the new connection has been
-        // added to active_peers.
+        // Create a PeerDisconnect event with an older connection_id.  This would happen
+        // if the Disconnected event from a closed connection arrives after the
+        // new connection has been added to active_peers.
         let event = TransportNotification::Disconnected(
             ConnectionMetadata::new(
                 ids[0],
@@ -586,7 +590,8 @@ fn test_dial_disconnect() {
     ::aptos_logger::Logger::init_for_testing();
     let runtime = ::tokio::runtime::Runtime::new().unwrap();
 
-    // Create a list of ordered PeerIds so we can ensure how PeerIds will be compared.
+    // Create a list of ordered PeerIds so we can ensure how PeerIds will be
+    // compared.
     let ids = ordered_peer_ids(2);
     let (mut peer_manager, _request_tx, _connection_reqs_tx, _hello_rx, mut conn_status_rx) =
         build_test_peer_manager(runtime.handle().clone(), ids[1]);
@@ -637,7 +642,8 @@ fn test_dial_disconnect() {
             ConnectionNotification::LostPeer(_, _, _)
         ));
 
-        // Sender of disconnect request should receive acknowledgement once connection is closed.
+        // Sender of disconnect request should receive acknowledgement once connection
+        // is closed.
         disconnect_resp_rx.await.unwrap().unwrap();
     };
 

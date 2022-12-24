@@ -30,8 +30,7 @@ use aptos_sdk::{transaction_builder::TransactionFactory, types::PeerId};
 use futures::future::join_all;
 use rand::{rngs::StdRng, SeedableRng};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::runtime::Builder;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Builder, Runtime};
 
 const WARMUP_DURATION_FRACTION: f32 = 0.07;
 const COOLDOWN_DURATION_FRACTION: f32 = 0.04;
@@ -130,9 +129,10 @@ pub trait NetworkLoadTest: Test {
     fn setup(&self, _ctx: &mut NetworkContext) -> Result<LoadDestination> {
         Ok(LoadDestination::AllNodes)
     }
-    // Load is started before this function is called, and stops after this function returns.
-    // Expected duration is passed into this function, expecting this function to take that much
-    // time to finish. How long this function takes will dictate how long the actual test lasts.
+    // Load is started before this function is called, and stops after this function
+    // returns. Expected duration is passed into this function, expecting this
+    // function to take that much time to finish. How long this function takes
+    // will dictate how long the actual test lasts.
     fn test(&self, _swarm: &mut dyn Swarm, duration: Duration) -> Result<()> {
         std::thread::sleep(duration);
         Ok(())

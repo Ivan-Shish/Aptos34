@@ -17,12 +17,12 @@ static APTOS_VAULT: Lazy<Option<VaultRunner>> = Lazy::new(|| match VaultRunner::
         );
         println!("Vault is not running: {}", err);
         None
-    }
+    },
     Ok(vr) => Some(vr),
 });
 
-/// This will return the vault host, if vault was started successfully. If vault is expected to be
-/// available, an assertion will cause this to fail.
+/// This will return the vault host, if vault was started successfully. If vault
+/// is expected to be available, an assertion will cause this to fail.
 pub fn test_host_safe() -> Option<String> {
     APTOS_VAULT.as_ref().map(|v| v.host().to_string())
 }
@@ -36,16 +36,16 @@ const BINARY: &str = "vault";
 const HOST: &str = "http://localhost";
 pub const ROOT_TOKEN: &str = "root_token";
 
-/// Provide an instance of Vault if vault is installed on the current machine and within the
-/// default path.
+/// Provide an instance of Vault if vault is installed on the current machine
+/// and within the default path.
 pub struct VaultRunner {
     _child: Child,
     host: String,
 }
 
 impl VaultRunner {
-    /// Instantiates a new instance of Vault if one is available or returns a String error stating
-    /// where it was unable to make progress.
+    /// Instantiates a new instance of Vault if one is available or returns a
+    /// String error stating where it was unable to make progress.
     pub fn run() -> Result<Self, String> {
         let port = Self::_port()?;
 
@@ -77,15 +77,17 @@ impl VaultRunner {
         let listener = TcpListener::bind(("localhost", 0)).map_err(|e| e.to_string())?;
         let addr = listener.local_addr().map_err(|e| e.to_string())?;
 
-        // Create and accept a connection (which we'll promptly drop) in order to force the port
-        // into the TIME_WAIT state, ensuring that the port will be reserved from some limited
-        // amount of time (roughly 60s on some Linux systems)
+        // Create and accept a connection (which we'll promptly drop) in order to force
+        // the port into the TIME_WAIT state, ensuring that the port will be
+        // reserved from some limited amount of time (roughly 60s on some Linux
+        // systems)
         let _sender = TcpStream::connect(addr).map_err(|e| e.to_string())?;
         let _incoming = listener.accept().map_err(|e| e.to_string())?;
         Ok(addr.port())
     }
 
-    // Turn on transit. This runs a few times to give vault a chance to fully initialize.
+    // Turn on transit. This runs a few times to give vault a chance to fully
+    // initialize.
     fn _transit(host: &str) -> Result<(), String> {
         let mut count = 0;
         loop {

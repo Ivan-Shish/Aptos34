@@ -15,17 +15,19 @@ use prometheus_http_query::response::PromqlResult;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 
-/// Trait used to represent a running network comprised of Validators and FullNodes
+/// Trait used to represent a running network comprised of Validators and
+/// FullNodes
 #[async_trait::async_trait]
 pub trait Swarm: Sync {
-    /// Performs a health check on the entire swarm, ensuring all Nodes are Live and that no forks
-    /// have occurred
+    /// Performs a health check on the entire swarm, ensuring all Nodes are Live
+    /// and that no forks have occurred
     async fn health_check(&mut self) -> Result<()>;
 
     /// Returns an Iterator of references to all the Validators in the Swarm
     fn validators<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn Validator> + 'a>;
 
-    /// Returns an Iterator of mutable references to all the Validators in the Swarm
+    /// Returns an Iterator of mutable references to all the Validators in the
+    /// Swarm
     fn validators_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &'a mut dyn Validator> + 'a>;
 
     /// Returns a reference to the Validator with the provided PeerId
@@ -40,7 +42,8 @@ pub trait Swarm: Sync {
     /// Returns an Iterator of references to all the FullNodes in the Swarm
     fn full_nodes<'a>(&'a self) -> Box<dyn Iterator<Item = &'a dyn FullNode> + 'a>;
 
-    /// Returns an Iterator of mutable references to all the FullNodes in the Swarm
+    /// Returns an Iterator of mutable references to all the FullNodes in the
+    /// Swarm
     fn full_nodes_mut<'a>(&'a mut self) -> Box<dyn Iterator<Item = &'a mut dyn FullNode> + 'a>;
 
     /// Returns a reference to the FullNode with the provided PeerId
@@ -167,7 +170,8 @@ pub trait SwarmExt: Swarm {
         Ok(())
     }
 
-    /// Perform a safety check, ensuring that no forks have occurred in the network.
+    /// Perform a safety check, ensuring that no forks have occurred in the
+    /// network.
     fn fork_check(&self) -> Result<()> {
         // Checks if root_hashes are equal across all nodes at a given version
         async fn are_root_hashes_equal_at_version(
@@ -265,17 +269,18 @@ pub trait SwarmExt: Swarm {
         .await
     }
 
-    /// Wait for all nodes in the network to be caught up. This is done by first querying each node
-    /// for its current version, selects the max version, then waits for all nodes to catch up to
-    /// that version. Once done, we can guarantee that all transactions committed before invocation
+    /// Wait for all nodes in the network to be caught up. This is done by first
+    /// querying each node for its current version, selects the max version,
+    /// then waits for all nodes to catch up to that version. Once done, we
+    /// can guarantee that all transactions committed before invocation
     /// of this function are available at all the nodes in the swarm
     async fn wait_for_all_nodes_to_catchup(&self, timeout: Duration) -> Result<()> {
         wait_for_all_nodes_to_catchup(&self.get_all_nodes_clients_with_names(), timeout).await
     }
 
-    /// Wait for all nodes in the network to change epochs. This is done by first querying each node
-    /// for its current epoch, selecting the max epoch, then waiting for all nodes to sync to max
-    /// epoch + 1.
+    /// Wait for all nodes in the network to change epochs. This is done by
+    /// first querying each node for its current epoch, selecting the max
+    /// epoch, then waiting for all nodes to sync to max epoch + 1.
     async fn wait_for_all_nodes_to_change_epoch(&self, timeout: Duration) -> Result<()> {
         let clients = &self.get_all_nodes_clients_with_names();
         if clients.is_empty() {
@@ -380,7 +385,8 @@ pub async fn wait_for_all_nodes_to_catchup_to_epoch(
     .await
 }
 
-/// Waits for all nodes to have caught up to the specified `target_version` or `target_epoch`.
+/// Waits for all nodes to have caught up to the specified `target_version` or
+/// `target_epoch`.
 async fn wait_for_all_nodes_to_catchup_to_target_version_or_epoch(
     clients: &[(String, RestClient)],
     target_version: Option<u64>,
@@ -435,7 +441,8 @@ async fn wait_for_all_nodes_to_catchup_to_target_version_or_epoch(
         // Check if all targets have been met
         if all_caught_up_to_version && all_caught_up_to_epoch {
             info!(
-                "All nodes caught up to target version and epoch ({:?}, {:?}) successfully, in {} seconds",
+                "All nodes caught up to target version and epoch ({:?}, {:?}) successfully, in {} \
+                 seconds",
                 target_version,
                 target_epoch,
                 start_time.elapsed().as_secs()
@@ -446,7 +453,8 @@ async fn wait_for_all_nodes_to_catchup_to_target_version_or_epoch(
         // Check if we've timed out while waiting
         if start_time.elapsed() > timeout {
             return Err(anyhow!(
-                "Waiting for nodes to catch up to target version and epoch ({:?}, {:?}) timed out after {} seconds, current status: {:?}",
+                "Waiting for nodes to catch up to target version and epoch ({:?}, {:?}) timed out \
+                 after {} seconds, current status: {:?}",
                 target_version,
                 target_epoch,
                 start_time.elapsed().as_secs(),
@@ -458,10 +466,11 @@ async fn wait_for_all_nodes_to_catchup_to_target_version_or_epoch(
     }
 }
 
-/// Wait for all nodes in the network to be caught up. This is done by first querying each node
-/// for its current version, selects the max version, then waits for all nodes to catch up to
-/// that version. Once done, we can guarantee that all transactions committed before invocation
-/// of this function are available at all the nodes in the swarm
+/// Wait for all nodes in the network to be caught up. This is done by first
+/// querying each node for its current version, selects the max version, then
+/// waits for all nodes to catch up to that version. Once done, we can guarantee
+/// that all transactions committed before invocation of this function are
+/// available at all the nodes in the swarm
 pub async fn wait_for_all_nodes_to_catchup(
     clients: &[(String, RestClient)],
     timeout: Duration,
