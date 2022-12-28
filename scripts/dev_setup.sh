@@ -884,7 +884,9 @@ if [[ "$INSTALL_BUILD_TOOLS" == "true" ]]; then
   install_rustup "$BATCH_MODE"
   install_toolchain "$(cat ./rust-toolchain)"
   # Add all the components that we need
+  rustup update
   rustup component add rustfmt
+  rustup component add rustfmt --toolchain nightly # Required for strict rust formatting
   rustup component add clippy
 
   install_cargo_sort
