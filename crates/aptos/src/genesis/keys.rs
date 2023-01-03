@@ -10,7 +10,7 @@ use crate::{
         },
     },
     genesis::git::{from_yaml, to_yaml, GitOptions, LAYOUT_FILE, OPERATOR_FILE, OWNER_FILE},
-    governance::CompileScriptFunction,
+    move_tool::CompileScript,
     CliCommand,
 };
 use aptos_genesis::{
@@ -308,7 +308,7 @@ pub struct GenerateAdminWriteSet {
     pub(crate) execute_as: AccountAddress,
 
     #[clap(flatten)]
-    pub(crate) compile_proposal_args: CompileScriptFunction,
+    pub(crate) compile_proposal_args: CompileScript,
 
     #[clap(flatten)]
     pub(crate) prompt_options: PromptOptions,

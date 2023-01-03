@@ -11,12 +11,12 @@ use crate::{
         },
         utils::prompt_yes_with_override,
     },
-    move_tool::{FrameworkPackageArgs, IncludedArtifacts},
+    move_tool::{CompileScript, IncludedArtifacts},
     CliCommand, CliResult,
 };
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::HashValue;
-use aptos_framework::{BuildOptions, BuiltPackage, ReleasePackage};
+use aptos_framework::{BuiltPackage, ReleasePackage};
 use aptos_logger::warn;
 use aptos_rest_client::{
     aptos_api_types::{Address, HexEncodedBytes, U128, U64},
@@ -36,13 +36,7 @@ use clap::Parser;
 use move_core_types::transaction_argument::TransactionArgument;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    fmt::Formatter,
-    fs,
-    path::{Path, PathBuf},
-};
-use tempfile::TempDir;
+use std::{collections::BTreeMap, fmt::Formatter, path::PathBuf};
 
 /// Tool for on-chain governance
 ///
@@ -195,7 +189,7 @@ pub struct VerifyProposal {
     proposal_id: u64,
 
     #[clap(flatten)]
-    pub(crate) compile_proposal_args: CompileScriptFunction,
+    pub(crate) compile_proposal_args: CompileScript,
     #[clap(flatten)]
     rest_options: RestOptions,
     #[clap(flatten)]
@@ -214,7 +208,7 @@ impl CliCommand<VerifyProposalResponse> for VerifyProposal {
         // Compile local first to get the hash
         let (_, hash) = self
             .compile_proposal_args
-            .compile("SubmitProposal", self.prompt_options)?;
+            .compile("VerifyProposal", self.prompt_options)?;
 
         // Retrieve the onchain proposal
         let client = self.rest_options.client(&self.profile)?;
@@ -284,7 +278,7 @@ pub struct SubmitProposal {
     #[clap(flatten)]
     pub(crate) pool_address_args: PoolAddressArgs,
     #[clap(flatten)]
-    pub(crate) compile_proposal_args: CompileScriptFunction,
+    pub(crate) compile_proposal_args: CompileScript,
 }
 
 #[async_trait]
@@ -441,7 +435,7 @@ pub struct SubmitVote {
     pub(crate) no: bool,
 
     /// Space separated list of pool addresses.
-    #[clap(long, multiple_values = true, parse(try_from_str=crate::common::types::load_account_arg))]
+    #[clap(long, multiple_values = true, parse(try_from_str = crate::common::types::load_account_arg))]
     pub(crate) pool_addresses: Vec<AccountAddress>,
 
     #[clap(flatten)]
@@ -556,86 +550,6 @@ impl std::fmt::Display for ProposalMetadata {
     }
 }
 
-fn compile_in_temp_dir(
-    script_name: &str,
-    script_path: &Path,
-    framework_package_args: &FrameworkPackageArgs,
-    prompt_options: PromptOptions,
-    bytecode_version: u32,
-) -> CliTypedResult<(Vec<u8>, HashValue)> {
-    // Make a temporary directory for compilation
-    let temp_dir = TempDir::new().map_err(|err| {
-        CliError::UnexpectedError(format!("Failed to create temporary directory {}", err))
-    })?;
-
-    // Initialize a move directory
-    let package_dir = temp_dir.path();
-    framework_package_args.init_move_dir(
-        package_dir,
-        script_name,
-        BTreeMap::new(),
-        prompt_options,
-    )?;
-
-    // Insert the new script
-    let sources_dir = package_dir.join("sources");
-    let new_script_path = if let Some(file_name) = script_path.file_name() {
-        sources_dir.join(file_name)
-    } else {
-        // If for some reason we can't get the move file
-        sources_dir.join("script.move")
-    };
-    fs::copy(script_path, new_script_path.as_path()).map_err(|err| {
-        CliError::IO(
-            format!(
-                "Failed to copy {} to {}",
-                script_path.display(),
-                new_script_path.display()
-            ),
-            err,
-        )
-    })?;
-
-    // Compile the script
-    compile_script(
-        framework_package_args.skip_fetch_latest_git_deps,
-        package_dir,
-        bytecode_version,
-    )
-}
-
-fn compile_script(
-    skip_fetch_latest_git_deps: bool,
-    package_dir: &Path,
-    bytecode_version: u32,
-) -> CliTypedResult<(Vec<u8>, HashValue)> {
-    let build_options = BuildOptions {
-        with_srcs: false,
-        with_abis: false,
-        with_source_maps: false,
-        with_error_map: false,
-        skip_fetch_latest_git_deps,
-        bytecode_version: Some(bytecode_version),
-        ..BuildOptions::default()
-    };
-
-    let pack = BuiltPackage::build(package_dir.to_path_buf(), build_options)?;
-
-    let scripts_count = pack.script_count();
-
-    if scripts_count != 1 {
-        return Err(CliError::UnexpectedError(format!(
-            "Only one script can be prepared a time. Make sure one and only one script file \
-                is included in the Move package. Found {} scripts.",
-            scripts_count
-        )));
-    }
-
-    let bytes = pack.extract_script_code().pop().unwrap();
-    let hash = HashValue::sha3_256_of(bytes.as_slice());
-    Ok((bytes, hash))
-}
-
 /// Execute a proposal that has passed voting requirements
 #[derive(Parser)]
 pub struct ExecuteProposal {
@@ -646,7 +560,7 @@ pub struct ExecuteProposal {
     #[clap(flatten)]
     pub(crate) txn_options: TransactionOptions,
     #[clap(flatten)]
-    pub(crate) compile_proposal_args: CompileScriptFunction,
+    pub(crate) compile_proposal_args: CompileScript,
 }
 
 #[async_trait]
@@ -668,71 +582,6 @@ impl CliCommand<TransactionSummary> for ExecuteProposal {
             .submit_transaction(txn)
             .await
             .map(TransactionSummary::from)
-    }
-}
-
-/// Execute a proposal that has passed voting requirements
-#[derive(Parser)]
-pub struct CompileScriptFunction {
-    /// Path to the Move script for the proposal
-    #[clap(long, group = "script", parse(from_os_str))]
-    pub script_path: Option<PathBuf>,
-
-    /// Path to the Move script for the proposal
-    #[clap(long, group = "script", parse(from_os_str))]
-    pub compiled_script_path: Option<PathBuf>,
-
-    #[clap(flatten)]
-    pub(crate) framework_package_args: FrameworkPackageArgs,
-
-    #[clap(long)]
-    pub(crate) bytecode_version: Option<u32>,
-}
-
-impl CompileScriptFunction {
-    pub(crate) fn compile(
-        &self,
-        script_name: &str,
-        prompt_options: PromptOptions,
-    ) -> CliTypedResult<(Vec<u8>, HashValue)> {
-        if let Some(compiled_script_path) = &self.compiled_script_path {
-            let bytes = std::fs::read(compiled_script_path).map_err(|e| {
-                CliError::IO(format!("Unable to read {:?}", self.compiled_script_path), e)
-            })?;
-            let hash = HashValue::sha3_256_of(bytes.as_slice());
-            return Ok((bytes, hash));
-        }
-
-        // Check script file
-        let script_path = self
-            .script_path
-            .as_ref()
-            .ok_or_else(|| {
-                CliError::CommandArgumentError(
-                    "Must choose either --compiled-script-path or --script-path".to_string(),
-                )
-            })?
-            .as_path();
-        if !script_path.exists() {
-            return Err(CliError::CommandArgumentError(format!(
-                "{} does not exist",
-                script_path.display()
-            )));
-        } else if script_path.is_dir() {
-            return Err(CliError::CommandArgumentError(format!(
-                "{} is a directory",
-                script_path.display()
-            )));
-        }
-
-        // Compile script
-        compile_in_temp_dir(
-            script_name,
-            script_path,
-            &self.framework_package_args,
-            prompt_options,
-            self.bytecode_version.unwrap_or(5),
-        )
     }
 }
 
@@ -787,7 +636,7 @@ impl CliCommand<()> for GenerateUpgradeProposal {
         let options = included_artifacts.build_options(
             move_options.skip_fetch_latest_git_deps,
             move_options.named_addresses(),
-            move_options.bytecode_version_or_detault(),
+            move_options.bytecode_version_or_default(),
         );
         let package = BuiltPackage::build(package_path, options)?;
         let release = ReleasePackage::new(package)?;

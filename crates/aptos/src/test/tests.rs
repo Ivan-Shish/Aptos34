@@ -128,6 +128,7 @@ async fn assert_cmd_not_panic(args: &[&str]) {
 }
 
 async fn run_cmd(args: &[&str]) -> CliResult {
-    let tool: Tool = Tool::try_parse_from(args).map_err(|msg| msg.to_string())?;
+    let tool: Tool = Tool::try_parse_from(args)
+        .map_err(|err| format!("Failed to parse args for command '{:?}' {:#}", args, err))?;
     tool.execute().await
 }

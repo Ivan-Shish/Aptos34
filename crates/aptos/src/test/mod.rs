@@ -20,11 +20,10 @@ use crate::{
         },
         utils::write_to_file,
     },
-    governance::CompileScriptFunction,
     move_tool::{
-        ArgWithType, CompilePackage, DownloadPackage, FrameworkPackageArgs, IncludedArtifacts,
-        IncludedArtifactsArgs, InitPackage, MemberId, PublishPackage, RunFunction, RunScript,
-        TestPackage,
+        ArgWithType, CompilePackage, CompileScript, DownloadPackage, FrameworkPackageArgs,
+        IncludedArtifacts, IncludedArtifactsArgs, InitPackage, MemberId, PublishPackage,
+        RunFunction, RunScript, TestPackage,
     },
     node::{
         AnalyzeMode, AnalyzeValidatorPerformance, GetStakePool, InitializeValidator,
@@ -804,7 +803,6 @@ impl CliTestFramework {
             framework_package_args: FrameworkPackageArgs {
                 framework_git_rev: None,
                 framework_local_dir: framework_dir,
-                skip_fetch_latest_git_deps: false,
             },
         }
         .execute()
@@ -931,15 +929,20 @@ impl CliTestFramework {
 
         RunScript {
             txn_options: self.transaction_options(index, None),
-            compile_proposal_args: CompileScriptFunction {
+            compile_proposal_args: CompileScript {
                 script_path: Some(source_path),
                 compiled_script_path: None,
+                move_options: MovePackageDir {
+                    package_dir: None,
+                    output_dir: None,
+                    named_addresses: Default::default(),
+                    skip_fetch_latest_git_deps: true,
+                    bytecode_version: None,
+                },
                 framework_package_args: FrameworkPackageArgs {
                     framework_git_rev: None,
                     framework_local_dir: Some(Self::aptos_framework_dir()),
-                    skip_fetch_latest_git_deps: false,
                 },
-                bytecode_version: None,
             },
             args: Vec::new(),
             type_args: Vec::new(),

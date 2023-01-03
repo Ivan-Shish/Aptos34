@@ -4,7 +4,9 @@
 mod aptos_debug_natives;
 mod manifest;
 pub mod package_hooks;
+
 pub use package_hooks::*;
+
 pub mod stored_package;
 mod transactional_tests_runner;
 
@@ -20,10 +22,10 @@ use crate::{
             prompt_yes_with_override, write_to_file,
         },
     },
-    governance::CompileScriptFunction,
     move_tool::manifest::{Dependency, ManifestNamedAddress, MovePackageManifest, PackageInfo},
     CliCommand, CliResult,
 };
+use aptos_crypto::HashValue;
 use aptos_framework::{
     docgen::DocgenOptions, natives::code::UpgradePolicy, prover::ProverOptions, BuildOptions,
     BuiltPackage,
@@ -57,6 +59,7 @@ use std::{
     str::FromStr,
 };
 pub use stored_package::*;
+use tempfile::TempDir;
 use tokio::task;
 use transactional_tests_runner::TransactionalTestOpts;
 
@@ -133,14 +136,6 @@ pub struct FrameworkPackageArgs {
     /// This is mutually exclusive with `--framework-git-rev`
     #[clap(long, parse(from_os_str), group = "framework_package_args")]
     pub(crate) framework_local_dir: Option<PathBuf>,
-
-    /// Skip pulling the latest git dependencies
-    ///
-    /// If you don't have a network connection, the compiler may fail due
-    /// to no ability to pull git dependencies.  This will allow overriding
-    /// this for local development.
-    #[clap(long)]
-    pub(crate) skip_fetch_latest_git_deps: bool,
 }
 
 impl FrameworkPackageArgs {
@@ -293,7 +288,7 @@ impl CliCommand<Vec<String>> for CompilePackage {
                 .build_options(
                     self.move_options.skip_fetch_latest_git_deps,
                     self.move_options.named_addresses(),
-                    self.move_options.bytecode_version_or_detault(),
+                    self.move_options.bytecode_version_or_default(),
                 )
         };
         let pack = BuiltPackage::build(self.move_options.get_package_path()?, build_options)
@@ -471,7 +466,7 @@ impl CliCommand<&'static str> for DocumentPackage {
             named_addresses: move_options.named_addresses(),
             docgen_options: Some(docgen_options),
             skip_fetch_latest_git_deps: move_options.skip_fetch_latest_git_deps,
-            bytecode_version: Some(move_options.bytecode_version_or_detault()),
+            bytecode_version: Some(move_options.bytecode_version_or_default()),
         };
         BuiltPackage::build(move_options.get_package_path()?, build_options)?;
         Ok("succeeded")
@@ -604,7 +599,7 @@ impl CliCommand<TransactionSummary> for PublishPackage {
         let options = included_artifacts_args.included_artifacts.build_options(
             move_options.skip_fetch_latest_git_deps,
             move_options.named_addresses(),
-            move_options.bytecode_version_or_detault(),
+            move_options.bytecode_version_or_default(),
         );
         let package = BuiltPackage::build(package_path, options)?;
         let compiled_units = package.extract_code();
@@ -691,7 +686,7 @@ impl CliCommand<TransactionSummary> for CreateResourceAccountAndPublishPackage {
         let options = included_artifacts_args.included_artifacts.build_options(
             move_options.skip_fetch_latest_git_deps,
             move_options.named_addresses(),
-            move_options.bytecode_version_or_detault(),
+            move_options.bytecode_version_or_default(),
         );
         let package = BuiltPackage::build(package_path, options)?;
         let compiled_units = package.extract_code();
@@ -816,11 +811,11 @@ impl CliCommand<&'static str> for VerifyPackage {
         // First build the package locally to get the package metadata
         let build_options = BuildOptions {
             install_dir: self.move_options.output_dir.clone(),
-            bytecode_version: Some(self.move_options.bytecode_version_or_detault()),
+            bytecode_version: Some(self.move_options.bytecode_version_or_default()),
             ..self.included_artifacts.build_options(
                 self.move_options.skip_fetch_latest_git_deps,
                 self.move_options.named_addresses(),
-                self.move_options.bytecode_version_or_detault(),
+                self.move_options.bytecode_version_or_default(),
             )
         };
         let pack = BuiltPackage::build(self.move_options.get_package_path()?, build_options)
@@ -1028,7 +1023,7 @@ pub struct RunScript {
     #[clap(flatten)]
     pub(crate) txn_options: TransactionOptions,
     #[clap(flatten)]
-    pub(crate) compile_proposal_args: CompileScriptFunction,
+    pub(crate) compile_proposal_args: CompileScript,
     /// Arguments combined with their type separated by spaces.
     ///
     /// Supported types [u8, u64, u128, bool, hex, string, address, raw]
@@ -1383,5 +1378,156 @@ impl FromStr for MemberId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_member_id(s)
+    }
+}
+
+/// Compile a script
+#[derive(Parser)]
+pub struct CompileScript {
+    /// Path to the Move script for the proposal
+    #[clap(long, group = "script", parse(from_os_str))]
+    pub script_path: Option<PathBuf>,
+
+    /// Path to the Move script for the proposal
+    #[clap(long, group = "script", parse(from_os_str))]
+    pub compiled_script_path: Option<PathBuf>,
+
+    #[clap(flatten)]
+    pub move_options: MovePackageDir,
+
+    #[clap(flatten)]
+    pub(crate) framework_package_args: FrameworkPackageArgs,
+}
+
+impl CompileScript {
+    pub(crate) fn compile(
+        &self,
+        script_name: &str,
+        prompt_options: PromptOptions,
+    ) -> CliTypedResult<(Vec<u8>, HashValue)> {
+        set_bytecode_version(self.move_options.bytecode_version);
+        match (
+            self.script_path.as_ref(),
+            self.compiled_script_path.as_ref(),
+            self.move_options.package_dir.as_ref(),
+        ) {
+            (Some(script_path), None, None) => {
+                let script_path = script_path.as_path();
+                if !script_path.exists() {
+                    return Err(CliError::CommandArgumentError(format!(
+                        "{} does not exist",
+                        script_path.display()
+                    )));
+                } else if script_path.is_dir() {
+                    return Err(CliError::CommandArgumentError(format!(
+                        "{} is a directory",
+                        script_path.display()
+                    )));
+                }
+
+                // Compile script
+                Self::compile_in_temp_dir(
+                    script_name,
+                    script_path,
+                    &self.framework_package_args,
+                    prompt_options,
+                    self.move_options.bytecode_version_or_default(),
+                    self.move_options.skip_fetch_latest_git_deps,
+                )
+            },
+            (None, Some(compiled_script_path), None) => {
+                let bytes = std::fs::read(compiled_script_path).map_err(|e| {
+                    CliError::IO(format!("Unable to read {:?}", self.compiled_script_path), e)
+                })?;
+                let hash = HashValue::sha3_256_of(bytes.as_slice());
+                Ok((bytes, hash))
+            },
+            (None, None, _) => Self::compile_script(
+                self.move_options.skip_fetch_latest_git_deps,
+                self.move_options.get_package_path()?.as_path(),
+                self.move_options.bytecode_version_or_default(),
+            ),
+            (_, _, _) => Err(CliError::CommandArgumentError(
+                "Must choose either --compiled-script-path, --script-path, or --package-dir"
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn compile_in_temp_dir(
+        script_name: &str,
+        script_path: &Path,
+        framework_package_args: &FrameworkPackageArgs,
+        prompt_options: PromptOptions,
+        bytecode_version: u32,
+        skip_fetch_latest_git_deps: bool,
+    ) -> CliTypedResult<(Vec<u8>, HashValue)> {
+        // Make a temporary directory for compilation
+        let temp_dir = TempDir::new().map_err(|err| {
+            CliError::UnexpectedError(format!("Failed to create temporary directory {}", err))
+        })?;
+
+        // Initialize a move directory
+        let package_dir = temp_dir.path();
+        framework_package_args.init_move_dir(
+            package_dir,
+            script_name,
+            BTreeMap::new(),
+            prompt_options,
+        )?;
+
+        // Insert the new script
+        let sources_dir = package_dir.join("sources");
+        let new_script_path = if let Some(file_name) = script_path.file_name() {
+            sources_dir.join(file_name)
+        } else {
+            // If for some reason we can't get the move file
+            sources_dir.join("script.move")
+        };
+        std::fs::copy(script_path, new_script_path.as_path()).map_err(|err| {
+            CliError::IO(
+                format!(
+                    "Failed to copy {} to {}",
+                    script_path.display(),
+                    new_script_path.display()
+                ),
+                err,
+            )
+        })?;
+
+        // Compile the script
+        Self::compile_script(skip_fetch_latest_git_deps, package_dir, bytecode_version)
+    }
+
+    fn compile_script(
+        skip_fetch_latest_git_deps: bool,
+        package_dir: &Path,
+        bytecode_version: u32,
+    ) -> CliTypedResult<(Vec<u8>, HashValue)> {
+        let build_options = BuildOptions {
+            with_srcs: false,
+            with_abis: false,
+            with_source_maps: false,
+            with_error_map: false,
+            skip_fetch_latest_git_deps,
+            bytecode_version: Some(bytecode_version),
+            ..BuildOptions::default()
+        };
+
+        let pack = BuiltPackage::build(package_dir.to_path_buf(), build_options)?;
+
+        let scripts_count = pack.script_count();
+
+        if scripts_count != 1 {
+            return Err(CliError::UnexpectedError(format!(
+                "Only one script can be compiled at a time. Make sure exactly one script file \
+                is included in the Move package. Found {} scripts.",
+                scripts_count
+            )));
+        }
+
+        let bytes = pack.extract_script_code().pop().unwrap();
+        let hash = HashValue::sha3_256_of(bytes.as_slice());
+        Ok((bytes, hash))
     }
 }

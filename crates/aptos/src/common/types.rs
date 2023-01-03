@@ -947,7 +947,7 @@ impl MovePackageDir {
             .collect()
     }
 
-    pub fn bytecode_version_or_detault(&self) -> u32 {
+    pub fn bytecode_version_or_default(&self) -> u32 {
         self.bytecode_version.unwrap_or(5)
     }
 
