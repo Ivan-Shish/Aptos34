@@ -122,9 +122,10 @@ mod tests {
         let res = flatten_metric_with_labels("counter_1", &counter.metric());
         assert_eq!("counter_1", res.as_str());
 
-        let counter = IntCounterVec::new(Opts::new("counter_2", "Example counter for testing"), &[
-            "label_me",
-        ])
+        let counter = IntCounterVec::new(
+            Opts::new("counter_2", "Example counter for testing"),
+            &["label_me"],
+        )
         .unwrap();
         let res =
             flatten_metric_with_labels("counter_2", &counter.with_label_values(&[""]).metric());
@@ -136,10 +137,10 @@ mod tests {
         );
         assert_eq!("counter_2.hello", res.as_str());
 
-        let counter = IntCounterVec::new(Opts::new("counter_2", "Example counter for testing"), &[
-            "label_me",
-            "label_me_too",
-        ])
+        let counter = IntCounterVec::new(
+            Opts::new("counter_2", "Example counter for testing"),
+            &["label_me", "label_me_too"],
+        )
         .unwrap();
         let res =
             flatten_metric_with_labels("counter_3", &counter.with_label_values(&["", ""]).metric());
@@ -154,9 +155,10 @@ mod tests {
 
     #[test]
     fn test_encoder() {
-        let counter = IntCounterVec::new(Opts::new("testing_count", "Test Counter"), &[
-            "method", "result",
-        ])
+        let counter = IntCounterVec::new(
+            Opts::new("testing_count", "Test Counter"),
+            &["method", "result"],
+        )
         .unwrap();
         // add some test data
         counter.with_label_values(&["get", "302"]).inc();

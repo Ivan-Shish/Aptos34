@@ -139,9 +139,10 @@ fn native_signature_verify_strict(
         )) * num_sub_sigs;
 
     let verify_result = sig.verify_arbitrary_msg(msg.as_slice(), &pk).is_ok();
-    Ok(NativeResult::ok(cost, smallvec![Value::bool(
-        verify_result
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::bool(verify_result)],
+    ))
 }
 
 #[cfg(feature = "testing")]
@@ -165,10 +166,13 @@ fn native_generate_keys(
         .collect();
     let group_sk = multi_ed25519::MultiEd25519PrivateKey::new(private_keys, threshold).unwrap();
     let group_pk = multi_ed25519::MultiEd25519PublicKey::new(public_keys, threshold).unwrap();
-    Ok(NativeResult::ok(InternalGas::zero(), smallvec![
-        Value::vector_u8(group_sk.to_bytes()),
-        Value::vector_u8(group_pk.to_bytes()),
-    ]))
+    Ok(NativeResult::ok(
+        InternalGas::zero(),
+        smallvec![
+            Value::vector_u8(group_sk.to_bytes()),
+            Value::vector_u8(group_pk.to_bytes()),
+        ],
+    ))
 }
 
 #[cfg(feature = "testing")]
@@ -181,9 +185,10 @@ fn native_sign(
     let sk_bytes = pop_arg!(arguments, Vec<u8>);
     let group_sk = multi_ed25519::MultiEd25519PrivateKey::try_from(sk_bytes.as_slice()).unwrap();
     let sig = group_sk.sign_arbitrary_message(message.as_slice());
-    Ok(NativeResult::ok(InternalGas::zero(), smallvec![
-        Value::vector_u8(sig.to_bytes()),
-    ]))
+    Ok(NativeResult::ok(
+        InternalGas::zero(),
+        smallvec![Value::vector_u8(sig.to_bytes()),],
+    ))
 }
 /***************************************************************************************************
  * module

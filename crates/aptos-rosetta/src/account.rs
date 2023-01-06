@@ -222,9 +222,13 @@ async fn get_balances(
         // Retrieve balances
         Ok((sequence_number, maybe_operators, balances))
     } else {
-        Ok((0, None, vec![Amount {
-            value: 0.to_string(),
-            currency: native_coin(),
-        }]))
+        Ok((
+            0,
+            None,
+            vec![Amount {
+                value: 0.to_string(),
+                currency: native_coin(),
+            }],
+        ))
     }
 }

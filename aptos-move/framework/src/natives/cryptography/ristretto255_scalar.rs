@@ -57,9 +57,10 @@ pub(crate) fn native_scalar_invert(
     let s = pop_scalar_from_bytes(&mut arguments)?;
 
     // Invert and return
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.invert().to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.invert().to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_from_sha512(
@@ -77,9 +78,10 @@ pub(crate) fn native_scalar_from_sha512(
         + gas_params.sha512_per_byte * NumBytes::new(bytes.len() as u64);
     let s = Scalar::hash_from_bytes::<Sha512>(bytes.as_slice());
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_mul(
@@ -98,9 +100,10 @@ pub(crate) fn native_scalar_mul(
 
     let s = a.mul(b);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_add(
@@ -119,9 +122,10 @@ pub(crate) fn native_scalar_add(
 
     let s = a.add(b);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_sub(
@@ -140,9 +144,10 @@ pub(crate) fn native_scalar_sub(
 
     let s = a.sub(b);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_neg(
@@ -159,9 +164,10 @@ pub(crate) fn native_scalar_neg(
     let cost = gas_params.scalar_neg * NumArgs::one();
     let s = a.neg();
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_from_u64(
@@ -177,9 +183,10 @@ pub(crate) fn native_scalar_from_u64(
     let cost = gas_params.scalar_from_u64 * NumArgs::one();
     let s = Scalar::from(num);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_from_u128(
@@ -195,9 +202,10 @@ pub(crate) fn native_scalar_from_u128(
     let cost = gas_params.scalar_from_u128 * NumArgs::one();
     let s = Scalar::from(num);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_reduced_from_32_bytes(
@@ -213,9 +221,10 @@ pub(crate) fn native_scalar_reduced_from_32_bytes(
     let cost = gas_params.scalar_reduced_from_32_bytes * NumArgs::one();
     let s = Scalar::from_bytes_mod_order(bytes_slice);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }
 
 pub(crate) fn native_scalar_uniform_from_64_bytes(
@@ -231,7 +240,8 @@ pub(crate) fn native_scalar_uniform_from_64_bytes(
     let cost = gas_params.scalar_uniform_from_64_bytes * NumArgs::one();
     let s = Scalar::from_bytes_mod_order_wide(&bytes_slice);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        s.to_bytes().to_vec()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(s.to_bytes().to_vec())],
+    ))
 }

@@ -117,10 +117,13 @@ impl SMRNode {
         let payload = OnChainConfigPayload::new(1, Arc::new(configs));
 
         reconfig_sender
-            .push((), ReconfigNotification {
-                version: 1,
-                on_chain_configs: payload,
-            })
+            .push(
+                (),
+                ReconfigNotification {
+                    version: 1,
+                    on_chain_configs: payload,
+                },
+            )
             .unwrap();
 
         let runtime = Builder::new_multi_thread()

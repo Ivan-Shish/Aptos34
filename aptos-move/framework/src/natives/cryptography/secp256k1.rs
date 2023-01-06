@@ -69,14 +69,17 @@ fn native_ecdsa_recover(
 
     // NOTE(Gas): O(1) cost: a size-2 multi-scalar multiplication
     match libsecp256k1::recover(&msg, &sig, &rid) {
-        Ok(pk) => Ok(NativeResult::ok(cost, smallvec![
-            Value::vector_u8(pk.serialize()[1..].to_vec()),
-            Value::bool(true)
-        ])),
-        Err(_) => Ok(NativeResult::ok(cost, smallvec![
-            Value::vector_u8([0u8; 0]),
-            Value::bool(false)
-        ])),
+        Ok(pk) => Ok(NativeResult::ok(
+            cost,
+            smallvec![
+                Value::vector_u8(pk.serialize()[1..].to_vec()),
+                Value::bool(true)
+            ],
+        )),
+        Err(_) => Ok(NativeResult::ok(
+            cost,
+            smallvec![Value::vector_u8([0u8; 0]), Value::bool(false)],
+        )),
     }
 }
 

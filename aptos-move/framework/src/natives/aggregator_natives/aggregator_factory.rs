@@ -62,13 +62,14 @@ fn native_new_aggregator(
     let id = AggregatorID::new(handle, key);
     aggregator_data.create_new_aggregator(id, limit);
 
-    Ok(NativeResult::ok(gas_params.base, smallvec![
-        Value::struct_(Struct::pack(vec![
+    Ok(NativeResult::ok(
+        gas_params.base,
+        smallvec![Value::struct_(Struct::pack(vec![
             Value::address(handle.0),
             Value::address(key.0),
             Value::u128(limit),
-        ]))
-    ]))
+        ]))],
+    ))
 }
 
 pub fn make_native_new_aggregator(gas_params: NewAggregatorGasParameters) -> NativeFunction {

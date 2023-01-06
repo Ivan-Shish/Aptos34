@@ -576,10 +576,13 @@ fn start_node_mempool(
         notification_receiver: reconfig_events,
     };
     reconfig_sender
-        .push((), ReconfigNotification {
-            version: 1,
-            on_chain_configs: OnChainConfigPayload::new(1, Arc::new(HashMap::new())),
-        })
+        .push(
+            (),
+            ReconfigNotification {
+                version: 1,
+                on_chain_configs: OnChainConfigPayload::new(1, Arc::new(HashMap::new())),
+            },
+        )
         .unwrap();
     let runtime = Builder::new_multi_thread()
         .thread_name("shared-mem")

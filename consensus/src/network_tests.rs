@@ -520,9 +520,10 @@ mod tests {
         // Round 1 partitions: [0], [1,2]
         round_partitions.insert(1, vec![vec![nodes[0]], vec![nodes[1], nodes[2]]]);
         // Round 2 partitions: [1], [2], [3,4]
-        round_partitions.insert(2, vec![vec![nodes[1]], vec![nodes[2]], vec![
-            nodes[3], nodes[4],
-        ]]);
+        round_partitions.insert(
+            2,
+            vec![vec![nodes[1]], vec![nodes[2]], vec![nodes[3], nodes[4]]],
+        );
         assert!(playground.split_network_round(&round_partitions));
 
         // Round 1 checks (partitions: [0], [1,2])
@@ -574,11 +575,15 @@ mod tests {
             let (_conn_mgr_reqs_tx, conn_mgr_reqs_rx) = aptos_channels::new_test(8);
             let (_, conn_status_rx) = conn_notifs_channel::new();
 
-            add_peer_to_storage(&peer_metadata_storage, peer, &[
-                ProtocolId::ConsensusDirectSendJson,
-                ProtocolId::ConsensusDirectSendBcs,
-                ProtocolId::ConsensusRpcBcs,
-            ]);
+            add_peer_to_storage(
+                &peer_metadata_storage,
+                peer,
+                &[
+                    ProtocolId::ConsensusDirectSendJson,
+                    ProtocolId::ConsensusDirectSendBcs,
+                    ProtocolId::ConsensusRpcBcs,
+                ],
+            );
 
             let network_sender = network::NetworkSender::new(
                 PeerManagerRequestSender::new(network_reqs_tx),
@@ -694,11 +699,15 @@ mod tests {
             );
             let consensus_network_client = ConsensusNetworkClient::new(network_client);
 
-            add_peer_to_storage(&peer_metadata_storage, peer, &[
-                ProtocolId::ConsensusDirectSendJson,
-                ProtocolId::ConsensusDirectSendBcs,
-                ProtocolId::ConsensusRpcJson,
-            ]);
+            add_peer_to_storage(
+                &peer_metadata_storage,
+                peer,
+                &[
+                    ProtocolId::ConsensusDirectSendJson,
+                    ProtocolId::ConsensusDirectSendBcs,
+                    ProtocolId::ConsensusRpcJson,
+                ],
+            );
 
             let network_events = NetworkEvents::new(consensus_rx, conn_status_rx);
 
@@ -783,10 +792,13 @@ mod tests {
 
         let peer_id = PeerId::random();
         let protocol_id = ProtocolId::ConsensusDirectSendBcs;
-        let bad_msg = PeerManagerNotification::RecvMessage(peer_id, Message {
-            protocol_id,
-            mdata: Bytes::from_static(b"\xde\xad\xbe\xef"),
-        });
+        let bad_msg = PeerManagerNotification::RecvMessage(
+            peer_id,
+            Message {
+                protocol_id,
+                mdata: Bytes::from_static(b"\xde\xad\xbe\xef"),
+            },
+        );
 
         peer_mgr_notifs_tx
             .push((peer_id, protocol_id), bad_msg)
@@ -798,11 +810,14 @@ mod tests {
 
         let protocol_id = ProtocolId::ConsensusRpcJson;
         let (res_tx, _res_rx) = oneshot::channel();
-        let liveness_check_msg = PeerManagerNotification::RecvRpc(peer_id, InboundRpcRequest {
-            protocol_id,
-            data: Bytes::from(serde_json::to_vec(&liveness_check_msg).unwrap()),
-            res_tx,
-        });
+        let liveness_check_msg = PeerManagerNotification::RecvRpc(
+            peer_id,
+            InboundRpcRequest {
+                protocol_id,
+                data: Bytes::from(serde_json::to_vec(&liveness_check_msg).unwrap()),
+                res_tx,
+            },
+        );
 
         peer_mgr_notifs_tx
             .push((peer_id, protocol_id), liveness_check_msg)

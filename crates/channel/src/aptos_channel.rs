@@ -249,7 +249,10 @@ pub fn new<K: Eq + Hash + Clone, M>(
         stream_terminated: false,
     }));
     let shared_state_clone = Arc::clone(&shared_state);
-    (Sender { shared_state }, Receiver {
-        shared_state: shared_state_clone,
-    })
+    (
+        Sender { shared_state },
+        Receiver {
+            shared_state: shared_state_clone,
+        },
+    )
 }

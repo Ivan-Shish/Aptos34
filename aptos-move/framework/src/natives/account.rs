@@ -71,9 +71,10 @@ fn native_create_signer(
     debug_assert!(arguments.len() == 1);
 
     let address = pop_arg!(arguments, AccountAddress);
-    Ok(NativeResult::ok(gas_params.base, smallvec![Value::signer(
-        address
-    )]))
+    Ok(NativeResult::ok(
+        gas_params.base,
+        smallvec![Value::signer(address)],
+    ))
 }
 
 pub fn make_native_create_signer(gas_params: CreateSignerGasParameters) -> NativeFunction {

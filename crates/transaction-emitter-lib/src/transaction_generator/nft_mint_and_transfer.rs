@@ -73,37 +73,35 @@ impl TransactionGenerator for NFTMintAndTransfer {
                 .cloned()
                 .unwrap_or(false);
             for i in 0..transactions_per_account {
-                requests.push(
-                    if account_funded {
-                        create_nft_transfer_request(
-                            account,
-                            &self.faucet_account,
-                            self.creator_address,
-                            &self.collection_name,
-                            &self.token_name,
-                            &self.txn_factory,
-                            if i != transactions_per_account - 1 {
-                                1
-                            } else {
-                                INITIAL_NFT_BALANCE + 1 - transactions_per_account as u64
-                            },
-                        )
-                    } else {
-                        create_nft_transfer_request(
-                            &mut self.faucet_account,
-                            account,
-                            self.creator_address,
-                            &self.collection_name,
-                            &self.token_name,
-                            &self.txn_factory,
-                            if i != transactions_per_account - 1 {
-                                1
-                            } else {
-                                INITIAL_NFT_BALANCE + 1 - transactions_per_account as u64
-                            },
-                        )
-                    },
-                );
+                requests.push(if account_funded {
+                    create_nft_transfer_request(
+                        account,
+                        &self.faucet_account,
+                        self.creator_address,
+                        &self.collection_name,
+                        &self.token_name,
+                        &self.txn_factory,
+                        if i != transactions_per_account - 1 {
+                            1
+                        } else {
+                            INITIAL_NFT_BALANCE + 1 - transactions_per_account as u64
+                        },
+                    )
+                } else {
+                    create_nft_transfer_request(
+                        &mut self.faucet_account,
+                        account,
+                        self.creator_address,
+                        &self.collection_name,
+                        &self.token_name,
+                        &self.txn_factory,
+                        if i != transactions_per_account - 1 {
+                            1
+                        } else {
+                            INITIAL_NFT_BALANCE + 1 - transactions_per_account as u64
+                        },
+                    )
+                });
             }
             self.account_funded
                 .insert(account.address(), !account_funded);

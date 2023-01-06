@@ -9,10 +9,14 @@ use crate::{
 };
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::network_id::{NetworkId, PeerNetworkId};
+use aptos_consensus_types::node::{
+    CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, SignedNodeDigest,
+};
 use aptos_consensus_types::{
     block_retrieval::{BlockRetrievalRequest, BlockRetrievalResponse},
     epoch_retrieval::EpochRetrievalRequest,
     experimental::{commit_decision::CommitDecision, commit_vote::CommitVote},
+    node::Node,
     proof_of_store::{ProofOfStore, SignedDigest},
     proposal_msg::ProposalMsg,
     sync_info::SyncInfo,
@@ -68,6 +72,16 @@ pub enum ConsensusMsg {
     SignedDigestMsg(Box<SignedDigest>),
     /// Quorum Store: Broadcast a certified proof of store (a digest that received 2f+1 votes).
     ProofOfStoreMsg(Box<ProofOfStore>),
+    /// DAG: broadcast a node header for others to sign
+    NodeMsg(Box<Node>),
+    /// DAG:
+    SignedNodeDigestMsg(Box<SignedNodeDigest>),
+    /// DAG:
+    CertifiedNodeMsg(Box<CertifiedNode>, bool),
+    /// DAG:
+    CertifiedNodeAckMsg(Box<CertifiedNodeAck>),
+    /// DAG:
+    CertifiedNodeRequestMsg(Box<CertifiedNodeRequest>),
 }
 
 /// Network type for consensus
@@ -90,6 +104,11 @@ impl ConsensusMsg {
             ConsensusMsg::BatchMsg(_) => "BatchMsg",
             ConsensusMsg::SignedDigestMsg(_) => "SignedDigestMsg",
             ConsensusMsg::ProofOfStoreMsg(_) => "ProofOfStoreMsg",
+            ConsensusMsg::NodeMsg(_) => "NodeMsg",
+            ConsensusMsg::CertifiedNodeMsg(_, _) => "CertifiedNodeMsg",
+            ConsensusMsg::SignedNodeDigestMsg(_) => "SignedNodeDigestMsg",
+            ConsensusMsg::CertifiedNodeAckMsg(_) => "CertifiedNodeAckMsg",
+            ConsensusMsg::CertifiedNodeRequestMsg(_) => "CertifiedNodeRequestMsg",
         }
     }
 }

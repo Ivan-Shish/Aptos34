@@ -45,11 +45,14 @@ impl CurrentStakingPoolVoter {
                     let staking_pool_address =
                         standardize_address(&write_resource.address.to_string());
                     let voter_address = standardize_address(&inner.delegated_voter);
-                    staking_pool_voters.insert(staking_pool_address.clone(), Self {
-                        staking_pool_address,
-                        voter_address,
-                        last_transaction_version: txn_version,
-                    });
+                    staking_pool_voters.insert(
+                        staking_pool_address.clone(),
+                        Self {
+                            staking_pool_address,
+                            voter_address,
+                            last_transaction_version: txn_version,
+                        },
+                    );
                 }
             }
         }

@@ -18,6 +18,8 @@ use thiserror::Error;
 
 mod consensus_config;
 pub use consensus_config::*;
+mod dag_config;
+pub use dag_config::*;
 mod quorum_store_config;
 pub use quorum_store_config::*;
 mod error;
@@ -47,6 +49,7 @@ pub use safety_rules_config::*;
 mod test_config;
 pub use test_config::*;
 mod api_config;
+
 pub use api_config::*;
 use aptos_crypto::{bls12381, ed25519::Ed25519PrivateKey, x25519};
 use aptos_types::account_address::AccountAddress;

@@ -54,9 +54,10 @@ fn native_get_script_hash(
 ) -> PartialVMResult<NativeResult> {
     let transaction_context = context.extensions().get::<NativeTransactionContext>();
 
-    Ok(NativeResult::ok(gas_params.base, smallvec![
-        Value::vector_u8(transaction_context.script_hash.clone())
-    ]))
+    Ok(NativeResult::ok(
+        gas_params.base,
+        smallvec![Value::vector_u8(transaction_context.script_hash.clone())],
+    ))
 }
 
 pub fn make_native_get_script_hash(gas_params: GetScriptHashGasParameters) -> NativeFunction {
