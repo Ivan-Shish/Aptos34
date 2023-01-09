@@ -10,6 +10,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::Receiver;
 use tokio::time;
+use aptos_consensus_types::node::Node;
+
+pub(crate) enum ReliableBroadcastCommand {
+    BroadcastRequest(Node),
+}
 
 pub struct reliable_broadcast {
     //TODO: Consider storing the message instead of the signature.

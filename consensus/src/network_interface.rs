@@ -17,6 +17,7 @@ use aptos_consensus_types::{
     proposal_msg::ProposalMsg,
     sync_info::SyncInfo,
     vote_msg::VoteMsg,
+    node::{Node},
 };
 use aptos_network::{
     application::{error::Error, interface::NetworkClientInterface},
@@ -27,6 +28,8 @@ use aptos_network::{
 use aptos_types::{epoch_change::EpochChangeProof, PeerId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use aptos_config::config::NodeConfig;
+use aptos_consensus_types::node::{CertifiedNode, SignedNodeDigest};
 
 /// Network type for consensus
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -68,6 +71,13 @@ pub enum ConsensusMsg {
     SignedDigestMsg(Box<SignedDigest>),
     /// Quorum Store: Broadcast a certified proof of store (a digest that received 2f+1 votes).
     ProofOfStoreMsg(Box<ProofOfStore>),
+    /// DAG: broadcast a node header for others to sign
+    NodeMsg(Box<Node>),
+    /// DAG:
+    CertifiedNodeMsg(Box<CertifiedNode>),
+    /// DAG:
+    SignedNodeDigestMsg(Box<SignedNodeDigest>),
+
 }
 
 /// Network type for consensus
@@ -90,6 +100,8 @@ impl ConsensusMsg {
             ConsensusMsg::BatchMsg(_) => "BatchMsg",
             ConsensusMsg::SignedDigestMsg(_) => "SignedDigestMsg",
             ConsensusMsg::ProofOfStoreMsg(_) => "ProofOfStoreMsg",
+            ConsensusMsg::NodeMsg(_) => "NodeMsg",
+            ConsensusMsg::CertifiedNodeMsg(_) => "CertifiedNodeMsg",
         }
     }
 }
