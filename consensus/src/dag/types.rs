@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::collections::BTreeMap;
-use aptos_consensus_types::node::{SignedNodeDigest, SignedNodeDigestError};
+use aptos_consensus_types::node::{NodeCertificate, SignedNodeDigest, SignedNodeDigestError};
 use aptos_crypto::{bls12381, HashValue};
+use aptos_types::aggregate_signature::PartialSignatures;
 use aptos_types::PeerId;
 use aptos_types::validator_verifier::ValidatorVerifier;
 
@@ -20,7 +21,13 @@ impl IncrementalNodeCertificateState {
         }
     }
 
-    fn missing_peers_signatures() {}
+    fn missing_peers_signatures(&self, validator_verifier: &ValidatorVerifier) -> Vec<PeerId> {
+
+        let all_peers = validator_verifier.address_to_validator_index().keys().collect();
+        let singers = self.
+
+
+    }
 
     //Signature we already verified
     fn add_signature(&mut self, signed_node_digest: SignedNodeDigest) -> Result<(), SignedNodeDigestError> {
@@ -40,9 +47,8 @@ impl IncrementalNodeCertificateState {
         Ok(())
     }
 
-    fn ready(&self, validator_verifier: &ValidatorVerifier, my_peer_id: PeerId) -> bool {
-        self.aggregated_signature.contains_key(&my_peer_id)
-            && validator_verifier
+    fn ready(&self, validator_verifier: &ValidatorVerifier) -> bool {
+        validator_verifier
             .check_voting_power(self.aggregated_signature.keys())
             .is_ok()
     }
@@ -50,19 +56,13 @@ impl IncrementalNodeCertificateState {
     fn take(
         self,
         validator_verifier: &ValidatorVerifier,
-    ) -> (ProofOfStore, BatchId, ProofReturnChannel) {
+    ) -> NodeCertificate {
         let proof = match validator_verifier
             .aggregate_signatures(&PartialSignatures::new(self.aggregated_signature))
         {
-            Ok(sig) => ProofOfStore::new(self.info, sig),
+            Ok(sig) => NodeCertificate::new(self.digest, sig),
             Err(e) => unreachable!("Cannot aggregate signatures on digest err = {:?}", e),
         };
-        (proof, self.batch_id, self.ret_tx)
-    }
-
-    fn send_timeout(self) {
-        self.ret_tx
-            .send(Err(ProofError::Timeout(self.batch_id)))
-            .expect("Unable to send the timeout a proof of store");
+        proof
     }
 }

@@ -9,6 +9,7 @@ use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::PeerId;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use crate::common::Payload;
+use anyhow::Context;
 
 
 pub enum SignedNodeDigestError {
@@ -20,6 +21,25 @@ pub enum SignedNodeDigestError {
 pub struct NodeCertificate {
     digest: HashValue,
     multi_signature: AggregateSignature,
+}
+
+impl NodeCertificate {
+    pub fn new(digest: HashValue, multi_signature: AggregateSignature) -> Self {
+        Self {
+            digest,
+            multi_signature,
+        }
+    }
+
+    pub fn digest(&self) -> &HashValue {
+        &self.digest
+    }
+
+    pub fn verify(&self, validator: &ValidatorVerifier) -> anyhow::Result<()> {
+        validator
+            .verify_multi_signatures(&self.digest, &self.multi_signature)
+            .context("Failed to verify ProofOfStore")
+    }
 }
 
 pub struct Node {
