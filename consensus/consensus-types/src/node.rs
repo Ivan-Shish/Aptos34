@@ -7,8 +7,14 @@ use aptos_consensus_types::common::{Payload, Round};
 use aptos_crypto::{bls12381, HashValue};
 use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::PeerId;
+use aptos_types::validator_verifier::ValidatorVerifier;
 use crate::common::Payload;
 
+
+pub enum SignedNodeDigestError {
+    WrongDigest,
+    DuplicatedSignature,
+}
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
 pub struct NodeCertificate {
@@ -35,4 +41,36 @@ pub struct SignedNodeDigest {
     digest: HashValue,
     peer_id: PeerId,
     signature: bls12381::Signature,
+}
+
+impl SignedNodeDigest {
+    pub fn new(digest: HashValue, peer_id: PeerId, signature: bls12381::Signature) -> Self {
+        Self {
+            digest,
+            peer_id,
+            signature,
+        }
+    }
+
+    pub fn verify(&self, validator: &ValidatorVerifier) -> anyhow::Result<()> {
+        Ok(validator.verify(self.peer_id, &self.digest, &self.signature)?)
+    }
+
+    pub fn digest(&self) -> HashValue {
+        self.digest
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id
+    }
+
+    pub fn signature(self) -> bls12381::Signature {
+        self.signature
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CertifiedNodeAck {
+    digest: HashValue,
+    peer_id: PeerId,
 }

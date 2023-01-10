@@ -1,3 +1,5 @@
+// Copyright (c) Aptos
+// SPDX-License-Identifier: Apache-2.0
 
 use crate::{dag::types::ReliableBroadcastCommand, network::NetworkSender};
 use aptos_consensus_types::common::Round;
@@ -10,15 +12,18 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::Receiver;
 use tokio::time;
+use aptos_channels::aptos_channel;
 use aptos_consensus_types::node::Node;
+use crate::network_interface::ConsensusMsg;
+use crate::round_manager::VerifiedEvent;
 
 pub(crate) enum ReliableBroadcastCommand {
     BroadcastRequest(Node),
 }
 
 pub struct reliable_broadcast {
-    //TODO: Consider storing the message instead of the signature.
-    peer_round_signatures: BTreeMap<Round, BTreeMap<PeerId, bls12381::Signature>>,
+    peer_round_signatures: BTreeMap<(Round, PeerId), ConsensusMsg> // vs BTreeMap<Round, BTreeMap<PeerId, ConsensusMsg>>?
+
 }
 
 impl reliable_broadcast {
@@ -31,6 +36,7 @@ impl reliable_broadcast {
 
     pub(crate) async fn start(
         mut self,
+        mut network_msg_rx: aptos_channel::Receiver<PeerId, VerifiedEvent>,
         mut rx: Receiver<ReliableBroadcastCommand>,
         validator_verifier: ValidatorVerifier,
         network_sender: NetworkSender,

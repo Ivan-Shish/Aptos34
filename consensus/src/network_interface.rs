@@ -29,7 +29,7 @@ use aptos_types::{epoch_change::EpochChangeProof, PeerId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use aptos_config::config::NodeConfig;
-use aptos_consensus_types::node::{CertifiedNode, SignedNodeDigest};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, SignedNodeDigest};
 
 /// Network type for consensus
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -74,9 +74,12 @@ pub enum ConsensusMsg {
     /// DAG: broadcast a node header for others to sign
     NodeMsg(Box<Node>),
     /// DAG:
+    SignedNodeDigestMsg(Box<SignedNodeDigest>),
+    /// DAG:
     CertifiedNodeMsg(Box<CertifiedNode>),
     /// DAG:
-    SignedNodeDigestMsg(Box<SignedNodeDigest>),
+    CertifiedNodeAckMsg(Box<CertifiedNodeAck>)
+
 
 }
 
