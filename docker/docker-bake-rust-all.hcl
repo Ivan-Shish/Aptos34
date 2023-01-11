@@ -102,6 +102,10 @@ target "validator" {
   target   = "validator"
   cache-to = generate_cache_to("validator")
   tags     = generate_tags("validator")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 target "validator-testing" {
@@ -109,6 +113,10 @@ target "validator-testing" {
   target   = "validator-testing"
   cache-to = generate_cache_to("validator-testing")
   tags     = generate_tags("validator-testing")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 target "node-checker" {
@@ -116,6 +124,10 @@ target "node-checker" {
   target   = "node-checker"
   cache-to = generate_cache_to("node-checker")
   tags     = generate_tags("node-checker")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 target "tools" {
@@ -123,6 +135,10 @@ target "tools" {
   target   = "tools"
   cache-to = generate_cache_to("tools")
   tags     = generate_tags("tools")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 target "faucet" {
@@ -130,6 +146,10 @@ target "faucet" {
   target   = "faucet"
   cache-to = generate_cache_to("faucet")
   tags     = generate_tags("faucet")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 target "forge" {
@@ -137,6 +157,10 @@ target "forge" {
   target   = "forge"
   cache-to = generate_cache_to("forge")
   tags     = generate_tags("forge")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 target "telemetry-service" {
@@ -144,6 +168,10 @@ target "telemetry-service" {
   target   = "telemetry-service"
   cache-to = generate_cache_to("telemetry-service")
   tags     = generate_tags("telemetry-service")
+
+  contexts = {
+    binaries = "dist"
+  }
 }
 
 function "generate_cache_from" {

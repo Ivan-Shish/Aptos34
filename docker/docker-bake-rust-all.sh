@@ -37,6 +37,9 @@ else
   export IMAGE_TAG_PREFIX="${profile_prefix}"
 fi
 
+# Build all the rust binaries
+./docker/build-rust-all.sh
+
 if [ "$CI" == "true" ]; then
   TARGET_REGISTRY=remote docker buildx bake --progress=plain --file docker/docker-bake-rust-all.hcl all --push
   REGISTRY_BASE="$GCP_DOCKER_ARTIFACT_REPO" SOURCE_TAG="cache-${IMAGE_TAG_PREFIX}${NORMALIZED_GIT_BRANCH_OR_PR}" TARGET_TAG="cache-${IMAGE_TAG_PREFIX}${GIT_SHA}" ./docker/retag-rust-images.sh

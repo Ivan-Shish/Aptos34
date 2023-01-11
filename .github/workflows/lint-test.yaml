@@ -85,6 +85,18 @@ jobs:
       - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # pin@v3
       - uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984
       - uses: ./.github/actions/rust-setup
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - run: python3 scripts/check-cryptohasher-symbols.py
 
   rust-lint:
@@ -94,6 +106,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - uses: pre-commit/action@v3.0.0
       - run: cargo install cargo-sort
       - run: scripts/rust_lint.sh --check
@@ -107,6 +131,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - run: cargo test --locked --doc --workspace --exclude aptos-node-checker
 
   rust-unit-test:
@@ -118,6 +154,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - run: docker run --detach -p 5432:5432 cimg/postgres:14.2
       - uses: taiki-e/install-action@v1.5.6
         with:
@@ -135,6 +183,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - uses: taiki-e/install-action@v1.5.6
         with:
           tool: nextest
@@ -147,6 +207,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - run: docker run --detach -p 5432:5432 cimg/postgres:14.2
       - uses: taiki-e/install-action@v1.5.6
         with:
@@ -177,6 +249,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - uses: taiki-e/install-action@v1.5.6
         with:
           tool: nextest
@@ -204,6 +288,18 @@ jobs:
       - uses: ./.github/actions/rust-setup
         with:
           GIT_CREDENTIALS: ${{ secrets.GIT_CREDENTIALS }}
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
       - run: cargo test --locked --features check-vm-features -p aptos-node
 
   python-lint-test:
