@@ -59,6 +59,7 @@ use tokio::{
     sync::oneshot as TokioOneshot,
     time::{sleep, Instant},
 };
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, Node, SignedNodeDigest};
 
 #[derive(Serialize, Clone)]
 pub enum UnverifiedEvent {
@@ -175,10 +176,16 @@ pub enum VerifiedEvent {
     UnverifiedBatchMsg(Box<Batch>),
     SignedDigestMsg(Box<SignedDigest>),
     ProofOfStoreMsg(Box<ProofOfStore>),
+    NodeMsg(Box<Node>), // TODO: add this events to the consensus networking flow
+    SignedNodeDigestMsg(Box<SignedNodeDigest>),
+    CertifiedNodeMsg(Box<CertifiedNode>),
+    CertifiedNodeAckMsg(Box<CertifiedNodeAck>),
     // local messages
     LocalTimeout(Round),
     // Shutdown the NetworkListener
     Shutdown(TokioOneshot::Sender<()>),
+
+
 }
 
 #[cfg(test)]

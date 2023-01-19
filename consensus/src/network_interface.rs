@@ -105,6 +105,8 @@ impl ConsensusMsg {
             ConsensusMsg::ProofOfStoreMsg(_) => "ProofOfStoreMsg",
             ConsensusMsg::NodeMsg(_) => "NodeMsg",
             ConsensusMsg::CertifiedNodeMsg(_) => "CertifiedNodeMsg",
+            ConsensusMsg::SignedNodeDigestMsg(_) => "SignedNodeDigestMsg",
+            ConsensusMsg::CertifiedNodeAckMsg(_) => "CertifiedNodeAckMsg",
         }
     }
 }
