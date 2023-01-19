@@ -262,4 +262,4 @@ sources={{
 />
 </center>
 
-Click the validator address to go to the *Account* page for that address. Click the public key or any of the other addresses to see and copy their values.
+Click the validator addrss to go to the *Account* page for that address. Click the public key or any of the other addresses to see and copy their values.
