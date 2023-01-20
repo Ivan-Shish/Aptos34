@@ -1,11 +1,10 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::EXECUTOR_BENCHMARK_LATENCY;
 use aptos_crypto::hash::HashValue;
 use aptos_db::metrics::API_LATENCY_SECONDS;
 use aptos_executor::{
-    block_executor::BlockExecutor,
+    block_executor::{BlockExecutor, TransactionBlockExecutor},
     metrics::{
         APTOS_EXECUTOR_COMMIT_BLOCKS_SECONDS, APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS,
         APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS,
@@ -19,7 +18,6 @@ use aptos_types::{
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
     transaction::Version,
 };
-use aptos_vm::AptosVM;
 use std::{
     env,
     sync::{mpsc, Arc},
@@ -48,15 +46,19 @@ pub(crate) fn gen_li_with_sigs(
     )
 }
 
-pub struct TransactionCommitter {
-    executor: Arc<BlockExecutor<AptosVM>>,
+pub struct TransactionCommitter<V, T> {
+    executor: Arc<BlockExecutor<V, T>>,
     version: Version,
     block_receiver: mpsc::Receiver<(HashValue, HashValue, Instant, Instant, Duration, usize)>,
 }
 
-impl TransactionCommitter {
+impl<V, T> TransactionCommitter<V, T>
+where
+    V: TransactionBlockExecutor<T>,
+    T: Send + Sync,
+{
     pub fn new(
-        executor: Arc<BlockExecutor<AptosVM>>,
+        executor: Arc<BlockExecutor<V, T>>,
         version: Version,
         block_receiver: mpsc::Receiver<(HashValue, HashValue, Instant, Instant, Duration, usize)>,
     ) -> Self {
@@ -113,9 +115,6 @@ fn report_block(
     let latency = Instant::now()
         .duration_since(execution_start_time)
         .as_millis();
-    EXECUTOR_BENCHMARK_LATENCY
-        .with_label_values(&["bar"])
-        .observe(latency as f64);
     info!(
         "Version: {}. latency: {} ms, execute time: {} ms. commit time: {} ms. TPS: {:.0}. Accumulative TPS: {:.0}",
         version,
