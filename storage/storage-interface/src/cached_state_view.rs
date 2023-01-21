@@ -226,7 +226,7 @@ impl From<DbStateView> for CachedDbStateView {
     fn from(db_state_view: DbStateView) -> Self {
         Self {
             db_state_view,
-            state_cache: DashMap::with_shard_amount(1024),
+            state_cache: DashMap::with_shard_amount(32),
         }
     }
 }
