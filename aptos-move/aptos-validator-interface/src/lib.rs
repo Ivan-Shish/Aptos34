@@ -116,8 +116,7 @@ pub trait AptosValidatorInterface: Sync {
 }
 
 pub struct DebuggerStateView {
-    query_sender: Mutex<UnboundedSender<(StateKey, Version)>>,
-    query_receiver: Mutex<Receiver<Result<Option<StateValue>>>>,
+    query_handler: Mutex<(UnboundedSender<(StateKey, Version)>, Receiver<Result<Option<StateValue>>>)>,
     version: Version,
 }
 
@@ -144,8 +143,7 @@ impl DebuggerStateView {
 
         tokio::spawn(async move { handler_thread(db, thread_receiver, thread_sender).await });
         Self {
-            query_sender: Mutex::new(query_sender),
-            query_receiver: Mutex::new(query_receiver),
+            query_handler: Mutex::new((query_sender, query_receiver)),
             version,
         }
     }
@@ -155,18 +153,15 @@ impl DebuggerStateView {
         state_key: &StateKey,
         version: Version,
     ) -> Result<Option<Vec<u8>>> {
-        self.query_sender
-            .lock()
-            .unwrap()
+        let query_handler_locked = self.query_handler.lock().unwrap();
+        query_handler_locked.0
             .send((state_key.clone(), version))
             .unwrap();
-        Ok(self
-            .query_receiver
-            .lock()
-            .unwrap()
-            .recv()?
+        Ok(
+            query_handler_locked.1.recv()?
             .ok()
-            .and_then(|v| v.map(|s| s.into_bytes())))
+            .and_then(|v| v.map(|s| s.into_bytes()))
+        )
     }
 }
 
