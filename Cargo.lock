@@ -821,6 +821,7 @@ dependencies = [
  "aptos-types",
  "aptos-validator-interface",
  "aptos-vm",
+ "clap 3.2.17",
  "move-binary-format",
  "move-cli",
  "move-compiler",
@@ -829,6 +830,8 @@ dependencies = [
  "move-table-extension",
  "move-vm-runtime",
  "move-vm-test-utils",
+ "tokio",
+ "url",
 ]
 
 [[package]]
