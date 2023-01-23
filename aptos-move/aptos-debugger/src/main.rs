@@ -4,6 +4,7 @@
 use anyhow::Result;
 use aptos_debugger::AptosDebugger;
 use aptos_rest_client::Client;
+use aptos_vm::AptosVM;
 use clap::Parser;
 use url::Url;
 
@@ -21,6 +22,8 @@ pub struct Argument {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    aptos_logger::Logger::new().init();
+    AptosVM::set_concurrency_level_once(8);
     let args = Argument::parse();
 
     let debugger = AptosDebugger::rest_client(Client::new(Url::parse(&args.endpoint)?))?;

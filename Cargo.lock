@@ -815,6 +815,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aptos-gas",
+ "aptos-logger",
  "aptos-resource-viewer",
  "aptos-rest-client",
  "aptos-state-view",
