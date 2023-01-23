@@ -21,11 +21,11 @@ pub enum Error {
     #[error("Network error: {0}")]
     NetworkError(String),
 
-    #[error("Aptos network rpc error: {0}")]
-    RpcError(#[from] RpcError),
-
     #[error("Error from remote monitoring service: {0}")]
     PeerMonitoringServiceError(#[from] PeerMonitoringServiceError),
+
+    #[error("Aptos network rpc error: {0}")]
+    RpcError(#[from] RpcError),
 }
 
 /// The interface for sending peer monitoring service requests and querying

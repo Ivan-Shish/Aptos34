@@ -38,7 +38,7 @@ pub enum PeerMonitoringServiceRequest {
     GetKnownPeers,            // Returns all of the known peers in the network
     GetServerProtocolVersion, // Fetches the protocol version run by the server
     GetValidatorsAndVFNs,     // Returns the current validators and VFNs
-    Ping, // A simple message used by the client to ensure liveness and measure latency
+    LatencyPing, // A simple message used by the client to ensure liveness and measure latency
 }
 
 impl PeerMonitoringServiceRequest {
@@ -50,7 +50,7 @@ impl PeerMonitoringServiceRequest {
             Self::GetKnownPeers => "get_known_peers",
             Self::GetServerProtocolVersion => "get_server_protocol_version",
             Self::GetValidatorsAndVFNs => "get_validators_and_vfns",
-            Self::Ping => "ping",
+            Self::LatencyPing => "latency_ping",
         }
     }
 }
@@ -62,7 +62,7 @@ pub enum PeerMonitoringServiceResponse {
     ConnectedPeers(ConnectedPeersResponse), // Holds all currently connected peers
     DepthFromValidators(DepthFromValidatorsResponse), // Holds the min depth from the validators
     KnownPeers(KnownPeersResponse),         // Holds all currently known peers
-    Ping(PingResponse), // A simple message to respond to liveness checks (i.e., pings)
+    LatencyPing(LatencyPingResponse), // A simple message to respond to latency checks (i.e., pings)
     ServerProtocolVersion(ServerProtocolVersionResponse), // Returns the current server protocol version
     ValidatorsAndVFNs(ValidatorsAndVFNsResponse), // Holds the current validator set and VFNs
 }
@@ -74,7 +74,7 @@ impl PeerMonitoringServiceResponse {
             Self::ConnectedPeers(_) => "connected_peers",
             Self::DepthFromValidators(_) => "depth_from_validators",
             Self::KnownPeers(_) => "known_peers",
-            Self::Ping(_) => "ping",
+            Self::LatencyPing(_) => "latency_ping",
             Self::ServerProtocolVersion(_) => "server_protocol_version",
             Self::ValidatorsAndVFNs(_) => "validators_and_vfns",
         }
@@ -101,7 +101,7 @@ pub struct KnownPeersResponse {
 
 /// A response for the ping request
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct PingResponse {
+pub struct LatencyPingResponse {
     pub todo: bool,
 }
 
@@ -163,14 +163,14 @@ impl TryFrom<PeerMonitoringServiceResponse> for KnownPeersResponse {
     }
 }
 
-impl TryFrom<PeerMonitoringServiceResponse> for PingResponse {
+impl TryFrom<PeerMonitoringServiceResponse> for LatencyPingResponse {
     type Error = UnexpectedResponseError;
 
     fn try_from(response: PeerMonitoringServiceResponse) -> Result<Self, Self::Error> {
         match response {
-            PeerMonitoringServiceResponse::Ping(inner) => Ok(inner),
+            PeerMonitoringServiceResponse::LatencyPing(inner) => Ok(inner),
             _ => Err(UnexpectedResponseError(format!(
-                "expected ping_response, found {}",
+                "expected latency_ping_response, found {}",
                 response.get_label()
             ))),
         }

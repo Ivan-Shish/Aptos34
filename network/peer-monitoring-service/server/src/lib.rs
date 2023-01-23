@@ -144,7 +144,7 @@ impl Handler {
                 self.get_server_protocol_version()
             },
             PeerMonitoringServiceRequest::GetValidatorsAndVFNs => self.get_validators_and_vfns(),
-            PeerMonitoringServiceRequest::Ping => self.handle_ping(),
+            PeerMonitoringServiceRequest::LatencyPing => self.handle_ping(),
         };
 
         // Process the response and handle any errors
