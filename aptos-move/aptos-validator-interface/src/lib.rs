@@ -116,7 +116,10 @@ pub trait AptosValidatorInterface: Sync {
 }
 
 pub struct DebuggerStateView {
-    query_handler: Mutex<(UnboundedSender<(StateKey, Version)>, Receiver<Result<Option<StateValue>>>)>,
+    query_handler: Mutex<(
+        UnboundedSender<(StateKey, Version)>,
+        Receiver<Result<Option<StateValue>>>,
+    )>,
     version: Version,
 }
 
@@ -154,14 +157,15 @@ impl DebuggerStateView {
         version: Version,
     ) -> Result<Option<Vec<u8>>> {
         let query_handler_locked = self.query_handler.lock().unwrap();
-        query_handler_locked.0
+        query_handler_locked
+            .0
             .send((state_key.clone(), version))
             .unwrap();
-        Ok(
-            query_handler_locked.1.recv()?
+        Ok(query_handler_locked
+            .1
+            .recv()?
             .ok()
-            .and_then(|v| v.map(|s| s.into_bytes()))
-        )
+            .and_then(|v| v.map(|s| s.into_bytes())))
     }
 }
 
