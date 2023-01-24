@@ -13,8 +13,9 @@ use aptos_config::config::PeerMonitoringServiceConfig;
 use aptos_logger::prelude::*;
 use aptos_network::{application::storage::PeersAndMetadata, ProtocolId};
 use aptos_peer_monitoring_service_types::{
-    ConnectedPeersResponse, PeerMonitoringServiceError, PeerMonitoringServiceRequest,
-    PeerMonitoringServiceResponse, Result, ServerProtocolVersionResponse,
+    LatencyPingRequest, LatencyPingResponse, PeerMonitoringServiceError,
+    PeerMonitoringServiceRequest, PeerMonitoringServiceResponse, Result,
+    ServerProtocolVersionResponse,
 };
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -23,7 +24,7 @@ use thiserror::Error;
 use tokio::runtime::Handle;
 
 mod logging;
-mod metrics;
+pub mod metrics;
 pub mod network;
 
 #[cfg(test)]
@@ -54,7 +55,7 @@ impl Error {
 pub struct PeerMonitoringServiceServer {
     bounded_executor: BoundedExecutor,
     network_requests: PeerMonitoringServiceNetworkEvents,
-    peer_metadata: Arc<PeersAndMetadata>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
 }
 
 impl PeerMonitoringServiceServer {
@@ -62,7 +63,7 @@ impl PeerMonitoringServiceServer {
         config: PeerMonitoringServiceConfig,
         executor: Handle,
         network_requests: PeerMonitoringServiceNetworkEvents,
-        peer_metadata: Arc<PeersAndMetadata>,
+        peers_and_metadata: Arc<PeersAndMetadata>,
     ) -> Self {
         let bounded_executor =
             BoundedExecutor::new(config.max_concurrent_requests as usize, executor);
@@ -70,29 +71,33 @@ impl PeerMonitoringServiceServer {
         Self {
             bounded_executor,
             network_requests,
-            peer_metadata,
+            peers_and_metadata,
         }
     }
 
     /// Starts the peer monitoring service server thread
     pub async fn start(mut self) {
         // Handle the service requests
-        while let Some(request) = self.network_requests.next().await {
+        while let Some(network_request) = self.network_requests.next().await {
             // Log the request
-            let (peer, protocol, request, response_sender) = request;
-            debug!(LogSchema::new(LogEntry::ReceivedPeerMonitoringRequest)
-                .request(&request)
+            let peer_network_id = network_request.peer_network_id;
+            let protocol_id = network_request.protocol_id;
+            let peer_monitoring_service_request = network_request.peer_monitoring_service_request;
+            let response_sender = network_request.response_sender;
+            trace!(LogSchema::new(LogEntry::ReceivedPeerMonitoringRequest)
+                .request(&peer_monitoring_service_request)
                 .message(&format!(
                     "Received peer monitoring request. Peer: {:?}, protocol: {:?}.",
-                    peer, protocol,
+                    peer_network_id, protocol_id,
                 )));
 
             // All handler methods are currently CPU-bound so we want
             // to spawn on the blocking thread pool.
-            let peer_metadata = self.peer_metadata.clone();
+            let peer_metadata = self.peers_and_metadata.clone();
             self.bounded_executor
                 .spawn_blocking(move || {
-                    let response = Handler::new(peer_metadata).call(protocol, request);
+                    let response = Handler::new(peer_metadata)
+                        .call(protocol_id, peer_monitoring_service_request);
                     log_monitoring_service_response(&response);
                     response_sender.send(response);
                 })
@@ -106,12 +111,14 @@ impl PeerMonitoringServiceServer {
 /// request. We usually clone/create a new handler for every request.
 #[derive(Clone)]
 pub struct Handler {
-    peers_and_metadata: Arc<PeersAndMetadata>,
+    _peers_and_metadata: Arc<PeersAndMetadata>,
 }
 
 impl Handler {
     pub fn new(peers_and_metadata: Arc<PeersAndMetadata>) -> Self {
-        Self { peers_and_metadata }
+        Self {
+            _peers_and_metadata: peers_and_metadata,
+        }
     }
 
     pub fn call(
@@ -135,16 +142,12 @@ impl Handler {
 
         // Process the request
         let response = match &request {
-            PeerMonitoringServiceRequest::GetConnectedPeers => self.get_connected_peers(),
-            PeerMonitoringServiceRequest::GetDepthFromValidators => {
-                self.get_depth_from_validators()
-            },
-            PeerMonitoringServiceRequest::GetKnownPeers => self.get_known_peers(),
+            PeerMonitoringServiceRequest::GetNetworkInformation => self.get_network_information(),
             PeerMonitoringServiceRequest::GetServerProtocolVersion => {
                 self.get_server_protocol_version()
             },
-            PeerMonitoringServiceRequest::GetValidatorsAndVFNs => self.get_validators_and_vfns(),
-            PeerMonitoringServiceRequest::LatencyPing => self.handle_ping(),
+            PeerMonitoringServiceRequest::GetSystemInformation => self.get_system_information(),
+            PeerMonitoringServiceRequest::LatencyPing(request) => self.handle_latency_ping(request),
         };
 
         // Process the response and handle any errors
@@ -180,45 +183,36 @@ impl Handler {
         }
     }
 
-    fn get_connected_peers(&self) -> Result<PeerMonitoringServiceResponse, Error> {
-        let connected_peers = self
-            .peers_and_metadata
-            .get_connected_peers_and_metadata()
-            .map_err(|error| Error::UnexpectedErrorEncountered(format!("{:?}", error)))?;
-        Ok(PeerMonitoringServiceResponse::ConnectedPeers(
-            ConnectedPeersResponse { connected_peers },
-        ))
-    }
-
-    fn get_depth_from_validators(&self) -> Result<PeerMonitoringServiceResponse, Error> {
+    fn get_network_information(&self) -> Result<PeerMonitoringServiceResponse, Error> {
         Err(Error::InvalidRequest(
-            "get_depth_from_validators() is currently unsupported!".into(),
-        ))
-    }
-
-    fn get_known_peers(&self) -> Result<PeerMonitoringServiceResponse, Error> {
-        Err(Error::InvalidRequest(
-            "get_known_peers() is currently unsupported!".into(),
+            "get_network_information() is currently unsupported!".into(),
         ))
     }
 
     fn get_server_protocol_version(&self) -> Result<PeerMonitoringServiceResponse, Error> {
+        let server_protocol_version_response = ServerProtocolVersionResponse {
+            version: PEER_MONITORING_SERVER_VERSION,
+        };
         Ok(PeerMonitoringServiceResponse::ServerProtocolVersion(
-            ServerProtocolVersionResponse {
-                version: PEER_MONITORING_SERVER_VERSION,
-            },
+            server_protocol_version_response,
         ))
     }
 
-    fn get_validators_and_vfns(&self) -> Result<PeerMonitoringServiceResponse, Error> {
+    fn get_system_information(&self) -> Result<PeerMonitoringServiceResponse, Error> {
         Err(Error::InvalidRequest(
-            "get_validators_and_vfns() is currently unsupported!".into(),
+            "get_system_information() is currently unsupported!".into(),
         ))
     }
 
-    fn handle_ping(&self) -> Result<PeerMonitoringServiceResponse, Error> {
-        Err(Error::InvalidRequest(
-            "handle_ping() is currently unsupported!".into(),
+    fn handle_latency_ping(
+        &self,
+        latency_ping_request: &LatencyPingRequest,
+    ) -> Result<PeerMonitoringServiceResponse, Error> {
+        let latency_ping_response = LatencyPingResponse {
+            ping_counter: latency_ping_request.ping_counter,
+        };
+        Ok(PeerMonitoringServiceResponse::LatencyPing(
+            latency_ping_response,
         ))
     }
 }

@@ -25,6 +25,7 @@ use aptos_network::{
     ProtocolId,
 };
 use aptos_network_builder::builder::NetworkBuilder;
+use aptos_peer_monitoring_service_types::PeerMonitoringServiceMessage;
 use aptos_storage_service_types::StorageServiceMessage;
 use aptos_time_service::TimeService;
 use aptos_types::chain_id::ChainId;
@@ -83,6 +84,27 @@ pub fn mempool_network_configuration() -> NetworkApplicationConfig {
         aptos_channel::Config::new(MEMPOOL_NETWORK_CHANNEL_BUFFER_SIZE)
             .queue_style(QueueStyle::KLAST) // TODO: why is this not FIFO?
             .counters(&aptos_mempool::counters::PENDING_MEMPOOL_NETWORK_EVENTS),
+    );
+    NetworkApplicationConfig::new(network_client_config, network_service_config)
+}
+
+/// Returns the network application config for the peer monitoring client and server
+pub fn peer_monitoring_network_configuration(node_config: &NodeConfig) -> NetworkApplicationConfig {
+    let direct_send_protocols = vec![]; // The monitoring service does not use direct send
+    let rpc_protocols = vec![ProtocolId::PeerMonitoringServiceRpc];
+    let max_network_channel_size =
+        node_config.peer_monitoring_service.max_network_channel_size as usize;
+
+    let network_client_config =
+        NetworkClientConfig::new(direct_send_protocols.clone(), rpc_protocols.clone());
+    let network_service_config = NetworkServiceConfig::new(
+        direct_send_protocols,
+        rpc_protocols,
+        aptos_channel::Config::new(max_network_channel_size)
+            .queue_style(QueueStyle::FIFO)
+            .counters(
+                &aptos_peer_monitoring_service_server::metrics::PENDING_PEER_MONITORING_SERVER_NETWORK_EVENTS,
+            ),
     );
     NetworkApplicationConfig::new(network_client_config, network_service_config)
 }
@@ -151,6 +173,7 @@ pub fn setup_networks_and_get_interfaces(
     Vec<Runtime>,
     Option<ApplicationNetworkInterfaces<ConsensusMsg>>,
     ApplicationNetworkInterfaces<MempoolSyncMsg>,
+    ApplicationNetworkInterfaces<PeerMonitoringServiceMessage>,
     ApplicationNetworkInterfaces<StorageServiceMessage>,
 ) {
     // Gather all network configs and network ids
@@ -163,6 +186,7 @@ pub fn setup_networks_and_get_interfaces(
     let mut network_runtimes = vec![];
     let mut consensus_network_handle = None;
     let mut mempool_network_handles = vec![];
+    let mut peer_monitoring_service_network_handles = vec![];
     let mut storage_service_network_handles = vec![];
     for network_config in network_configs.into_iter() {
         // Create a network runtime for the config
@@ -205,6 +229,14 @@ pub fn setup_networks_and_get_interfaces(
         );
         mempool_network_handles.push(mempool_network_handle);
 
+        // Register the peer monitoring service (both client and server) with the network
+        let peer_monitoring_service_network_handle = register_client_and_service_with_network(
+            &mut network_builder,
+            network_id,
+            peer_monitoring_network_configuration(node_config),
+        );
+        peer_monitoring_service_network_handles.push(peer_monitoring_service_network_handle);
+
         // Register the storage service (both client and server) with the network
         let storage_service_network_handle = register_client_and_service_with_network(
             &mut network_builder,
@@ -224,20 +256,26 @@ pub fn setup_networks_and_get_interfaces(
     }
 
     // Transform all network handles into application interfaces
-    let (consensus_interfaces, mempool_interfaces, storage_service_interfaces) =
-        transform_network_handles_into_interfaces(
-            node_config,
-            &network_runtimes,
-            consensus_network_handle,
-            mempool_network_handles,
-            storage_service_network_handles,
-            peers_and_metadata,
-        );
+    let (
+        consensus_interfaces,
+        mempool_interfaces,
+        peer_monitoring_service_interfaces,
+        storage_service_interfaces,
+    ) = transform_network_handles_into_interfaces(
+        node_config,
+        &network_runtimes,
+        consensus_network_handle,
+        mempool_network_handles,
+        peer_monitoring_service_network_handles,
+        storage_service_network_handles,
+        peers_and_metadata,
+    );
 
     (
         network_runtimes,
         consensus_interfaces,
         mempool_interfaces,
+        peer_monitoring_service_interfaces,
         storage_service_interfaces,
     )
 }
@@ -277,11 +315,15 @@ fn transform_network_handles_into_interfaces(
     network_runtimes: &[Runtime],
     consensus_network_handle: Option<ApplicationNetworkHandle<ConsensusMsg>>,
     mempool_network_handles: Vec<ApplicationNetworkHandle<MempoolSyncMsg>>,
+    peer_monitoring_service_network_handles: Vec<
+        ApplicationNetworkHandle<PeerMonitoringServiceMessage>,
+    >,
     storage_service_network_handles: Vec<ApplicationNetworkHandle<StorageServiceMessage>>,
     peers_and_metadata: Arc<PeersAndMetadata>,
 ) -> (
     Option<ApplicationNetworkInterfaces<ConsensusMsg>>,
     ApplicationNetworkInterfaces<MempoolSyncMsg>,
+    ApplicationNetworkInterfaces<PeerMonitoringServiceMessage>,
     ApplicationNetworkInterfaces<StorageServiceMessage>,
 ) {
     let consensus_interfaces = consensus_network_handle.map(|consensus_network_handle| {
@@ -298,6 +340,12 @@ fn transform_network_handles_into_interfaces(
         mempool_network_configuration(),
         peers_and_metadata.clone(),
     );
+    let peer_monitoring_service_interfaces = create_network_interfaces(
+        network_runtimes,
+        peer_monitoring_service_network_handles,
+        peer_monitoring_network_configuration(node_config),
+        peers_and_metadata.clone(),
+    );
     let storage_service_interfaces = create_network_interfaces(
         network_runtimes,
         storage_service_network_handles,
@@ -308,6 +356,7 @@ fn transform_network_handles_into_interfaces(
     (
         consensus_interfaces,
         mempool_interfaces,
+        peer_monitoring_service_interfaces,
         storage_service_interfaces,
     )
 }

@@ -138,6 +138,7 @@ pub struct AptosHandle {
     _mempool_runtime: Runtime,
     _network_runtimes: Vec<Runtime>,
     _index_runtime: Option<Runtime>,
+    _peer_monitoring_service_runtime: Runtime,
     _state_sync_runtimes: StateSyncRuntimes,
     _telemetry_runtime: Option<Runtime>,
 }
@@ -376,11 +377,18 @@ pub fn setup_environment_and_start_node(
         network_runtimes,
         consensus_network_interfaces,
         mempool_network_interfaces,
+        peer_monitoring_service_network_interfaces,
         storage_service_network_interfaces,
     ) = network::setup_networks_and_get_interfaces(
         &node_config,
         chain_id,
         &mut event_subscription_service,
+    );
+
+    // Start the peer monitoring service
+    let peer_monitoring_service_runtime = services::start_peer_monitoring_service(
+        &node_config,
+        peer_monitoring_service_network_interfaces,
     );
 
     // Start state sync and get the notification endpoints for mempool and consensus
@@ -433,6 +441,7 @@ pub fn setup_environment_and_start_node(
         _mempool_runtime: mempool_runtime,
         _network_runtimes: network_runtimes,
         _index_runtime: index_runtime,
+        _peer_monitoring_service_runtime: peer_monitoring_service_runtime,
         _state_sync_runtimes: state_sync_runtimes,
         _telemetry_runtime: telemetry_runtime,
     })
