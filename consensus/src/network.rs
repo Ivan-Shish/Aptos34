@@ -11,7 +11,7 @@ use crate::{
 };
 use anyhow::{anyhow, ensure};
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
-use aptos_consensus_types::node::{CertifiedNode, Node, SignedNodeDigest};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, Node, SignedNodeDigest};
 use aptos_consensus_types::{
     block_retrieval::{BlockRetrievalRequest, BlockRetrievalResponse, MAX_BLOCKS_PER_REQUEST},
     common::Author,
@@ -95,6 +95,8 @@ pub(crate) trait DagSender {
         certified_node: CertifiedNode,
         maybe_recipients: Option<Vec<Author>>,
     );
+
+    async fn send_certified_node_ack(&self, ack: CertifiedNodeAck, recipients: Vec<Author>);
 }
 
 /// Implements the actual networking support for all consensus messaging.
@@ -394,6 +396,12 @@ impl DagSender for NetworkSender {
             None => self.broadcast(msg).await,
             Some(recipients) => self.send(msg, recipients).await,
         }
+    }
+
+    async fn send_certified_node_ack(&self, ack: CertifiedNodeAck, recipients: Vec<Author>) {
+        fail_point!("consensus::send::certified_node_ack_msg", |_| ());
+        let msg = ConsensusMsg::CertifiedNodeAckMsg(Box::new(ack));
+        self.send(msg, recipients).await
     }
 }
 

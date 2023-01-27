@@ -1,10 +1,12 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::round_manager::VerifiedEvent;
+use crate::{round_manager::VerifiedEvent,
+            network::{DagSender, NetworkSender}
+};
 use aptos_channels::aptos_channel;
 use aptos_consensus_types::common::Round;
-use aptos_consensus_types::node::CertifiedNode;
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck};
 use aptos_crypto::HashValue;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
@@ -14,6 +16,10 @@ use tokio::{sync::mpsc::Receiver,
             time};
 use std::time::Duration;
 use futures::StreamExt;
+use crate::round_manager::VerifiedEvent::CertifiedNodeAckMsg;
+
+
+// TODO: Periodically request for missing nods. Create new a node once round is ready and pass to RB and push the round to Bullshark. Pull/get proofs from QS.
 
 
 #[allow(dead_code)]
@@ -56,7 +62,9 @@ impl MissingDagNodeData {
 }
 
 pub struct DagDriver {
+    my_id: PeerId,
     round: Round,
+    network_sender: NetworkSender,
     // TODO: Should we clean more often than once an epoch?
     dag: Vec<HashMap<PeerId, CertifiedNode>>,
     // TODO: persist both maps
@@ -121,26 +129,21 @@ impl DagDriver {
     }
 
     fn add_peers_recursively(&mut self, digest: HashValue, source: PeerId) {
-        let mut parents_to_visit = Vec::new();
-
-        if let Some((_, missing_parents_set)) = self.pending_certified_nodes.get(&digest) {
-            for parent_digest in missing_parents_set {
-                match self.missing_certified_nodes.entry(*parent_digest) {
-                    Entry::Occupied(mut entry) => {
-                        if entry.get().need_to_send_request() {
-                            entry.get_mut().add_peer(source);
-                        } else {
-                            parents_to_visit.push(*parent_digest);
-                            // self.add_peers_recursively(*parent_digest, source);
-                        }
+        let missing_parents = match self.pending_certified_nodes.get(&digest) {
+            Some((_, set)) => set.clone(),
+            None => return,
+        };
+        for parent_digest in missing_parents {
+            match self.missing_certified_nodes.entry(parent_digest) {
+                Entry::Occupied(mut entry) => {
+                    if entry.get().need_to_send_request() {
+                        entry.get_mut().add_peer(source);
+                    } else {
+                        self.add_peers_recursively(parent_digest, source);
                     }
-                    Entry::Vacant(_) => unreachable!("node should exist in missing nodes"),
                 }
-            }
-        }
-
-        for digest in parents_to_visit {
-            self.add_peers_recursively(digest, source);
+                Entry::Vacant(_) => unreachable!("node should exist in missing nodes"),
+            };
         }
     }
 
@@ -164,11 +167,6 @@ impl DagDriver {
 
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
 
-        // TODO
-        // if parants in the dag -> add to dag and check if the node was previously missing. Might need to requresevley call this function.
-        // Otherwise, add to pending and update missing. Make sure to update peers to request from in missing.
-        // Both cases, persists the node and retuen ack if needed.
-
         let prev_round_digest_set = match self.round_digests(certified_node.node().round() - 1) {
             None => HashSet::new(),
             Some(set) => set,
@@ -181,6 +179,8 @@ impl DagDriver {
             .cloned()
             .collect();
 
+        let digest = certified_node.node().digest();
+        let source = certified_node.node().source();
         if missing_parents.is_empty() {
             self.add_to_dag(certified_node); // TODO: should persist inside
         } else {
@@ -188,7 +188,8 @@ impl DagDriver {
         }
 
         if ack_required {
-            // TODO: send ack back
+            let ack = CertifiedNodeAck::new(digest, self.my_id);
+            self.network_sender.send_certified_node_ack(ack, vec![source]).await
         }
     }
 
