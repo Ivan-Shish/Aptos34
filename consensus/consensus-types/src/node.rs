@@ -1,24 +1,22 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-
-use std::sync::Arc;
-use aptos_crypto::{bls12381, CryptoMaterialError, HashValue};
-use aptos_types::aggregate_signature::AggregateSignature;
-use aptos_types::PeerId;
-use aptos_types::validator_verifier::ValidatorVerifier;
+use std::collections::HashSet;
 use crate::common::Payload;
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
+use aptos_crypto::{bls12381, CryptoMaterialError, HashValue};
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
+use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::validator_signer::ValidatorSigner;
-
+use aptos_types::validator_verifier::ValidatorVerifier;
+use aptos_types::PeerId;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 pub enum SignedNodeDigestError {
     WrongDigest,
     DuplicatedSignature,
 }
-
 
 #[derive(
 Clone, Debug, Deserialize, Serialize, CryptoHasher, BCSCryptoHash, PartialEq, Eq, Hash,
@@ -29,9 +27,7 @@ pub struct SignedNodeDigestInfo {
 
 impl SignedNodeDigestInfo {
     pub fn new(digest: HashValue) -> Self {
-        Self {
-            digest
-        }
+        Self { digest }
     }
 
     pub fn digest(&self) -> HashValue {
@@ -48,7 +44,10 @@ pub struct SignedNodeDigest {
 }
 
 impl SignedNodeDigest {
-    pub fn new(digest: HashValue, validator_signer: Arc<ValidatorSigner>) -> Result<Self, CryptoMaterialError> {
+    pub fn new(
+        digest: HashValue,
+        validator_signer: Arc<ValidatorSigner>,
+    ) -> Result<Self, CryptoMaterialError> {
         let info = SignedNodeDigestInfo::new(digest);
         let signature = validator_signer.sign(&info)?;
 
@@ -88,7 +87,10 @@ pub struct NodeCertificate {
 }
 
 impl NodeCertificate {
-    pub fn new(signed_node_digest_info: SignedNodeDigestInfo, multi_signature: AggregateSignature) -> Self {
+    pub fn new(
+        signed_node_digest_info: SignedNodeDigestInfo,
+        multi_signature: AggregateSignature,
+    ) -> Self {
         Self {
             signed_node_digest_info,
             multi_signature,
@@ -106,6 +108,7 @@ impl NodeCertificate {
     }
 }
 
+// TODO: check source in msg.verify()
 #[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Node {
@@ -113,7 +116,7 @@ pub struct Node {
     round: u64,
     source: PeerId,
     consensus_payload: Payload,
-    parents: Vec<HashValue>,
+    parents: HashSet<HashValue>,
     digest: HashValue,
 }
 
@@ -132,6 +135,10 @@ impl Node {
 
     pub fn source(&self) -> PeerId {
         self.source
+    }
+
+    pub fn parents(&self) -> &HashSet<HashValue> {
+        &self.parents
     }
 }
 
@@ -165,10 +172,7 @@ pub struct CertifiedNodeAck {
 
 impl CertifiedNodeAck {
     pub fn new(digest: HashValue, peer_id: PeerId) -> Self {
-        Self {
-            digest,
-            peer_id,
-        }
+        Self { digest, peer_id }
     }
 
     pub fn digest(&self) -> HashValue {

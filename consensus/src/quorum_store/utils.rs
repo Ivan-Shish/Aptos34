@@ -289,7 +289,8 @@ impl ProofQueue {
             }
             if *expiration < current_time {
                 if expiration.epoch() < current_time.epoch() {
-                    counters::BATCH_EXPIRED_SMALLER_EPOCH_WHEN_PULL_PROOFS_COUNT.inc(); // Sasha: why do we count it here?
+                    counters::BATCH_EXPIRED_SMALLER_EPOCH_WHEN_PULL_PROOFS_COUNT.inc();
+                    // Sasha: why do we count it here?
                 }
                 if expiration.round() < current_time.round() {
                     counters::BATCH_EXPIRED_SMALLER_ROUND_WHEN_PULL_PROOFS_COUNT.inc();

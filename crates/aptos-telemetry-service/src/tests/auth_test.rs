@@ -138,14 +138,17 @@ async fn test_auth_validator() {
         resp,
     );
 
-    assert_eq!(decoded.claims, Claims {
-        chain_id,
-        peer_id,
-        node_type: NodeType::Validator,
-        epoch: 1,
-        exp: decoded.claims.exp,
-        iat: decoded.claims.iat
-    },)
+    assert_eq!(
+        decoded.claims,
+        Claims {
+            chain_id,
+            peer_id,
+            node_type: NodeType::Validator,
+            epoch: 1,
+            exp: decoded.claims.exp,
+            iat: decoded.claims.iat
+        },
+    )
 }
 
 #[tokio::test]
@@ -181,14 +184,17 @@ async fn test_auth_validatorfullnode() {
         resp,
     );
 
-    assert_eq!(decoded.claims, Claims {
-        chain_id,
-        peer_id,
-        node_type: NodeType::ValidatorFullNode,
-        epoch: 1,
-        exp: decoded.claims.exp,
-        iat: decoded.claims.iat
-    },)
+    assert_eq!(
+        decoded.claims,
+        Claims {
+            chain_id,
+            peer_id,
+            node_type: NodeType::ValidatorFullNode,
+            epoch: 1,
+            exp: decoded.claims.exp,
+            iat: decoded.claims.iat
+        },
+    )
 }
 
 #[tokio::test]

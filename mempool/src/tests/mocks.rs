@@ -123,10 +123,13 @@ impl MockSharedMempool {
             notification_receiver: reconfig_events,
         };
         reconfig_sender
-            .push((), ReconfigNotification {
-                version: 1,
-                on_chain_configs: OnChainConfigPayload::new(1, Arc::new(HashMap::new())),
-            })
+            .push(
+                (),
+                ReconfigNotification {
+                    version: 1,
+                    on_chain_configs: OnChainConfigPayload::new(1, Arc::new(HashMap::new())),
+                },
+            )
             .unwrap();
         let network_handles = vec![(NetworkId::Validator, network_sender, network_events)];
         let peer_metadata_storage = PeerMetadataStorage::new(&[NetworkId::Validator]);

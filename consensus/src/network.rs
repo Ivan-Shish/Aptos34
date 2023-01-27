@@ -11,6 +11,7 @@ use crate::{
 };
 use anyhow::{anyhow, ensure};
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
+use aptos_consensus_types::node::{CertifiedNode, Node, SignedNodeDigest};
 use aptos_consensus_types::{
     block_retrieval::{BlockRetrievalRequest, BlockRetrievalResponse, MAX_BLOCKS_PER_REQUEST},
     common::Author,
@@ -40,7 +41,6 @@ use std::{
     mem::{discriminant, Discriminant},
     time::Duration,
 };
-use aptos_consensus_types::node::{CertifiedNode, Node, SignedNodeDigest};
 
 /// The block retrieval request is used internally for implementing RPC: the callback is executed
 /// for carrying the response
@@ -64,7 +64,7 @@ pub struct NetworkReceivers {
         (AccountAddress, ConsensusMsg),
     >,
     pub block_retrieval:
-    aptos_channel::Receiver<AccountAddress, (AccountAddress, IncomingBlockRetrievalRequest)>,
+        aptos_channel::Receiver<AccountAddress, (AccountAddress, IncomingBlockRetrievalRequest)>,
 }
 
 #[async_trait::async_trait]
@@ -82,11 +82,19 @@ pub(crate) trait QuorumStoreSender {
 
 #[async_trait::async_trait]
 pub(crate) trait DagSender {
-    async fn broadcast_node(&mut self, node: Node);
+    async fn broadcast_node(&mut self, node: Node, maybe_recipients: Option<Vec<Author>>);
 
-    async fn send_signed_node_digest(&self, signed_node_digest: SignedNodeDigest, recipients: Vec<Author>);
+    async fn send_signed_node_digest(
+        &self,
+        signed_node_digest: SignedNodeDigest,
+        recipients: Vec<Author>,
+    );
 
-    async fn send_certified_node(&mut self, certified_node: CertifiedNode);
+    async fn send_certified_node(
+        &mut self,
+        certified_node: CertifiedNode,
+        maybe_recipients: Option<Vec<Author>>,
+    );
 }
 
 /// Implements the actual networking support for all consensus messaging.
@@ -354,22 +362,38 @@ impl QuorumStoreSender for NetworkSender {
 
 #[async_trait::async_trait]
 impl DagSender for NetworkSender {
-    async fn broadcast_node(&mut self, node: Node) {
+    async fn broadcast_node(&mut self, node: Node, maybe_recipients: Option<Vec<Author>>) {
         fail_point!("consensus::send::node", |_| ());
         let msg = ConsensusMsg::NodeMsg(Box::new(node));
-        self.broadcast(msg).await
+
+        match maybe_recipients {
+            None => self.broadcast(msg).await,
+            Some(recipients) => self.send(msg, recipients).await,
+        }
     }
 
-    async fn send_signed_node_digest(&self, signed_node_digest: SignedNodeDigest, recipients: Vec<Author>) {
+    async fn send_signed_node_digest(
+        &self,
+        signed_node_digest: SignedNodeDigest,
+        recipients: Vec<Author>,
+    ) {
         fail_point!("consensus::send::signed_node_digest", |_| ());
         let msg = ConsensusMsg::SignedNodeDigestMsg(Box::new(signed_node_digest));
-        self.send(msg,recipients).await
+        self.send(msg, recipients).await
     }
 
-    async fn send_certified_node(&mut self, certified_node: CertifiedNode) {
+    async fn send_certified_node(
+        &mut self,
+        certified_node: CertifiedNode,
+        maybe_recipients: Option<Vec<Author>>,
+    ) {
         fail_point!("consensus::send::certified_node", |_| ());
         let msg = ConsensusMsg::CertifiedNodeMsg(Box::new(certified_node));
-        self.broadcast_without_self(msg).await
+
+        match maybe_recipients {
+            None => self.broadcast(msg).await,
+            Some(recipients) => self.send(msg, recipients).await,
+        }
     }
 }
 
@@ -383,8 +407,8 @@ pub struct NetworkTask {
         (AccountAddress, ConsensusMsg),
     >,
     block_retrieval_tx:
-    aptos_channel::Sender<AccountAddress, (AccountAddress, IncomingBlockRetrievalRequest)>,
-    all_events: Box<dyn Stream<Item=Event<ConsensusMsg>> + Send + Unpin>,
+        aptos_channel::Sender<AccountAddress, (AccountAddress, IncomingBlockRetrievalRequest)>,
+    all_events: Box<dyn Stream<Item = Event<ConsensusMsg>> + Send + Unpin>,
 }
 
 impl NetworkTask {
@@ -456,7 +480,7 @@ impl NetworkTask {
                                 quorum_store_msg,
                                 &self.quorum_store_messages_tx,
                             );
-                        }
+                        },
                         consensus_msg => {
                             if let ConsensusMsg::ProposalMsg(proposal) = &consensus_msg {
                                 observe_block(
@@ -465,9 +489,9 @@ impl NetworkTask {
                                 );
                             }
                             Self::push_msg(peer_id, consensus_msg, &self.consensus_messages_tx);
-                        }
+                        },
                     }
-                }
+                },
                 Event::RpcRequest(peer_id, msg, protocol, callback) => match msg {
                     ConsensusMsg::BlockRetrievalRequest(request) => {
                         counters::CONSENSUS_RECEIVED_MSGS
@@ -498,15 +522,15 @@ impl NetworkTask {
                         {
                             warn!(error = ?e, "aptos channel closed");
                         }
-                    }
+                    },
                     _ => {
                         warn!(remote_peer = peer_id, "Unexpected msg: {:?}", msg);
                         continue;
-                    }
+                    },
                 },
                 _ => {
                     // Ignore `NewPeer` and `LostPeer` events
-                }
+                },
             }
         }
     }

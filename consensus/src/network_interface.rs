@@ -8,16 +8,18 @@ use crate::{
     quorum_store::types::{Batch, BatchRequest, Fragment},
 };
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
+use aptos_config::config::NodeConfig;
 use aptos_config::network_id::{NetworkId, PeerNetworkId};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, SignedNodeDigest};
 use aptos_consensus_types::{
     block_retrieval::{BlockRetrievalRequest, BlockRetrievalResponse},
     epoch_retrieval::EpochRetrievalRequest,
     experimental::{commit_decision::CommitDecision, commit_vote::CommitVote},
+    node::Node,
     proof_of_store::{ProofOfStore, SignedDigest},
     proposal_msg::ProposalMsg,
     sync_info::SyncInfo,
     vote_msg::VoteMsg,
-    node::{Node},
 };
 use aptos_network::{
     application::{error::Error, interface::NetworkClientInterface},
@@ -28,8 +30,6 @@ use aptos_network::{
 use aptos_types::{epoch_change::EpochChangeProof, PeerId};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use aptos_config::config::NodeConfig;
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, SignedNodeDigest};
 
 /// Network type for consensus
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -78,9 +78,7 @@ pub enum ConsensusMsg {
     /// DAG:
     CertifiedNodeMsg(Box<CertifiedNode>),
     /// DAG:
-    CertifiedNodeAckMsg(Box<CertifiedNodeAck>)
-
-
+    CertifiedNodeAckMsg(Box<CertifiedNodeAck>),
 }
 
 /// Network type for consensus

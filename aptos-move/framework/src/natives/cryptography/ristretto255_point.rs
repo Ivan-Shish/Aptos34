@@ -189,9 +189,10 @@ pub(crate) fn native_point_is_canonical(
     let mut cost = InternalGas::zero();
     let opt_point = gas_params.decompress_maybe_non_canonical_point_bytes(&mut cost, bytes);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::bool(
-        opt_point.is_some()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::bool(opt_point.is_some())],
+    ))
 }
 
 pub(crate) fn native_point_decompress(
@@ -212,10 +213,10 @@ pub(crate) fn native_point_decompress(
         Some(point) => point,
         None => {
             // NOTE: We return (u64::MAX, false) in this case.
-            return Ok(NativeResult::ok(cost, smallvec![
-                Value::u64(u64::MAX),
-                Value::bool(false)
-            ]));
+            return Ok(NativeResult::ok(
+                cost,
+                smallvec![Value::u64(u64::MAX), Value::bool(false)],
+            ));
         },
     };
 
@@ -224,10 +225,10 @@ pub(crate) fn native_point_decompress(
     // a vector using this global ID as an index.
     let id = point_data.add_point(point);
 
-    Ok(NativeResult::ok(cost, smallvec![
-        Value::u64(id),
-        Value::bool(true)
-    ]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::u64(id), Value::bool(true)],
+    ))
 }
 
 pub(crate) fn native_point_compress(
@@ -244,9 +245,10 @@ pub(crate) fn native_point_compress(
     let cost = gas_params.point_compress * NumArgs::one();
     let point = point_data.get_point(&handle);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::vector_u8(
-        point.compress().to_bytes()
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::vector_u8(point.compress().to_bytes())],
+    ))
 }
 
 pub(crate) fn native_point_mul(

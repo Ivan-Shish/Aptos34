@@ -110,9 +110,12 @@ fn native_type_name(
 
     let cost = gas_params.base + gas_params.per_byte_in_str * NumBytes::new(type_name.len() as u64);
 
-    Ok(NativeResult::ok(cost, smallvec![Value::struct_(
-        Struct::pack(vec![Value::vector_u8(type_name.as_bytes().to_vec())])
-    )]))
+    Ok(NativeResult::ok(
+        cost,
+        smallvec![Value::struct_(Struct::pack(vec![Value::vector_u8(
+            type_name.as_bytes().to_vec()
+        )]))],
+    ))
 }
 
 pub fn make_native_type_name(gas_params: TypeNameGasParameters) -> NativeFunction {

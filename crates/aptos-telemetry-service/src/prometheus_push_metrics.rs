@@ -20,11 +20,14 @@ pub fn metrics_ingest_legacy(context: Context) -> BoxedFilter<(impl Reply,)> {
     warp::path!("push-metrics")
         .and(warp::post())
         .and(context.clone().filter())
-        .and(with_auth(context, vec![
-            NodeType::Validator,
-            NodeType::ValidatorFullNode,
-            NodeType::PublicFullNode,
-        ]))
+        .and(with_auth(
+            context,
+            vec![
+                NodeType::Validator,
+                NodeType::ValidatorFullNode,
+                NodeType::PublicFullNode,
+            ],
+        ))
         .and(warp::header::optional(CONTENT_ENCODING.as_str()))
         .and(warp::body::content_length_limit(MAX_CONTENT_LENGTH))
         .and(warp::body::bytes())
@@ -36,11 +39,14 @@ pub fn metrics_ingest(context: Context) -> BoxedFilter<(impl Reply,)> {
     warp::path!("ingest" / "metrics")
         .and(warp::post())
         .and(context.clone().filter())
-        .and(with_auth(context, vec![
-            NodeType::Validator,
-            NodeType::ValidatorFullNode,
-            NodeType::PublicFullNode,
-        ]))
+        .and(with_auth(
+            context,
+            vec![
+                NodeType::Validator,
+                NodeType::ValidatorFullNode,
+                NodeType::PublicFullNode,
+            ],
+        ))
         .and(warp::header::optional(CONTENT_ENCODING.as_str()))
         .and(warp::body::content_length_limit(MAX_CONTENT_LENGTH))
         .and(warp::body::bytes())
@@ -184,13 +190,16 @@ mod test {
             },
             Some(&String::from("test_name")),
         );
-        assert_eq!(claims, vec![
-            "role=validator",
-            "metrics_source=telemetry-service",
-            "chain_name=25",
-            "namespace=telemetry-service",
-            "kubernetes_pod_name=peer_id:test_name//0x1",
-        ]);
+        assert_eq!(
+            claims,
+            vec![
+                "role=validator",
+                "metrics_source=telemetry-service",
+                "chain_name=25",
+                "namespace=telemetry-service",
+                "kubernetes_pod_name=peer_id:test_name//0x1",
+            ]
+        );
 
         let claims = claims_to_extra_labels(
             &super::Claims {
@@ -203,13 +212,16 @@ mod test {
             },
             None,
         );
-        assert_eq!(claims, vec![
-            "role=validator",
-            "metrics_source=telemetry-service",
-            "chain_name=25",
-            "namespace=telemetry-service",
-            "kubernetes_pod_name=peer_id:0x1",
-        ]);
+        assert_eq!(
+            claims,
+            vec![
+                "role=validator",
+                "metrics_source=telemetry-service",
+                "chain_name=25",
+                "namespace=telemetry-service",
+                "kubernetes_pod_name=peer_id:0x1",
+            ]
+        );
     }
 
     #[tokio::test]

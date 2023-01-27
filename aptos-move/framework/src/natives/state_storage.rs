@@ -61,12 +61,13 @@ fn native_get_usage(
             .with_message(format!("Failed to get state storage usage: {}", err))
     })?;
 
-    Ok(NativeResult::ok(gas_params.base_cost, smallvec![
-        Value::struct_(Struct::pack(vec![
+    Ok(NativeResult::ok(
+        gas_params.base_cost,
+        smallvec![Value::struct_(Struct::pack(vec![
             Value::u64(usage.items() as u64),
             Value::u64(usage.bytes() as u64),
-        ]))
-    ]))
+        ]))],
+    ))
 }
 
 pub fn make_native_get_usage(gas_params: GetUsageGasParameters) -> NativeFunction {

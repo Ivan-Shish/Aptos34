@@ -84,9 +84,10 @@ fn native_read(
 
     let value = aggregator.read_and_materialize(aggregator_context.resolver, &id)?;
 
-    Ok(NativeResult::ok(gas_params.base, smallvec![Value::u128(
-        value
-    )]))
+    Ok(NativeResult::ok(
+        gas_params.base,
+        smallvec![Value::u128(value)],
+    ))
 }
 
 pub fn make_native_read(gas_params: ReadGasParameters) -> NativeFunction {
