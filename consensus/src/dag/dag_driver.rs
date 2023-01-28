@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{round_manager::VerifiedEvent,
-            network::{DagSender, NetworkSender}
+            network::{DagSender, NetworkSender},
 };
 use aptos_channels::aptos_channel;
 use aptos_consensus_types::common::Round;
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest};
 use aptos_crypto::HashValue;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
@@ -15,12 +15,14 @@ use std::collections::hash_map::Entry;
 use tokio::{sync::mpsc::Receiver,
             time};
 use std::time::Duration;
+use futures::stream::iter;
 use futures::StreamExt;
 use crate::round_manager::VerifiedEvent::CertifiedNodeAckMsg;
 
 
 // TODO: Periodically request for missing nods. Create new a node once round is ready and pass to RB and push the round to Bullshark. Pull/get proofs from QS.
-
+// TODO: weak links and GC.
+// TODO: Timeouts and anchor election!
 
 #[allow(dead_code)]
 pub(crate) enum DagDriverCommand {}
@@ -50,6 +52,12 @@ impl MissingDagNodeData {
 
     pub fn add_dependency(&mut self, dependency: HashValue) {
         self.immediate_dependencies.insert(dependency);
+    }
+
+    pub fn source_peers(&self) -> Vec<PeerId> {
+        self.source_peers.iter()
+            .cloned()
+            .collect()
     }
 
     pub fn disable_requests(&mut self) {
@@ -164,9 +172,19 @@ impl DagDriver {
         }
     }
 
+    async fn remote_fetch_missing_nodes(&self) {
+        self.missing_certified_nodes.iter()
+            .filter(|(digest, missing_dag_node_data)| missing_dag_node_data.need_to_send_request())
+            .for_each(|(digest, missing_dag_node_data)| {
+                async {
+                    let request = CertifiedNodeRequest::new(*digest, self.my_id);
+                    self.network_sender.send_certified_node_request(request, missing_dag_node_data.source_peers()).await;
+                };
+            });
+    }
+
 
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
-
         let prev_round_digest_set = match self.round_digests(certified_node.node().round() - 1) {
             None => HashSet::new(),
             Some(set) => set,
@@ -206,11 +224,13 @@ impl DagDriver {
 
                     // TODO: currently it gets low priority. Check how to avoid starvation.
                     _ = interval.tick() => {
+                    self.remote_fetch_missing_nodes().await
                     // send requests for all missing nodes.
                 },
 
                 Some(command) = command_rx.recv() => {
-                    // TODO: proofs from consensus & other apps
+                    // TODO: proofs from consensus & other apps.
+                    // TODO: probably better to pull when time to crete new round.
                 },
 
                 Some(msg) = network_msg_rx.next() => {
@@ -222,7 +242,7 @@ impl DagDriver {
 
                             },
 
-                        // handle NodeRequestMsg...
+                        // TODO: handle NodeRequestMsg...
 
                         _ => unreachable!("reliable broadcast got wrong messsgae"),
                         }
@@ -234,3 +254,4 @@ impl DagDriver {
         // TODO: once every tick ask for missing CertifiedNodes
     }
 }
+

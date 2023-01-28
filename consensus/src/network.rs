@@ -11,7 +11,7 @@ use crate::{
 };
 use anyhow::{anyhow, ensure};
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, Node, SignedNodeDigest};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, Node, SignedNodeDigest};
 use aptos_consensus_types::{
     block_retrieval::{BlockRetrievalRequest, BlockRetrievalResponse, MAX_BLOCKS_PER_REQUEST},
     common::Author,
@@ -97,6 +97,8 @@ pub(crate) trait DagSender {
     );
 
     async fn send_certified_node_ack(&self, ack: CertifiedNodeAck, recipients: Vec<Author>);
+
+    async fn send_certified_node_request(&self, req: CertifiedNodeRequest, recipients: Vec<Author>);
 }
 
 /// Implements the actual networking support for all consensus messaging.
@@ -401,6 +403,12 @@ impl DagSender for NetworkSender {
     async fn send_certified_node_ack(&self, ack: CertifiedNodeAck, recipients: Vec<Author>) {
         fail_point!("consensus::send::certified_node_ack_msg", |_| ());
         let msg = ConsensusMsg::CertifiedNodeAckMsg(Box::new(ack));
+        self.send(msg, recipients).await
+    }
+
+    async fn send_certified_node_request(&self, req: CertifiedNodeRequest, recipients: Vec<Author>) {
+        fail_point!("consensus::send::certified_node_request_msg", |_| ());
+        let msg = ConsensusMsg::CertifiedNodeRequestMsg(Box::new(req));
         self.send(msg, recipients).await
     }
 }

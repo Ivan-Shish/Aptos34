@@ -183,3 +183,27 @@ impl CertifiedNodeAck {
         self.peer_id
     }
 }
+
+// TODO: marge with CertifiedNodeAck? Need a good name.
+#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CertifiedNodeRequest {
+    digest: HashValue,
+    peer_id: PeerId,
+}
+
+impl CertifiedNodeRequest {
+    pub fn new(digest: HashValue, peer_id: PeerId) -> Self {
+        Self { digest, peer_id }
+    }
+
+    pub fn digest(&self) -> HashValue {
+        self.digest
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id
+    }
+}
+
+
