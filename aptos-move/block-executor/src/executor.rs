@@ -14,7 +14,7 @@ use crate::{
 use aptos_logger::debug;
 use aptos_mvhashmap::{MVHashMap, MVHashMapError, MVHashMapOutput};
 use aptos_state_view::TStateView;
-use aptos_types::write_set::WriteOp;
+use aptos_types::write_set::{TransactionWrite, WriteOp};
 use num_cpus;
 use once_cell::sync::Lazy;
 use std::{collections::btree_map::BTreeMap, marker::PhantomData};
@@ -150,7 +150,15 @@ where
 
         let valid = read_set.iter().all(|r| {
             match versioned_data_cache.read(r.path(), idx_to_validate) {
-                Ok(Version(version, _)) => r.validate_version(version),
+                Ok(Version(version, v)) => {
+                    let x = v.num_bytes();
+                    if x.is_some() && x.unwrap() <= 40 {
+                        // TODO: Param & Re-use logic w. view for checking it.
+                        r.validate_blob(v.extract_raw_bytes().unwrap())
+                    } else {
+                        r.validate_version(version)
+                    }
+                },
                 Ok(Resolved(value)) => r.validate_resolved(value),
                 Err(Dependency(_)) => false, // Dependency implies a validation failure.
                 Err(Unresolved(delta)) => r.validate_unresolved(delta),

@@ -30,6 +30,10 @@ enum ReadKind {
     /// and incarnation number of the execution associated with the write of
     /// that entry.
     Version(TxnIndex, Incarnation),
+    /// Read returned a value from the multi-version data-structure, with index
+    /// and incarnation number of the execution associated with the write of
+    /// that entry.
+    Blob(Vec<u8>),
     /// Read resolved a delta.
     Resolved(u128),
     /// Read returned a delta and needs to go to storage.
@@ -52,6 +56,13 @@ impl<K: ModulePath> ReadDescriptor<K> {
         Self {
             access_path,
             kind: ReadKind::Version(txn_idx, incarnation),
+        }
+    }
+
+    pub fn from_blob(access_path: K, blob: Vec<u8>) -> Self {
+        Self {
+            access_path,
+            kind: ReadKind::Blob(blob),
         }
     }
 
@@ -95,6 +106,11 @@ impl<K: ModulePath> ReadDescriptor<K> {
     pub fn validate_version(&self, version: Version) -> bool {
         let (txn_idx, incarnation) = version;
         self.kind == ReadKind::Version(txn_idx, incarnation)
+    }
+
+    // Does the read descriptor describe a read from MVHashMap of a small blob.
+    pub fn validate_blob(&self, blob: Vec<u8>) -> bool {
+        self.kind == ReadKind::Blob(blob)
     }
 
     // Does the read descriptor describe a read from MVHashMap w. a resolved delta.

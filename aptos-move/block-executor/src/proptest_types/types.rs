@@ -154,6 +154,11 @@ impl<V: Into<Vec<u8>> + Debug + Clone + Eq + Send + Sync + Arbitrary> Transactio
             None
         }
     }
+
+    fn num_bytes(&self) -> Option<usize> {
+        // TODO: also test w. small & large sizes.
+        None
+    }
 }
 
 #[derive(Clone, Copy)]

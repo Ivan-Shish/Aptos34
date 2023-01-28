@@ -77,9 +77,15 @@ impl<
             match self.versioned_map.read(key, txn_idx) {
                 Ok(Version(version, v)) => {
                     let (idx, incarnation) = version;
+                    let x = v.num_bytes();
                     self.captured_reads
                         .borrow_mut()
-                        .push(ReadDescriptor::from_version(key.clone(), idx, incarnation));
+                        .push(if x.is_some() && x.unwrap() <= 40 {
+                            // TODO: config parameter
+                            ReadDescriptor::from_blob(key.clone(), v.extract_raw_bytes().unwrap())
+                        } else {
+                            ReadDescriptor::from_version(key.clone(), idx, incarnation)
+                        });
                     return ReadResult::Value(v);
                 },
                 Ok(Resolved(value)) => {

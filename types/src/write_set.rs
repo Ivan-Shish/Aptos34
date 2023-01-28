@@ -46,12 +46,21 @@ impl WriteOp {
 
 pub trait TransactionWrite {
     fn extract_raw_bytes(&self) -> Option<Vec<u8>>;
+
+    fn num_bytes(&self) -> Option<usize>;
 }
 
 impl TransactionWrite for WriteOp {
     fn extract_raw_bytes(&self) -> Option<Vec<u8>> {
         match self {
             WriteOp::Creation(v) | WriteOp::Modification(v) => Some(v.clone()),
+            WriteOp::Deletion => None,
+        }
+    }
+
+    fn num_bytes(&self) -> Option<usize> {
+        match self {
+            WriteOp::Creation(v) | WriteOp::Modification(v) => Some(v.len()),
             WriteOp::Deletion => None,
         }
     }
