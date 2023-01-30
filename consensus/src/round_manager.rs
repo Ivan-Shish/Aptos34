@@ -26,7 +26,9 @@ use crate::{
 use anyhow::{bail, ensure, Context, Result};
 use aptos_channels::aptos_channel;
 use aptos_config::config::ConsensusConfig;
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, Node, SignedNodeDigest};
+use aptos_consensus_types::node::{
+    CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, Node, SignedNodeDigest,
+};
 use aptos_consensus_types::{
     block::Block,
     common::{Author, Round},
@@ -180,6 +182,7 @@ pub enum VerifiedEvent {
     SignedNodeDigestMsg(Box<SignedNodeDigest>),
     CertifiedNodeMsg(Box<CertifiedNode>, bool),
     CertifiedNodeAckMsg(Box<CertifiedNodeAck>),
+    CertifiedNodeRequestMsg(Box<CertifiedNodeRequest>),
     // local messages
     LocalTimeout(Round),
     // Shutdown the NetworkListener

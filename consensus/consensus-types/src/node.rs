@@ -1,8 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-use crate::common::Payload;
+use crate::common::{Payload, Round};
 use anyhow::Context;
 use aptos_crypto::{bls12381, CryptoMaterialError, HashValue};
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
@@ -11,15 +10,17 @@ use aptos_types::validator_signer::ValidatorSigner;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
+#[derive(Debug)]
 pub enum SignedNodeDigestError {
     WrongDigest,
     DuplicatedSignature,
 }
 
 #[derive(
-Clone, Debug, Deserialize, Serialize, CryptoHasher, BCSCryptoHash, PartialEq, Eq, Hash,
+    Clone, Debug, Deserialize, Serialize, CryptoHasher, BCSCryptoHash, PartialEq, Eq, Hash,
 )]
 pub struct SignedNodeDigestInfo {
     digest: HashValue,
@@ -116,7 +117,7 @@ pub struct Node {
     round: u64,
     source: PeerId,
     consensus_payload: Payload,
-    parents: HashSet<HashValue>,
+    parents: HashMap<PeerId, HashValue>,
     digest: HashValue,
 }
 
@@ -137,7 +138,7 @@ impl Node {
         self.source
     }
 
-    pub fn parents(&self) -> &HashSet<HashValue> {
+    pub fn parents(&self) -> &HashMap<PeerId, HashValue> {
         &self.parents
     }
 }
@@ -188,22 +189,40 @@ impl CertifiedNodeAck {
 #[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CertifiedNodeRequest {
+    node_source: PeerId,
+    node_round: Round,
     digest: HashValue,
-    peer_id: PeerId,
+    requester: PeerId,
 }
 
 impl CertifiedNodeRequest {
-    pub fn new(digest: HashValue, peer_id: PeerId) -> Self {
-        Self { digest, peer_id }
+    pub fn new(
+        node_source: PeerId,
+        node_round: Round,
+        digest: HashValue,
+        requester: PeerId,
+    ) -> Self {
+        Self {
+            node_source,
+            node_round,
+            digest,
+            requester,
+        }
     }
 
     pub fn digest(&self) -> HashValue {
         self.digest
     }
 
-    pub fn peer_id(&self) -> PeerId {
-        self.peer_id
+    pub fn requester(&self) -> PeerId {
+        self.requester
+    }
+
+    pub fn node_source(&self) -> PeerId {
+        self.node_source
+    }
+
+    pub fn node_round(&self) -> Round {
+        self.node_round
     }
 }
-
-

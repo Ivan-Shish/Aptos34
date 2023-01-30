@@ -3,12 +3,11 @@
 
 use crate::dag::types::{AckSet, IncrementalNodeCertificateState};
 use crate::network::{DagSender, NetworkSender};
-use crate::network_interface::ConsensusMsg;
 use crate::round_manager::VerifiedEvent;
 use aptos_channels::aptos_channel;
 use aptos_consensus_types::common::Round;
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, Node, SignedNodeDigest};
-use aptos_logger::debug;
+use aptos_consensus_types::node::{CertifiedNode, Node, SignedNodeDigest};
+use aptos_logger::{debug, info};
 use aptos_types::validator_signer::ValidatorSigner;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
@@ -25,10 +24,20 @@ pub(crate) enum ReliableBroadcastCommand {
     BroadcastRequest(Node),
 }
 
+// TODO: traits
+// enum status {
+//     nothing_to_send,
+//     sending_node(Node, IncrementalNodeCertificateState),
+//     sending_certificate(Node, AckSet)
+// }
+
+// TODO: same message for node and certifade node -> create two verified events.
+// TODO: combain maybe_incremental_certificate_state and  maybe_ack_set and nothing to send to enum
+
 #[allow(dead_code)]
 pub struct ReliableBroadcast {
     my_id: PeerId,
-    maybe_node: Option<Node>,
+    maybe_node: Option<Node>, // TODO: enum with the certificate?
     maybe_certified_node: Option<CertifiedNode>,
     peer_round_signatures: BTreeMap<(Round, PeerId), SignedNodeDigest>,
     // vs BTreeMap<Round, BTreeMap<PeerId, ConsensusMsg>> vs Hashset?
@@ -90,7 +99,8 @@ impl ReliableBroadcast {
                     .insert((node.round(), node.source()), signed_node_digest.clone());
                 // TODO: persist
                 self.network_sender
-                    .send_signed_node_digest(signed_node_digest, vec![node.source()]);
+                    .send_signed_node_digest(signed_node_digest, vec![node.source()])
+                    .await;
             },
         }
     }
@@ -100,7 +110,9 @@ impl ReliableBroadcast {
         match self.maybe_incremental_certificate_state.as_mut() {
             None => return false,
             Some(incremental_certificate_state) => {
-                incremental_certificate_state.add_signature(signed_node_digest);
+                if let Err(e) = incremental_certificate_state.add_signature(signed_node_digest) {
+                    info!("DAG: could not add signature, err = {:?}", e);
+                }
                 if incremental_certificate_state.ready(&self.validator_verifier) {
                     certificate_done = true;
                 }
@@ -121,8 +133,6 @@ impl ReliableBroadcast {
             let digest = self.maybe_certified_node.as_ref().unwrap().node().digest();
             self.maybe_ack_set = Some(AckSet::new(digest));
             // self.maybe_ack_set.as_mut().unwrap().add(CertifiedNodeAck::new(digest, self.my_id));
-            self.network_sender
-                .send_certified_node(self.maybe_certified_node.as_ref().unwrap().clone(), None);
         }
         certificate_done
     }
@@ -156,6 +166,7 @@ impl ReliableBroadcast {
             .send_certified_node(
                 self.maybe_certified_node.as_ref().unwrap().clone(),
                 Some(missing_peers),
+                true,
             )
             .await
     }
@@ -165,7 +176,8 @@ impl ReliableBroadcast {
         mut network_msg_rx: aptos_channel::Receiver<PeerId, VerifiedEvent>,
         mut command_rx: Receiver<ReliableBroadcastCommand>,
     ) {
-        let mut interval = time::interval(Duration::from_millis(500)); // time out should be slightly more than one network round trip.
+        // TODO: think about tick readability and races.
+        let mut interval = time::interval(Duration::from_millis(500)); // TODO: time out should be slightly more than one network round trip.
 
         loop {
             // TODO: shutdown
@@ -173,6 +185,7 @@ impl ReliableBroadcast {
                     biased;
 
                     // TODO: currently it gets low priority. Check how to avoid starvation.
+                    // TODO: enum will simplify it.
                     _ = interval.tick() => {
                         match (self.maybe_node.is_some(), self.maybe_certified_node.is_some()) {
                             (true, true) => { unreachable!("never send both together") },
@@ -180,6 +193,7 @@ impl ReliableBroadcast {
                             (false, true) => self.resend_certified_node().await,
                             (false, false) => {
                                 debug!("dag: reliable broadcast has nothing to resend");
+                            // TODO: add a counter
                             },
             }
 
@@ -202,6 +216,7 @@ impl ReliableBroadcast {
 
                             VerifiedEvent::SignedNodeDigestMsg(signed_node_digest) => {
                                 if self.handle_signed_digest(*signed_node_digest) {
+                                    self.network_sender.send_certified_node(self.maybe_certified_node.as_ref().unwrap().clone(), None, true).await;
                                     interval.reset();
                                 }
 
