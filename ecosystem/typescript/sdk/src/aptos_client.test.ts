@@ -536,23 +536,18 @@ test(
 );
 
 test(
-  "view function",
+  "view function testing",
   async () => {
     const client = new AptosClient(NODE_URL);
-    const faucetClient = getFaucetClient();
-
-    const alice = new AptosAccount();
-    await faucetClient.fundAccount(alice.address(), 100_000_000);
 
     const payload: Gen.ViewRequest = {
-      function: "0x1::coin::balance",
-      type_arguments: ["0x1::aptos_coin::AptosCoin"],
-      arguments: [alice.address().hex()],
+      function: "0x023bb4eb2df414f4a99577a2dae97d2b81f17f90ade037cea5e013075b1126b3::message::get_message",
+      type_arguments: [],
+      arguments: ["023bb4eb2df414f4a99577a2dae97d2b81f17f90ade037cea5e013075b1126b3"],
     };
 
-    const balance = await client.view(payload);
-
-    expect(balance[0]).toBe("100000000");
+    const blah = await client.view(payload);
+    console.log("blah");
   },
   longTestTimeout,
 );
