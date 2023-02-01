@@ -161,6 +161,26 @@ impl CertifiedNode {
     pub fn node(&self) -> &Node {
         &self.header
     }
+
+    pub fn digest(&self) -> HashValue {
+        self.header.digest()
+    }
+
+    pub fn epoch(&self) -> u64 {
+        self.header.epoch()
+    }
+
+    pub fn round(&self) -> u64 {
+        self.header.round()
+    }
+
+    pub fn source(&self) -> PeerId {
+        self.header.source()
+    }
+
+    pub fn parents(&self) -> &HashMap<PeerId, HashValue> {
+        &self.header.parents()
+    }
 }
 
 // TODO: check peer_id in msg.verify()

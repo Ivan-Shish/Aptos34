@@ -129,7 +129,7 @@ impl DagDriver {
                         let (certified_node, _) = entry.remove();
                         self.add_to_dag(certified_node);
                     }
-                }
+                },
                 Entry::Vacant(_) => unreachable!("pending node is missing"),
             }
         }
@@ -165,7 +165,7 @@ impl DagDriver {
                     } else {
                         self.add_peers_recursively(parent_digest, source);
                     }
-                }
+                },
                 Entry::Vacant(_) => unreachable!("node should exist in missing nodes"),
             };
         }

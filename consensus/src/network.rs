@@ -84,7 +84,7 @@ pub(crate) trait QuorumStoreSender {
 
 #[async_trait::async_trait]
 pub(crate) trait DagSender {
-    async fn broadcast_node(&mut self, node: Node, maybe_recipients: Option<Vec<Author>>);
+    async fn send_node(&mut self, node: Node, maybe_recipients: Option<Vec<Author>>);
 
     async fn send_signed_node_digest(
         &self,
@@ -369,7 +369,7 @@ impl QuorumStoreSender for NetworkSender {
 
 #[async_trait::async_trait]
 impl DagSender for NetworkSender {
-    async fn broadcast_node(&mut self, node: Node, maybe_recipients: Option<Vec<Author>>) {
+    async fn send_node(&mut self, node: Node, maybe_recipients: Option<Vec<Author>>) {
         fail_point!("consensus::send::node", |_| ());
         let msg = ConsensusMsg::NodeMsg(Box::new(node));
 

@@ -11,6 +11,10 @@ use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
 use std::collections::{BTreeMap, HashSet};
 
+// pub(crate) trait MissingPeers {
+//     fn get_peers_signatures() -> HashSet<PeerId>;
+// }
+
 #[allow(dead_code)]
 pub(crate) struct IncrementalNodeCertificateState {
     signed_node_digest_info: SignedNodeDigestInfo,

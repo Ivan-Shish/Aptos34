@@ -6,12 +6,11 @@ use crate::network::{DagSender, NetworkSender};
 use crate::round_manager::VerifiedEvent;
 use aptos_channels::aptos_channel;
 use aptos_consensus_types::common::Round;
-use aptos_consensus_types::node::{CertifiedNode, Node, SignedNodeDigest};
-use aptos_logger::{debug, info};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, Node, SignedNodeDigest};
+use aptos_logger::info;
 use aptos_types::validator_signer::ValidatorSigner;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
-use claims::assert_some;
 use futures::StreamExt;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -24,25 +23,21 @@ pub(crate) enum ReliableBroadcastCommand {
     BroadcastRequest(Node),
 }
 
-// TODO: traits
-// enum status {
-//     nothing_to_send,
-//     sending_node(Node, IncrementalNodeCertificateState),
-//     sending_certificate(Node, AckSet)
-// }
+// TODO: traits?
+enum Status {
+    NothingToSend,
+    SendingNode(Node, IncrementalNodeCertificateState),
+    SendingCertificate(CertifiedNode, AckSet),
+}
 
-// TODO: same message for node and certifade node -> create two verified events.
-// TODO: combain maybe_incremental_certificate_state and  maybe_ack_set and nothing to send to enum
+// TODO: should we use the same message for node and certifade node -> create two verified events.
 
 #[allow(dead_code)]
 pub struct ReliableBroadcast {
     my_id: PeerId,
-    maybe_node: Option<Node>, // TODO: enum with the certificate?
-    maybe_certified_node: Option<CertifiedNode>,
+    status: Status,
     peer_round_signatures: BTreeMap<(Round, PeerId), SignedNodeDigest>,
     // vs BTreeMap<Round, BTreeMap<PeerId, ConsensusMsg>> vs Hashset?
-    maybe_incremental_certificate_state: Option<IncrementalNodeCertificateState>,
-    maybe_ack_set: Option<AckSet>,
     network_sender: NetworkSender,
     validator_verifier: ValidatorVerifier,
     validator_signer: Arc<ValidatorSigner>,
@@ -58,13 +53,10 @@ impl ReliableBroadcast {
     ) -> Self {
         Self {
             my_id,
-            maybe_node: None,
-            maybe_certified_node: None,
+            status: Status::NothingToSend, // TODO status should be persisted.
             // TODO: we need to persist the map and rebuild after crash
             // TODO: Do we need to clean memory inside an epoc? We need to DB between epochs.
             peer_round_signatures: BTreeMap::new(),
-            maybe_incremental_certificate_state: None,
-            maybe_ack_set: None,
             network_sender,
             validator_verifier,
             validator_signer,
@@ -72,12 +64,12 @@ impl ReliableBroadcast {
     }
 
     async fn handle_broadcast_request(&mut self, node: Node) {
-        // it is live to stop broadcasting the previous node at this point.
-        self.maybe_node = Some(node.clone());
-        self.maybe_incremental_certificate_state =
-            Some(IncrementalNodeCertificateState::new(node.digest()));
-        self.maybe_ack_set = None;
-        self.network_sender.broadcast_node(node, None).await
+        // It is live to stop broadcasting the previous node at this point.
+        self.status = Status::SendingNode(
+            node.clone(),
+            IncrementalNodeCertificateState::new(node.digest()),
+        ); // TODO: should we persist?
+        self.network_sender.send_node(node, None).await
     }
 
     // TODO: verify earlier that digest matches the node and epoch is right.
@@ -105,70 +97,78 @@ impl ReliableBroadcast {
         }
     }
 
-    fn handle_signed_digest(&mut self, signed_node_digest: SignedNodeDigest) -> bool {
+    fn handle_signed_digest(
+        &mut self,
+        signed_node_digest: SignedNodeDigest,
+    ) -> Option<CertifiedNode> {
         let mut certificate_done = false;
-        match self.maybe_incremental_certificate_state.as_mut() {
-            None => return false,
-            Some(incremental_certificate_state) => {
-                if let Err(e) = incremental_certificate_state.add_signature(signed_node_digest) {
-                    info!("DAG: could not add signature, err = {:?}", e);
-                }
-                if incremental_certificate_state.ready(&self.validator_verifier) {
-                    certificate_done = true;
-                }
-            },
+
+        if let Status::SendingNode(_, incremental_node_certificate_state) = &mut self.status {
+            if let Err(e) = incremental_node_certificate_state.add_signature(signed_node_digest) {
+                info!("DAG: could not add signature, err = {:?}", e);
+            } else if incremental_node_certificate_state.ready(&self.validator_verifier) {
+                certificate_done = true;
+            }
         }
 
         if certificate_done {
-            let node_certificate = self
-                .maybe_incremental_certificate_state
-                .take()
-                .unwrap()
-                .take(&self.validator_verifier);
-            // TODO: should we persist?
-            self.maybe_certified_node = Some(CertifiedNode::new(
-                self.maybe_node.take().unwrap(),
-                node_certificate,
-            ));
-            let digest = self.maybe_certified_node.as_ref().unwrap().node().digest();
-            self.maybe_ack_set = Some(AckSet::new(digest));
-            // self.maybe_ack_set.as_mut().unwrap().add(CertifiedNodeAck::new(digest, self.my_id));
+            match std::mem::replace(&mut self.status, Status::NothingToSend) {
+                Status::SendingNode(node, incremental_node_certificate_state) => {
+                    let node_certificate =
+                        incremental_node_certificate_state.take(&self.validator_verifier);
+                    let certified_node = CertifiedNode::new(node, node_certificate);
+                    let ack_set = AckSet::new(certified_node.node().digest());
+
+                    self.status = Status::SendingCertificate(certified_node.clone(), ack_set); // TODO: should we persist status? probably yes.
+                    Some(certified_node)
+                },
+                _ => unreachable!("dag: status has to be SendingNode"),
+            }
+        } else {
+            None
         }
-        certificate_done
     }
 
-    async fn resend_node(&mut self) {
-        assert_some!(self.maybe_node.as_ref());
-        assert_some!(self.maybe_incremental_certificate_state.as_ref());
-
-        let missing_peers = self
-            .maybe_incremental_certificate_state
-            .as_ref()
-            .unwrap()
-            .missing_peers_signatures(&self.validator_verifier);
-        self.network_sender
-            .broadcast_node(
-                self.maybe_node.as_ref().unwrap().clone(),
-                Some(missing_peers),
-            )
-            .await
+    // TODO: consider marge node and certified node and use a trait to resend message.
+    async fn handle_tick(&mut self) {
+        match &self.status {
+            Status::NothingToSend => info!("DAG: reliable broadcast has nothing to resend on tick"),
+            Status::SendingNode(node, incremental_node_certificate_state) => {
+                self.network_sender
+                    .send_node(
+                        node.clone(),
+                        Some(
+                            incremental_node_certificate_state
+                                .missing_peers_signatures(&self.validator_verifier),
+                        ),
+                    )
+                    .await;
+            },
+            Status::SendingCertificate(certified_node, ack_set) => {
+                self.network_sender
+                    .send_certified_node(
+                        certified_node.clone(),
+                        Some(ack_set.missing_peers(&self.validator_verifier)),
+                        true,
+                    )
+                    .await;
+            },
+        };
     }
 
-    async fn resend_certified_node(&mut self) {
-        assert_some!(self.maybe_certified_node.as_ref());
-        assert_some!(self.maybe_ack_set.as_ref());
-        let missing_peers = self
-            .maybe_ack_set
-            .as_ref()
-            .unwrap()
-            .missing_peers(&self.validator_verifier);
-        self.network_sender
-            .send_certified_node(
-                self.maybe_certified_node.as_ref().unwrap().clone(),
-                Some(missing_peers),
-                true,
-            )
-            .await
+    fn handle_certified_node_ack_msg(&mut self, ack: CertifiedNodeAck) {
+        match &mut self.status {
+            Status::SendingCertificate(certified_node, ack_set) => {
+                // TODO: check ack is up to date!
+                if ack.digest() == certified_node.digest(){
+                    ack_set.add(ack);
+                    if ack_set.missing_peers(&self.validator_verifier).is_empty() {
+                        self.status = Status::NothingToSend;
+                    }
+                }
+            },
+            _ => {}
+        }
     }
 
     pub(crate) async fn start(
@@ -182,70 +182,45 @@ impl ReliableBroadcast {
         loop {
             // TODO: shutdown
             tokio::select! {
-                    biased;
+                biased;
 
-                    // TODO: currently it gets low priority. Check how to avoid starvation.
-                    // TODO: enum will simplify it.
-                    _ = interval.tick() => {
-                        match (self.maybe_node.is_some(), self.maybe_certified_node.is_some()) {
-                            (true, true) => { unreachable!("never send both together") },
-                            (true, false) =>  self.resend_node().await,
-                            (false, true) => self.resend_certified_node().await,
-                            (false, false) => {
-                                debug!("dag: reliable broadcast has nothing to resend");
-                            // TODO: add a counter
-                            },
-            }
+                _ = interval.tick() => {
+                    self.handle_tick().await;
+                },
 
-                    },
+                Some(command) = command_rx.recv() => {
+                    match command {
+                        ReliableBroadcastCommand::BroadcastRequest(node) => {
+                            self.handle_broadcast_request(node).await;
+                            interval.reset();
+                        }
+                    }
+                },
 
-                    Some(command) = command_rx.recv() => {
-                        match command {
-                            ReliableBroadcastCommand::BroadcastRequest(node) => {
-                                self.handle_broadcast_request(node).await;
+                Some(msg) = network_msg_rx.next() => {
+                    match msg {
+                        VerifiedEvent::NodeMsg(node) => {
+                            self.handle_node_message(*node).await
+                        },
+
+                        VerifiedEvent::SignedNodeDigestMsg(signed_node_digest) => {
+                            if let Some(certified_node) = self.handle_signed_digest(*signed_node_digest) {
+                                self.network_sender.send_certified_node(certified_node, None, true).await;
                                 interval.reset();
                             }
-                        }
-                    },
 
-                    Some(msg) = network_msg_rx.next() => {
-                        match msg {
-                            VerifiedEvent::NodeMsg(node) => {
-                                self.handle_node_message(*node).await
-                            },
-
-                            VerifiedEvent::SignedNodeDigestMsg(signed_node_digest) => {
-                                if self.handle_signed_digest(*signed_node_digest) {
-                                    self.network_sender.send_certified_node(self.maybe_certified_node.as_ref().unwrap().clone(), None, true).await;
-                                    interval.reset();
-                                }
-
-                            },
+                        },
 
 
-                            VerifiedEvent::CertifiedNodeAckMsg(ack) => {
-                                let mut clear_certified_node = false;
-                                match self.maybe_ack_set {
-                                    None => {},
-                                    Some(ref mut ack_set) => {
-                                        ack_set.add(*ack);
-                                        if ack_set.missing_peers(&self.validator_verifier).is_empty(){
-                                           clear_certified_node = true;
-                                        }
-                                    }
-                                }
-                                if clear_certified_node {
-                                    self.maybe_ack_set = None;
-                                    self.maybe_certified_node = None;
-                                }
+                        VerifiedEvent::CertifiedNodeAckMsg(ack) => {
+                            self.handle_certified_node_ack_msg(*ack);
+                        },
 
-                            },
+                        _ => unreachable!("reliable broadcast got wrong messsgae"),
+                    }
 
-                            _ => unreachable!("reliable broadcast got wrong messsgae"),
-                        }
-
-                    },
-                }
+                },
+            }
         }
     }
 }
