@@ -160,14 +160,14 @@ impl ReliableBroadcast {
         match &mut self.status {
             Status::SendingCertificate(certified_node, ack_set) => {
                 // TODO: check ack is up to date!
-                if ack.digest() == certified_node.digest(){
+                if ack.digest() == certified_node.digest() {
                     ack_set.add(ack);
                     if ack_set.missing_peers(&self.validator_verifier).is_empty() {
                         self.status = Status::NothingToSend;
                     }
                 }
             },
-            _ => {}
+            _ => {},
         }
     }
 

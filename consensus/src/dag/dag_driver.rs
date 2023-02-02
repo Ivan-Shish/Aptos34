@@ -16,13 +16,11 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 use tokio::{sync::mpsc::Receiver, time};
 
-// TODO: Create new a node once round is ready and pass to RB and push the round to Bullshark. Pull/get proofs from QS.
-// TODO: weak links and GC.
-// TODO: Timeouts and anchor election!
-
 #[allow(dead_code)]
 pub(crate) enum DagDriverCommand {}
 
+
+// TODO: add enum status (missing node and missing parents). Marge both maps.
 #[allow(dead_code)]
 pub struct MissingDagNodeData {
     node_source: PeerId,
@@ -77,40 +75,38 @@ impl MissingDagNodeData {
     }
 }
 
+// TODO: Create new a node once round is ready and pass to RB and push the round to Bullshark. Pull/get proofs from QS.
+// TODO: weak links and GC.
+// TODO: Timeouts and anchor election! Arc<something> and call it when needed.
+
 #[allow(dead_code)]
 pub struct DagDriver {
     my_id: PeerId,
     round: Round,
     network_sender: NetworkSender,
     // TODO: Should we clean more often than once an epoch?
-    dag: Vec<HashMap<PeerId, CertifiedNode>>,
+    dag: Vec<HashMap<PeerId, CertifiedNode>>,  // TODO: link to yourself and do HashMap<peerid, Vec> to keep the front.
     // TODO: persist both maps
     // the set contains nodes' missing parents
-    pending_certified_nodes: HashMap<HashValue, (CertifiedNode, HashSet<HashValue>)>,
+    pending_certified_nodes: HashMap<HashValue, (CertifiedNode, HashSet<HashValue>)>, // TODO: marge this two anf have status in MissingDagNodeData
     missing_certified_nodes: HashMap<HashValue, MissingDagNodeData>, // nodes that are missing in the dag, but might be in pending
 }
 
 #[allow(dead_code)]
 impl DagDriver {
     fn contains(&self, round: Round, peer_id: PeerId) -> bool {
-        if self.dag.len() >= round as usize {
-            return self.dag[round as usize].contains_key(&peer_id);
-        }
-
-        return false;
+        self.dag
+            .get(round as usize)
+            .map(|m| m.contains_key(&peer_id))
+            == Some(true)
     }
 
     fn round_digests(&self, round: Round) -> Option<HashSet<HashValue>> {
-        if self.dag.len() >= round as usize {
-            Some(
-                self.dag[round as usize]
-                    .iter()
-                    .map(|(_, certified_node)| certified_node.node().digest())
-                    .collect(),
-            )
-        } else {
-            None
-        }
+        self.dag.get(round as usize).map(|m| {
+            m.iter()
+                .map(|(_, certified_node)| certified_node.node().digest())
+                .collect()
+        })
     }
 
     fn update_pending_nodes(
@@ -243,17 +239,17 @@ impl DagDriver {
     }
 
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
-        let prev_round_digest_set = match self.round_digests(certified_node.node().round() - 1) {
-            None => HashSet::new(),
-            Some(set) => set,
-        };
+        let prev_round_digest_set = self
+            .round_digests(certified_node.node().round() - 1)
+            .unwrap_or_default();
 
         let missing_parents: HashSet<(PeerId, HashValue)> = certified_node
             .node()
             .parents()
             .iter()
-            .filter(|(_, digest)| !prev_round_digest_set.contains(digest))
-            .map(|(peer_id, digest)| (*peer_id, *digest))
+            .filter_map(|(peer_id, digest)| {
+                (!prev_round_digest_set.contains(digest)).then_some((*peer_id, *digest))
+            })
             .collect();
 
         let digest = certified_node.node().digest();
@@ -284,7 +280,6 @@ impl DagDriver {
             tokio::select! {
                 biased;
 
-                // TODO: currently it gets low priority. Check how to avoid starvation.
                 _ = interval.tick() => {
                 self.remote_fetch_missing_nodes().await
             },
