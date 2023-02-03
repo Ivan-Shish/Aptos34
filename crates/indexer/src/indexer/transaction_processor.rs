@@ -29,7 +29,7 @@ pub trait TransactionProcessor: Send + Sync + Debug {
     /// In case a transaction cannot be processed, we will fail the entire block.
     async fn process_transactions(
         &self,
-        transactions: Vec<Transaction>,
+        transactions: &[Transaction],
         start_version: u64,
         end_version: u64,
     ) -> Result<ProcessingResult, TransactionProcessingError>;
@@ -65,7 +65,7 @@ pub trait TransactionProcessor: Send + Sync + Debug {
     /// This is a helper method, tying together the other helper methods to allow tracking status in the DB
     async fn process_transactions_with_status(
         &self,
-        txns: Vec<Transaction>,
+        txns: &[Transaction],
     ) -> Result<ProcessingResult, TransactionProcessingError> {
         assert!(
             !txns.is_empty(),

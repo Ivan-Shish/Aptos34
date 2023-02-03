@@ -150,7 +150,7 @@ impl Tailer {
 
         let results = self
             .processor
-            .process_transactions_with_status(transactions)
+            .process_transactions_with_status(&transactions)
             .await;
 
         let batch_millis = (chrono::Utc::now().naive_utc() - batch_start).num_milliseconds();

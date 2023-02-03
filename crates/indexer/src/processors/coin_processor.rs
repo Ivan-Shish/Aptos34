@@ -248,7 +248,7 @@ impl TransactionProcessor for CoinTransactionProcessor {
 
     async fn process_transactions(
         &self,
-        transactions: Vec<APITransaction>,
+        transactions: &[APITransaction],
         start_version: u64,
         end_version: u64,
     ) -> Result<ProcessingResult, TransactionProcessingError> {
@@ -265,7 +265,7 @@ impl TransactionProcessor for CoinTransactionProcessor {
             HashMap::new();
         let mut all_coin_supply = vec![];
 
-        for txn in &transactions {
+        for txn in transactions {
             let (
                 mut coin_activities,
                 mut coin_balances,

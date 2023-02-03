@@ -8,9 +8,9 @@ use crate::{
         transaction_processor::TransactionProcessor,
     },
     processors::{
-        coin_processor::CoinTransactionProcessor, default_processor::DefaultTransactionProcessor,
-        stake_processor::StakeTransactionProcessor, token_processor::TokenTransactionProcessor,
-        Processor,
+        all_processor::AllTransactionProcessor, coin_processor::CoinTransactionProcessor,
+        default_processor::DefaultTransactionProcessor, stake_processor::StakeTransactionProcessor,
+        token_processor::TokenTransactionProcessor, Processor,
     },
 };
 use aptos_api::context::Context;
@@ -125,6 +125,18 @@ pub async fn run_forever(config: IndexerConfig, context: Arc<Context>) {
 
     let processor_enum = Processor::from_string(&processor_name);
     let processor: Arc<dyn TransactionProcessor> = match processor_enum {
+        Processor::AllProcessor => Arc::new(AllTransactionProcessor::new(
+            conn_pool.clone(),
+            vec![
+                Arc::new(DefaultTransactionProcessor::new(conn_pool.clone())),
+                Arc::new(TokenTransactionProcessor::new(
+                    conn_pool.clone(),
+                    config.ans_contract_address,
+                )),
+                Arc::new(CoinTransactionProcessor::new(conn_pool.clone())),
+                Arc::new(StakeTransactionProcessor::new(conn_pool.clone())),
+            ],
+        )),
         Processor::DefaultProcessor => {
             Arc::new(DefaultTransactionProcessor::new(conn_pool.clone()))
         },

@@ -142,14 +142,14 @@ impl TransactionProcessor for StakeTransactionProcessor {
 
     async fn process_transactions(
         &self,
-        transactions: Vec<APITransaction>,
+        transactions: &[APITransaction],
         start_version: u64,
         end_version: u64,
     ) -> Result<ProcessingResult, TransactionProcessingError> {
         let mut all_current_stake_pool_voters: StakingPoolVoterMap = HashMap::new();
         let mut all_proposal_votes = vec![];
 
-        for txn in &transactions {
+        for txn in transactions {
             let current_stake_pool_voter = CurrentStakingPoolVoter::from_transaction(txn).unwrap();
             all_current_stake_pool_voters.extend(current_stake_pool_voter);
             let mut proposal_votes = ProposalVote::from_transaction(txn).unwrap();

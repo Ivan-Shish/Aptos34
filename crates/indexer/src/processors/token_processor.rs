@@ -475,7 +475,7 @@ impl TransactionProcessor for TokenTransactionProcessor {
 
     async fn process_transactions(
         &self,
-        transactions: Vec<Transaction>,
+        transactions: &[Transaction],
         start_version: u64,
         end_version: u64,
     ) -> Result<ProcessingResult, TransactionProcessingError> {

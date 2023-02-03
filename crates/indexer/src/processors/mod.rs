@@ -1,17 +1,20 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+pub mod all_processor;
 pub mod coin_processor;
 pub mod default_processor;
 pub mod stake_processor;
 pub mod token_processor;
 
 use self::{
-    coin_processor::NAME as COIN_PROCESSOR_NAME, default_processor::NAME as DEFAULT_PROCESSOR_NAME,
+    all_processor::NAME as ALL_PROCESSOR_NAME, coin_processor::NAME as COIN_PROCESSOR_NAME,
+    default_processor::NAME as DEFAULT_PROCESSOR_NAME,
     stake_processor::NAME as STAKE_PROCESSOR_NAME, token_processor::NAME as TOKEN_PROCESSOR_NAME,
 };
 
 pub enum Processor {
+    AllProcessor,
     CoinProcessor,
     DefaultProcessor,
     TokenProcessor,
@@ -21,6 +24,7 @@ pub enum Processor {
 impl Processor {
     pub fn from_string(input_str: &String) -> Self {
         match input_str.as_str() {
+            ALL_PROCESSOR_NAME => Self::AllProcessor,
             DEFAULT_PROCESSOR_NAME => Self::DefaultProcessor,
             TOKEN_PROCESSOR_NAME => Self::TokenProcessor,
             COIN_PROCESSOR_NAME => Self::CoinProcessor,
