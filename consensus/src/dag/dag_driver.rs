@@ -11,14 +11,12 @@ use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, CertifiedNode
 use aptos_crypto::HashValue;
 use aptos_types::PeerId;
 use futures::StreamExt;
-use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::time::Duration;
 use tokio::{sync::mpsc::Receiver, time};
 
 #[allow(dead_code)]
 pub(crate) enum DagDriverCommand {}
-
 
 // TODO: add enum status (missing node and missing parents). Marge both maps.
 #[allow(dead_code)]
@@ -85,7 +83,7 @@ pub struct DagDriver {
     round: Round,
     network_sender: NetworkSender,
     // TODO: Should we clean more often than once an epoch?
-    dag: Vec<HashMap<PeerId, CertifiedNode>>,  // TODO: link to yourself and do HashMap<peerid, Vec> to keep the front.
+    dag: Vec<HashMap<PeerId, CertifiedNode>>, // TODO: link to yourself and do HashMap<peerid, Vec> to keep the front. Actually might be bad for syncing.
     // TODO: persist both maps
     // the set contains nodes' missing parents
     pending_certified_nodes: HashMap<HashValue, (CertifiedNode, HashSet<HashValue>)>, // TODO: marge this two anf have status in MissingDagNodeData
@@ -238,7 +236,12 @@ impl DagDriver {
         }
     }
 
+    // TODO: call self.dag.try_adding_node(certified_node) -> round ready. Move add to dag/pending into DAG.
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
+
+        // TODO: check if dag contains the digest
+
+        // TODO: Move logic to try_add_node in dag.rs. Leave here the contain check, the call, and the ack send. The call should return an option to parents for a new node.
         let prev_round_digest_set = self
             .round_digests(certified_node.node().round() - 1)
             .unwrap_or_default();
@@ -256,6 +259,7 @@ impl DagDriver {
         let source = certified_node.node().source();
         if missing_parents.is_empty() {
             self.add_to_dag(certified_node); // TODO: should persist inside
+            // TODO: call update pending
         } else {
             self.add_to_pending(certified_node, missing_parents); // TODO: should persist inside
         }

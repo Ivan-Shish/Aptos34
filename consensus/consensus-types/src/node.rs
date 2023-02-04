@@ -109,15 +109,51 @@ impl NodeCertificate {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Hash)]
+pub struct NodeMetaData {
+    epoch: u64, // to make sure rounds from previous epochs cannot be reused
+    round: u64,
+    source: PeerId,
+    digest: HashValue,
+}
+
+impl NodeMetaData {
+    pub fn new(epoch: u64, round: u64, source: PeerId, digest: HashValue) -> Self {
+        Self {
+            epoch,
+            round,
+            source,
+            digest,
+        }
+    }
+
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
+
+    pub fn round(&self) -> u64 {
+        self.round
+    }
+
+    pub fn source(&self) -> PeerId {
+        self.source
+    }
+
+    pub fn digest(&self) -> HashValue {
+        self.digest
+    }
+}
+
 // TODO: check source in msg.verify()
 #[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Node {
+    // TODO: use NodeMetaData her and inside parents
     epoch: u64,
     round: u64,
     source: PeerId,
     consensus_payload: Payload,
-    parents: HashMap<PeerId, HashValue>,
+    parents: HashMap<PeerId, HashValue>, // TODO: to support weak links need to add round information
     digest: HashValue,
 }
 
