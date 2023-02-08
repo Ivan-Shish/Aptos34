@@ -10,7 +10,7 @@ use aptos_types::validator_signer::ValidatorSigner;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -148,33 +148,33 @@ impl NodeMetaData {
 #[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Node {
-    // TODO: use NodeMetaData her and inside parents
-    epoch: u64,
-    round: u64,
-    source: PeerId,
+    metadata: NodeMetaData,
     consensus_payload: Payload,
-    parents: HashMap<PeerId, HashValue>, // TODO: to support weak links need to add round information
-    digest: HashValue,
+    parents: HashSet<NodeMetaData>,
 }
 
 impl Node {
     pub fn digest(&self) -> HashValue {
-        self.digest
+        self.metadata.digest()
+    }
+
+    pub fn metadata(&self) -> &NodeMetaData {
+        &self.metadata
     }
 
     pub fn epoch(&self) -> u64 {
-        self.epoch
+        self.metadata.epoch()
     }
 
     pub fn round(&self) -> u64 {
-        self.round
+        self.metadata.round
     }
 
     pub fn source(&self) -> PeerId {
-        self.source
+        self.metadata.source()
     }
 
-    pub fn parents(&self) -> &HashMap<PeerId, HashValue> {
+    pub fn parents(&self) -> &HashSet<NodeMetaData>{
         &self.parents
     }
 }
@@ -214,8 +214,12 @@ impl CertifiedNode {
         self.header.source()
     }
 
-    pub fn parents(&self) -> &HashMap<PeerId, HashValue> {
+    pub fn parents(&self) -> &HashSet<NodeMetaData> {
         &self.header.parents()
+    }
+
+    pub fn metadata(&self) -> &NodeMetaData {
+        self.header.metadata()
     }
 }
 
@@ -245,40 +249,34 @@ impl CertifiedNodeAck {
 #[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CertifiedNodeRequest {
-    node_source: PeerId,
-    node_round: Round,
-    digest: HashValue,
+    metadata: NodeMetaData,
     requester: PeerId,
 }
 
 impl CertifiedNodeRequest {
     pub fn new(
-        node_source: PeerId,
-        node_round: Round,
-        digest: HashValue,
+        metadata: NodeMetaData,
         requester: PeerId,
     ) -> Self {
         Self {
-            node_source,
-            node_round,
-            digest,
+            metadata,
             requester,
         }
     }
 
     pub fn digest(&self) -> HashValue {
-        self.digest
+        self.metadata.digest()
     }
 
     pub fn requester(&self) -> PeerId {
         self.requester
     }
 
-    pub fn node_source(&self) -> PeerId {
-        self.node_source
+    pub fn source(&self) -> PeerId {
+        self.metadata.source()
     }
 
-    pub fn node_round(&self) -> Round {
-        self.node_round
+    pub fn round(&self) -> Round {
+        self.metadata.round()
     }
 }
