@@ -327,15 +327,59 @@ impl NetworkConfig {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PeerMonitoringServiceConfig {
+    pub latency_monitoring: LatencyMonitoringConfig,
+    pub network_monitoring: NetworkMonitoringConfig,
     pub max_concurrent_requests: u64, // Max num of concurrent server tasks
     pub max_network_channel_size: u64, // Max num of pending network messages
+    pub metadata_updater_interval_ms: u64, // The interval (ms) between metadata updates
+    pub peer_monitor_loop_interval_ms: u64, // The interval (ms) between peer monitor loop executions
 }
 
 impl Default for PeerMonitoringServiceConfig {
     fn default() -> Self {
         Self {
+            latency_monitoring: LatencyMonitoringConfig::default(),
+            network_monitoring: NetworkMonitoringConfig::default(),
             max_concurrent_requests: 1000,
             max_network_channel_size: 1000,
+            metadata_updater_interval_ms: 5000,
+            peer_monitor_loop_interval_ms: 1000,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LatencyMonitoringConfig {
+    pub latency_ping_interval_ms: u64, // The interval (ms) between latency pings for each peer
+    pub max_latency_ping_failures: u64, // Max num of ping failures before the peer connection fails
+    pub max_latency_ping_timeout_ms: u64, // The max timeout (ms) for each latency ping
+    pub max_num_latency_pings_to_retain: usize, // The max num of latency pings to retain per peer
+}
+
+impl Default for LatencyMonitoringConfig {
+    fn default() -> Self {
+        Self {
+            latency_ping_interval_ms: 30_000,
+            max_latency_ping_failures: 3,
+            max_latency_ping_timeout_ms: 20_000,
+            max_num_latency_pings_to_retain: 10,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct NetworkMonitoringConfig {
+    pub max_network_info_request_timeout_ms: u64, // The max timeout (ms) for each network info request
+    pub network_info_request_interval_ms: u64, // The interval (ms) between network info requests for each peer
+}
+
+impl Default for NetworkMonitoringConfig {
+    fn default() -> Self {
+        Self {
+            max_network_info_request_timeout_ms: 20_000,
+            network_info_request_interval_ms: 120_000, // 2 minutes
         }
     }
 }

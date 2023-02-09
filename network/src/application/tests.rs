@@ -32,6 +32,8 @@ use tokio::time::timeout;
 const MAX_CHANNEL_TIMEOUT_SECS: u64 = 1;
 const MAX_MESSAGE_TIMEOUT_SECS: u64 = 2;
 
+// TODO: add tests for `get_all_peers()`
+
 /// Represents a test message sent across the network
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct DummyMessage {
