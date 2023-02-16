@@ -322,9 +322,9 @@ impl StateStore {
             if state_kv_commit_progress != overall_commit_progress {
                 info!(
                     "State K/V commit progress is {}, start truncation...",
-                    ledger_commit_progress
+                    state_kv_commit_progress
                 );
-                let difference = ledger_commit_progress - overall_commit_progress;
+                let difference = state_kv_commit_progress - overall_commit_progress;
                 assert_le!(difference, MAX_COMMIT_PROGRESS_DIFFERENCE);
                 truncate_state_kv_db(
                     Arc::clone(&state_kv_db),
