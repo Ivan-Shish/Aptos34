@@ -77,21 +77,21 @@ impl ReliableBroadcast {
     async fn handle_node_message(&mut self, node: Node) {
         match self
             .peer_round_signatures
-            .get(&(node.round(), node.source()))
+            .get(&(node.round(), *node.source()))
         {
             Some(signed_node_digest) => {
                 self.network_sender
-                    .send_signed_node_digest(signed_node_digest.clone(), vec![node.source()])
+                    .send_signed_node_digest(signed_node_digest.clone(), vec![*node.source()])
                     .await
             },
             None => {
                 let signed_node_digest =
                     SignedNodeDigest::new(node.digest(), self.validator_signer.clone()).unwrap();
                 self.peer_round_signatures
-                    .insert((node.round(), node.source()), signed_node_digest.clone());
+                    .insert((node.round(), *node.source()), signed_node_digest.clone());
                 // TODO: persist
                 self.network_sender
-                    .send_signed_node_digest(signed_node_digest, vec![node.source()])
+                    .send_signed_node_digest(signed_node_digest, vec![*node.source()])
                     .await;
             },
         }

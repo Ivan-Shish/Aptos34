@@ -58,7 +58,7 @@ impl DagDriver {
         }
     }
 
-    // TODO: call self.dag.try_adding_node(certified_node) -> round ready. Move add to dag/pending into DAG.
+    // TODO: call self.dag.try_adding_node(certified_node) -> round ready.
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
 
 
@@ -66,7 +66,7 @@ impl DagDriver {
 
         let digest = certified_node.digest();
         let source = certified_node.source();
-        self.dag.try_add_node_and_advance_round(certified_node, false); // returns parents -> start new round
+        self.dag.try_add_node_and_advance_round(certified_node, false).await; // returns parents -> start new round
 
         if ack_required {
             let ack = CertifiedNodeAck::new(digest, self.my_id);

@@ -135,8 +135,8 @@ impl NodeMetaData {
         self.round
     }
 
-    pub fn source(&self) -> PeerId {
-        self.source
+    pub fn source(&self) -> &PeerId {
+        &self.source
     }
 
     pub fn digest(&self) -> HashValue {
@@ -170,7 +170,7 @@ impl Node {
         self.metadata.round
     }
 
-    pub fn source(&self) -> PeerId {
+    pub fn source(&self) -> &PeerId {
         self.metadata.source()
     }
 
@@ -211,7 +211,7 @@ impl CertifiedNode {
     }
 
     pub fn source(&self) -> PeerId {
-        self.header.source()
+        *self.header.source()
     }
 
     pub fn parents(&self) -> &HashSet<NodeMetaData> {
@@ -273,7 +273,7 @@ impl CertifiedNodeRequest {
     }
 
     pub fn source(&self) -> PeerId {
-        self.metadata.source()
+        *self.metadata.source()
     }
 
     pub fn round(&self) -> Round {

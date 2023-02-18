@@ -6,12 +6,18 @@ use aptos_crypto::HashValue;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::{block_info::Round, PeerId};
 use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::sync::Arc;
+use tokio::sync::mpsc::Sender;
+use crate::liveness::unequivocal_proposer_election::UnequivocalProposerElection;
+use async_recursion::async_recursion;
+use crate::liveness::proposer_election::ProposerElection;
 
 #[allow(dead_code)]
 enum PeerStatus {
     Linked(Round),
     NotLinked(NodeMetaData),
 }
+
 #[allow(dead_code)]
 impl PeerStatus {
     pub fn round(&self) -> Round {
@@ -121,7 +127,7 @@ impl AbsentInfo {
     }
 
     pub fn peer_id(&self) -> PeerId {
-        self.metadata.source()
+        *self.metadata.source()
     }
 
     pub fn round(&self) -> Round {
@@ -304,18 +310,23 @@ impl MissingDagNodeStatus {
 // TODO: persist all every update
 #[allow(dead_code)]
 pub(crate) struct Dag {
+    epoch: u64,
     current_round: u64,
+    // starts from 0, which is genesys
     front: WeakLinksCreator,
     dag: Vec<HashMap<PeerId, CertifiedNode>>,
     // TODO: add genesys nodes.
     missing_nodes: HashMap<HashValue, MissingDagNodeStatus>,
     // Arc to something that returns the anchors
+    proposer_election: Arc<UnequivocalProposerElection>,
+    bullshark_tx: Sender<CertifiedNode>,
+    verifier: ValidatorVerifier,
 }
 
 #[allow(dead_code)]
 impl Dag {
     fn contains(&self, metadata: &NodeMetaData) -> bool {
-        self.in_dag(metadata.round(), metadata.source()) || self.pending(metadata.digest())
+        self.in_dag(metadata.round(), *metadata.source()) || self.pending(metadata.digest())
     }
 
     fn in_dag(&self, round: Round, source: PeerId) -> bool {
@@ -323,6 +334,16 @@ impl Dag {
             .get(round as usize)
             .map(|m| m.contains_key(&source))
             == Some(true)
+    }
+
+    fn get_node_metadata_from_dag(&self, round: Round, source: PeerId) -> Option<NodeMetaData> {
+        self.dag
+            .get(round as usize)
+            .map(|m| {
+                m.get(&source)
+                    .map(|m| m.metadata().clone())
+            })
+            .map(|o| o.unwrap())
     }
 
     pub fn get_node(&self, node_request: &CertifiedNodeRequest) -> Option<CertifiedNode> {
@@ -358,37 +379,48 @@ impl Dag {
     }
 
 
-    fn round_digests(&self, round: Round) -> Option<HashSet<HashValue>> {
-        self.dag.get(round as usize).map(|m| {
-            m.iter()
-                .map(|(_, certified_node)| certified_node.node().digest())
-                .collect()
-        })
+    fn current_round_nodes_metadata(&self) -> HashSet<NodeMetaData> {
+        self.dag.get(self.current_round as usize)
+            .unwrap()
+            .iter()
+            .map(|(_, certified_node)| certified_node.node().metadata().clone())
+            .collect()
     }
 
-    fn add_to_dag(&mut self, certified_node: CertifiedNode) {
+    fn current_round_peers(&self) -> impl Iterator<Item=&PeerId> {
+        self.dag
+            .get(self.current_round as usize)
+            .unwrap()
+            .iter()
+            .map(|(_, certified_node)| certified_node.node().source())
+    }
+
+    async fn add_to_dag(&mut self, certified_node: CertifiedNode) {
         let round = certified_node.node().round() as usize;
         // assert!(self.dag.len() >= round - 1);
 
         if self.dag.len() < round {
             self.dag.push(HashMap::new());
         }
-        self.dag[round].insert(certified_node.node().source(), certified_node);
+        self.dag[round].insert(*certified_node.node().source(), certified_node.clone());
+        self.front.update_peer_latest_node(certified_node.node().metadata().clone());
 
         // TODO persist!
 
-        // TODO: check if round is completed-> start new round and pass current to Bullshark. Or maybe check it makes more sense to check it at the end of the recurtion
+        self.bullshark_tx.send(certified_node).await.expect("Bullshark receiver not available"); // TODO: send to all subscribed application and make sure shotdown logic is safe with the expect.
     }
 
-    fn add_to_dag_and_update_pending(&mut self, node_status: MissingDagNodeStatus) {
+    #[async_recursion]
+    async fn add_to_dag_and_update_pending(&mut self, node_status: MissingDagNodeStatus) {
         let (certified_node, dependencies) = node_status.take_node_and_dependencies();
         let digest = certified_node.digest();
-        self.add_to_dag(certified_node);
-        self.update_pending_nodes(dependencies, digest);
+        self.add_to_dag(certified_node).await;
+        self.update_pending_nodes(dependencies, digest).await;
         // TODO: should we persist?
     }
 
-    fn update_pending_nodes(
+    #[async_recursion]
+    async fn update_pending_nodes(
         &mut self,
         recently_added_node_dependencies: HashSet<HashValue>,
         recently_added_node_digest: HashValue,
@@ -408,7 +440,7 @@ impl Dag {
                 Entry::Vacant(_) => unreachable!("pending node is missing"),
             }
             if let Some(status) = maybe_status {
-                self.add_to_dag_and_update_pending(status);
+                self.add_to_dag_and_update_pending(status).await;
             }
         }
     }
@@ -436,7 +468,7 @@ impl Dag {
         certified_node: CertifiedNode, // assumption that node not pending.
         missing_parents: HashSet<NodeMetaData>,
     ) {
-        let pending_peer_id = certified_node.node().source();
+        let pending_peer_id = *certified_node.node().source();
         let pending_digest = certified_node.node().digest();
         let missing_parents_digest = missing_parents.iter().map(|metadata| metadata.digest()).collect();
 
@@ -459,14 +491,59 @@ impl Dag {
         }
     }
 
-    fn try_advance_round(&self, _timeout: bool) -> Option<HashSet<NodeMetaData>> {
-        todo!()
+    fn round_ready(&self, timeout: bool) -> bool {
+        if self.verifier.check_voting_power(self.current_round_peers()).is_err() {
+            return false;
+        }
+        if timeout {
+            return true;
+        }
+
+        let wave = self.current_round / 2;
+        let anchor = self.proposer_election.get_valid_proposer(wave);
+        let maybe_anchor_node_meta_data = self.get_node_metadata_from_dag(self.current_round, anchor);
+
+        return if self.current_round % 2 == 0 {
+            maybe_anchor_node_meta_data.is_some()
+        } else {
+            if let Some(anchor_node_meta_data) = maybe_anchor_node_meta_data {
+                let voting_peers = self
+                    .dag
+                    .get(self.current_round as usize)
+                    .unwrap()
+                    .iter()
+                    .filter(|(_, certified_node)| certified_node.node().parents().contains(&anchor_node_meta_data))
+                    .map(|(_, certified_node)| certified_node.node().source());
+
+                self.verifier.check_minority_voting_power(voting_peers).is_ok()
+            } else {
+                false
+            }
+        }
     }
 
-    pub fn try_add_node_and_advance_round(&mut self, certified_node: CertifiedNode, timeout: bool) -> Option<HashSet<NodeMetaData>> {
+    fn try_advance_round(&mut self, timeout: bool) -> Option<HashSet<NodeMetaData>> {
 
-        // TODO: contains should check if in_dag or really pending and add method to check if missing.
-        // TODO: introduce two enums to DagNodeStatus: Absent, InDag, and make this method return all 4 options.
+        if !self.round_ready(timeout) {
+            return None;
+        }
+
+        let parents = self.current_round_nodes_metadata();
+        let strong_links_peers = parents.iter()
+            .map(|m| m.source().clone())
+            .collect();
+        self.front.update_with_strong_links(self.current_round, strong_links_peers);
+        self.current_round +=1;
+        if self.dag.get(self.current_round as usize).is_none() {
+            self.dag.insert(self.current_round as usize, HashMap::new());
+        }
+
+        return Some(parents.union(&self.front.get_weak_links(self.current_round))
+            .cloned()
+            .collect());
+    }
+
+    pub async fn try_add_node_and_advance_round(&mut self, certified_node: CertifiedNode, timeout: bool) -> Option<HashSet<NodeMetaData>> {
         if self.contains(certified_node.metadata()) {
             return None;
         }
@@ -474,7 +551,7 @@ impl Dag {
         let missing_parents: HashSet<NodeMetaData> = certified_node
             .parents()
             .iter()
-            .filter(|metadata| !self.in_dag(metadata.round(), metadata.source()))
+            .filter(|metadata| !self.in_dag(metadata.round(), *metadata.source()))
             .cloned()
             .collect();
 
@@ -484,7 +561,7 @@ impl Dag {
             // Node not in the system
             Entry::Vacant(_) => {
                 if missing_parents.is_empty() {
-                    self.add_to_dag(certified_node); // TODO: should persist inside
+                    self.add_to_dag(certified_node).await; // TODO: should persist inside
                 } else {
                     self.add_to_pending(certified_node, missing_parents); // TODO: should persist inside
                 }
@@ -500,7 +577,7 @@ impl Dag {
         }
 
         if let Some(node_status) = maybe_node_status {
-            self.add_to_dag_and_update_pending(node_status);
+            self.add_to_dag_and_update_pending(node_status).await;
         }
 
         self.try_advance_round(timeout)
