@@ -23,6 +23,23 @@ module aptos_std::simple_map {
         value: Value,
     }
 
+    public fun element_new<Key, Value>(key: Key, value: Value):Element<Key, Value> {
+        Element { key, value }
+    }
+
+    public fun element_borrow<Key, Value>(e: &Element<Key, Value>): (&Key, &Value) {
+        (&e.key, &e.value)
+    }
+
+    public fun element_borrow_mut<Key, Value>(e: &mut Element<Key, Value>): (&mut Key, &mut Value) {
+        (&mut e.key, &mut e.value)
+    }
+
+    public fun element_destroy<Key, Value>(e: Element<Key, Value>): (Key, Value) {
+        let Element { key, value } = e;
+        (key, value)
+    }
+
     public fun length<Key: store, Value: store>(map: &SimpleMap<Key, Value>): u64 {
         vector::length(&map.data)
     }
@@ -31,6 +48,24 @@ module aptos_std::simple_map {
         SimpleMap {
             data: vector::empty(),
         }
+    }
+
+    public fun create_with_data<Key: store, Value: store>(data: vector<Element<Key, Value>>): SimpleMap<Key, Value> {
+        SimpleMap {
+            data
+        }
+    }
+
+    public fun borrow_internal_vector<Key, Value>(
+        map: &SimpleMap<Key, Value>,
+    ): &vector<Element<Key, Value>> {
+        &map.data
+    }
+
+    public fun borrow_internal_vector_mut<Key, Value>(
+        map: &mut SimpleMap<Key, Value>,
+    ): &mut vector<Element<Key, Value>> {
+        &mut map.data
     }
 
     public fun borrow<Key: store, Value: store>(
@@ -108,24 +143,26 @@ module aptos_std::simple_map {
     public inline fun for_each<Key, Value>(map: SimpleMap<Key, Value>, f: |Key, Value|) {
         let SimpleMap {data} = map;
         vector::for_each(data, |elem| {
-            let Element {key, value} = elem;
+            let (key, value) = aptos_std::simple_map::element_destroy(elem);
             f(key, value)
         })
     }
 
     /// Apply the function to a reference of each key-value pair in the map.
     public inline fun for_each_ref<Key, Value>(map: &SimpleMap<Key, Value>, f: |&Key, &Value|) {
-        vector::for_each_ref(&map.data, |elem| {
+        vector::for_each_ref(aptos_std::simple_map::borrow_internal_vector(map), |elem| {
             let e : &Element<Key, Value> = elem;
-            f(&e.key, &e.value)
+            let (key, value) = aptos_std::simple_map::element_borrow(e);
+            f(key, value)
         })
     }
 
     /// Apply the function to a reference of each key-value pair in the map.
     public inline fun for_each_mut<Key, Value>(map: &mut SimpleMap<Key, Value>, f: |&Key, &mut Value|) {
-        vector::for_each_mut(&mut map.data, |elem| {
+        vector::for_each_mut(aptos_std::simple_map::borrow_internal_vector_mut(map), |elem| {
             let e : &mut Element<Key, Value> = elem;
-            f(&mut e.key, &mut e.value)
+            let (key, value) = aptos_std::simple_map::element_borrow_mut(e);
+            f(key, value)
         })
     }
 
@@ -135,45 +172,45 @@ module aptos_std::simple_map {
         init: Accumulator,
         f: |Accumulator,Key,Value|Accumulator
     ): Accumulator {
-        for_each(map, |key, value| init = f(init, key, value));
+        aptos_std::simple_map::for_each(map, |key, value| init = f(init, key, value));
         init
     }
 
     /// Map the function over the key-value pairs of the map.
-    public inline fun map<Key, Value1, Value2>(
+    public inline fun map<Key: store, Value1, Value2: store>(
         map: SimpleMap<Key, Value1>,
         f: |Value1|Value2
     ): SimpleMap<Key, Value2> {
         let data = vector::empty();
-        for_each(map, |key, value| vector::push_back(&mut data, Element {key, value: f(value)}));
-        SimpleMap {data}
+        aptos_std::simple_map::for_each(map, |key, value| vector::push_back(&mut data, aptos_std::simple_map::element_new(key, f(value))));
+        aptos_std::simple_map::create_with_data(data)
     }
 
     /// Map the function over the key-value pairs of the map without modifying it.
-    public inline fun map_ref<Key: copy, Value1, Value2>(
+    public inline fun map_ref<Key: copy + store, Value1, Value2: store>(
         map: &SimpleMap<Key, Value1>,
         f: |&Value1|Value2
     ): SimpleMap<Key, Value2> {
         let data = vector::empty();
-        for_each_ref(map, |key, value| {
+        aptos_std::simple_map::for_each_ref(map, |key, value| {
             let key = *key;
-            vector::push_back(&mut data, Element {key, value: f(value)});
+            vector::push_back(&mut data, aptos_std::simple_map::element_new(key, f(value)));
         });
-        SimpleMap {data}
+        aptos_std::simple_map::create_with_data(data)
     }
 
     /// Filter entries in the map.
-    public inline fun filter<Key:drop, Value:drop>(
+    public inline fun filter<Key:store + drop, Value:store + drop>(
         map: SimpleMap<Key, Value>,
         p: |&Value|bool
     ): SimpleMap<Key, Value> {
         let data = vector::empty();
-        for_each(map, |key, value| {
+        aptos_std::simple_map::for_each(map, |key, value| {
             if (p(&value)) {
-                vector::push_back(&mut data, Element {key, value});
+                vector::push_back(&mut data, aptos_std::simple_map::element_new(key, value));
             }
         });
-        SimpleMap {data}
+        aptos_std::simple_map::create_with_data(data)
     }
 
     /// Return true if any key-value pair in the map satisfies the predicate.
@@ -181,11 +218,11 @@ module aptos_std::simple_map {
         map: &SimpleMap<Key, Value>,
         p: |&Key, &Value|bool
     ): bool {
-        let SimpleMap {data} = map;
+        let data = aptos_std::simple_map::borrow_internal_vector(map);
         let result = false;
         let i = 0;
         while (i < vector::length(data)) {
-            let Element {key, value} = vector::borrow(data, i);
+            let (key, value) = aptos_std::simple_map::element_borrow(vector::borrow(data, i));
             result = p(key, value);
             if (result) {
                 break
@@ -200,7 +237,7 @@ module aptos_std::simple_map {
         map: &SimpleMap<Key, Value>,
         p: |&Key, &Value|bool
     ): bool {
-        !any(map, |k, v| !p(k, v))
+        !aptos_std::simple_map::any(map, |k, v| !p(k, v))
     }
 
 
@@ -259,8 +296,8 @@ module aptos_std::simple_map {
         destroy_empty(map);
     }
 
-    #[test_only]
-    fun make(k1: u64, v1: u64, k2: u64, v2: u64): SimpleMap<u64, u64> {
+    //#[test_only]
+    public fun make(k1: u64, v1: u64, k2: u64, v2: u64): SimpleMap<u64, u64> {
         let m = create();
         add(&mut m, k1, v1);
         add(&mut m, k2, v2);

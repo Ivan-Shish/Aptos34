@@ -14,8 +14,14 @@ This module provides a solution for sorted maps, that is it has the properties t
 -  [Struct `SimpleMap`](#0x1_simple_map_SimpleMap)
 -  [Struct `Element`](#0x1_simple_map_Element)
 -  [Constants](#@Constants_0)
+-  [Function `element_new`](#0x1_simple_map_element_new)
+-  [Function `element_borrow`](#0x1_simple_map_element_borrow)
+-  [Function `element_borrow_mut`](#0x1_simple_map_element_borrow_mut)
+-  [Function `element_destroy`](#0x1_simple_map_element_destroy)
 -  [Function `length`](#0x1_simple_map_length)
 -  [Function `create`](#0x1_simple_map_create)
+-  [Function `create_with_data`](#0x1_simple_map_create_with_data)
+-  [Function `borrow_internal_vector`](#0x1_simple_map_borrow_internal_vector)
 -  [Function `borrow`](#0x1_simple_map_borrow)
 -  [Function `borrow_mut`](#0x1_simple_map_borrow_mut)
 -  [Function `contains_key`](#0x1_simple_map_contains_key)
@@ -128,6 +134,103 @@ Map key is not found
 
 
 
+<a name="0x1_simple_map_element_new"></a>
+
+## Function `element_new`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_new">element_new</a>&lt;Key, Value&gt;(key: Key, value: Value): <a href="simple_map.md#0x1_simple_map_Element">simple_map::Element</a>&lt;Key, Value&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_new">element_new</a>&lt;Key, Value&gt;(key: Key, value: Value):<a href="simple_map.md#0x1_simple_map_Element">Element</a>&lt;Key, Value&gt; {
+    <a href="simple_map.md#0x1_simple_map_Element">Element</a> { key, value }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_simple_map_element_borrow"></a>
+
+## Function `element_borrow`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_borrow">element_borrow</a>&lt;Key, Value&gt;(e: &<a href="simple_map.md#0x1_simple_map_Element">simple_map::Element</a>&lt;Key, Value&gt;): (&Key, &Value)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_borrow">element_borrow</a>&lt;Key, Value&gt;(e: &<a href="simple_map.md#0x1_simple_map_Element">Element</a>&lt;Key, Value&gt;): (&Key, &Value) {
+    (&e.key, &e.value)
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_simple_map_element_borrow_mut"></a>
+
+## Function `element_borrow_mut`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_borrow_mut">element_borrow_mut</a>&lt;Key, Value&gt;(e: &<b>mut</b> <a href="simple_map.md#0x1_simple_map_Element">simple_map::Element</a>&lt;Key, Value&gt;): (&<b>mut</b> Key, &<b>mut</b> Value)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_borrow_mut">element_borrow_mut</a>&lt;Key, Value&gt;(e: &<b>mut</b> <a href="simple_map.md#0x1_simple_map_Element">Element</a>&lt;Key, Value&gt;): (&<b>mut</b> Key, &<b>mut</b> Value) {
+    (&<b>mut</b> e.key, &<b>mut</b> e.value)
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_simple_map_element_destroy"></a>
+
+## Function `element_destroy`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_destroy">element_destroy</a>&lt;Key, Value&gt;(e: <a href="simple_map.md#0x1_simple_map_Element">simple_map::Element</a>&lt;Key, Value&gt;): (Key, Value)
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_element_destroy">element_destroy</a>&lt;Key, Value&gt;(e: <a href="simple_map.md#0x1_simple_map_Element">Element</a>&lt;Key, Value&gt;): (Key, Value) {
+    <b>let</b> <a href="simple_map.md#0x1_simple_map_Element">Element</a> { key, value } = e;
+    (key, value)
+}
+</code></pre>
+
+
+
+</details>
+
 <a name="0x1_simple_map_length"></a>
 
 ## Function `length`
@@ -171,6 +274,58 @@ Map key is not found
     <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a> {
         data: <a href="../../move-stdlib/doc/vector.md#0x1_vector_empty">vector::empty</a>(),
     }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_simple_map_create_with_data"></a>
+
+## Function `create_with_data`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_create_with_data">create_with_data</a>&lt;Key: store, Value: store&gt;(data: <a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;<a href="simple_map.md#0x1_simple_map_Element">simple_map::Element</a>&lt;Key, Value&gt;&gt;): <a href="simple_map.md#0x1_simple_map_SimpleMap">simple_map::SimpleMap</a>&lt;Key, Value&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_create_with_data">create_with_data</a>&lt;Key: store, Value: store&gt;(data: <a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;<a href="simple_map.md#0x1_simple_map_Element">Element</a>&lt;Key, Value&gt;&gt;): <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;Key, Value&gt; {
+    <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a> {
+        data
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_simple_map_borrow_internal_vector"></a>
+
+## Function `borrow_internal_vector`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_borrow_internal_vector">borrow_internal_vector</a>&lt;Key, Value&gt;(map: &<a href="simple_map.md#0x1_simple_map_SimpleMap">simple_map::SimpleMap</a>&lt;Key, Value&gt;): &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;<a href="simple_map.md#0x1_simple_map_Element">simple_map::Element</a>&lt;Key, Value&gt;&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_borrow_internal_vector">borrow_internal_vector</a>&lt;Key, Value&gt;(
+    map: &<a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;Key, Value&gt;,
+): &<a href="../../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;<a href="simple_map.md#0x1_simple_map_Element">Element</a>&lt;Key, Value&gt;&gt; {
+    &map.data
 }
 </code></pre>
 
@@ -394,6 +549,51 @@ Map key is not found
 ## Specification
 
 
+
+<a name="0x1_simple_map_spec_len"></a>
+
+
+<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_len">spec_len</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;): num;
+</code></pre>
+
+
+
+
+<a name="0x1_simple_map_spec_contains_key"></a>
+
+
+<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_contains_key">spec_contains_key</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K): bool;
+</code></pre>
+
+
+
+
+<a name="0x1_simple_map_spec_set"></a>
+
+
+<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_set">spec_set</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K, v: V): <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;;
+</code></pre>
+
+
+
+
+<a name="0x1_simple_map_spec_remove"></a>
+
+
+<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_remove">spec_remove</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K): <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;;
+</code></pre>
+
+
+
+
+<a name="0x1_simple_map_spec_get"></a>
+
+
+<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_get">spec_get</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K): V;
+</code></pre>
+
+
+
 <a name="@Specification_1_SimpleMap"></a>
 
 ### Struct `SimpleMap`
@@ -573,51 +773,6 @@ Map key is not found
 
 
 <pre><code><b>pragma</b> verify=<b>false</b>;
-</code></pre>
-
-
-
-
-<a name="0x1_simple_map_spec_len"></a>
-
-
-<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_len">spec_len</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;): num;
-</code></pre>
-
-
-
-
-<a name="0x1_simple_map_spec_contains_key"></a>
-
-
-<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_contains_key">spec_contains_key</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K): bool;
-</code></pre>
-
-
-
-
-<a name="0x1_simple_map_spec_set"></a>
-
-
-<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_set">spec_set</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K, v: V): <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;;
-</code></pre>
-
-
-
-
-<a name="0x1_simple_map_spec_remove"></a>
-
-
-<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_remove">spec_remove</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K): <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;;
-</code></pre>
-
-
-
-
-<a name="0x1_simple_map_spec_get"></a>
-
-
-<pre><code><b>native</b> <b>fun</b> <a href="simple_map.md#0x1_simple_map_spec_get">spec_get</a>&lt;K, V&gt;(t: <a href="simple_map.md#0x1_simple_map_SimpleMap">SimpleMap</a>&lt;K, V&gt;, k: K): V;
 </code></pre>
 
 
