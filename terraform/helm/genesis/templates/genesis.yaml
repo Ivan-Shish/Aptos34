@@ -110,6 +110,8 @@ spec:
           value: {{ .Values.genesis.username_prefix | quote }}
         - name: ERA
           value: {{ .Values.chain.era | quote }}
+        - name: CHAIN_ID
+          value: {{ .Values.chain.chain_id | quote }}
         - name: MOVE_MODULES_DIR
           value: {{ .Values.genesis.moveModulesDir | quote }}
         - name: DOMAIN

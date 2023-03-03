@@ -6,6 +6,7 @@
 # Expect the following environment variables to be set before execution:
 # NUM_VALIDATORS
 # ERA
+# CHAIN_ID
 # WORKSPACE: default /tmp
 # USERNAME_PREFIX: default aptos-node
 # VALIDATOR_INTERNAL_HOST_SUFFIX: default validator-lb
@@ -55,13 +56,13 @@ for i in $(seq 0 $(($NUM_VALIDATORS-1))); do
     mkdir $user_dir
 
     if [ "${FULLNODE_ENABLE_ONCHAIN_DISCOVERY}" = "true" ]; then
-        fullnode_host="fullnode${i}.${DOMAIN}:6182"
+        fullnode_host="fullnode${i}-${CHAIN_ID}.${DOMAIN}:6182"
     else
         fullnode_host="${username}-${FULLNODE_INTERNAL_HOST_SUFFIX}:6182"
     fi
 
     if [ "${VALIDATOR_ENABLE_ONCHAIN_DISCOVERY}" = "true" ]; then
-        validator_host="val${i}.${DOMAIN}:6180"
+        validator_host="val${i}-${CHAIN_ID}.${DOMAIN}:6180"
     else
         validator_host="${username}-${VALIDATOR_INTERNAL_HOST_SUFFIX}:6180"
     fi
