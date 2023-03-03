@@ -3,15 +3,17 @@
 
 use crate::common::{Payload, Round};
 use anyhow::Context;
-use aptos_crypto::{bls12381, CryptoMaterialError, HashValue};
+use aptos_crypto::{bls12381, CryptoMaterialError, HashValue, hash::CryptoHash};
 use aptos_crypto_derive::{BCSCryptoHash, CryptoHasher};
 use aptos_types::aggregate_signature::AggregateSignature;
 use aptos_types::validator_signer::ValidatorSigner;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
 use std::sync::Arc;
+use aptos_crypto::hash::DefaultHasher;
+use aptos_executor_types::Error;
 
 #[derive(Debug)]
 pub enum SignedNodeDigestError {
@@ -154,6 +156,44 @@ pub struct Node {
 }
 
 impl Node {
+
+    pub fn new(&self,
+               epoch: u64,
+               round: u64,
+               source: PeerId,
+               payload: Payload,
+               parents: HashSet<NodeMetaData>,
+    ) -> Self {
+
+        #[derive(Serialize)]
+        struct NodeWithoutDigest<'a> {
+            epoch: u64,
+            round: u64,
+            source:  PeerId,
+            payload: &'a Payload,
+            parents: &'a HashSet<NodeMetaData>,
+        }
+
+        let node_without_digest = NodeWithoutDigest {
+            epoch,
+            round,
+            source,
+            payload: &payload,
+            parents: &parents,
+        };
+
+        let mut hasher = DefaultHasher::new(b"Node");
+        let bytes = bcs::to_bytes(&node_without_digest).unwrap(); // TODO: verify that the data behind the pointer is considered.  
+        hasher.update(&bytes);
+        let metadata = NodeMetaData::new(epoch, round, source, hasher.finish());
+
+        Self {
+            metadata,
+            consensus_payload: payload,
+            parents,
+        }
+    }
+
     pub fn digest(&self) -> HashValue {
         self.metadata.digest()
     }

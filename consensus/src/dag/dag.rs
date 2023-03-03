@@ -519,11 +519,10 @@ impl Dag {
             } else {
                 false
             }
-        }
+        };
     }
 
-    fn try_advance_round(&mut self, timeout: bool) -> Option<HashSet<NodeMetaData>> {
-
+    pub fn try_advance_round(&mut self, timeout: bool) -> Option<HashSet<NodeMetaData>> {
         if !self.round_ready(timeout) {
             return None;
         }
@@ -533,7 +532,7 @@ impl Dag {
             .map(|m| m.source().clone())
             .collect();
         self.front.update_with_strong_links(self.current_round, strong_links_peers);
-        self.current_round +=1;
+        self.current_round += 1;
         if self.dag.get(self.current_round as usize).is_none() {
             self.dag.insert(self.current_round as usize, HashMap::new());
         }
@@ -543,9 +542,9 @@ impl Dag {
             .collect());
     }
 
-    pub async fn try_add_node_and_advance_round(&mut self, certified_node: CertifiedNode, timeout: bool) -> Option<HashSet<NodeMetaData>> {
+    pub async fn try_add_node(&mut self, certified_node: CertifiedNode) {
         if self.contains(certified_node.metadata()) {
-            return None;
+            return;
         }
 
         let missing_parents: HashSet<NodeMetaData> = certified_node
@@ -579,7 +578,5 @@ impl Dag {
         if let Some(node_status) = maybe_node_status {
             self.add_to_dag_and_update_pending(node_status).await;
         }
-
-        self.try_advance_round(timeout)
     }
 }

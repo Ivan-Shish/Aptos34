@@ -1,17 +1,19 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use std::collections::HashSet;
 use crate::{
     network::{DagSender, NetworkSender},
     round_manager::VerifiedEvent,
 };
 use aptos_channels::aptos_channel;
 use aptos_consensus_types::common::Round;
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest};
+use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, Node, NodeMetaData};
 use aptos_types::PeerId;
 use futures::StreamExt;
 use std::time::Duration;
 use tokio::{sync::mpsc::Receiver, time};
+use tokio::sync::mpsc::Sender;
 use crate::dag::dag::Dag;
 
 #[allow(dead_code)]
@@ -25,6 +27,7 @@ pub(crate) enum DagDriverCommand {}
 pub struct DagDriver {
     my_id: PeerId,
     round: Round,
+    timeout: bool,
     network_sender: NetworkSender,
     // TODO: Should we clean more often than once an epoch?
     dag: Dag,
@@ -46,7 +49,6 @@ impl DagDriver {
     }
 
     async fn handle_node_request(&mut self, node_request: CertifiedNodeRequest) {
-
         if let Some(certified_node) = self.dag.get_node(&node_request) {
             self.network_sender
                 .send_certified_node(
@@ -58,15 +60,23 @@ impl DagDriver {
         }
     }
 
-    // TODO: call self.dag.try_adding_node(certified_node) -> round ready.
-    async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
+    fn create_node(&self, parents: HashSet<NodeMetaData>) -> Node {
+        // TODO:  ask QS for proofs and prepare block
+        todo!()
+    }
 
+    fn try_advance_round(&mut self) -> Option<Node> {
+        self.dag.try_advance_round(self.timeout).map(|parents| self.create_node(parents))
+    }
+
+    async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
 
         // TODO: implement the timeout logic and creating new node logic
 
         let digest = certified_node.digest();
         let source = certified_node.source();
-        self.dag.try_add_node_and_advance_round(certified_node, false).await; // returns parents -> start new round
+        self.dag.try_add_node(certified_node).await;
+
 
         if ack_required {
             let ack = CertifiedNodeAck::new(digest, self.my_id);
@@ -74,8 +84,6 @@ impl DagDriver {
                 .send_certified_node_ack(ack, vec![source])
                 .await
         }
-
-        todo!(); // see if round can be advanced.
     }
 
     #[allow(dead_code)]
@@ -83,20 +91,37 @@ impl DagDriver {
         &mut self,
         mut network_msg_rx: aptos_channel::Receiver<PeerId, VerifiedEvent>,
         mut command_rx: Receiver<DagDriverCommand>,
+        rb_command_tx: Sender<Node>,
     ) {
-        let mut interval = time::interval(Duration::from_millis(500)); // time out should be slightly more than one network round trip.
+        let mut interval_missing_nodes = time::interval(Duration::from_millis(500)); // time out should be slightly more than one network round trip.
+        let mut interval_timeout = time::interval(Duration::from_millis(1000)); // similar to leader timeout in our consensus
         loop {
             // TODO: shutdown
             tokio::select! {
                 biased;
 
-                _ = interval.tick() => {
+                _ = interval_missing_nodes.tick() => {
                 self.remote_fetch_missing_nodes().await
             },
 
+                _ = interval_timeout.tick() => {
+                    if self.timeout == false {
+                        self.timeout = true;
+                        if let Some(node) = self.try_advance_round() {
+                            rb_command_tx.send(node).await.expect("reliable broadcast receiver dropped");
+                            self.timeout = false;
+                            interval_timeout.reset();
+                        }
+
+                    }
+                }
+
+
+
+
             Some(_command) = command_rx.recv() => {
                 // TODO: proofs from consensus & other apps.
-                // TODO: probably better to pull when time to crete new round.
+                // TODO: probably better to pull when time to crete new round (similarly to current code).
             },
 
             Some(msg) = network_msg_rx.next() => {
@@ -105,6 +130,11 @@ impl DagDriver {
                         VerifiedEvent::CertifiedNodeMsg(certified_node, ack_required) => {
 
                             self.handle_certified_node(*certified_node, ack_required).await;
+                            if let Some(node) = self.try_advance_round() {
+                                rb_command_tx.send(node).await.expect("reliable broadcast receiver dropped");
+                                self.timeout = false;
+                                interval_timeout.reset();
+                            }
 
                         },
 
