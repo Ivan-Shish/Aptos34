@@ -54,7 +54,9 @@ impl ChunkOutput {
         // to print txn output for debugging, uncomment:
         // println!("{:?}", transaction_outputs.iter().map(|t| t.status() ).collect::<Vec<_>>());
 
+        let timer = UPDATE_COUNTERS_SECONDS.start_timer();
         update_counters_for_processed_chunk(&transactions, &transaction_outputs, "executed");
+        drop(timer);
 
         Ok(Self {
             transactions,
