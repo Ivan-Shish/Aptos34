@@ -227,7 +227,6 @@ where
                 });
                 V::execute_transaction_block(transactions, state_view)?
             };
-            chunk_output.trace_log_transaction_status();
 
             let _timer = APTOS_EXECUTOR_OTHER_TIMERS_SECONDS
                 .with_label_values(&["apply_to_ledger"])

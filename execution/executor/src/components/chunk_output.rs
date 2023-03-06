@@ -7,7 +7,8 @@
 use crate::{components::apply_chunk_output::ApplyChunkOutput, metrics};
 use anyhow::Result;
 use aptos_executor_types::ExecutedChunk;
-use aptos_logger::{sample, sample::SampleRate, trace, warn};
+use aptos_logger::{sample, sample::SampleRate, warn};
+use aptos_metrics_core::{exponential_buckets, register_histogram, Histogram};
 use aptos_storage_interface::{
     cached_state_view::{CachedStateView, StateCache},
     ExecutedTrees,
@@ -18,7 +19,19 @@ use aptos_types::{
 };
 use aptos_vm::{AptosVM, VMExecutor};
 use fail::fail_point;
+use once_cell::sync::Lazy;
 use std::time::Duration;
+
+pub static UPDATE_COUNTERS_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "update_counters_seconds",
+        // metric description
+        "The time spent in seconds in parallel execution",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
 
 pub struct ChunkOutput {
     /// Input transactions.
@@ -83,19 +96,6 @@ impl ChunkOutput {
             Err(anyhow::anyhow!("Injected error in apply_to_ledger."))
         });
         ApplyChunkOutput::apply(self, base_view)
-    }
-
-    pub fn trace_log_transaction_status(&self) {
-        let status: Vec<_> = self
-            .transaction_outputs
-            .iter()
-            .map(TransactionOutput::status)
-            .cloned()
-            .collect();
-
-        if !status.is_empty() {
-            trace!("Execution status: {:?}", status);
-        }
     }
 
     /// Executes the block of [Transaction]s using the [VMExecutor] and returns

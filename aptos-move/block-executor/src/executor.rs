@@ -5,6 +5,7 @@
 use crate::{
     counters,
     counters::{
+        FINAL_OUTPUT_EXTRACTION_SECONDS, FINAL_RESULT_COLLECTION_SECONDS,
         PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
         TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
     },
@@ -293,6 +294,8 @@ where
         drop(timer);
 
         // TODO: for large block sizes and many cores, extract outputs in parallel.
+        let output_timer = FINAL_OUTPUT_EXTRACTION_SECONDS.start_timer();
+
         let mut final_results = Vec::with_capacity(num_txns);
 
         let maybe_err = if last_input_output.module_publishing_may_race() {
@@ -322,6 +325,9 @@ where
             drop(scheduler);
         });
 
+        drop(output_timer);
+
+        let _timer = FINAL_RESULT_COLLECTION_SECONDS.start_timer();
         match maybe_err {
             Some(err) => Err(err),
             None => {
