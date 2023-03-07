@@ -106,7 +106,7 @@ pub struct BlockStore {
     /// Used to ensure that any block stored will have a timestamp < the local time
     time_service: Arc<dyn TimeService>,
     // consistent with round type
-    back_pressure_limit: Round,
+    vote_back_pressure_limit: Round,
     payload_manager: Arc<PayloadManager>,
     #[cfg(any(test, feature = "fuzzing"))]
     back_pressure_for_test: AtomicBool,
@@ -119,7 +119,7 @@ impl BlockStore {
         state_computer: Arc<dyn StateComputer>,
         max_pruned_blocks_in_mem: usize,
         time_service: Arc<dyn TimeService>,
-        back_pressure_limit: Round,
+        vote_back_pressure_limit: Round,
         payload_manager: Arc<PayloadManager>,
     ) -> Self {
         let highest_2chain_tc = initial_data.highest_2chain_timeout_certificate();
@@ -134,7 +134,7 @@ impl BlockStore {
             storage,
             max_pruned_blocks_in_mem,
             time_service,
-            back_pressure_limit,
+            vote_back_pressure_limit,
             payload_manager,
         ));
         block_on(block_store.try_commit());
@@ -172,7 +172,7 @@ impl BlockStore {
         storage: Arc<dyn PersistentLivenessStorage>,
         max_pruned_blocks_in_mem: usize,
         time_service: Arc<dyn TimeService>,
-        back_pressure_limit: Round,
+        vote_back_pressure_limit: Round,
         payload_manager: Arc<PayloadManager>,
     ) -> Self {
         let RootInfo(root_block, root_qc, root_ordered_cert, root_commit_cert) = root;
@@ -227,7 +227,7 @@ impl BlockStore {
             state_computer,
             storage,
             time_service,
-            back_pressure_limit,
+            vote_back_pressure_limit,
             payload_manager,
             #[cfg(any(test, feature = "fuzzing"))]
             back_pressure_for_test: AtomicBool::new(false),
@@ -324,7 +324,7 @@ impl BlockStore {
             Arc::clone(&self.storage),
             max_pruned_blocks_in_mem,
             Arc::clone(&self.time_service),
-            self.back_pressure_limit,
+            self.vote_back_pressure_limit,
             self.payload_manager.clone(),
         )
         .await;
@@ -495,7 +495,8 @@ impl BlockStore {
             .store(back_pressure, Ordering::Relaxed)
     }
 
-    pub fn back_pressure(&self) -> bool {
+    /// Return if the consensus is backpressured
+    fn vote_back_pressure(&self) -> bool {
         #[cfg(any(test, feature = "fuzzing"))]
         {
             if self.back_pressure_for_test.load(Ordering::Relaxed) {
@@ -507,7 +508,31 @@ impl BlockStore {
         counters::OP_COUNTERS
             .gauge("back_pressure")
             .set((ordered_round - commit_round) as i64);
-        ordered_round > self.back_pressure_limit + commit_round
+        ordered_round > self.vote_back_pressure_limit + commit_round
+    }
+
+    pub fn pipeline_pending_latency(&self, proposal_timestamp: Duration) -> Duration {
+        let pending_rounds = self
+            .ordered_root()
+            .round()
+            .checked_sub(self.commit_root().round())
+            .unwrap();
+        let ordered_timestamp = Duration::from_micros(self.ordered_root().timestamp_usecs());
+        let committed_timestamp = Duration::from_micros(self.commit_root().timestamp_usecs());
+
+        info!(
+            "On proposal, {} pending rounds, {}ms gap to ordered, {}ms gap to committed",
+            pending_rounds,
+            (proposal_timestamp - ordered_timestamp).as_millis(),
+            (proposal_timestamp - committed_timestamp).as_millis()
+        );
+
+        let pending_duration = proposal_timestamp.checked_sub(committed_timestamp).unwrap();
+
+        counters::CONSENSUS_PROPOSAL_PENDING_ROUNDS.observe(pending_rounds as f64);
+        counters::CONSENSUS_PROPOSAL_PENDING_DURATION.observe(pending_duration.as_secs_f64());
+
+        pending_duration
     }
 }
 
@@ -570,8 +595,12 @@ impl BlockReader for BlockStore {
         )
     }
 
-    fn back_pressure(&self) -> bool {
-        self.back_pressure()
+    fn vote_back_pressure(&self) -> bool {
+        self.vote_back_pressure()
+    }
+
+    fn pipeline_pending_latency(&self, proposal_timestamp: Duration) -> Duration {
+        self.pipeline_pending_latency(proposal_timestamp)
     }
 }
 
