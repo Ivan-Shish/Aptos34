@@ -30,6 +30,7 @@ use std::{
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
 };
+use aptos_types::transaction::authenticator::TransactionAuthenticatorInner;
 
 // Warning: Do not add a docstring to a field that uses a type in `derives.rs`,
 // it will result in a change to the type representation. Read more about this
@@ -1247,6 +1248,21 @@ impl From<TransactionAuthenticator> for TransactionSignature {
             } => Self::MultiAgentSignature(
                 (sender, secondary_signer_addresses, secondary_signers).into(),
             ),
+            GasPayer {
+                sender,
+                gas_payer: _,
+                gas_payer_address: _,
+            } => match sender {
+                TransactionAuthenticatorInner::Ed25519 { .. } => {
+                    let (public_key, signature) = sender.get_ed25519_public_key_and_signature();
+                    Self::Ed25519Signature((&public_key.unwrap(), &signature.unwrap()).into())
+                },
+                TransactionAuthenticatorInner::MultiEd25519 { .. } => {
+                    let (public_key, signature) = sender.get_multied25519_public_key_and_signature();
+                    Self::MultiEd25519Signature((&public_key.unwrap(), &signature.unwrap()).into())
+                },
+                TransactionAuthenticatorInner::MultiAgent { .. } => Self::MultiAgentSignature((&sender.sender(), &sender.secondary_signer_addresses(), &sender.secondary_signers()).into()),
+            }
         }
     }
 }

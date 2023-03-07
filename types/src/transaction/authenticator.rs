@@ -58,6 +58,12 @@ pub enum TransactionAuthenticator {
         secondary_signer_addresses: Vec<AccountAddress>,
         secondary_signers: Vec<AccountAuthenticator>,
     },
+    /// Gas-payer transaction.
+    GasPayer {
+        sender: TransactionAuthenticatorInner,
+        gas_payer: TransactionAuthenticatorInner,
+        gas_payer_address: AccountAddress,
+    },
 }
 
 impl TransactionAuthenticator {
@@ -90,6 +96,15 @@ impl TransactionAuthenticator {
             sender,
             secondary_signer_addresses,
             secondary_signers,
+        }
+    }
+
+    /// Create a gas-payer authenticator
+    pub fn gas_payer(sender: TransactionAuthenticatorInner, gas_payer: TransactionAuthenticatorInner, gas_payer_address: AccountAddress) -> Self {
+        Self::GasPayer {
+            sender,
+            gas_payer,
+            gas_payer_address,
         }
     }
 
@@ -128,6 +143,19 @@ impl TransactionAuthenticator {
                 }
                 Ok(())
             },
+            Self::GasPayer {
+                sender,
+                gas_payer,
+                gas_payer_address,
+            } => {
+                sender.verify_sender_transaction(raw_txn)?;
+                let message = RawTransactionWithData::new_gas_payer(
+                    raw_txn.clone(),
+                    *gas_payer_address,
+                );
+                gas_payer.verify_gas_payer_transaction(&message)?;
+                Ok(())
+            },
         }
     }
 
@@ -145,12 +173,14 @@ impl TransactionAuthenticator {
                 signature,
             } => AccountAuthenticator::multi_ed25519(public_key.clone(), signature.clone()),
             Self::MultiAgent { sender, .. } => sender.clone(),
+            Self::GasPayer { sender, .. } => sender.sender(),
         }
     }
 
     pub fn secondary_signer_addreses(&self) -> Vec<AccountAddress> {
         match self {
             Self::Ed25519 { .. }
+            | Self::GasPayer { .. }
             | Self::MultiEd25519 {
                 public_key: _,
                 signature: _,
@@ -166,6 +196,7 @@ impl TransactionAuthenticator {
     pub fn secondary_signers(&self) -> Vec<AccountAuthenticator> {
         match self {
             Self::Ed25519 { .. }
+            | Self::GasPayer { .. }
             | Self::MultiEd25519 {
                 public_key: _,
                 signature: _,
@@ -175,6 +206,20 @@ impl TransactionAuthenticator {
                 secondary_signer_addresses: _,
                 secondary_signers,
             } => secondary_signers.to_vec(),
+        }
+    }
+
+    pub fn gas_payer_address(&self) -> Option<AccountAddress> {
+        match self {
+            Self::GasPayer {
+                sender: _,
+                gas_payer: _,
+                gas_payer_address
+            } => Some(*gas_payer_address),
+            Self::Ed25519 { .. } | Self::MultiEd25519 { public_key: _, signature: _ } | Self::MultiAgent {
+                sender: _,
+                secondary_signer_addresses: _,
+                secondary_signers: _ } => None,
         }
     }
 }
@@ -222,6 +267,257 @@ impl fmt::Display for TransactionAuthenticator {
                         \tsender: {}\n\
                         \tsecondary signer addresses: {}\n\
                         \tsecondary signers: {}]",
+                    sender, sec_addrs, sec_signers,
+                )
+            },
+            Self::GasPayer {
+                sender: _,
+                gas_payer: _,
+                gas_payer_address: _,
+            } => {
+                write!(
+                    f,
+                    "TransactionAuthenticator[scheme: MultiEd25519, sender: {}, gas_payer: {}]",
+                    self.sender(), self.gas_payer_address().unwrap()
+                )
+            },
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub enum TransactionAuthenticatorInner {
+    Ed25519 {
+        public_key: Ed25519PublicKey,
+        signature: Ed25519Signature,
+    },
+    MultiEd25519 {
+        public_key: MultiEd25519PublicKey,
+        signature: MultiEd25519Signature,
+    },
+    MultiAgent {
+        sender: AccountAuthenticator,
+        secondary_signer_addresses: Vec<AccountAddress>,
+        secondary_signers: Vec<AccountAuthenticator>,
+    },
+}
+
+impl TransactionAuthenticatorInner {
+    /// Create a single-signature ed25519 authenticator
+    pub fn ed25519(public_key: Ed25519PublicKey, signature: Ed25519Signature) -> Self {
+        Self::Ed25519 {
+            public_key,
+            signature,
+        }
+    }
+
+    /// Create a multisignature ed25519 authenticator
+    pub fn multi_ed25519(
+        public_key: MultiEd25519PublicKey,
+        signature: MultiEd25519Signature,
+    ) -> Self {
+        Self::MultiEd25519 {
+            public_key,
+            signature,
+        }
+    }
+
+    /// Create a multi-agent authenticator
+    pub fn multi_agent(
+        sender: AccountAuthenticator,
+        secondary_signer_addresses: Vec<AccountAddress>,
+        secondary_signers: Vec<AccountAuthenticator>,
+    ) -> Self {
+        Self::MultiAgent {
+            sender,
+            secondary_signer_addresses,
+            secondary_signers,
+        }
+    }
+
+    /// Return Ok if all AccountAuthenticator's public keys match their signatures, Err otherwise
+    pub fn verify_sender_transaction(&self, raw_txn: &RawTransaction) -> Result<()> {
+        let num_sigs: usize = self.sender().number_of_signatures()
+            + self
+            .secondary_signers()
+            .iter()
+            .map(|auth| auth.number_of_signatures())
+            .sum::<usize>();
+        if num_sigs > MAX_NUM_OF_SIGS {
+            return Err(Error::new(AuthenticationError::MaxSignaturesExceeded));
+        }
+        match self {
+            Self::Ed25519 {
+                public_key,
+                signature,
+            } => signature.verify(raw_txn, public_key),
+            Self::MultiEd25519 {
+                public_key,
+                signature,
+            } => signature.verify(raw_txn, public_key),
+            Self::MultiAgent {
+                sender,
+                secondary_signer_addresses,
+                secondary_signers,
+            } => {
+                let message = RawTransactionWithData::new_multi_agent(
+                    raw_txn.clone(),
+                    secondary_signer_addresses.clone(),
+                );
+                sender.verify(&message)?;
+                for signer in secondary_signers {
+                    signer.verify(&message)?;
+                }
+                Ok(())
+            },
+        }
+    }
+
+    /// Return Ok if all AccountAuthenticator's public keys match their signatures, Err otherwise
+    pub fn verify_gas_payer_transaction(&self, raw_txn: &RawTransactionWithData) -> Result<()> {
+        let num_sigs: usize = self.sender().number_of_signatures()
+            + self
+            .secondary_signers()
+            .iter()
+            .map(|auth| auth.number_of_signatures())
+            .sum::<usize>();
+        if num_sigs > MAX_NUM_OF_SIGS {
+            return Err(Error::new(AuthenticationError::MaxSignaturesExceeded));
+        }
+        match self {
+            Self::Ed25519 {
+                public_key,
+                signature,
+            } => signature.verify(raw_txn, public_key),
+            Self::MultiEd25519 {
+                public_key,
+                signature,
+            } => signature.verify(raw_txn, public_key),
+            Self::MultiAgent {
+                sender,
+                secondary_signer_addresses: _,
+                secondary_signers,
+            } => {
+                sender.verify(raw_txn)?;
+                for signer in secondary_signers {
+                    signer.verify(raw_txn)?;
+                }
+                Ok(())
+            },
+        }
+    }
+
+    pub fn sender(&self) -> AccountAuthenticator {
+        match self {
+            Self::Ed25519 {
+                public_key,
+                signature,
+            } => AccountAuthenticator::Ed25519 {
+                public_key: public_key.clone(),
+                signature: signature.clone(),
+            },
+            Self::MultiEd25519 {
+                public_key,
+                signature,
+            } => AccountAuthenticator::multi_ed25519(public_key.clone(), signature.clone()),
+            Self::MultiAgent { sender, .. } => sender.clone(),
+        }
+    }
+
+    pub fn get_ed25519_public_key_and_signature(&self) -> (Option<Ed25519PublicKey>, Option<Ed25519Signature>) {
+        match self {
+            Self::Ed25519 {
+                public_key,
+                signature,
+            } => (Some(public_key.clone()), Some(signature.clone())),
+            Self::MultiEd25519 { .. } | Self::MultiAgent { .. }=> (None, None),
+        }
+    }
+
+    pub fn get_multied25519_public_key_and_signature(&self) -> (Option<MultiEd25519PublicKey>, Option<MultiEd25519Signature>) {
+        match self {
+            Self::MultiEd25519 {
+                public_key,
+                signature,
+            } => (Some(public_key.clone()), Some(signature.clone())),
+            Self::Ed25519 { .. } | Self::MultiAgent { .. }=> (None, None),
+        }
+    }
+
+    pub fn secondary_signer_addresses(&self) -> Vec<AccountAddress> {
+        match self {
+            Self::Ed25519 { .. }
+            | Self::MultiEd25519 {
+                public_key: _,
+                signature: _,
+            } => vec![],
+            Self::MultiAgent {
+                sender: _,
+                secondary_signer_addresses,
+                ..
+            } => secondary_signer_addresses.to_vec(),
+        }
+    }
+
+    pub fn secondary_signers(&self) -> Vec<AccountAuthenticator> {
+        match self {
+            Self::Ed25519 { .. }
+            | Self::MultiEd25519 {
+                public_key: _,
+                signature: _,
+            } => vec![],
+            Self::MultiAgent {
+                sender: _,
+                secondary_signer_addresses: _,
+                secondary_signers,
+            } => secondary_signers.to_vec(),
+        }
+    }
+}
+
+impl fmt::Display for TransactionAuthenticatorInner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ed25519 {
+                public_key: _,
+                signature: _,
+            } => {
+                write!(
+                    f,
+                    "TransactionAuthenticator[scheme: Ed25519, sender: {}]",
+                    self.sender()
+                )
+            },
+            Self::MultiEd25519 {
+                public_key: _,
+                signature: _,
+            } => {
+                write!(
+                    f,
+                    "TransactionAuthenticator[scheme: MultiEd25519, sender: {}]",
+                    self.sender()
+                )
+            },
+            Self::MultiAgent {
+                sender,
+                secondary_signer_addresses,
+                secondary_signers,
+            } => {
+                let mut sec_addrs: String = "".to_string();
+                for sec_addr in secondary_signer_addresses {
+                    sec_addrs = format!("{}\n\t\t\t{:#?},", sec_addrs, sec_addr);
+                }
+                let mut sec_signers: String = "".to_string();
+                for sec_signer in secondary_signers {
+                    sec_signers = format!("{}\n\t\t\t{:#?},", sec_signers, sec_signer);
+                }
+                write!(
+                    f,
+                    "TransactionAuthenticator[\n\
+                    \tscheme: MultiAgent, \n\
+                    \tsender: {}\n\
+                    \tsecondary signer addresses: {}\n\
+                    \tsecondary signers: {}]",
                     sender, sec_addrs, sec_signers,
                 )
             },

@@ -374,6 +374,10 @@ pub enum RawTransactionWithData {
         raw_txn: RawTransaction,
         secondary_signer_addresses: Vec<AccountAddress>,
     },
+    GasPayer {
+        raw_txn: RawTransaction,
+        gas_payer: AccountAddress,
+    },
 }
 
 impl RawTransactionWithData {
@@ -384,6 +388,16 @@ impl RawTransactionWithData {
         Self::MultiAgent {
             raw_txn,
             secondary_signer_addresses,
+        }
+    }
+
+    pub fn new_gas_payer(
+        raw_txn: RawTransaction,
+        gas_payer: AccountAddress,
+    ) -> Self {
+        Self::GasPayer {
+            raw_txn,
+            gas_payer,
         }
     }
 }

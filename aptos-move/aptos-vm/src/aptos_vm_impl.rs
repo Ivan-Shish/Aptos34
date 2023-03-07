@@ -366,9 +366,15 @@ impl AptosVMImpl {
             .iter()
             .map(|auth_key| MoveValue::vector_u8(auth_key.to_vec()))
             .collect();
+        let gas_payer = if Option::is_some(&txn_data.gas_payer()) {
+            txn_data.gas_payer().unwrap()
+        } else {
+            txn_data.sender
+        };
+
         let args = if txn_data.is_multi_agent() {
             vec![
-                MoveValue::Signer(txn_data.sender),
+                MoveValue::Signer(gas_payer),
                 MoveValue::U64(txn_sequence_number),
                 MoveValue::vector_u8(txn_authentication_key),
                 MoveValue::vector_address(txn_data.secondary_signers()),
@@ -380,7 +386,7 @@ impl AptosVMImpl {
             ]
         } else {
             vec![
-                MoveValue::Signer(txn_data.sender),
+                MoveValue::Signer(gas_payer),
                 MoveValue::U64(txn_sequence_number),
                 MoveValue::vector_u8(txn_authentication_key),
                 MoveValue::U64(txn_gas_price.into()),
@@ -505,6 +511,12 @@ impl AptosVMImpl {
         let txn_sequence_number = txn_data.sequence_number();
         let txn_gas_price = txn_data.gas_unit_price();
         let txn_max_gas_units = txn_data.max_gas_amount();
+        let gas_payer = if Option::is_some(&txn_data.gas_payer()) {
+            txn_data.gas_payer().unwrap()
+        } else {
+            txn_data.sender
+        };
+
         session
             .execute_function_bypass_visibility(
                 &transaction_validation.module_id(),
@@ -512,7 +524,7 @@ impl AptosVMImpl {
                 // TODO: Deprecate this once we remove gas currency on the Move side.
                 vec![],
                 serialize_values(&vec![
-                    MoveValue::Signer(txn_data.sender),
+                    MoveValue::Signer(gas_payer),
                     MoveValue::U64(txn_sequence_number),
                     MoveValue::U64(txn_gas_price.into()),
                     MoveValue::U64(txn_max_gas_units.into()),
@@ -538,6 +550,12 @@ impl AptosVMImpl {
         let txn_sequence_number = txn_data.sequence_number();
         let txn_gas_price = txn_data.gas_unit_price();
         let txn_max_gas_units = txn_data.max_gas_amount();
+        let gas_payer = if Option::is_some(&txn_data.gas_payer()) {
+            txn_data.gas_payer().unwrap()
+        } else {
+            txn_data.sender
+        };
+
         session
             .execute_function_bypass_visibility(
                 &transaction_validation.module_id(),
@@ -545,7 +563,7 @@ impl AptosVMImpl {
                 // TODO: Deprecate this once we remove gas currency on the Move side.
                 vec![],
                 serialize_values(&vec![
-                    MoveValue::Signer(txn_data.sender),
+                    MoveValue::Signer(gas_payer),
                     MoveValue::U64(txn_sequence_number),
                     MoveValue::U64(txn_gas_price.into()),
                     MoveValue::U64(txn_max_gas_units.into()),

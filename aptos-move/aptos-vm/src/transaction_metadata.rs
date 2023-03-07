@@ -24,6 +24,7 @@ pub struct TransactionMetadata {
     pub chain_id: ChainId,
     pub script_hash: Vec<u8>,
     pub script_size: NumBytes,
+    pub gas_payer: Option<AccountAddress>,
 }
 
 impl TransactionMetadata {
@@ -56,6 +57,7 @@ impl TransactionMetadata {
                 TransactionPayload::Script(s) => (s.code().len() as u64).into(),
                 _ => NumBytes::zero(),
             },
+            gas_payer: txn.authenticator().gas_payer_address(),
         }
     }
 
@@ -102,6 +104,10 @@ impl TransactionMetadata {
     pub fn is_multi_agent(&self) -> bool {
         !self.secondary_signers.is_empty()
     }
+
+    pub fn gas_payer(&self) -> Option<AccountAddress> {
+        self.gas_payer
+    }
 }
 
 impl Default for TransactionMetadata {
@@ -122,6 +128,7 @@ impl Default for TransactionMetadata {
             chain_id: ChainId::test(),
             script_hash: vec![],
             script_size: NumBytes::zero(),
+            gas_payer: None,
         }
     }
 }
