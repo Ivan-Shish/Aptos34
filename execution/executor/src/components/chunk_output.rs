@@ -14,13 +14,16 @@ use aptos_storage_interface::{
     ExecutedTrees,
 };
 use aptos_types::{
-    account_config::CORE_CODE_ADDRESS,
+    access_path::AccessPath,
+    account_config::{AccountResource, CoinStoreResource, CORE_CODE_ADDRESS},
+    state_store::state_key::StateKey,
     transaction::{ExecutionStatus, Transaction, TransactionOutput, TransactionStatus},
 };
 use aptos_vm::{AptosVM, VMExecutor};
 use fail::fail_point;
+use move_core_types::move_resource::MoveResource;
 use once_cell::sync::Lazy;
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 pub static UPDATE_COUNTERS_SECONDS: Lazy<Histogram> = Lazy::new(|| {
     register_histogram!(
@@ -49,6 +52,27 @@ impl ChunkOutput {
         transactions: Vec<Transaction>,
         state_view: CachedStateView,
     ) -> Result<Self> {
+        // let mut senders = HashSet::new();
+        // let mut sender_state_keys = vec![];
+        // transactions.iter().for_each(|t| {
+        //     if let Transaction::UserTransaction(txn) = t {
+        //         let sender = txn.sender();
+        //         if !senders.contains(&sender) {
+        //             sender_state_keys.push(StateKey::access_path(AccessPath::new(
+        //                 sender,
+        //                 AccountResource::resource_path(),
+        //             )));
+        //             sender_state_keys.push(StateKey::access_path(AccessPath::new(
+        //                 sender,
+        //                 CoinStoreResource::resource_path(),
+        //             )));
+        //             senders.insert(sender);
+        //         }
+        //     }
+        // });
+        //
+        // state_view.prime_cache_by_state_key(sender_state_keys)?;
+
         let transaction_outputs = Self::execute_block::<V>(transactions.clone(), &state_view)?;
 
         // to print txn output for debugging, uncomment:

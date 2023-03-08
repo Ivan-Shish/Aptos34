@@ -133,6 +133,20 @@ impl CachedStateView {
         Ok(())
     }
 
+    pub fn prime_cache_by_state_key<T: IntoIterator<Item = StateKey> + Send>(
+        &self,
+        state_keys: T,
+    ) -> Result<()> {
+        IO_POOL.scope(|s| {
+            state_keys.into_iter().for_each(|key| {
+                s.spawn(move |_| {
+                    self.get_state_value(&key).expect("Must succeed.");
+                })
+            });
+        });
+        Ok(())
+    }
+
     pub fn into_state_cache(self) -> StateCache {
         StateCache {
             frozen_base: self.speculative_state,
@@ -158,18 +172,18 @@ impl CachedStateView {
                             Some(root_hash),
                         )?;
                         // TODO: proof verification can be opted out, for performance
-                        if let Some(proof) = proof {
-                            proof
-                                .verify(root_hash, key_hash, value.as_ref())
-                                .map_err(|err| {
-                                    format_err!(
-                                    "Proof is invalid for key {:?} with state root hash {:?}: {}",
-                                    state_key,
-                                    root_hash,
-                                    err
-                                )
-                                })?;
-                        }
+                        // if let Some(proof) = proof {
+                        //     proof
+                        //         .verify(root_hash, key_hash, value.as_ref())
+                        //         .map_err(|err| {
+                        //             format_err!(
+                        //             "Proof is invalid for key {:?} with state root hash {:?}: {}",
+                        //             state_key,
+                        //             root_hash,
+                        //             err
+                        //         )
+                        //         })?;
+                        // }
                         value
                     },
                     None => None,
