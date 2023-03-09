@@ -52,26 +52,26 @@ impl ChunkOutput {
         transactions: Vec<Transaction>,
         state_view: CachedStateView,
     ) -> Result<Self> {
-        // let mut senders = HashSet::new();
-        // let mut sender_state_keys = vec![];
-        // transactions.iter().for_each(|t| {
-        //     if let Transaction::UserTransaction(txn) = t {
-        //         let sender = txn.sender();
-        //         if !senders.contains(&sender) {
-        //             sender_state_keys.push(StateKey::access_path(AccessPath::new(
-        //                 sender,
-        //                 AccountResource::resource_path(),
-        //             )));
-        //             sender_state_keys.push(StateKey::access_path(AccessPath::new(
-        //                 sender,
-        //                 CoinStoreResource::resource_path(),
-        //             )));
-        //             senders.insert(sender);
-        //         }
-        //     }
-        // });
-        //
-        // state_view.prime_cache_by_state_key(sender_state_keys)?;
+        let mut senders = HashSet::new();
+        let mut sender_state_keys = vec![];
+        transactions.iter().for_each(|t| {
+            if let Transaction::UserTransaction(txn) = t {
+                let sender = txn.sender();
+                if !senders.contains(&sender) {
+                    sender_state_keys.push(StateKey::access_path(AccessPath::new(
+                        sender,
+                        AccountResource::resource_path(),
+                    )));
+                    sender_state_keys.push(StateKey::access_path(AccessPath::new(
+                        sender,
+                        CoinStoreResource::resource_path(),
+                    )));
+                    senders.insert(sender);
+                }
+            }
+        });
+
+        state_view.prime_cache_by_state_key(sender_state_keys)?;
 
         let transaction_outputs = Self::execute_block::<V>(transactions.clone(), &state_view)?;
 

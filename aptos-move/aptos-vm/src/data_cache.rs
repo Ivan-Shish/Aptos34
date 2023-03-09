@@ -124,7 +124,7 @@ impl<'a, S: StateView> StorageAdapter<'a, S> {
 
     pub fn get(&self, access_path: AccessPath) -> PartialVMResult<Option<Vec<u8>>> {
         self.0
-            .get_state_value_bytes(&StateKey::access_path(access_path))
+            .get_state_value_bytes(&StateKey::access_path(access_path), Some("storage-adapter"))
             .map_err(|_| PartialVMError::new(StatusCode::STORAGE_ERROR))
     }
 }
@@ -185,7 +185,10 @@ impl<'a, S: StateView> TableResolver for StorageAdapter<'a, S> {
         handle: &TableHandle,
         key: &[u8],
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_state_value_bytes(&StateKey::table_item((*handle).into(), key.to_vec()))
+        self.get_state_value_bytes(
+            &StateKey::table_item((*handle).into(), key.to_vec()),
+            Some("table-resolver"),
+        )
     }
 }
 

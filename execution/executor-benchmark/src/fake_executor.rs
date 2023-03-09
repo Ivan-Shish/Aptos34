@@ -173,7 +173,7 @@ impl FakeExecutor {
         state_view: &CachedStateView,
     ) -> Result<Option<T>> {
         let value = state_view
-            .get_state_value_bytes(state_key)?
+            .get_state_value_bytes(state_key, None)?
             .map(move |value| bcs::from_bytes(value.as_slice()));
         value.transpose().map_err(anyhow::Error::msg)
     }

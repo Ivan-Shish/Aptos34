@@ -24,7 +24,11 @@ struct MockStateView;
 impl TStateView for MockStateView {
     type Key = StateKey;
 
-    fn get_state_value(&self, _state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        _state_key: &StateKey,
+        _label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         Ok(None)
     }
 

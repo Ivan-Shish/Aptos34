@@ -33,13 +33,21 @@ pub trait TStateView {
     }
 
     /// Gets the state value bytes for a given state key.
-    fn get_state_value_bytes(&self, state_key: &Self::Key) -> Result<Option<Vec<u8>>> {
-        let val_opt = self.get_state_value(state_key)?;
+    fn get_state_value_bytes(
+        &self,
+        state_key: &Self::Key,
+        label: Option<&str>,
+    ) -> Result<Option<Vec<u8>>> {
+        let val_opt = self.get_state_value(state_key, label)?;
         Ok(val_opt.map(|val| val.into_bytes()))
     }
 
     /// Gets the state value for a given state key.
-    fn get_state_value(&self, state_key: &Self::Key) -> Result<Option<StateValue>>;
+    fn get_state_value(
+        &self,
+        state_key: &Self::Key,
+        label: Option<&str>,
+    ) -> Result<Option<StateValue>>;
 
     /// VM needs this method to know whether the current state view is for genesis state creation.
     /// Currently TransactionPayload::WriteSet is only valid for genesis state creation.
@@ -76,8 +84,8 @@ where
         self.deref().id()
     }
 
-    fn get_state_value(&self, state_key: &K) -> Result<Option<StateValue>> {
-        self.deref().get_state_value(state_key)
+    fn get_state_value(&self, state_key: &K, label: Option<&str>) -> Result<Option<StateValue>> {
+        self.deref().get_state_value(state_key, label)
     }
 
     fn is_genesis(&self) -> bool {

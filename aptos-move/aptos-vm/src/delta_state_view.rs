@@ -31,10 +31,14 @@ where
         self.base.id()
     }
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+        label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         match self.write_set.get(state_key) {
             Some(write_op) => Ok(write_op.as_state_value()),
-            None => self.base.get_state_value(state_key),
+            None => self.base.get_state_value(state_key, label),
         }
     }
 

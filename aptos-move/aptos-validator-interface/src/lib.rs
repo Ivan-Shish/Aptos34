@@ -188,7 +188,11 @@ impl DebuggerStateView {
 impl TStateView for DebuggerStateView {
     type Key = StateKey;
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+        _label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         self.get_state_value_internal(state_key, self.version)
     }
 

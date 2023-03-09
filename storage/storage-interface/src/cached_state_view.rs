@@ -1,7 +1,14 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{metrics::TIMER, proof_fetcher::ProofFetcher, state_view::DbStateView, DbReader};
+use crate::{
+    metrics::{
+        STATE_VIEW_CACHE_EVENT, STATE_VIEW_CACHE_HIT_EVENT, STATE_VIEW_CACHE_MISS_EVENT, TIMER,
+    },
+    proof_fetcher::ProofFetcher,
+    state_view::DbStateView,
+    DbReader,
+};
 use anyhow::{format_err, Result};
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_scratchpad::{FrozenSparseMerkleTree, SparseMerkleTree, StateStoreStatus};
@@ -126,7 +133,8 @@ impl CachedStateView {
                 .into_iter()
                 .for_each(|key| {
                     s.spawn(move |_| {
-                        self.get_state_value_bytes(key).expect("Must succeed.");
+                        self.get_state_value_bytes(key, Some("prime_cache_by_write_set"))
+                            .expect("Must succeed.");
                     })
                 });
         });
@@ -140,7 +148,8 @@ impl CachedStateView {
         IO_POOL.scope(|s| {
             state_keys.into_iter().for_each(|key| {
                 s.spawn(move |_| {
-                    self.get_state_value(&key).expect("Must succeed.");
+                    self.get_state_value(&key, Some("prime_cache_by_state_key"))
+                        .expect("Must succeed.");
                 })
             });
         });
@@ -172,18 +181,18 @@ impl CachedStateView {
                             Some(root_hash),
                         )?;
                         // TODO: proof verification can be opted out, for performance
-                        // if let Some(proof) = proof {
-                        //     proof
-                        //         .verify(root_hash, key_hash, value.as_ref())
-                        //         .map_err(|err| {
-                        //             format_err!(
-                        //             "Proof is invalid for key {:?} with state root hash {:?}: {}",
-                        //             state_key,
-                        //             root_hash,
-                        //             err
-                        //         )
-                        //         })?;
-                        // }
+                        if let Some(proof) = proof {
+                            proof
+                                .verify(root_hash, key_hash, value.as_ref())
+                                .map_err(|err| {
+                                    format_err!(
+                                    "Proof is invalid for key {:?} with state root hash {:?}: {}",
+                                    state_key,
+                                    root_hash,
+                                    err
+                                )
+                                })?;
+                        }
                         value
                     },
                     None => None,
@@ -208,13 +217,27 @@ impl TStateView for CachedStateView {
         self.id
     }
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
-        let _timer = TIMER.with_label_values(&["get_state_value"]).start_timer();
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+        label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
+        let label = label.unwrap_or("default");
+        let _timer = TIMER
+            .with_label_values(&[&("get_state_value_".to_string() + label)])
+            .start_timer();
         // First check if the cache has the state value.
         if let Some(val_opt) = self.state_cache.get(state_key) {
             // This can return None, which means the value has been deleted from the DB.
+            STATE_VIEW_CACHE_EVENT
+                .with_label_values(&[STATE_VIEW_CACHE_HIT_EVENT, label])
+                .inc();
             return Ok(val_opt.clone());
         }
+
+        STATE_VIEW_CACHE_EVENT
+            .with_label_values(&[STATE_VIEW_CACHE_MISS_EVENT, label])
+            .inc();
         let state_value_option = self.get_state_value_internal(state_key)?;
         // Update the cache if still empty
         let new_value = self
@@ -254,13 +277,17 @@ impl TStateView for CachedDbStateView {
         self.db_state_view.id()
     }
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+        label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         // First check if the cache has the state value.
         if let Some(val_opt) = self.state_cache.read().get(state_key) {
             // This can return None, which means the value has been deleted from the DB.
             return Ok(val_opt.clone());
         }
-        let state_value_option = self.db_state_view.get_state_value(state_key)?;
+        let state_value_option = self.db_state_view.get_state_value(state_key, label)?;
         // Update the cache if still empty
         let mut cache = self.state_cache.write();
         let new_value = cache

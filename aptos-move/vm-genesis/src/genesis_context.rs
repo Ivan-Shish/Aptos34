@@ -38,7 +38,11 @@ impl GenesisStateView {
 impl TStateView for GenesisStateView {
     type Key = StateKey;
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+        _label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         Ok(self
             .state_data
             .get(state_key)

@@ -180,8 +180,12 @@ impl<'a, T: Transaction, S: TStateView<Key = T::Key>> LatestView<'a, T, S> {
         }
     }
 
-    fn get_base_value(&self, state_key: &T::Key) -> anyhow::Result<Option<StateValue>> {
-        let ret = self.base_view.get_state_value(state_key);
+    fn get_base_value(
+        &self,
+        state_key: &T::Key,
+        label: Option<&str>,
+    ) -> anyhow::Result<Option<StateValue>> {
+        let ret = self.base_view.get_state_value(state_key, label);
 
         if ret.is_err() {
             // Even speculatively, reading from base view should not return an error.
@@ -200,7 +204,11 @@ impl<'a, T: Transaction, S: TStateView<Key = T::Key>> LatestView<'a, T, S> {
 impl<'a, T: Transaction, S: TStateView<Key = T::Key>> TStateView for LatestView<'a, T, S> {
     type Key = T::Key;
 
-    fn get_state_value(&self, state_key: &T::Key) -> anyhow::Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &T::Key,
+        label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         match self.latest_view {
             ViewMapKind::MultiVersion(map) => match map.read(state_key, self.txn_idx) {
                 ReadResult::Value(v) => Ok(v.as_state_value()),
@@ -208,7 +216,7 @@ impl<'a, T: Transaction, S: TStateView<Key = T::Key>> TStateView for LatestView<
                 ReadResult::Unresolved(delta) => {
                     let from_storage = self
                         .base_view
-                        .get_state_value_bytes(state_key)?
+                        .get_state_value_bytes(state_key, label)?
                         .map_or(Err(VMStatus::Error(StatusCode::STORAGE_ERROR)), |bytes| {
                             Ok(deserialize(&bytes))
                         })?;
@@ -217,10 +225,10 @@ impl<'a, T: Transaction, S: TStateView<Key = T::Key>> TStateView for LatestView<
                         .map_err(|pe| pe.finish(Location::Undefined).into_vm_status())?;
                     Ok(Some(StateValue::new_legacy(serialize(&result))))
                 },
-                ReadResult::None => self.get_base_value(state_key),
+                ReadResult::None => self.get_base_value(state_key, label),
             },
             ViewMapKind::BTree(map) => map.get(state_key).map_or_else(
-                || self.get_base_value(state_key),
+                || self.get_base_value(state_key, label),
                 |v| Ok(v.as_state_value()),
             ),
         }

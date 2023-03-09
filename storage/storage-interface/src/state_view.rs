@@ -31,7 +31,11 @@ impl DbStateView {
 impl TStateView for DbStateView {
     type Key = StateKey;
 
-    fn get_state_value(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
+    fn get_state_value(
+        &self,
+        state_key: &StateKey,
+        _label: Option<&str>,
+    ) -> Result<Option<StateValue>> {
         self.get(state_key)
     }
 

@@ -1141,7 +1141,7 @@ impl AptosVM {
         // access path that the write set is going to update.
         for (state_key, _) in write_set.iter() {
             state_view
-                .get_state_value_bytes(state_key)
+                .get_state_value_bytes(state_key, Some("read_writeset"))
                 .map_err(|_| VMStatus::Error(StatusCode::STORAGE_ERROR))?;
         }
         Ok(())

@@ -52,7 +52,7 @@ where
     type Key = K;
 
     /// Gets the state value for a given state key.
-    fn get_state_value(&self, _: &K) -> anyhow::Result<Option<StateValue>> {
+    fn get_state_value(&self, _: &K, _label: Option<&str>) -> anyhow::Result<Option<StateValue>> {
         // When aggregator value has to be resolved from storage, pretend it is 100.
         Ok(Some(StateValue::new_legacy(serialize(
             &STORAGE_AGGREGATOR_VALUE,
@@ -84,7 +84,7 @@ where
     type Key = K;
 
     /// Gets the state value for a given state key.
-    fn get_state_value(&self, _: &K) -> anyhow::Result<Option<StateValue>> {
+    fn get_state_value(&self, _: &K, _label: Option<&str>) -> anyhow::Result<Option<StateValue>> {
         Ok(None)
     }
 
@@ -448,7 +448,7 @@ where
                 let mut reads_result = vec![];
                 for k in reads[read_idx].iter() {
                     // TODO: later test errors as well? (by fixing state_view behavior).
-                    reads_result.push(view.get_state_value_bytes(k).unwrap());
+                    reads_result.push(view.get_state_value_bytes(k, None).unwrap());
                 }
                 ExecutionStatus::Success(Output(
                     writes_and_deltas[write_idx].0.clone(),
