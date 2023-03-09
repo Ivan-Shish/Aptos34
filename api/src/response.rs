@@ -40,8 +40,8 @@ use serde_json::Value;
 use std::fmt::Display;
 
 /// An enum representing the different types of outputs for APIs
-#[derive(ResponseContent)]
-pub enum AptosResponseContent<T: ToJSON + Send + Sync> {
+#[derive(Clone, ResponseContent)]
+pub enum AptosResponseContent<T: Clone + ToJSON + Send + Sync> {
     /// When returning data as JSON, we take in T and then serialize to JSON as
     /// part of the response.
     Json(Json<T>),
@@ -275,8 +275,8 @@ macro_rules! generate_success_response {
         // Generate an enum with name `enum_name`. Iterate through each of the
         // response codes, generating a variant for each with the given name
         // and status code.
-        #[derive(poem_openapi::ApiResponse)]
-        pub enum $enum_name<T: poem_openapi::types::ToJSON + Send + Sync> {
+        #[derive(poem_openapi::ApiResponse, Clone)]
+        pub enum $enum_name<T: Clone + poem_openapi::types::ToJSON + Send + Sync> {
             $(
             #[oai(status = $status)]
             $name(
@@ -318,7 +318,7 @@ macro_rules! generate_success_response {
         // Each variant in the main enum takes in the same argument, so the macro
         // is really just helping us enumerate and build each variant. We use this
         // in the other From impls.
-        impl <T: poem_openapi::types::ToJSON + Send + Sync> From<($crate::response::AptosResponseContent<T>, &aptos_api_types::LedgerInfo, [<$enum_name Status>])>
+        impl <T: Clone + poem_openapi::types::ToJSON + Send + Sync> From<($crate::response::AptosResponseContent<T>, &aptos_api_types::LedgerInfo, [<$enum_name Status>])>
             for $enum_name<T>
         {
             fn from(
@@ -349,7 +349,7 @@ macro_rules! generate_success_response {
         }
 
         // Generate a From impl that builds a response from a Json<T> and friends.
-        impl<T: poem_openapi::types::ToJSON + Send + Sync> From<(poem_openapi::payload::Json<T>, &aptos_api_types::LedgerInfo, [<$enum_name Status>])>
+        impl<T: Clone + poem_openapi::types::ToJSON + Send + Sync> From<(poem_openapi::payload::Json<T>, &aptos_api_types::LedgerInfo, [<$enum_name Status>])>
             for $enum_name<T>
         {
             fn from(
@@ -361,7 +361,7 @@ macro_rules! generate_success_response {
         }
 
         // Generate a From impl that builds a response from a Bcs<Vec<u8>> and friends.
-        impl<T: poem_openapi::types::ToJSON + Send + Sync> From<($crate::bcs_payload::Bcs, &aptos_api_types::LedgerInfo, [<$enum_name Status>])>
+        impl<T: Clone + poem_openapi::types::ToJSON + Send + Sync> From<($crate::bcs_payload::Bcs, &aptos_api_types::LedgerInfo, [<$enum_name Status>])>
             for $enum_name<T>
         {
             fn from(
@@ -380,7 +380,7 @@ macro_rules! generate_success_response {
         // and all the other usual suspects. It expects to be called with a generic
         // parameter E: InternalError, with which we can build an internal error
         // response in case the BCS serialization fails.
-        impl<T: poem_openapi::types::ToJSON + Send + Sync + serde::Serialize> $enum_name<T> {
+        impl<T: Clone + poem_openapi::types::ToJSON + Send + Sync + serde::Serialize> $enum_name<T> {
             pub fn try_from_rust_value<E: $crate::response::InternalError>(
                 (value, ledger_info, status, accept_type): (
                     T,

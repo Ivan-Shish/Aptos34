@@ -396,14 +396,14 @@ impl VerifyInput for SubmitTransactionRequest {
 /// Batch transaction submission result
 ///
 /// Tells which transactions failed
-#[derive(Debug, Serialize, Deserialize, Object)]
+#[derive(Clone, Debug, Serialize, Deserialize, Object)]
 pub struct TransactionsBatchSubmissionResult {
     /// Summary of the failed transactions
     pub transaction_failures: Vec<TransactionsBatchSingleSubmissionFailure>,
 }
 
 /// Information telling which batch submission transactions failed
-#[derive(Debug, Serialize, Deserialize, Object)]
+#[derive(Clone, Debug, Serialize, Deserialize, Object)]
 pub struct TransactionsBatchSingleSubmissionFailure {
     pub error: AptosError,
     /// The index of which transaction failed, same as submission order

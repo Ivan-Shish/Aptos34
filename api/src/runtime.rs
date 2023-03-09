@@ -4,9 +4,9 @@
 
 use crate::{
     accounts::AccountsApi, basic::BasicApi, blocks::BlocksApi, check_size::PostSizeLimit,
-    context::Context, error_converter::convert_error, events::EventsApi, index::IndexApi,
-    log::middleware_log, set_failpoints, state::StateApi, transactions::TransactionsApi,
-    view_function::ViewFunctionApi,
+    context::Context, db_with_cache::DatabaseWithCache, error_converter::convert_error,
+    events::EventsApi, index::IndexApi, log::middleware_log, set_failpoints, state::StateApi,
+    transactions::TransactionsApi, view_function::ViewFunctionApi,
 };
 use anyhow::Context as AnyhowContext;
 use aptos_config::config::NodeConfig;
@@ -14,6 +14,7 @@ use aptos_logger::info;
 use aptos_mempool::MempoolClientSender;
 use aptos_storage_interface::DbReader;
 use aptos_types::chain_id::ChainId;
+use arc_swap::ArcSwap;
 use poem::{
     http::{header, Method},
     listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
@@ -33,7 +34,13 @@ pub fn bootstrap(
     db: Arc<dyn DbReader>,
     mp_sender: MempoolClientSender,
 ) -> anyhow::Result<Runtime> {
-    let runtime = aptos_runtimes::spawn_named_runtime("api".into(), None);
+    let runtime = aptos_runtimes::spawn_named_runtime("api".into(), config.api.num_workers);
+
+    let db = if config.api.enable_cache {
+        Arc::new(DatabaseWithCache::new(db))
+    } else {
+        db
+    };
 
     let context = Context::new(chain_id, db, mp_sender, config.clone());
 
@@ -81,6 +88,8 @@ pub fn get_api_service(
         },
         IndexApi {
             context: context.clone(),
+            index_response_bcs: Arc::new(ArcSwap::default()),
+            index_response_json: Arc::new(ArcSwap::default()),
         },
         StateApi {
             context: context.clone(),

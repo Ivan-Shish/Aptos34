@@ -11,6 +11,7 @@ mod bcs_payload;
 mod blocks;
 mod check_size;
 pub mod context;
+mod db_with_cache;
 mod error_converter;
 mod events;
 mod failpoint;
