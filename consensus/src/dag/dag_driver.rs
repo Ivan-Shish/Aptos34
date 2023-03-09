@@ -1,47 +1,48 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
+use crate::dag::dag::Dag;
+use crate::state_replication::PayloadClient;
 use crate::{
     network::{DagSender, NetworkSender},
     round_manager::VerifiedEvent,
 };
 use aptos_channels::aptos_channel;
-use aptos_consensus_types::common::Round;
-use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, Node, NodeMetaData};
+use aptos_consensus_types::common::{PayloadFilter, Round};
+use aptos_consensus_types::node::{
+    CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, Node, NodeMetaData,
+};
 use aptos_types::PeerId;
 use futures::StreamExt;
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::{sync::mpsc::Receiver, time};
 use tokio::sync::mpsc::Sender;
-use crate::dag::dag::Dag;
+use tokio::{sync::mpsc::Receiver, time};
 
 #[allow(dead_code)]
 pub(crate) enum DagDriverCommand {}
 
-// TODO: Create new a node once round is ready and pass to RB and push the round to Bullshark. Pull/get proofs from QS.
-// TODO: weak links and GC.
-// TODO: Timeouts and anchor election! Arc<something> and call it when needed.
 
 #[allow(dead_code)]
 pub struct DagDriver {
-    my_id: PeerId,
+    epoch: u64,
     round: Round,
+    my_id: PeerId,
+    payload_client: Arc<dyn PayloadClient>,
     timeout: bool,
     network_sender: NetworkSender,
     // TODO: Should we clean more often than once an epoch?
     dag: Dag,
-
+    max_node_txns: u64,
+    max_node_bytes: u64,
 }
 
 #[allow(dead_code)]
 impl DagDriver {
     async fn remote_fetch_missing_nodes(&self) {
         for (node_meta_data, nodes_to_request) in self.dag.missing_nodes_metadata() {
-            let request = CertifiedNodeRequest::new(
-                node_meta_data,
-                self.my_id,
-            );
+            let request = CertifiedNodeRequest::new(node_meta_data, self.my_id);
             self.network_sender
                 .send_certified_node_request(request, nodes_to_request)
                 .await;
@@ -60,23 +61,37 @@ impl DagDriver {
         }
     }
 
-    fn create_node(&self, parents: HashSet<NodeMetaData>) -> Node {
-        // TODO:  ask QS for proofs and prepare block
-        todo!()
+    async fn create_node(&self, parents: HashSet<NodeMetaData>) -> Node {
+
+        let excluded_payload = Vec::new(); // TODO
+        let payload_filter = PayloadFilter::from(&excluded_payload);
+        let payload = self
+            .payload_client
+            .pull_payload_for_dag(
+                self.round,
+                self.max_node_txns,
+                self.max_node_bytes,
+                payload_filter,
+            )
+            .await
+            .expect("DAG: fail to retrieve payload");
+        Node::new(self.epoch, self.round, self.my_id, payload, parents)
     }
 
-    fn try_advance_round(&mut self) -> Option<Node> {
-        self.dag.try_advance_round(self.timeout).map(|parents| self.create_node(parents))
+    async fn try_advance_round(&mut self) -> Option<Node> {
+        if let Some(parents) = self.dag
+            .try_advance_round(self.timeout) {
+            Some(self.create_node(parents).await)
+        } else {
+            None
+        }
     }
 
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
 
-        // TODO: implement the timeout logic and creating new node logic
-
         let digest = certified_node.digest();
         let source = certified_node.source();
         self.dag.try_add_node(certified_node).await;
-
 
         if ack_required {
             let ack = CertifiedNodeAck::new(digest, self.my_id);
@@ -107,8 +122,8 @@ impl DagDriver {
                 _ = interval_timeout.tick() => {
                     if self.timeout == false {
                         self.timeout = true;
-                        if let Some(node) = self.try_advance_round() {
-                            rb_command_tx.send(node).await.expect("reliable broadcast receiver dropped");
+                        if let Some(node) = self.try_advance_round().await {
+                            rb_command_tx.send(node).await.expect("dag: reliable broadcast receiver dropped");
                             self.timeout = false;
                             interval_timeout.reset();
                         }
@@ -130,8 +145,8 @@ impl DagDriver {
                         VerifiedEvent::CertifiedNodeMsg(certified_node, ack_required) => {
 
                             self.handle_certified_node(*certified_node, ack_required).await;
-                            if let Some(node) = self.try_advance_round() {
-                                rb_command_tx.send(node).await.expect("reliable broadcast receiver dropped");
+                            if let Some(node) = self.try_advance_round().await {
+                                rb_command_tx.send(node).await.expect("dag: reliable broadcast receiver dropped");
                                 self.timeout = false;
                                 interval_timeout.reset();
                             }

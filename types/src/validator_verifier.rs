@@ -28,9 +28,9 @@ pub enum VerifyError {
     /// The author for this signature is unknown by this validator.
     UnknownAuthor,
     #[error(
-    "The voting power ({}) is less than expected voting power ({})",
-    voting_power,
-    expected_voting_power
+        "The voting power ({}) is less than expected voting power ({})",
+        voting_power,
+        expected_voting_power
     )]
     TooLittleVotingPower {
         voting_power: u128,
@@ -106,8 +106,8 @@ pub struct ValidatorVerifier {
 /// Reconstruct fields from the raw data upon deserialization.
 impl<'de> Deserialize<'de> for ValidatorVerifier {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         #[derive(Deserialize)]
         #[serde(rename = "ValidatorVerifier")]
@@ -151,9 +151,17 @@ impl ValidatorVerifier {
         let (minority_quorum_voting_power, quorum_voting_power) = if validator_infos.is_empty() {
             (0, 0)
         } else {
-            (total_voting_power * 1 / 3 + 1, total_voting_power * 2 / 3 + 1)
+            (
+                total_voting_power * 1 / 3 + 1,
+                total_voting_power * 2 / 3 + 1,
+            )
         };
-        Self::build_index(validator_infos, minority_quorum_voting_power, quorum_voting_power, total_voting_power)
+        Self::build_index(
+            validator_infos,
+            minority_quorum_voting_power,
+            quorum_voting_power,
+            total_voting_power,
+        )
     }
 
     /// Initializes a validator verifier with a specified quorum voting power.
@@ -251,14 +259,14 @@ impl ValidatorVerifier {
         // Verify the quorum voting power of the authors
         self.check_voting_power(authors.iter())?;
         #[cfg(any(test, feature = "fuzzing"))]
-            {
-                if self.quorum_voting_power == 0 {
-                    // This should happen only in case of tests.
-                    // TODO(skedia): Clean up the test behaviors to not rely on empty signature
-                    // verification
-                    return Ok(());
-                }
+        {
+            if self.quorum_voting_power == 0 {
+                // This should happen only in case of tests.
+                // TODO(skedia): Clean up the test behaviors to not rely on empty signature
+                // verification
+                return Ok(());
             }
+        }
         // Verify empty multi signature
         let multi_sig = multi_signature
             .sig()
@@ -326,14 +334,14 @@ impl ValidatorVerifier {
     /// invalid public keys are not allowed.
     pub fn check_voting_power<'a>(
         &self,
-        authors: impl Iterator<Item=&'a AccountAddress>,
+        authors: impl Iterator<Item = &'a AccountAddress>,
     ) -> std::result::Result<(), VerifyError> {
         self.check_power(self.quorum_voting_power, authors)
     }
 
     pub fn check_minority_voting_power<'a>(
         &self,
-        authors: impl Iterator<Item=&'a AccountAddress>,
+        authors: impl Iterator<Item = &'a AccountAddress>,
     ) -> std::result::Result<(), VerifyError> {
         self.check_power(self.minority_quorum_voting_power, authors)
     }
@@ -341,7 +349,7 @@ impl ValidatorVerifier {
     fn check_power<'a>(
         &self,
         target: u128,
-        authors: impl Iterator<Item=&'a AccountAddress>,
+        authors: impl Iterator<Item = &'a AccountAddress>,
     ) -> std::result::Result<(), VerifyError> {
         // Add voting power for valid accounts, exiting early for unknown authors
         let mut aggregated_voting_power = 0;
@@ -376,7 +384,7 @@ impl ValidatorVerifier {
     }
 
     /// Returns an ordered list of account addresses as an `Iterator`.
-    pub fn get_ordered_account_addresses_iter(&self) -> impl Iterator<Item=AccountAddress> + '_ {
+    pub fn get_ordered_account_addresses_iter(&self) -> impl Iterator<Item = AccountAddress> + '_ {
         self.validator_infos.iter().map(|info| info.address)
     }
 
@@ -488,7 +496,7 @@ pub fn generate_validator_verifier(validators: &[ValidatorSigner]) -> ValidatorV
         0,
         validators.len() as u128 / 2,
     )
-        .expect("Incorrect quorum size.")
+    .expect("Incorrect quorum size.")
 }
 
 /// Helper function to get random validator signers and a corresponding validator verifier for
@@ -523,7 +531,7 @@ pub fn random_validator_verifier(
                 0,
                 custom_voting_power_quorum,
             )
-                .expect("Unable to create testing validator verifier"),
+            .expect("Unable to create testing validator verifier"),
             None => ValidatorVerifier::new(validator_infos),
         },
     )

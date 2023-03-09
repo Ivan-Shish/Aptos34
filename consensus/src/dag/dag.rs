@@ -1,16 +1,16 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::liveness::proposer_election::ProposerElection;
+use crate::liveness::unequivocal_proposer_election::UnequivocalProposerElection;
 use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeRequest, NodeMetaData};
 use aptos_crypto::HashValue;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::{block_info::Round, PeerId};
+use async_recursion::async_recursion;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
-use crate::liveness::unequivocal_proposer_election::UnequivocalProposerElection;
-use async_recursion::async_recursion;
-use crate::liveness::proposer_election::ProposerElection;
 
 #[allow(dead_code)]
 enum PeerStatus {
@@ -112,9 +112,7 @@ struct AbsentInfo {
 
 #[allow(dead_code)]
 impl AbsentInfo {
-    pub fn new(
-        metadata: NodeMetaData,
-    ) -> Self {
+    pub fn new(metadata: NodeMetaData) -> Self {
         Self {
             metadata,
             peers_to_request: HashSet::new(),
@@ -221,23 +219,33 @@ enum MissingDagNodeStatus {
 
 #[allow(dead_code)]
 impl MissingDagNodeStatus {
-    pub fn update_to_pending(&mut self, certified_node: CertifiedNode, missing_parents: HashSet<NodeMetaData>) {
+    pub fn update_to_pending(
+        &mut self,
+        certified_node: CertifiedNode,
+        missing_parents: HashSet<NodeMetaData>,
+    ) {
         match self {
             MissingDagNodeStatus::Absent(absent_info) => {
                 let dependencies = absent_info.immediate_dependencies().clone(); // can trade this clone with mem::replace.
-                let missing_parents_digest = missing_parents.iter().map(|metadata| metadata.digest()).collect();
-                let pending_info = PendingInfo::new(certified_node, missing_parents_digest, dependencies);
+                let missing_parents_digest = missing_parents
+                    .iter()
+                    .map(|metadata| metadata.digest())
+                    .collect();
+                let pending_info =
+                    PendingInfo::new(certified_node, missing_parents_digest, dependencies);
                 *self = MissingDagNodeStatus::Pending(pending_info);
                 // std::mem::replace(self, MissingDagNodeStatus::Pending(pending_info));
-            }
-            MissingDagNodeStatus::Pending(_) => {}
+            },
+            MissingDagNodeStatus::Pending(_) => {},
         }
     }
 
     pub fn peers_to_request(&self) -> HashSet<PeerId> {
         match self {
             MissingDagNodeStatus::Absent(info) => info.peers_to_request().clone(),
-            MissingDagNodeStatus::Pending(_) => unreachable!("dag: should not call peers_to_request when node is pending"),
+            MissingDagNodeStatus::Pending(_) => {
+                unreachable!("dag: should not call peers_to_request when node is pending")
+            },
         }
     }
 
@@ -264,7 +272,9 @@ impl MissingDagNodeStatus {
 
     pub fn take_node_and_dependencies(self) -> (CertifiedNode, HashSet<HashValue>) {
         match self {
-            MissingDagNodeStatus::Absent(_) => unreachable!("dag: should not call take_node_and_dependencies when node is absent"),
+            MissingDagNodeStatus::Absent(_) => {
+                unreachable!("dag: should not call take_node_and_dependencies when node is absent")
+            },
             MissingDagNodeStatus::Pending(info) => info.take(),
         }
     }
@@ -276,10 +286,11 @@ impl MissingDagNodeStatus {
         }
     }
 
-
     pub fn remove_missing_parent(&mut self, digets: HashValue) {
         match self {
-            MissingDagNodeStatus::Absent(_) => unreachable!("dag: node is absent, no missing parents"),
+            MissingDagNodeStatus::Absent(_) => {
+                unreachable!("dag: node is absent, no missing parents")
+            },
             MissingDagNodeStatus::Pending(info) => info.remove_missing_parent(digets),
         }
     }
@@ -301,7 +312,7 @@ impl MissingDagNodeStatus {
     pub fn add_peer_to_request(&mut self, peer_id: PeerId) {
         match self {
             MissingDagNodeStatus::Absent(info) => info.add_peer(peer_id),
-            MissingDagNodeStatus::Pending(_) => {}
+            MissingDagNodeStatus::Pending(_) => {},
         }
     }
 }
@@ -339,20 +350,19 @@ impl Dag {
     fn get_node_metadata_from_dag(&self, round: Round, source: PeerId) -> Option<NodeMetaData> {
         self.dag
             .get(round as usize)
-            .map(|m| {
-                m.get(&source)
-                    .map(|m| m.metadata().clone())
-            })
+            .map(|m| m.get(&source).map(|m| m.metadata().clone()))
             .map(|o| o.unwrap())
     }
 
     pub fn get_node(&self, node_request: &CertifiedNodeRequest) -> Option<CertifiedNode> {
-        let maybe_from_dag = self.dag
+        let maybe_from_dag = self
+            .dag
             .get(node_request.round() as usize)
             .map(|m| m.get(&node_request.source()).cloned())
             .unwrap_or_default();
 
-        let maybe_from_pending = self.missing_nodes
+        let maybe_from_pending = self
+            .missing_nodes
             .get(&node_request.digest())
             .map(|status| status.get_certified_node())
             .unwrap_or_default();
@@ -366,7 +376,7 @@ impl Dag {
             Some(status) => match status {
                 MissingDagNodeStatus::Absent(_) => false,
                 MissingDagNodeStatus::Pending(_) => true,
-            }
+            },
         }
     }
 
@@ -374,20 +384,25 @@ impl Dag {
         self.missing_nodes
             .iter()
             .filter(|(_, status)| status.absent())
-            .map(|(_, status)| (status.metadata(), status.peers_to_request().into_iter().collect()))
+            .map(|(_, status)| {
+                (
+                    status.metadata(),
+                    status.peers_to_request().into_iter().collect(),
+                )
+            })
             .collect()
     }
 
-
     fn current_round_nodes_metadata(&self) -> HashSet<NodeMetaData> {
-        self.dag.get(self.current_round as usize)
+        self.dag
+            .get(self.current_round as usize)
             .unwrap()
             .iter()
             .map(|(_, certified_node)| certified_node.node().metadata().clone())
             .collect()
     }
 
-    fn current_round_peers(&self) -> impl Iterator<Item=&PeerId> {
+    fn current_round_peers(&self) -> impl Iterator<Item = &PeerId> {
         self.dag
             .get(self.current_round as usize)
             .unwrap()
@@ -403,11 +418,15 @@ impl Dag {
             self.dag.push(HashMap::new());
         }
         self.dag[round].insert(*certified_node.node().source(), certified_node.clone());
-        self.front.update_peer_latest_node(certified_node.node().metadata().clone());
+        self.front
+            .update_peer_latest_node(certified_node.node().metadata().clone());
 
         // TODO persist!
 
-        self.bullshark_tx.send(certified_node).await.expect("Bullshark receiver not available"); // TODO: send to all subscribed application and make sure shotdown logic is safe with the expect.
+        self.bullshark_tx
+            .send(certified_node)
+            .await
+            .expect("Bullshark receiver not available"); // TODO: send to all subscribed application and make sure shotdown logic is safe with the expect.
     }
 
     #[async_recursion]
@@ -429,14 +448,16 @@ impl Dag {
             let mut maybe_status = None;
             match self.missing_nodes.entry(digest) {
                 Entry::Occupied(mut entry) => {
-                    entry.get_mut().remove_missing_parent(recently_added_node_digest);
+                    entry
+                        .get_mut()
+                        .remove_missing_parent(recently_added_node_digest);
 
                     // TODO: make this a method and call from try_add_node_and_advance_round if getting a missing node.
                     if entry.get_mut().ready_to_be_added() {
                         maybe_status = Some(entry.remove());
                         // self.add_to_dag_and_update_pending(entry.remove());
                     }
-                }
+                },
                 Entry::Vacant(_) => unreachable!("pending node is missing"),
             }
             if let Some(status) = maybe_status {
@@ -456,12 +477,11 @@ impl Dag {
                 Entry::Occupied(mut entry) => {
                     entry.get_mut().add_peer_to_request(source);
                     self.add_peers_recursively(parent_digest, source);
-                }
+                },
                 Entry::Vacant(_) => unreachable!("node should exist in missing nodes"),
             };
         }
     }
-
 
     fn add_to_pending(
         &mut self,
@@ -470,19 +490,25 @@ impl Dag {
     ) {
         let pending_peer_id = *certified_node.node().source();
         let pending_digest = certified_node.node().digest();
-        let missing_parents_digest = missing_parents.iter().map(|metadata| metadata.digest()).collect();
+        let missing_parents_digest = missing_parents
+            .iter()
+            .map(|metadata| metadata.digest())
+            .collect();
 
         let pending_info = PendingInfo::new(certified_node, missing_parents_digest, HashSet::new());
-        self.missing_nodes.insert(pending_digest, MissingDagNodeStatus::Pending(pending_info));
+        self.missing_nodes
+            .insert(pending_digest, MissingDagNodeStatus::Pending(pending_info));
 
         // TODO: Persist
 
         for node_meta_data in missing_parents {
             let digest = node_meta_data.digest();
-            let status =
-                self.missing_nodes
-                    .entry(digest)
-                    .or_insert(MissingDagNodeStatus::Absent(AbsentInfo::new(node_meta_data)));
+            let status = self
+                .missing_nodes
+                .entry(digest)
+                .or_insert(MissingDagNodeStatus::Absent(AbsentInfo::new(
+                    node_meta_data,
+                )));
 
             status.add_dependency(pending_digest);
             status.add_peer_to_request(pending_peer_id);
@@ -492,7 +518,11 @@ impl Dag {
     }
 
     fn round_ready(&self, timeout: bool) -> bool {
-        if self.verifier.check_voting_power(self.current_round_peers()).is_err() {
+        if self
+            .verifier
+            .check_voting_power(self.current_round_peers())
+            .is_err()
+        {
             return false;
         }
         if timeout {
@@ -501,7 +531,8 @@ impl Dag {
 
         let wave = self.current_round / 2;
         let anchor = self.proposer_election.get_valid_proposer(wave);
-        let maybe_anchor_node_meta_data = self.get_node_metadata_from_dag(self.current_round, anchor);
+        let maybe_anchor_node_meta_data =
+            self.get_node_metadata_from_dag(self.current_round, anchor);
 
         return if self.current_round % 2 == 0 {
             maybe_anchor_node_meta_data.is_some()
@@ -512,10 +543,17 @@ impl Dag {
                     .get(self.current_round as usize)
                     .unwrap()
                     .iter()
-                    .filter(|(_, certified_node)| certified_node.node().parents().contains(&anchor_node_meta_data))
+                    .filter(|(_, certified_node)| {
+                        certified_node
+                            .node()
+                            .parents()
+                            .contains(&anchor_node_meta_data)
+                    })
                     .map(|(_, certified_node)| certified_node.node().source());
 
-                self.verifier.check_minority_voting_power(voting_peers).is_ok()
+                self.verifier
+                    .check_minority_voting_power(voting_peers)
+                    .is_ok()
             } else {
                 false
             }
@@ -528,18 +566,20 @@ impl Dag {
         }
 
         let parents = self.current_round_nodes_metadata();
-        let strong_links_peers = parents.iter()
-            .map(|m| m.source().clone())
-            .collect();
-        self.front.update_with_strong_links(self.current_round, strong_links_peers);
+        let strong_links_peers = parents.iter().map(|m| m.source().clone()).collect();
+        self.front
+            .update_with_strong_links(self.current_round, strong_links_peers);
         self.current_round += 1;
         if self.dag.get(self.current_round as usize).is_none() {
             self.dag.insert(self.current_round as usize, HashMap::new());
         }
 
-        return Some(parents.union(&self.front.get_weak_links(self.current_round))
-            .cloned()
-            .collect());
+        return Some(
+            parents
+                .union(&self.front.get_weak_links(self.current_round))
+                .cloned()
+                .collect(),
+        );
     }
 
     pub async fn try_add_node(&mut self, certified_node: CertifiedNode) {
@@ -564,15 +604,17 @@ impl Dag {
                 } else {
                     self.add_to_pending(certified_node, missing_parents); // TODO: should persist inside
                 }
-            }
+            },
 
             // Node is absent
             Entry::Occupied(mut entry) => {
-                entry.get_mut().update_to_pending(certified_node, missing_parents);
+                entry
+                    .get_mut()
+                    .update_to_pending(certified_node, missing_parents);
                 if entry.get_mut().ready_to_be_added() {
                     maybe_node_status = Some(entry.remove());
                 }
-            }
+            },
         }
 
         if let Some(node_status) = maybe_node_status {
