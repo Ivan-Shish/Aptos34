@@ -10,7 +10,7 @@ use aptos_executor_types::ExecutedChunk;
 use aptos_logger::{sample, sample::SampleRate, warn};
 use aptos_metrics_core::{exponential_buckets, register_histogram, Histogram};
 use aptos_storage_interface::{
-    cached_state_view::{CachedStateView, StateCache},
+    cached_state_view::{prime_cache_by_state_key, CachedStateView, StateCache},
     ExecutedTrees,
 };
 use aptos_types::{
@@ -23,7 +23,7 @@ use aptos_vm::{AptosVM, VMExecutor};
 use fail::fail_point;
 use move_core_types::move_resource::MoveResource;
 use once_cell::sync::Lazy;
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 pub static UPDATE_COUNTERS_SECONDS: Lazy<Histogram> = Lazy::new(|| {
     register_histogram!(
@@ -53,16 +53,17 @@ impl ChunkOutput {
         state_view: CachedStateView,
     ) -> Result<Self> {
         let mut senders = HashSet::new();
-        let mut sender_state_keys = vec![];
+        let mut state_keys = vec![];
+        let state_view_arc = Arc::new(state_view);
         transactions.iter().for_each(|t| {
             if let Transaction::UserTransaction(txn) = t {
                 let sender = txn.sender();
                 if !senders.contains(&sender) {
-                    sender_state_keys.push(StateKey::access_path(AccessPath::new(
+                    state_keys.push(StateKey::access_path(AccessPath::new(
                         sender,
                         AccountResource::resource_path(),
                     )));
-                    sender_state_keys.push(StateKey::access_path(AccessPath::new(
+                    state_keys.push(StateKey::access_path(AccessPath::new(
                         sender,
                         CoinStoreResource::resource_path(),
                     )));
@@ -71,12 +72,15 @@ impl ChunkOutput {
             }
         });
 
-        state_view.prime_cache_by_state_key(sender_state_keys)?;
+        let cache_wait_rx = prime_cache_by_state_key(state_view_arc.clone(), state_keys);
 
-        let transaction_outputs = Self::execute_block::<V>(transactions.clone(), &state_view)?;
+        let transaction_outputs =
+            Self::execute_block::<V>(transactions.clone(), state_view_arc.as_ref())?;
 
         // to print txn output for debugging, uncomment:
         // println!("{:?}", transaction_outputs.iter().map(|t| t.status() ).collect::<Vec<_>>());
+
+        cache_wait_rx.recv().expect("await should succeed");
 
         let timer = UPDATE_COUNTERS_SECONDS.start_timer();
         update_counters_for_processed_chunk(&transactions, &transaction_outputs, "executed");
@@ -85,7 +89,7 @@ impl ChunkOutput {
         Ok(Self {
             transactions,
             transaction_outputs,
-            state_cache: state_view.into_state_cache(),
+            state_cache: Arc::try_unwrap(state_view_arc).unwrap().into_state_cache(),
         })
     }
 

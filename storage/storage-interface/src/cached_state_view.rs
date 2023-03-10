@@ -26,7 +26,11 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    fmt,
+    sync::{
+        mpsc::{channel, Receiver},
+        Arc,
+    },
 };
 
 static IO_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
@@ -141,21 +145,6 @@ impl CachedStateView {
         Ok(())
     }
 
-    pub fn prime_cache_by_state_key<T: IntoIterator<Item = StateKey> + Send>(
-        &self,
-        state_keys: T,
-    ) -> Result<()> {
-        IO_POOL.scope(|s| {
-            state_keys.into_iter().for_each(|key| {
-                s.spawn(move |_| {
-                    self.get_state_value(&key, Some("prime_cache_by_state_key"))
-                        .expect("Must succeed.");
-                })
-            });
-        });
-        Ok(())
-    }
-
     pub fn into_state_cache(self) -> StateCache {
         StateCache {
             frozen_base: self.speculative_state,
@@ -202,6 +191,37 @@ impl CachedStateView {
 
         Ok(state_value_option)
     }
+}
+
+impl fmt::Debug for CachedStateView {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CachedStateView")
+            .field("id", &self.id)
+            .finish()
+    }
+}
+
+pub fn prime_cache_by_state_key(
+    cached_state_view: Arc<CachedStateView>,
+    state_keys: Vec<StateKey>,
+) -> Receiver<()> {
+    let (tx, rx) = channel();
+    IO_POOL.spawn(move || {
+        IO_POOL.scope(|s| {
+            for state_key in state_keys {
+                let state_view = cached_state_view.clone();
+                s.spawn(move |_| {
+                    state_view
+                        .get_state_value(&state_key, Some("prime_cache_by_state_key"))
+                        .expect("Must succeed.");
+                });
+            }
+        });
+
+        tx.send(())
+            .expect("Sending one shot channel message should succeed");
+    });
+    rx
 }
 
 pub struct StateCache {
