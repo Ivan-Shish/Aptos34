@@ -1,15 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::liveness::proposer_election::ProposerElection;
-use crate::liveness::unequivocal_proposer_election::UnequivocalProposerElection;
+use crate::dag::anchor_election::{AnchorElection, RoundRobinAnchorElection};
 use aptos_consensus_types::node::{CertifiedNode, CertifiedNodeRequest, NodeMetaData};
 use aptos_crypto::HashValue;
 use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::{block_info::Round, PeerId};
 use async_recursion::async_recursion;
 use std::collections::{hash_map::Entry, HashMap, HashSet};
-use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 #[allow(dead_code)]
@@ -317,7 +315,6 @@ impl MissingDagNodeStatus {
     }
 }
 
-// TODO: initiate with genesys nodes
 // TODO: persist all every update
 #[allow(dead_code)]
 pub(crate) struct Dag {
@@ -329,13 +326,33 @@ pub(crate) struct Dag {
     // TODO: add genesys nodes.
     missing_nodes: HashMap<HashValue, MissingDagNodeStatus>,
     // Arc to something that returns the anchors
-    proposer_election: Arc<UnequivocalProposerElection>,
+    proposer_election: Box<dyn AnchorElection>,
     bullshark_tx: Sender<CertifiedNode>,
     verifier: ValidatorVerifier,
 }
 
 #[allow(dead_code)]
 impl Dag {
+    pub fn new(
+        epoch: u64,
+        bullshark_tx: Sender<CertifiedNode>,
+        verifier: ValidatorVerifier,
+    ) -> Self {
+        let mut dag = Vec::new();
+        dag.push(HashMap::new());
+
+        Self {
+            epoch,
+            current_round: 0,
+            front: WeakLinksCreator::new(&verifier),
+            dag,
+            missing_nodes: HashMap::new(),
+            proposer_election: Box::new(RoundRobinAnchorElection::new(&verifier)),
+            bullshark_tx,
+            verifier,
+        }
+    }
+
     fn contains(&self, metadata: &NodeMetaData) -> bool {
         self.in_dag(metadata.round(), *metadata.source()) || self.pending(metadata.digest())
     }
@@ -426,7 +443,7 @@ impl Dag {
         self.bullshark_tx
             .send(certified_node)
             .await
-            .expect("Bullshark receiver not available"); // TODO: send to all subscribed application and make sure shotdown logic is safe with the expect.
+            .expect("Bullshark receiver not available"); // TODO: send to all subscribed application and make sure shutdown logic is safe with the expect.
     }
 
     #[async_recursion]
@@ -530,7 +547,7 @@ impl Dag {
         }
 
         let wave = self.current_round / 2;
-        let anchor = self.proposer_election.get_valid_proposer(wave);
+        let anchor = self.proposer_election.get_next_anchor(wave);
         let maybe_anchor_node_meta_data =
             self.get_node_metadata_from_dag(self.current_round, anchor);
 

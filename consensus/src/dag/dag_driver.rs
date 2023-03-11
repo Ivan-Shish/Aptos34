@@ -1,48 +1,92 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::dag::bullshark::Bullshark;
 use crate::dag::dag::Dag;
+use crate::dag::reliable_broadcast::{ReliableBroadcast, ReliableBroadcastCommand};
 use crate::state_replication::PayloadClient;
 use crate::{
     network::{DagSender, NetworkSender},
     round_manager::VerifiedEvent,
 };
 use aptos_channels::aptos_channel;
-use aptos_consensus_types::common::{PayloadFilter, Round};
+use aptos_config::config::DagConfig;
+use aptos_consensus_types::common::{Author, PayloadFilter, Round};
 use aptos_consensus_types::node::{
     CertifiedNode, CertifiedNodeAck, CertifiedNodeRequest, Node, NodeMetaData,
 };
+use aptos_logger::spawn_named;
+use aptos_types::validator_signer::ValidatorSigner;
+use aptos_types::validator_verifier::ValidatorVerifier;
 use aptos_types::PeerId;
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc::Sender;
-use tokio::{sync::mpsc::Receiver, time};
-
-#[allow(dead_code)]
-pub(crate) enum DagDriverCommand {}
-
+use tokio::{sync::mpsc::Sender, time};
 
 #[allow(dead_code)]
 pub struct DagDriver {
     epoch: u64,
     round: Round,
-    my_id: PeerId,
+    author: Author,
+    config: DagConfig,
     payload_client: Arc<dyn PayloadClient>,
     timeout: bool,
     network_sender: NetworkSender,
     // TODO: Should we clean more often than once an epoch?
     dag: Dag,
-    max_node_txns: u64,
-    max_node_bytes: u64,
+    rb_tx: Sender<ReliableBroadcastCommand>,
 }
 
 #[allow(dead_code)]
 impl DagDriver {
+    pub fn new(
+        epoch: u64,
+        author: Author,
+        config: DagConfig,
+        payload_client: Arc<dyn PayloadClient>,
+        network_sender: NetworkSender,
+        verifier: ValidatorVerifier,
+        validator_signer: Arc<ValidatorSigner>,
+        rb_network_msg_rx: aptos_channel::Receiver<PeerId, VerifiedEvent>,
+        _self_network_msg_rx: aptos_channel::Receiver<PeerId, VerifiedEvent>,
+    ) -> Self {
+        // TODO: should basically replace round manager. Spawns Bullshark and RB and pass channels around
+
+        let (dag_bullshark_tx, dag_bullshark_rx) = tokio::sync::mpsc::channel(config.channel_size);
+        let (rb_tx, rb_rx) = tokio::sync::mpsc::channel(config.channel_size);
+
+        // TODO: Start dummy Bullshark. Then spawn from epoch_manager.rs
+
+        let rb = ReliableBroadcast::new(
+            author,
+            network_sender.clone(),
+            verifier.clone(),
+            validator_signer,
+        );
+
+        let bullshark = Bullshark::new();
+
+        spawn_named!("reliable_broadcast", rb.start(rb_network_msg_rx, rb_rx)).unwrap();
+        spawn_named!("bullshark", bullshark.start(dag_bullshark_rx)).unwrap();
+
+        Self {
+            epoch,
+            round: 0,
+            author,
+            config,
+            payload_client,
+            timeout: false,
+            network_sender,
+            dag: Dag::new(epoch, dag_bullshark_tx, verifier.clone()),
+            rb_tx,
+        }
+    }
+
     async fn remote_fetch_missing_nodes(&self) {
         for (node_meta_data, nodes_to_request) in self.dag.missing_nodes_metadata() {
-            let request = CertifiedNodeRequest::new(node_meta_data, self.my_id);
+            let request = CertifiedNodeRequest::new(node_meta_data, self.author);
             self.network_sender
                 .send_certified_node_request(request, nodes_to_request)
                 .await;
@@ -61,26 +105,25 @@ impl DagDriver {
         }
     }
 
-    async fn create_node(&self, parents: HashSet<NodeMetaData>) -> Node {
-
+    async fn create_node(&mut self, parents: HashSet<NodeMetaData>) -> Node {
         let excluded_payload = Vec::new(); // TODO
         let payload_filter = PayloadFilter::from(&excluded_payload);
         let payload = self
             .payload_client
             .pull_payload_for_dag(
                 self.round,
-                self.max_node_txns,
-                self.max_node_bytes,
+                self.config.max_node_txns,
+                self.config.max_node_bytes,
                 payload_filter,
             )
             .await
             .expect("DAG: fail to retrieve payload");
-        Node::new(self.epoch, self.round, self.my_id, payload, parents)
+        Node::new(self.epoch, self.round, self.author, payload, parents)
     }
 
     async fn try_advance_round(&mut self) -> Option<Node> {
-        if let Some(parents) = self.dag
-            .try_advance_round(self.timeout) {
+        if let Some(parents) = self.dag.try_advance_round(self.timeout) {
+            self.round += 1;
             Some(self.create_node(parents).await)
         } else {
             None
@@ -88,13 +131,12 @@ impl DagDriver {
     }
 
     async fn handle_certified_node(&mut self, certified_node: CertifiedNode, ack_required: bool) {
-
         let digest = certified_node.digest();
         let source = certified_node.source();
         self.dag.try_add_node(certified_node).await;
 
         if ack_required {
-            let ack = CertifiedNodeAck::new(digest, self.my_id);
+            let ack = CertifiedNodeAck::new(digest, self.author);
             self.network_sender
                 .send_certified_node_ack(ack, vec![source])
                 .await
@@ -105,9 +147,13 @@ impl DagDriver {
     pub(crate) async fn start(
         &mut self,
         mut network_msg_rx: aptos_channel::Receiver<PeerId, VerifiedEvent>,
-        mut command_rx: Receiver<DagDriverCommand>,
-        rb_command_tx: Sender<Node>,
     ) {
+        let node = self.create_node(HashSet::new()).await;
+        self.rb_tx
+            .send(ReliableBroadcastCommand::BroadcastRequest(node))
+            .await
+            .expect("dag: reliable broadcast receiver dropped");
+
         let mut interval_missing_nodes = time::interval(Duration::from_millis(500)); // time out should be slightly more than one network round trip.
         let mut interval_timeout = time::interval(Duration::from_millis(1000)); // similar to leader timeout in our consensus
         loop {
@@ -123,21 +169,13 @@ impl DagDriver {
                     if self.timeout == false {
                         self.timeout = true;
                         if let Some(node) = self.try_advance_round().await {
-                            rb_command_tx.send(node).await.expect("dag: reliable broadcast receiver dropped");
+                            self.rb_tx.send(ReliableBroadcastCommand::BroadcastRequest(node)).await.expect("dag: reliable broadcast receiver dropped");
                             self.timeout = false;
                             interval_timeout.reset();
                         }
 
                     }
                 }
-
-
-
-
-            Some(_command) = command_rx.recv() => {
-                // TODO: proofs from consensus & other apps.
-                // TODO: probably better to pull when time to crete new round (similarly to current code).
-            },
 
             Some(msg) = network_msg_rx.next() => {
                     match msg {
@@ -146,7 +184,7 @@ impl DagDriver {
 
                             self.handle_certified_node(*certified_node, ack_required).await;
                             if let Some(node) = self.try_advance_round().await {
-                                rb_command_tx.send(node).await.expect("dag: reliable broadcast receiver dropped");
+                                self.rb_tx.send(ReliableBroadcastCommand::BroadcastRequest(node)).await.expect("dag: reliable broadcast receiver dropped");
                                 self.timeout = false;
                                 interval_timeout.reset();
                             }
@@ -156,11 +194,9 @@ impl DagDriver {
                         VerifiedEvent::CertifiedNodeRequestMsg(node_request) => {
                             self.handle_node_request(*node_request).await;
                     }
-
                     _ => unreachable!("reliable broadcast got wrong messsgae"),
                     }
                 },
-
             }
         }
     }

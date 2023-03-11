@@ -19,6 +19,7 @@ use tokio::sync::mpsc::Receiver;
 use tokio::time;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub(crate) enum ReliableBroadcastCommand {
     BroadcastRequest(Node),
 }
@@ -45,7 +46,7 @@ pub struct ReliableBroadcast {
 
 #[allow(dead_code)]
 impl ReliableBroadcast {
-    fn new(
+    pub fn new(
         my_id: PeerId,
         network_sender: NetworkSender,
         validator_verifier: ValidatorVerifier,
