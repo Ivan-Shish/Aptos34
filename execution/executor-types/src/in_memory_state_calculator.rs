@@ -39,56 +39,25 @@ pub static NEW_EPOCH_EVENT_KEY: Lazy<EventKey> = Lazy::new(on_chain_config::new_
 ///                                (creates checkpoint SMT on checkpoint txn)
 ///                                        (creates "latest SMT" on finish())
 pub struct InMemoryStateCalculator {
-    ///// These don't change during the calculation.
-    // This makes sure all in-mem nodes seen while proofs were fetched stays in mem during the
-    // calculation
-    _frozen_base: FrozenSparseMerkleTree<StateValue>,
-    proof_reader: ProofReader,
-
     //// These changes every time a new txn is added to the calculator.
     state_cache: DashMap<StateKey, Option<StateValue>>,
-    next_version: Version,
     updates_after_latest: HashMap<StateKey, Option<StateValue>>,
     usage: StateStorageUsage,
 
     //// These changes whenever make_checkpoint() or finish() happens.
     checkpoint: SparseMerkleTree<StateValue>,
-    checkpoint_version: Option<Version>,
-    // This doesn't need to be frozen since `_frozen_base` holds a ref to the oldest ancestor
-    // already, but frozen SMT is used here anyway to avoid exposing the `batch_update()` interface
-    // on the non-frozen SMT.
-    latest: FrozenSparseMerkleTree<StateValue>,
-    updates_between_checkpoint_and_latest: HashMap<StateKey, Option<StateValue>>,
 }
 
 impl InMemoryStateCalculator {
-    pub fn new(base: &StateDelta, state_cache: StateCache) -> Self {
-        let StateCache {
-            frozen_base,
-            state_cache,
-            proofs,
-        } = state_cache;
-        let StateDelta {
-            base,
-            base_version,
-            current,
-            current_version,
-            updates_since_base,
-        } = base.clone();
+    pub fn new(state_cache: StateCache) -> Self {
+        let StateCache { state_cache } = state_cache;
 
         Self {
-            _frozen_base: frozen_base,
-            proof_reader: ProofReader::new(proofs),
-
             state_cache,
-            next_version: current_version.map_or(0, |v| v + 1),
             updates_after_latest: HashMap::new(),
-            usage: current.usage(),
+            usage: StateStorageUsage::new_untracked(),
 
-            checkpoint: base,
-            checkpoint_version: base_version,
-            latest: current.freeze(),
-            updates_between_checkpoint_and_latest: updates_since_base,
+            checkpoint: SparseMerkleTree::new_empty(),
         }
     }
 
@@ -99,7 +68,6 @@ impl InMemoryStateCalculator {
     ) -> Result<(
         Vec<HashMap<StateKey, Option<StateValue>>>,
         Vec<Option<HashValue>>,
-        StateDelta,
         Option<EpochState>,
     )> {
         let num_txns = to_keep.len();
@@ -111,7 +79,7 @@ impl InMemoryStateCalculator {
             state_updates_vec.push(state_updates);
             state_checkpoint_hashes.push(state_checkpoint_hash);
         }
-        let (result_state, accounts) = self.finish()?;
+        let (accounts) = self.finish()?;
 
         // Get the updated validator set from updated account state.
         let next_epoch_state = if new_epoch {
@@ -120,12 +88,7 @@ impl InMemoryStateCalculator {
             None
         };
 
-        Ok((
-            state_updates_vec,
-            state_checkpoint_hashes,
-            result_state,
-            next_epoch_state,
-        ))
+        Ok((state_updates_vec, state_checkpoint_hashes, next_epoch_state))
     }
 
     fn add_transaction(
@@ -140,7 +103,6 @@ impl InMemoryStateCalculator {
             txn_output.write_set().clone(),
         )?;
         self.updates_after_latest.extend(updated_state_kvs.clone());
-        self.next_version += 1;
 
         if txn_output.is_reconfig() {
             Ok((updated_state_kvs, Some(self.make_checkpoint()?)))
@@ -157,22 +119,8 @@ impl InMemoryStateCalculator {
     }
 
     fn make_checkpoint(&mut self) -> Result<HashValue> {
-        // Update SMT.
-        let smt_updates: Vec<_> = self
-            .updates_after_latest
-            .iter()
-            .map(|(key, value)| (key.hash(), value.as_ref()))
-            .collect();
-        let new_checkpoint =
-            self.latest
-                .batch_update(smt_updates, self.usage, &self.proof_reader)?;
-        let root_hash = new_checkpoint.root_hash();
+        let root_hash = self.checkpoint.root_hash();
 
-        // Move self to the new checkpoint.
-        self.latest = new_checkpoint.clone();
-        self.checkpoint = new_checkpoint.unfreeze();
-        self.checkpoint_version = self.next_version.checked_sub(1);
-        self.updates_between_checkpoint_and_latest = HashMap::new();
         self.updates_after_latest = HashMap::new();
 
         Ok(root_hash)
@@ -193,41 +141,19 @@ impl InMemoryStateCalculator {
         })
     }
 
-    fn finish(mut self) -> Result<(StateDelta, HashMap<StateKey, StateValue>)> {
-        let smt_updates: Vec<_> = self
-            .updates_after_latest
-            .iter()
-            .map(|(key, value)| (key.hash(), value.as_ref()))
-            .collect();
-        let latest = self
-            .latest
-            .batch_update(smt_updates, self.usage, &self.proof_reader)?;
-
-        self.updates_between_checkpoint_and_latest
-            .extend(self.updates_after_latest);
-
-        let result_state = StateDelta::new(
-            self.checkpoint,
-            self.checkpoint_version,
-            latest.unfreeze(),
-            self.next_version.checked_sub(1),
-            self.updates_between_checkpoint_and_latest,
-        );
-
-        Ok((
-            result_state,
-            self.state_cache
-                .into_iter()
-                .filter_map(|(k, v_opt)| v_opt.map(|v| (k, v)))
-                .collect(),
-        ))
+    fn finish(mut self) -> Result<(HashMap<StateKey, StateValue>)> {
+        Ok((self
+            .state_cache
+            .into_iter()
+            .filter_map(|(k, v_opt)| v_opt.map(|v| (k, v)))
+            .collect()))
     }
 
     pub fn calculate_for_write_sets_after_snapshot(
         mut self,
         last_checkpoint_index: Option<usize>,
         write_sets: &[WriteSet],
-    ) -> Result<(Option<HashMap<StateKey, Option<StateValue>>>, StateDelta)> {
+    ) -> Result<(Option<HashMap<StateKey, Option<StateValue>>>)> {
         let idx_after_last_checkpoint = last_checkpoint_index.map_or(0, |idx| idx + 1);
         let updates_before_last_checkpoint = if idx_after_last_checkpoint != 0 {
             for write_set in write_sets[0..idx_after_last_checkpoint].iter() {
@@ -238,7 +164,6 @@ impl InMemoryStateCalculator {
                     (*write_set).clone(),
                 )?;
                 self.updates_after_latest.extend(state_updates.into_iter());
-                self.next_version += 1;
             }
             let updates = self.updates_after_latest.clone();
             self.make_checkpoint()?;
@@ -254,10 +179,9 @@ impl InMemoryStateCalculator {
                 (*write_set).clone(),
             )?;
             self.updates_after_latest.extend(state_updates.into_iter());
-            self.next_version += 1;
         }
-        let (result_state, _) = self.finish()?;
-        Ok((updates_before_last_checkpoint, result_state))
+        let (_) = self.finish()?;
+        Ok((updates_before_last_checkpoint))
     }
 }
 

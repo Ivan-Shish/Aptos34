@@ -9,7 +9,10 @@ use crate::{
     versioned_node_cache::VersionedNodeCache, OTHER_TIMERS_SECONDS,
 };
 use anyhow::Result;
-use aptos_crypto::{hash::CryptoHash, HashValue};
+use aptos_crypto::{
+    hash::{CryptoHash, SPARSE_MERKLE_PLACEHOLDER_HASH},
+    HashValue,
+};
 use aptos_jellyfish_merkle::{
     node_type::{NodeKey, NodeType},
     JellyfishMerkleTree, TreeReader, TreeUpdateBatch, TreeWriter,
@@ -89,12 +92,17 @@ impl StateMerkleDb {
         persisted_version: Option<Version>,
         version: Version,
     ) -> Result<(HashValue, TreeUpdateBatch<StateKey>)> {
+        Ok((
+            *SPARSE_MERKLE_PLACEHOLDER_HASH,
+            TreeUpdateBatch::<StateKey>::new(),
+        ))
+        /*
         JellyfishMerkleTree::new(self).batch_put_value_set(
             value_set,
             node_hashes,
             persisted_version,
             version,
-        )
+        )*/
     }
 
     pub fn get_state_snapshot_version_before(

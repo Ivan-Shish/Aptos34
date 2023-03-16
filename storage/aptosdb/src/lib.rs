@@ -814,7 +814,6 @@ impl AptosDB {
         &self,
         txns_to_commit: &[TransactionToCommit],
         first_version: u64,
-        expected_state_db_usage: StateStorageUsage,
         ledger_batch: &SchemaBatch,
         state_kv_batch: &SchemaBatch,
     ) -> Result<HashValue> {
@@ -838,7 +837,6 @@ impl AptosDB {
                 self.state_store.put_value_sets(
                     state_updates_vec,
                     first_version,
-                    expected_state_db_usage,
                     ledger_batch,
                     state_kv_batch,
                 )
@@ -1423,19 +1421,12 @@ impl DbReader for AptosDB {
 
     fn get_latest_executed_trees(&self) -> Result<ExecutedTrees> {
         gauged_api("get_latest_executed_trees", || {
-            let buffered_state = self.state_store.buffered_state().lock();
-            let num_txns = buffered_state
-                .current_state()
-                .current_version
-                .map_or(0, |v| v + 1);
+            let num_txns = self.get_latest_version().map_or(0, |v| v + 1);
 
             let frozen_subtrees = self.ledger_store.get_frozen_subtree_hashes(num_txns)?;
             let transaction_accumulator =
                 Arc::new(InMemoryAccumulator::new(frozen_subtrees, num_txns)?);
-            let executed_trees = ExecutedTrees::new(
-                buffered_state.current_state().clone(),
-                transaction_accumulator,
-            );
+            let executed_trees = ExecutedTrees::new(transaction_accumulator);
             Ok(executed_trees)
         })
     }
@@ -1530,16 +1521,6 @@ impl DbReader for AptosDB {
     fn get_latest_transaction_info_option(&self) -> Result<Option<(Version, TransactionInfo)>> {
         gauged_api("get_latest_transaction_info_option", || {
             self.ledger_store.get_latest_transaction_info_option()
-        })
-    }
-
-    fn get_latest_state_checkpoint_version(&self) -> Result<Option<Version>> {
-        gauged_api("get_latest_state_checkpoint_version", || {
-            Ok(self
-                .state_store
-                .buffered_state()
-                .lock()
-                .current_checkpoint_version())
         })
     }
 
@@ -1668,10 +1649,7 @@ impl DbWriter for AptosDB {
         &self,
         txns_to_commit: &[TransactionToCommit],
         first_version: Version,
-        base_state_version: Option<Version>,
         ledger_info_with_sigs: Option<&LedgerInfoWithSignatures>,
-        sync_commit: bool,
-        latest_in_memory_state: StateDelta,
     ) -> Result<()> {
         gauged_api("save_transactions", || {
             // Executing and committing from more than one threads not allowed -- consensus and
@@ -1710,45 +1688,15 @@ impl DbWriter for AptosDB {
             let new_root_hash = self.save_transactions_impl(
                 txns_to_commit,
                 first_version,
-                latest_in_memory_state.current.usage(),
                 &ledger_batch,
                 &state_kv_batch,
             )?;
 
-            ensure!(Some(last_version) == latest_in_memory_state.current_version,
-                "the last_version {:?} to commit doesn't match the current_version {:?} in latest_in_memory_state",
-                last_version,
-               latest_in_memory_state.current_version.expect("Must exist")
-            );
-
             {
-                let mut buffered_state = self.state_store.buffered_state().lock();
-                ensure!(
-                    base_state_version == buffered_state.current_state().base_version,
-                    "base_state_version {:?} does not equal to the base_version {:?} in buffered state with current version {:?}",
-                    base_state_version,
-                    buffered_state.current_state().base_version,
-                    buffered_state.current_state().current_version,
-                );
-
-                // Ensure the incoming committing requests are always consecutive and the version in
-                // buffered state is consistent with that in db.
-                let next_version_in_buffered_state = buffered_state
-                    .current_state()
-                    .current_version
-                    .map(|version| version + 1)
-                    .unwrap_or(0);
                 let num_transactions_in_db = self
                     .get_latest_transaction_info_option()?
                     .map(|(version, _)| version + 1)
                     .unwrap_or(0);
-                ensure!(
-                     num_transactions_in_db == first_version && num_transactions_in_db == next_version_in_buffered_state,
-                    "The first version {} passed in, the next version in buffered state {} and the next version in db {} are inconsistent.",
-                    first_version,
-                    next_version_in_buffered_state,
-                    num_transactions_in_db,
-                );
 
                 // Commit multiple batches for different DBs in parallel, then write the overall
                 // progress.
@@ -1776,40 +1724,6 @@ impl DbWriter for AptosDB {
                     )?;
                     self.ledger_db.write_schemas(ledger_batch)?;
                 }
-
-                let mut end_with_reconfig = false;
-                let updates_until_latest_checkpoint_since_current = if let Some(
-                    latest_checkpoint_version,
-                ) =
-                    latest_in_memory_state.base_version
-                {
-                    if latest_checkpoint_version >= first_version {
-                        let idx = (latest_checkpoint_version - first_version) as usize;
-                        ensure!(
-                            txns_to_commit[idx].is_state_checkpoint(),
-                            "The new latest snapshot version passed in {:?} does not match with the last checkpoint version in txns_to_commit {:?}",
-                            latest_checkpoint_version,
-                            first_version + idx as u64
-                        );
-                        end_with_reconfig = txns_to_commit[idx].is_reconfig();
-                        Some(
-                            txns_to_commit[..=idx]
-                                .iter()
-                                .flat_map(|txn_to_commit| txn_to_commit.state_updates().clone())
-                                .collect(),
-                        )
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                buffered_state.update(
-                    updates_until_latest_checkpoint_since_current,
-                    latest_in_memory_state,
-                    end_with_reconfig || sync_commit,
-                )?;
             }
 
             // If commit succeeds and there are at least one transaction written to the storage, we
@@ -1826,16 +1740,6 @@ impl DbWriter for AptosDB {
                 self.state_store
                     .state_kv_pruner
                     .maybe_set_pruner_target_db_version(last_version);
-            }
-
-            // Note: this must happen after txns have been saved to db because types can be newly
-            // created in this same chunk of transactions.
-            if let Some(indexer) = &self.indexer {
-                let _timer = OTHER_TIMERS_SECONDS
-                    .with_label_values(&["indexer_index"])
-                    .start_timer();
-                let write_sets: Vec<_> = txns_to_commit.iter().map(|txn| txn.write_set()).collect();
-                indexer.index(self.state_store.clone(), first_version, &write_sets)?;
             }
 
             // Once everything is successfully persisted, update the latest in-memory ledger info.
@@ -1986,7 +1890,6 @@ impl DbWriter for AptosDB {
             self.ledger_db.clone().write_schemas(batch)?;
 
             restore_utils::update_latest_ledger_info(self.ledger_store.clone(), ledger_infos)?;
-            self.state_store.reset();
 
             self.ledger_pruner.pruner().record_progress(version);
             self.state_store

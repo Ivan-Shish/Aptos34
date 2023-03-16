@@ -92,11 +92,6 @@ pub(crate) struct StateDb {
 
 pub(crate) struct StateStore {
     pub(crate) state_db: Arc<StateDb>,
-    // The `base` of buffered_state is the latest snapshot in state_merkle_db while `current`
-    // is the latest state sparse merkle tree that is replayed from that snapshot until the latest
-    // write set stored in ledger_db.
-    buffered_state: Mutex<BufferedState>,
-    buffered_state_target_items: usize,
 }
 
 impl Deref for StateStore {
@@ -306,20 +301,7 @@ impl StateStore {
             epoch_snapshot_pruner,
             state_kv_pruner,
         });
-        let buffered_state = Mutex::new(
-            Self::create_buffered_state_from_latest_snapshot(
-                &state_db,
-                buffered_state_target_items,
-                hack_for_tests,
-                /*check_max_versions_after_snapshot=*/ true,
-            )
-            .expect("buffered state creation failed."),
-        );
-        Self {
-            state_db,
-            buffered_state,
-            buffered_state_target_items,
-        }
+        Self { state_db }
     }
 
     // We commit the overall commit progress at the last, and use it as the source of truth of the
@@ -392,163 +374,7 @@ impl StateStore {
         }
     }
 
-    #[cfg(feature = "db-debugger")]
-    pub fn catch_up_state_merkle_db(
-        ledger_db: Arc<DB>,
-        state_merkle_db: DB,
-        state_kv_db: Arc<StateKvDb>,
-    ) -> Result<Option<Version>> {
-        use aptos_config::config::NO_OP_STORAGE_PRUNER_CONFIG;
-
-        let arc_state_merkle_rocksdb = Arc::new(state_merkle_db);
-        let state_merkle_pruner = StateMerklePrunerManager::new(
-            Arc::clone(&arc_state_merkle_rocksdb),
-            NO_OP_STORAGE_PRUNER_CONFIG.state_merkle_pruner_config,
-        );
-        let epoch_snapshot_pruner = StateMerklePrunerManager::new(
-            Arc::clone(&arc_state_merkle_rocksdb),
-            NO_OP_STORAGE_PRUNER_CONFIG.state_merkle_pruner_config,
-        );
-        let state_merkle_db = Arc::new(StateMerkleDb::new(arc_state_merkle_rocksdb, 0));
-        let state_kv_pruner = StateKvPrunerManager::new(
-            Arc::clone(&state_kv_db),
-            NO_OP_STORAGE_PRUNER_CONFIG.state_kv_pruner_config,
-        );
-        let state_db = Arc::new(StateDb {
-            ledger_db,
-            state_merkle_db,
-            state_kv_db,
-            state_merkle_pruner,
-            epoch_snapshot_pruner,
-            state_kv_pruner,
-        });
-        let buffered_state = Self::create_buffered_state_from_latest_snapshot(
-            &state_db, 0, /*hack_for_tests=*/ false,
-            /*check_max_versions_after_snapshot=*/ false,
-        )?;
-        Ok(buffered_state.current_state().base_version)
-    }
-
-    fn create_buffered_state_from_latest_snapshot(
-        state_db: &Arc<StateDb>,
-        buffered_state_target_items: usize,
-        hack_for_tests: bool,
-        check_max_versions_after_snapshot: bool,
-    ) -> Result<BufferedState> {
-        let ledger_store = LedgerStore::new(Arc::clone(&state_db.ledger_db));
-        let num_transactions = ledger_store
-            .get_latest_transaction_info_option()?
-            .map(|(version, _)| version + 1)
-            .unwrap_or(0);
-
-        let latest_snapshot_version = state_db
-            .state_merkle_db
-            .get_state_snapshot_version_before(num_transactions)
-            .expect("Failed to query latest node on initialization.");
-        let latest_snapshot_root_hash = if let Some(version) = latest_snapshot_version {
-            state_db
-                .state_merkle_db
-                .get_root_hash(version)
-                .expect("Failed to query latest checkpoint root hash on initialization.")
-        } else {
-            *SPARSE_MERKLE_PLACEHOLDER_HASH
-        };
-        let usage = state_db.get_state_storage_usage(latest_snapshot_version)?;
-        let mut buffered_state = BufferedState::new(
-            state_db,
-            StateDelta::new_at_checkpoint(
-                latest_snapshot_root_hash,
-                usage,
-                latest_snapshot_version,
-            ),
-            buffered_state_target_items,
-        );
-
-        // In some backup-restore tests we hope to open the db without consistency check.
-        if hack_for_tests {
-            return Ok(buffered_state);
-        }
-
-        // Make sure the committed transactions is ahead of the latest snapshot.
-        let snapshot_next_version = latest_snapshot_version.map_or(0, |v| v + 1);
-
-        // For non-restore cases, always snapshot_next_version <= num_transactions.
-        if snapshot_next_version > num_transactions {
-            info!(
-                snapshot_next_version = snapshot_next_version,
-                num_transactions = num_transactions,
-                "snapshot is after latest transaction version. It should only happen in restore mode",
-            );
-        }
-
-        // Replaying the committed write sets after the latest snapshot.
-        if snapshot_next_version < num_transactions {
-            if check_max_versions_after_snapshot {
-                ensure!(
-                    num_transactions - snapshot_next_version <= MAX_WRITE_SETS_AFTER_SNAPSHOT,
-                    "Too many versions after state snapshot. snapshot_next_version: {}, num_transactions: {}",
-                    snapshot_next_version,
-                    num_transactions,
-                );
-            }
-            let latest_snapshot_state_view = CachedStateView::new(
-                StateViewId::Miscellaneous,
-                state_db.clone(),
-                num_transactions,
-                buffered_state.current_state().current.clone(),
-                Arc::new(SyncProofFetcher::new(state_db.clone())),
-            )?;
-            let write_sets = TransactionStore::new(Arc::clone(&state_db.ledger_db))
-                .get_write_sets(snapshot_next_version, num_transactions)?;
-            let txn_info_iter =
-                ledger_store.get_transaction_info_iter(snapshot_next_version, write_sets.len())?;
-            let last_checkpoint_index = txn_info_iter
-                .into_iter()
-                .collect::<Result<Vec<_>>>()?
-                .into_iter()
-                .enumerate()
-                .filter(|(_idx, txn_info)| txn_info.is_state_checkpoint())
-                .last()
-                .map(|(idx, _)| idx);
-            latest_snapshot_state_view.prime_cache_by_write_set(&write_sets)?;
-            let calculator = InMemoryStateCalculator::new(
-                buffered_state.current_state(),
-                latest_snapshot_state_view.into_state_cache(),
-            );
-            let (updates_until_last_checkpoint, state_after_last_checkpoint) = calculator
-                .calculate_for_write_sets_after_snapshot(last_checkpoint_index, &write_sets)?;
-
-            // synchronously commit the snapshot at the last checkpoint here if not committed to disk yet.
-            buffered_state.update(
-                updates_until_last_checkpoint,
-                state_after_last_checkpoint,
-                true, /* sync_commit */
-            )?;
-        }
-
-        info!(
-            latest_snapshot_version = buffered_state.current_state().base_version,
-            latest_snapshot_root_hash = buffered_state.current_state().base.root_hash(),
-            latest_in_memory_version = buffered_state.current_state().current_version,
-            latest_in_memory_root_hash = buffered_state.current_state().current.root_hash(),
-            "StateStore initialization finished.",
-        );
-        Ok(buffered_state)
-    }
-
-    pub fn reset(&self) {
-        *self.buffered_state.lock() = Self::create_buffered_state_from_latest_snapshot(
-            &self.state_db,
-            self.buffered_state_target_items,
-            false,
-            true,
-        )
-        .expect("buffered state creation failed.");
-    }
-
-    pub fn buffered_state(&self) -> &Mutex<BufferedState> {
-        &self.buffered_state
-    }
+    pub fn reset(&self) {}
 
     /// Returns the key, value pairs for a particular state key prefix at at desired version. This
     /// API can be used to get all resources of an account by passing the account address as the
@@ -582,7 +408,6 @@ impl StateStore {
         &self,
         value_state_sets: Vec<&HashMap<StateKey, Option<StateValue>>>,
         first_version: Version,
-        expected_usage: StateStorageUsage,
         ledger_batch: &SchemaBatch,
         state_kv_batch: &SchemaBatch,
     ) -> Result<()> {
@@ -593,7 +418,6 @@ impl StateStore {
         self.put_stats_and_indices(
             &value_state_sets,
             first_version,
-            expected_usage,
             ledger_batch,
             state_kv_batch,
         )?;
@@ -634,7 +458,6 @@ impl StateStore {
         &self,
         value_state_sets: &[&HashMap<StateKey, Option<StateValue>>],
         first_version: Version,
-        expected_usage: StateStorageUsage,
         batch: &SchemaBatch,
         state_kv_batch: &SchemaBatch,
     ) -> Result<()> {
@@ -726,6 +549,7 @@ impl StateStore {
             batch.put::<VersionDataSchema>(&version, &usage.into())?;
         }
 
+        /*
         if !expected_usage.is_untracked() {
             ensure!(
                 expected_usage == usage,
@@ -736,7 +560,7 @@ impl StateStore {
                 base_version,
                 base_version_usage,
             );
-        }
+        }*/
 
         Ok(())
     }

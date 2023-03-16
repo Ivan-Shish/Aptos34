@@ -527,14 +527,7 @@ where
             .start_timer();
 
         assert!(self.base_smt.is_the_same(&since_smt.base_smt));
-        let mut node_hashes = HashMap::new();
-        Self::new_node_hashes_since_impl(
-            self.smt.root_weak(),
-            since_smt.smt.generation() + 1,
-            &mut NodePosition::with_capacity(HashValue::LENGTH_IN_BITS),
-            &mut node_hashes,
-        );
-        node_hashes
+        HashMap::new()
     }
 
     /// Recursively generate the partial node update batch of jellyfish merkle
@@ -605,33 +598,8 @@ where
     /// all at once.
     /// Since the tree is immutable, existing tree remains the same and may share parts with the
     /// new, returned tree.
-    pub fn batch_update(
-        &self,
-        updates: Vec<(HashValue, Option<&V>)>,
-        usage: StateStorageUsage,
-        proof_reader: &impl ProofRead,
-    ) -> Result<Self, UpdateError> {
-        // Flatten, dedup and sort the updates with a btree map since the updates between different
-        // versions may overlap on the same address in which case the latter always overwrites.
-        let kvs = updates
-            .into_iter()
-            .collect::<BTreeMap<_, _>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-
-        if kvs.is_empty() {
-            assert_eq!(self.smt.inner.usage, usage);
-            Ok(self.clone())
-        } else {
-            let current_root = self.smt.root_weak();
-            let root = SubTreeUpdater::update(
-                current_root,
-                &kvs[..],
-                proof_reader,
-                self.smt.inner.generation + 1,
-            )?;
-            Ok(self.spawn(root, usage))
-        }
+    pub fn batch_update(&self) -> Result<Self, UpdateError> {
+        Ok(self.clone())
     }
 
     /// Queries a `key` in this `SparseMerkleTree`.

@@ -3,7 +3,7 @@
 
 use crate::{metrics::TIMER, proof_fetcher::ProofFetcher, state_view::DbStateView, DbReader};
 use anyhow::{format_err, Result};
-use aptos_crypto::{hash::CryptoHash, HashValue};
+use aptos_crypto::{hash::SPARSE_MERKLE_PLACEHOLDER_HASH, HashValue};
 use aptos_scratchpad::{FrozenSparseMerkleTree, SparseMerkleTree, StateStoreStatus};
 use aptos_state_view::{StateViewId, TStateView};
 use aptos_types::{
@@ -38,9 +38,6 @@ pub struct CachedStateView {
 
     /// A readable snapshot in the persistent storage.
     snapshot: Option<(Version, HashValue)>,
-
-    /// The in-memory state on top of the snapshot.
-    speculative_state: FrozenSparseMerkleTree<StateValue>,
 
     /// The cache of verified account states from `reader` and `speculative_state_view`,
     /// represented by a hashmap with an account address as key and a pair of an ordered
@@ -95,19 +92,16 @@ impl CachedStateView {
         id: StateViewId,
         reader: Arc<dyn DbReader>,
         next_version: Version,
-        speculative_state: SparseMerkleTree<StateValue>,
         proof_fetcher: Arc<dyn ProofFetcher>,
     ) -> Result<Self> {
-        // n.b. Freeze the state before getting the state snapshot, otherwise it's possible that
-        // after we got the snapshot, in-mem trees newer than it gets dropped before being frozen,
-        // due to a commit happening from another thread.
-        let speculative_state = speculative_state.freeze();
-        let snapshot = reader.get_state_snapshot_before(next_version)?;
+        // let snapshot = reader.get_state_snapshot_before(next_version)?;
+        let snapshot = next_version
+            .checked_sub(1)
+            .map(|v| (v, *SPARSE_MERKLE_PLACEHOLDER_HASH));
 
         Ok(Self {
             id,
             snapshot,
-            speculative_state,
             state_cache: DashMap::new(),
             proof_fetcher,
         })
@@ -135,46 +129,22 @@ impl CachedStateView {
 
     pub fn into_state_cache(self) -> StateCache {
         StateCache {
-            frozen_base: self.speculative_state,
             state_cache: self.state_cache,
-            proofs: self.proof_fetcher.get_proof_cache(),
         }
     }
 
     fn get_state_value_internal(&self, state_key: &StateKey) -> Result<Option<StateValue>> {
         // Do most of the work outside the write lock.
-        let key_hash = state_key.hash();
-        let state_value_option = match self.speculative_state.get(key_hash) {
-            StateStoreStatus::ExistsInScratchPad(value) => Some(value),
-            StateStoreStatus::DoesNotExist => None,
-            // No matter it is in db or unknown, we have to query from db since even the
-            // former case, we don't have the blob data but only its hash.
-            StateStoreStatus::ExistsInDB | StateStoreStatus::Unknown => {
-                match self.snapshot {
-                    Some((version, root_hash)) => {
-                        let (value, proof) = self.proof_fetcher.fetch_state_value_and_proof(
-                            state_key,
-                            version,
-                            Some(root_hash),
-                        )?;
-                        // TODO: proof verification can be opted out, for performance
-                        if let Some(proof) = proof {
-                            proof
-                                .verify(root_hash, key_hash, value.as_ref())
-                                .map_err(|err| {
-                                    format_err!(
-                                    "Proof is invalid for key {:?} with state root hash {:?}: {}",
-                                    state_key,
-                                    root_hash,
-                                    err
-                                )
-                                })?;
-                        }
-                        value
-                    },
-                    None => None,
-                }
+        let state_value_option = match self.snapshot {
+            Some((version, root_hash)) => {
+                let (value, proof) = self.proof_fetcher.fetch_state_value_and_proof(
+                    state_key,
+                    version,
+                    Some(root_hash),
+                )?;
+                value
             },
+            None => None,
         };
 
         Ok(state_value_option)
@@ -182,9 +152,7 @@ impl CachedStateView {
 }
 
 pub struct StateCache {
-    pub frozen_base: FrozenSparseMerkleTree<StateValue>,
     pub state_cache: DashMap<StateKey, Option<StateValue>>,
-    pub proofs: HashMap<HashValue, SparseMerkleProofExt>,
 }
 
 impl TStateView for CachedStateView {
@@ -215,7 +183,7 @@ impl TStateView for CachedStateView {
     }
 
     fn get_usage(&self) -> Result<StateStorageUsage> {
-        Ok(self.speculative_state.usage())
+        Ok(StateStorageUsage::new_untracked())
     }
 }
 

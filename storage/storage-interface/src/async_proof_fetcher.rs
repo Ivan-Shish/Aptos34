@@ -53,75 +53,6 @@ impl AsyncProofFetcher {
             num_proofs_to_read: AtomicUsize::new(0),
         }
     }
-
-    // Waits scheduled proof read to finish, and returns all read proofs.
-    //
-    // This is only expected to be called in a single thread, after all reads being scheduled.
-    fn wait(&self) -> HashMap<HashValue, SparseMerkleProofExt> {
-        let _timer = TIMER.with_label_values(&["wait_async_proof"]).start_timer();
-        // TODO(grao): Find a way to verify the proof.
-        let mut proofs = HashMap::new();
-        for _ in 0..self.num_proofs_to_read.load(Ordering::SeqCst) {
-            let data = self
-                .data_receiver
-                .recv()
-                .expect("Failed to receive proof on the channel.");
-            let Proof {
-                state_key_hash,
-                proof,
-            } = data;
-            proofs.insert(state_key_hash, proof);
-        }
-        self.num_proofs_to_read.store(0, Ordering::SeqCst);
-        proofs
-    }
-
-    // Schedules proof reading work in a background running thread pool.
-    fn schedule_proof_read(
-        &self,
-        state_key: StateKey,
-        version: Version,
-        root_hash: Option<HashValue>,
-        value_hash: Option<HashValue>,
-    ) {
-        let _timer = TIMER
-            .with_label_values(&["schedule_async_proof_read"])
-            .start_timer();
-        self.num_proofs_to_read.fetch_add(1, Ordering::SeqCst);
-        let reader = self.reader.clone();
-        let data_sender = self.data_sender.clone();
-        IO_POOL.spawn(move || {
-            let proof = reader
-                .get_state_proof_by_version_ext(&state_key, version)
-                .expect("Proof reading should succeed.");
-            if let Some(root_hash) = root_hash {
-                proof
-                    .verify_by_hash(root_hash, state_key.hash(), value_hash)
-                    .map_err(|err| {
-                        anyhow!(
-                            "Proof is invalid for key {:?} with state root hash {:?}, at version {}: {}.",
-                            state_key,
-                            root_hash,
-                            version,
-                            err
-                        )
-                    })
-                    .expect("Failed to verify proof.");
-            }
-            match data_sender.send(Proof {
-                state_key_hash: state_key.hash(),
-                proof,
-            }) {
-                Ok(_) => {}
-                Err(_) => {
-                    sample!(
-                        SampleRate::Duration(Duration::from_secs(5)),
-                        error!("Failed to send proof, something is wrong in execution.")
-                    );
-                }
-            }
-        });
-    }
 }
 
 impl ProofFetcher for AsyncProofFetcher {
@@ -135,17 +66,11 @@ impl ProofFetcher for AsyncProofFetcher {
             .with_label_values(&["async_proof_fetcher_fetch"])
             .start_timer();
         let value = self.reader.get_state_value_by_version(state_key, version)?;
-        self.schedule_proof_read(
-            state_key.clone(),
-            version,
-            root_hash,
-            value.as_ref().map(|v| v.hash()),
-        );
         Ok((value, None))
     }
 
     fn get_proof_cache(&self) -> HashMap<HashValue, SparseMerkleProofExt> {
-        self.wait()
+        unimplemented!()
     }
 }
 

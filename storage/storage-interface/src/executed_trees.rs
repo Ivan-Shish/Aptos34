@@ -18,19 +18,12 @@ use std::sync::Arc;
 /// represent a specific state collectively. Usually it is a state after executing a block.
 #[derive(Clone, Debug)]
 pub struct ExecutedTrees {
-    /// The in-memory representation of state after execution.
-    state: StateDelta,
-
     /// The in-memory Merkle Accumulator representing a blockchain state consistent with the
     /// `state_tree`.
     transaction_accumulator: Arc<InMemoryAccumulator<TransactionAccumulatorHasher>>,
 }
 
 impl ExecutedTrees {
-    pub fn state(&self) -> &StateDelta {
-        &self.state
-    }
-
     pub fn txn_accumulator(&self) -> &Arc<InMemoryAccumulator<TransactionAccumulatorHasher>> {
         &self.transaction_accumulator
     }
@@ -48,15 +41,9 @@ impl ExecutedTrees {
     }
 
     pub fn new(
-        state: StateDelta,
         transaction_accumulator: Arc<InMemoryAccumulator<TransactionAccumulatorHasher>>,
     ) -> Self {
-        assert_eq!(
-            state.current_version.map_or(0, |v| v + 1),
-            transaction_accumulator.num_leaves()
-        );
         Self {
-            state,
             transaction_accumulator,
         }
     }
@@ -77,19 +64,15 @@ impl ExecutedTrees {
                 .expect("The startup info read from storage should be valid."),
         );
 
-        Self::new(state, transaction_accumulator)
+        Self::new(transaction_accumulator)
     }
 
     pub fn new_empty() -> Self {
-        Self::new(
-            StateDelta::new_empty(),
-            Arc::new(InMemoryAccumulator::new_empty()),
-        )
+        Self::new(Arc::new(InMemoryAccumulator::new_empty()))
     }
 
     pub fn is_same_view(&self, rhs: &Self) -> bool {
-        self.state().has_same_current_state(rhs.state())
-            && self.transaction_accumulator.root_hash() == rhs.transaction_accumulator.root_hash()
+        self.transaction_accumulator.root_hash() == rhs.transaction_accumulator.root_hash()
     }
 
     pub fn verified_state_view(
@@ -102,7 +85,6 @@ impl ExecutedTrees {
             id,
             reader,
             self.transaction_accumulator.num_leaves(),
-            self.state.current.clone(),
             proof_fetcher,
         )
     }

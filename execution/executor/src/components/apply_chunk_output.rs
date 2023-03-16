@@ -48,11 +48,11 @@ impl ApplyChunkOutput {
         };
 
         // Apply the write set, get the latest state.
-        let (state_updates_vec, state_checkpoint_hashes, result_state, next_epoch_state) = {
+        let (state_updates_vec, state_checkpoint_hashes, next_epoch_state) = {
             let _timer = APTOS_EXECUTOR_OTHER_TIMERS_SECONDS
                 .with_label_values(&["apply_write_set"])
                 .start_timer();
-            InMemoryStateCalculator::new(base_view.state(), state_cache)
+            InMemoryStateCalculator::new(state_cache)
                 .calculate_for_transaction_chunk(&to_keep, new_epoch)?
         };
 
@@ -62,10 +62,9 @@ impl ApplyChunkOutput {
             .start_timer();
         let (to_commit, transaction_info_hashes) =
             Self::assemble_ledger_diff(to_keep, state_updates_vec, state_checkpoint_hashes);
-        let result_view = ExecutedTrees::new(
-            result_state,
-            Arc::new(base_view.txn_accumulator().append(&transaction_info_hashes)),
-        );
+        let result_view = ExecutedTrees::new(Arc::new(
+            base_view.txn_accumulator().append(&transaction_info_hashes),
+        ));
 
         Ok((
             ExecutedChunk {

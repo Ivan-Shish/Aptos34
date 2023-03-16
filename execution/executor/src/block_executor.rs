@@ -64,14 +64,6 @@ where
         }
     }
 
-    pub fn root_smt(&self) -> SparseMerkleTree<StateValue> {
-        self.inner
-            .read()
-            .as_ref()
-            .expect("BlockExecutor is not reset")
-            .root_smt()
-    }
-
     fn maybe_initialize(&self) -> Result<()> {
         if self.inner.read().is_none() {
             self.reset()?;
@@ -148,16 +140,6 @@ where
             block_tree,
             phantom: PhantomData,
         })
-    }
-
-    fn root_smt(&self) -> SparseMerkleTree<StateValue> {
-        self.block_tree
-            .root_block()
-            .output
-            .result_view
-            .state()
-            .current
-            .clone()
     }
 }
 
@@ -316,20 +298,10 @@ where
         fail_point!("executor::commit_blocks", |_| {
             Err(anyhow::anyhow!("Injected error in commit_blocks.").into())
         });
-        let result_in_memory_state = self
-            .block_tree
-            .get_block(block_id_to_commit)?
-            .output
-            .result_view
-            .state()
-            .clone();
         self.db.writer.save_transactions(
             &txns_to_commit,
             first_version,
-            committed_block.output.result_view.state().base_version,
             Some(&ledger_info_with_sigs),
-            sync_commit,
-            result_in_memory_state,
         )?;
         self.block_tree
             .prune(ledger_info_with_sigs.ledger_info())

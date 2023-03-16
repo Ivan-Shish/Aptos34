@@ -321,7 +321,7 @@ pub trait DbReader: Send + Sync {
 
     /// Returns the latest state checkpoint version if any.
     fn get_latest_state_checkpoint_version(&self) -> Result<Option<Version>> {
-        unimplemented!()
+        Ok(Some(self.get_latest_version()?))
     }
 
     /// Returns the latest state snapshot strictly before `next_version` if any.
@@ -621,10 +621,7 @@ pub trait DbWriter: Send + Sync {
         &self,
         txns_to_commit: &[TransactionToCommit],
         first_version: Version,
-        base_state_version: Option<Version>,
         ledger_info_with_sigs: Option<&LedgerInfoWithSignatures>,
-        sync_commit: bool,
-        latest_in_memory_state: StateDelta,
     ) -> Result<()> {
         unimplemented!()
     }
