@@ -634,7 +634,7 @@ Primarily used to destroy a map
 
 
 
-<pre><code><b>pragma</b> intrinsic;
+<pre><code><b>pragma</b> verify = <b>false</b>;
 <b>pragma</b> opaque;
 <b>ensures</b> [abstract] !<a href="simple_map.md#0x1_simple_map_spec_contains_key">spec_contains_key</a>(<b>old</b>(map), key) ==&gt; <a href="../../move-stdlib/doc/option.md#0x1_option_is_none">option::is_none</a>(result_1);
 <b>ensures</b> [abstract] !<a href="simple_map.md#0x1_simple_map_spec_contains_key">spec_contains_key</a>(<b>old</b>(map), key) ==&gt; <a href="../../move-stdlib/doc/option.md#0x1_option_is_none">option::is_none</a>(result_2);
@@ -702,7 +702,7 @@ Primarily used to destroy a map
 
 
 
-<pre><code><b>pragma</b> intrinsic;
+<pre><code><b>pragma</b> verify = <b>false</b>;
 <b>pragma</b> opaque;
 <b>ensures</b> [abstract]
     <b>forall</b> k: Key: <a href="../../move-stdlib/doc/vector.md#0x1_vector_spec_contains">vector::spec_contains</a>(result_1, k) &lt;==&gt;

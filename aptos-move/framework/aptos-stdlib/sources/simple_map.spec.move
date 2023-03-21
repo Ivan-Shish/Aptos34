@@ -57,7 +57,7 @@ spec aptos_std::simple_map {
     }
 
     spec to_vec_pair<Key: store, Value: store>(map: SimpleMap<Key, Value>): (vector<Key>, vector<Value>) {
-        pragma intrinsic;
+        pragma verify = false;
         pragma opaque;
         ensures [abstract]
             forall k: Key: vector::spec_contains(result_1, k) <==>
@@ -71,7 +71,7 @@ spec aptos_std::simple_map {
         key: Key,
         value: Value
         ): (std::option::Option<Key>, std::option::Option<Value>) {
-        pragma intrinsic;
+        pragma verify = false;
         pragma opaque;
         ensures [abstract] !spec_contains_key(old(map), key) ==> option::is_none(result_1);
         ensures [abstract] !spec_contains_key(old(map), key) ==> option::is_none(result_2);
