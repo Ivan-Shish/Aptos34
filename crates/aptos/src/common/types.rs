@@ -47,6 +47,7 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use thiserror::Error;
+use aptos_logger::debug;
 
 pub const USER_AGENT: &str = concat!("aptos-cli/", env!("CARGO_PKG_VERSION"));
 const US_IN_SECS: u64 = 1_000_000;
@@ -1342,10 +1343,12 @@ impl TransactionOptions {
         // it is automatically estimated
         let ask_to_confirm_price;
         let gas_unit_price = if let Some(gas_unit_price) = self.gas_options.gas_unit_price {
+            debug!("Gas unit price given, skipping estimation");
             ask_to_confirm_price = false;
             gas_unit_price
         } else {
             let gas_unit_price = client.estimate_gas_price().await?.into_inner().gas_estimate;
+            debug!("Estimating gas unit price as {}", gas_unit_price);
 
             ask_to_confirm_price = true;
             gas_unit_price
@@ -1371,8 +1374,8 @@ impl TransactionOptions {
 
         let chain_id = ChainId::new(state.chain_id);
         // TODO: Check auth key against current private key and provide a better message
-
         let max_gas = if let Some(max_gas) = self.gas_options.max_gas {
+            debug!("Provided max gas, skipping simulation");
             // If the gas unit price was estimated ask, but otherwise you've chosen hwo much you want to spend
             if ask_to_confirm_price {
                 let message = format!("Do you want to submit transaction for a maximum of {} Octas at a gas unit price of {} Octas?",  max_gas * gas_unit_price, gas_unit_price);
@@ -1396,11 +1399,13 @@ impl TransactionOptions {
                 Ed25519Signature::try_from([0u8; 64].as_ref()).unwrap(),
             );
 
+            debug!("Simulating transaction with gas unit price {}", gas_unit_price);
             let txns = client
                 .simulate_with_gas_estimation(&signed_transaction, true, false)
                 .await?
                 .into_inner();
             let simulated_txn = txns.first().unwrap();
+            debug!("Transaction simulated result: {:?}", simulated_txn);
 
             // Check if the transaction will pass, if it doesn't then fail
             if !simulated_txn.info.success {
@@ -1417,6 +1422,7 @@ impl TransactionOptions {
             // Ask if you want to accept the estimate amount
             let upper_cost_bound = adjusted_max_gas * gas_unit_price;
             let lower_cost_bound = gas_used * gas_unit_price;
+            debug!("Simulation gas used: {} Adjusted max gas: {} Lower bound: {} Upper bound: {}", gas_used, adjusted_max_gas, lower_cost_bound, upper_cost_bound);
             let message = format!(
                     "Do you want to submit a transaction for a range of [{} - {}] Octas at a gas unit price of {} Octas?",
                     lower_cost_bound,
