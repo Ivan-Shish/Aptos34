@@ -162,6 +162,14 @@ module std::features {
     /// Lifetime: ephemeral
     const ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH: u64 = 14;
 
+    /// Whether reward rate decreases periodically.
+    /// Lifetime: transient
+    const REWARD_RATE_DECREASE: u64 = 15;
+    public fun get_reward_rate_decrease_feature(): u64 { REWARD_RATE_DECREASE }
+    public fun reward_rate_decrease_enabled(): bool acquires Features {
+        is_enabled(REWARD_RATE_DECREASE)
+    }
+
     // ============================================================================================
     // Feature Flag Implementation
 

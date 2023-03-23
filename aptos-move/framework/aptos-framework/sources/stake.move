@@ -33,7 +33,7 @@ module aptos_framework::stake {
     use aptos_framework::event::{Self, EventHandle};
     use aptos_framework::timestamp;
     use aptos_framework::system_addresses;
-    use aptos_framework::staking_config::{Self, StakingConfig};
+    use aptos_framework::staking_config::{Self, StakingConfig, StakingRewardsConfig};
     use aptos_framework::chain_status;
 
     friend aptos_framework::block;
@@ -1149,7 +1149,7 @@ module aptos_framework::stake {
     fun update_stake_pool(
         validator_perf: &ValidatorPerformance,
         pool_address: address,
-        staking_config: &StakingConfig,
+        staking_config: &StakingConfig
     ) acquires StakePool, AptosCoinCapabilities, ValidatorConfig, ValidatorFees {
         let stake_pool = borrow_global_mut<StakePool>(pool_address);
         let validator_config = borrow_global<ValidatorConfig>(pool_address);
@@ -1161,8 +1161,11 @@ module aptos_framework::stake {
             assume cur_validator_perf.successful_proposals + cur_validator_perf.failed_proposals <= MAX_U64;
         };
         let num_total_proposals = cur_validator_perf.successful_proposals + cur_validator_perf.failed_proposals;
-
-        let (rewards_rate, rewards_rate_denominator) = staking_config::get_reward_rate(staking_config);
+        let (rewards_rate, rewards_rate_denominator) = if (features::reward_rate_decrease_enabled()) {
+            staking_config::get_epoch_rewards_rate()
+        } else {
+            staking_config::get_reward_rate(staking_config)
+        };
         let rewards_active = distribute_rewards(
             &mut stake_pool.active,
             num_successful_proposals,

@@ -31,6 +31,7 @@ pub enum FeatureFlag {
     CryptographyAlgebraNatives,
     Bls12381Structures,
     Ed25519PubkeyValidateReturnFalseWrongLength,
+    RewardRateDecrease,
 }
 
 fn generate_features_blob(writer: &CodeWriter, data: &[u64]) {
@@ -138,6 +139,7 @@ impl From<FeatureFlag> for AptosFeatureFlag {
             FeatureFlag::Ed25519PubkeyValidateReturnFalseWrongLength => {
                 AptosFeatureFlag::ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH
             },
+            FeatureFlag::RewardRateDecrease => AptosFeatureFlag::REWARD_RATE_DECREASE,
         }
     }
 }
@@ -170,6 +172,7 @@ impl From<AptosFeatureFlag> for FeatureFlag {
             AptosFeatureFlag::ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH => {
                 FeatureFlag::Ed25519PubkeyValidateReturnFalseWrongLength
             },
+            AptosFeatureFlag::REWARD_RATE_DECREASE => FeatureFlag::RewardRateDecrease,
         }
     }
 }

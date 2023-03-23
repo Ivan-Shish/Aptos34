@@ -346,6 +346,7 @@ spec aptos_framework::stake {
         requires exists<ValidatorPerformance>(@aptos_framework);
         requires exists<ValidatorSet>(@aptos_framework);
         requires exists<StakingConfig>(@aptos_framework);
+        requires exists<StakingRewardsConfig>(@aptos_framework) || !features::reward_rate_decrease_enabled();
         requires exists<timestamp::CurrentTimeMicroseconds>(@aptos_framework);
         requires exists<ValidatorFees>(@aptos_framework);
     }
