@@ -80,7 +80,7 @@ spec aptos_framework::staking_config {
 
     spec get_epoch_rewards_rate(): (u64, u64) {
         aborts_if !exists<StakingRewardsConfig>(@aptos_framework);
-        aborts_if !features::reward_rate_decrease_enabled();
+        aborts_if !features::spec_fun_reward_rate_decrease_enabled();
         include StakingRewardsConfigRequirement;
     }
 
@@ -124,7 +124,7 @@ spec aptos_framework::staking_config {
         new_rewards_rate_denominator: u64,
     ) {
         use std::signer;
-        aborts_if features::reward_rate_decrease_enabled();
+        aborts_if features::spec_fun_reward_rate_decrease_enabled();
         let addr = signer::address_of(aptos_framework);
         aborts_if addr != @aptos_framework;
         aborts_if new_rewards_rate_denominator <= 0;
@@ -144,7 +144,7 @@ spec aptos_framework::staking_config {
         rewards_rate_decrease_rate_bps: u64,
     ) {
         use std::signer;
-        aborts_if !features::reward_rate_decrease_enabled();
+        aborts_if !features::spec_fun_reward_rate_decrease_enabled();
         include StakingRewardsConfigRequirement;
         let addr = signer::address_of(aptos_framework);
         aborts_if addr != @aptos_framework;
@@ -204,7 +204,7 @@ spec aptos_framework::staking_config {
     }
 
     spec schema StakingRewardsConfigRequirement {
-        include features::reward_rate_decrease_enabled() ==> StakingRewardsConfigEnabledRequirement;
+        include features::spec_fun_reward_rate_decrease_enabled() ==> StakingRewardsConfigEnabledRequirement;
     }
 
     spec schema StakingRewardsConfigEnabledRequirement {
