@@ -1,11 +1,18 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(feature = "testing")]
+use aptos_framework::natives::cryptography::algebra::AlgebraContext;
 use aptos_gas::{AbstractValueSizeGasParameters, NativeGasParameters, LATEST_GAS_FEATURE_VERSION};
-use aptos_types::account_config::CORE_CODE_ADDRESS;
 #[cfg(feature = "testing")]
 use aptos_types::chain_id::ChainId;
+use aptos_types::{
+    account_config::CORE_CODE_ADDRESS,
+    on_chain_config::{Features, TimedFeatures},
+};
 use move_vm_runtime::native_functions::NativeFunctionTable;
+use std::sync::Arc;
 #[cfg(feature = "testing")]
 use {
     aptos_framework::natives::{
@@ -24,7 +31,9 @@ static DUMMY_RESOLVER: Lazy<BlankStorage> = Lazy::new(|| BlankStorage);
 pub fn aptos_natives(
     gas_params: NativeGasParameters,
     abs_val_size_gas_params: AbstractValueSizeGasParameters,
-    feature_version: u64,
+    gas_feature_version: u64,
+    timed_features: TimedFeatures,
+    features: Arc<Features>,
 ) -> NativeFunctionTable {
     move_stdlib::natives::all_natives(CORE_CODE_ADDRESS, gas_params.move_stdlib)
         .into_iter()
@@ -32,7 +41,9 @@ pub fn aptos_natives(
         .chain(aptos_framework::natives::all_natives(
             CORE_CODE_ADDRESS,
             gas_params.aptos_framework,
-            move |val| abs_val_size_gas_params.abstract_value_size(val, feature_version),
+            timed_features,
+            features,
+            move |val| abs_val_size_gas_params.abstract_value_size(val, gas_feature_version),
         ))
         .chain(move_table_extension::table_natives(
             CORE_CODE_ADDRESS,
@@ -57,7 +68,9 @@ pub fn assert_no_test_natives(err_msg: &str) {
         aptos_natives(
             NativeGasParameters::zeros(),
             AbstractValueSizeGasParameters::zeros(),
-            LATEST_GAS_FEATURE_VERSION
+            LATEST_GAS_FEATURE_VERSION,
+            TimedFeatures::enable_all(),
+            Arc::new(Features::default())
         )
         .into_iter()
         .all(|(_, module_name, func_name, _)| {
@@ -91,4 +104,5 @@ fn unit_test_extensions_hook(exts: &mut NativeContextExtensions) {
     exts.add(NativeTransactionContext::new(vec![1], ChainId::test().id())); // We use the testing environment chain ID here
     exts.add(NativeAggregatorContext::new([0; 32], &*DUMMY_RESOLVER));
     exts.add(NativeRistrettoPointContext::new());
+    exts.add(AlgebraContext::new());
 }

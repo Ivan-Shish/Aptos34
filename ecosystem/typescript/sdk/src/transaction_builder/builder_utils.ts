@@ -1,7 +1,7 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-import { HexString } from "../hex_string";
+import { HexString } from "../utils";
 import {
   TypeTag,
   TypeTagBool,
@@ -324,7 +324,7 @@ export function serializeArg(argVal: any, argType: TypeTag, serializer: Serializ
       }
     }
 
-    if (!(argVal instanceof Array)) {
+    if (!Array.isArray(argVal)) {
       throw new Error("Invalid vector args.");
     }
 

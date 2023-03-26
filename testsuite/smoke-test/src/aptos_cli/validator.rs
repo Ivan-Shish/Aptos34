@@ -1,7 +1,7 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::smoke_test_environment::SwarmBuilder;
+use crate::{smoke_test_environment::SwarmBuilder, test_utils::MAX_CATCH_UP_WAIT_SECS};
 use aptos::{
     account::create::DEFAULT_FUNDED_COINS,
     common::types::TransactionSummary,
@@ -306,7 +306,7 @@ async fn test_onchain_config_change() {
         .await
         .unwrap();
     swarm
-        .wait_for_all_nodes_to_catchup_to_next(Duration::from_secs(30))
+        .wait_for_all_nodes_to_catchup_to_next(Duration::from_secs(MAX_CATCH_UP_WAIT_SECS))
         .await
         .unwrap();
     println!(
@@ -340,7 +340,7 @@ async fn test_onchain_config_change() {
     assert!(first_elected_new.unwrap() < 40);
 }
 
-fn generate_blob(data: &[u8]) -> String {
+pub(crate) fn generate_blob(data: &[u8]) -> String {
     let mut buf = String::new();
 
     write!(buf, "vector[").unwrap();
@@ -418,7 +418,7 @@ async fn test_large_total_stake() {
     );
 
     swarm
-        .wait_for_all_nodes_to_catchup(Duration::from_secs(20))
+        .wait_for_all_nodes_to_catchup(Duration::from_secs(MAX_CATCH_UP_WAIT_SECS))
         .await
         .unwrap();
 }
@@ -1054,11 +1054,12 @@ async fn test_owner_create_and_delegate_flow() {
         )
         .await
         .unwrap();
+    println!("owner CLI index: {}", owner_cli_index);
 
     cli.assert_account_balance_now(owner_cli_index, owner_initial_coins)
         .await;
 
-    // faucet can make our root LocalAccount sequence number get out of sync.
+    // Faucet can make our root LocalAccount sequence number get out of sync.
     swarm
         .chain_info()
         .resync_root_account_seq_num(&rest_client)
@@ -1078,6 +1079,7 @@ async fn test_owner_create_and_delegate_flow() {
     // Fetch amount of gas used for the above account creations
     let mut owner_gas =
         owner_initial_coins - cli.account_balance_now(owner_cli_index).await.unwrap();
+    println!("owner_gas1: {}", owner_gas);
 
     // Voter and operator start with no coins
     // Owner needs to send small amount of coins to operator and voter, to create their accounts and so they have enough for gas fees.
@@ -1085,7 +1087,7 @@ async fn test_owner_create_and_delegate_flow() {
         .transfer_coins(owner_cli_index, voter_cli_index, voter_initial_coins, None)
         .await
         .unwrap()
-        .gas_used;
+        .octa_spent();
     owner_gas += cli
         .transfer_coins(
             owner_cli_index,
@@ -1095,7 +1097,7 @@ async fn test_owner_create_and_delegate_flow() {
         )
         .await
         .unwrap()
-        .gas_used;
+        .octa_spent();
 
     cli.assert_account_balance_now(
         owner_cli_index,
@@ -1120,6 +1122,7 @@ async fn test_owner_create_and_delegate_flow() {
         .unwrap(),
     );
 
+    println!("before4");
     cli.assert_account_balance_now(
         owner_cli_index,
         owner_initial_coins
@@ -1129,6 +1132,7 @@ async fn test_owner_create_and_delegate_flow() {
             - owner_gas,
     )
     .await;
+    println!("after4");
 
     assert_validator_set_sizes(&cli, 1, 0, 0).await;
     assert_eq!(
@@ -1163,8 +1167,10 @@ async fn test_owner_create_and_delegate_flow() {
         .unwrap(),
     );
 
+    println!("before5");
     cli.assert_account_balance_now(operator_cli_index, operator_initial_coins - operator_gas)
         .await;
+    println!("after5");
 
     cli.join_validator_set(operator_cli_index, Some(owner_cli_index))
         .await
@@ -1247,7 +1253,7 @@ fn dns_name(addr: &str) -> DnsName {
     DnsName::try_from(addr.to_string()).unwrap()
 }
 
-struct ValidatorNodeKeys {
+pub struct ValidatorNodeKeys {
     account_private_key: Ed25519PrivateKey,
     network_private_key: x25519::PrivateKey,
     consensus_private_key: bls12381::PrivateKey,
@@ -1275,7 +1281,7 @@ impl ValidatorNodeKeys {
     }
 }
 
-async fn init_validator_account(
+pub async fn init_validator_account(
     cli: &mut CliTestFramework,
     keygen: &mut KeyGen,
     amount: Option<u64>,

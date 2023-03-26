@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -6,7 +7,7 @@
 use crate::{components::apply_chunk_output::ApplyChunkOutput, metrics};
 use anyhow::Result;
 use aptos_executor_types::ExecutedChunk;
-use aptos_logger::{trace, warn};
+use aptos_logger::{sample, sample::SampleRate, trace, warn};
 use aptos_storage_interface::{
     cached_state_view::{CachedStateView, StateCache},
     ExecutedTrees,
@@ -17,6 +18,7 @@ use aptos_types::{
 };
 use aptos_vm::{AptosVM, VMExecutor};
 use fail::fail_point;
+use std::time::Duration;
 
 pub struct ChunkOutput {
     /// Input transactions.
@@ -182,15 +184,24 @@ pub fn update_counters_for_processed_chunk(
                     },
                 ),
             },
-            TransactionStatus::Discard(discard_status_code) => (
-                "discard",
-                "error_code",
-                if detailed_counters {
-                    format!("{:?}", discard_status_code).to_lowercase()
-                } else {
-                    "error".to_string()
-                },
-            ),
+            TransactionStatus::Discard(discard_status_code) => {
+                sample!(
+                    SampleRate::Duration(Duration::from_secs(15)),
+                    warn!(
+                        "Txn being discarded is {:?} with status code {:?}",
+                        txn, discard_status_code
+                    )
+                );
+                (
+                    "discard",
+                    "error_code",
+                    if detailed_counters {
+                        format!("{:?}", discard_status_code).to_lowercase()
+                    } else {
+                        "error".to_string()
+                    },
+                )
+            },
             TransactionStatus::Retry => ("retry", "", "".to_string()),
         };
 
@@ -224,11 +235,6 @@ pub fn update_counters_for_processed_chunk(
                         .with_label_values(&[process_type, "script", state])
                         .inc();
                 },
-                aptos_types::transaction::TransactionPayload::ModuleBundle(_module) => {
-                    metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
-                        .with_label_values(&[process_type, "module", state])
-                        .inc();
-                },
                 aptos_types::transaction::TransactionPayload::EntryFunction(function) => {
                     metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
                         .with_label_values(&[process_type, "function", state])
@@ -260,6 +266,18 @@ pub fn update_counters_for_processed_chunk(
                             ])
                             .inc();
                     }
+                },
+                aptos_types::transaction::TransactionPayload::Multisig(_) => {
+                    metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
+                        .with_label_values(&[process_type, "multisig", state])
+                        .inc();
+                },
+
+                // Deprecated. Will be removed in the future.
+                aptos_types::transaction::TransactionPayload::ModuleBundle(_module) => {
+                    metrics::APTOS_PROCESSED_USER_TRANSACTIONS_PAYLOAD_TYPE
+                        .with_label_values(&[process_type, "module", state])
+                        .inc();
                 },
             }
         }

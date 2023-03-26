@@ -1,18 +1,16 @@
 ---
-title: "Prepare Aptos Dev Environment"
+title: "Prepare Your Environment"
 slug: "getting-started"
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Prepare Aptos Dev Environment
+# Prepare your Aptos Dev Environment
 
-To kickstart your journey in the Aptos ecosystem, set up your environment as needed by your role. To interact with Aptos, you may simply [install the Aptos command line interface (CLI)](#install-the-cli). To develop Aptos itself, you will need to [clone the Aptos-core repository](#clone-the-Aptos-core-repo).
+To kickstart your journey in the Aptos ecosystem, set up your environment as needed by your role. To interact with Aptos, you may simply [install the Aptos command line interface (CLI)](#install-the-cli). To develop Aptos itself, you will need to [clone the Aptos-core repository](#clone-the-aptos-core-repo).
 
 See the [Workflows](#workflows) for use cases associated with each path. See the [Aptos developer resources](#aptos-developer-resources) for quick links to Aptos networks, SDKs, and other tools.
-
-Then review the Aptos source code and [documentation](https://github.com/aptos-labs/aptos-core/tree/main/documentation) found in the [Aptos-core](https://github.com/aptos-labs/aptos-core) repository of GitHub and continue your journey through this site. The source contains READMEs and code comments invaluable to developing on Aptos.
 
 ## Use supported operating systems
 
@@ -28,8 +26,8 @@ See [Installing Aptos CLI](../cli-tools/aptos-cli-tool/install-aptos-cli.md) for
 
 Aptos requires no specific hardware to develop on the blockchain. To run one of our nodes, see the hardware requirements for:
 
-* [Fullnodes](nodes/full-node/fullnode-source-code-or-docker.md#hardware-requirements)
-* [Validators](nodes/validator-node/operator/node-requirements.md#hardware-requirements)
+* [Fullnodes](../nodes/full-node/fullnode-source-code-or-docker.md#hardware-requirements)
+* [Validators](../nodes/validator-node/operator/node-requirements.md#hardware-requirements)
 
 ## Workflows
 
@@ -59,7 +57,7 @@ The [Aptos source files](https://github.com/aptos-labs/aptos-core) themselves al
 
 ## Install the Aptos CLI
 
-[Install the Aptos CLI](../cli-tools/aptos-cli-tool/install-aptos-cli.md) to interact with the Aptos network. As a developer in the Aptos ecosystem, set up your development environment as described in the link.
+[Install the Aptos CLI](../cli-tools/aptos-cli-tool/index.md) to interact with the Aptos network. As a developer in the Aptos ecosystem, set up your development environment as described in the link.
 This tool will help you compile, test, and publish contracts as well as run contracts directly on the blockchain.
 
 ## Clone the Aptos-core repo
@@ -79,7 +77,7 @@ As described in [Workflows](#workflows), you may interact with Aptos using only 
     cd aptos-core
     ```
    
-1. Set up build dependencies -
+## Set up build dependencies
 
    Prepare your developer environment by installing the dependencies needed to build, test and inspect Aptos Core.
    No matter your selected mechanism for installing these dependencies, **it is imperative you keep your entire toolchain up-to-date**. If you encounter issues later, update all packages and try again.
@@ -134,54 +132,50 @@ If the script above does not work for you, you can install these manually, but i
 <details>
 <summary>Windows</summary>
 
-:::tip
-The aptos-core codebase currently has no script similar to the `dev_setup.sh` script for
-Windows.  All dependencies must be manually installed.
-:::
+**> Using the automated script**
+
+1. Open a PowerShell terminal as an administrator. 
+1. Run the dev setup script to prepare your environment: `PowerShell -ExecutionPolicy Bypass -File ./scripts/windows_dev_setup.ps1`
 
 **> Manual installation of dependencies**
 
 1. Install [Rust](https://www.rust-lang.org/tools/install).
-1. Install [CMake](https://cmake.org/download/).
-1. If on Windows ARM, install [Visual Studio Preview](https://visualstudio.microsoft.com/vs/preview/).
-1. Install [C++ build tools for Windows](https://visualstudio.microsoft.com/downloads/#microsoft-visual-c-redistributable-for-visual-studio-2022). Note: This may be installed already with Rust.
-1. Install [LLVM](https://releases.llvm.org/).  The last prebuilt release is [11.0.0](https://releases.llvm.org/download.html#11.0.0)
-1. Open a new powershell terminal after installing all dependencies
+1. Install [LLVM](https://releases.llvm.org/).  Visit their GitHub repository for the [latest prebuilt release](https://github.com/llvm/llvm-project/releases/tag/llvmorg-15.0.7).
+1. Install [Microsoft Visual Studio Build Tools for Windows](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022). During setup, select "Desktop development with C++" and three additional options: MSVC C++ build tools, Windows 10/11 SDK, and C++ CMake tools for Windows.
+1. If on Windows ARM, install [Visual Studio](https://visualstudio.microsoft.com/vs).
+1. If not already installed during Visual Studio/Build Tools installation, install [CMake](https://cmake.org/download/).
+
+1. Open a new PowerShell terminal after installing all dependencies
 
 </details>
 
-5. Optionally, check out a release branch to install an Aptos node:
+## Check out release branch
 
-    We suggest you checkout `devnet` for your first development.
+Optionally, check out a release branch to install an Aptos node. We suggest you check out `devnet` for your first development. See [Choose a network](./system-integrators-guide.md#choose-a-network) for an explanation of their differences. 
 
-    <Tabs groupId="network">
+<Tabs groupId="network">
     <TabItem value="devnet" label="Devnet">
 
-    Check out the `devnet` branch using:
-
-    ```
     git checkout --track origin/devnet
-    ```
-    </TabItem>
+
+</TabItem>
     <TabItem value="testnet" label="Testnet" default>
 
-    Check out the `testnet` branch using:
-
-    ```
     git checkout --track origin/testnet
-    ```
-    </TabItem>
-    <TabItem value="mainnet" label="Mainnet">
 
-    Check out the `mainnet` branch using:
+</TabItem>
+<TabItem value="mainnet" label="Mainnet">
 
-    ```
     git checkout --track origin/mainnet
-    ```
-    </TabItem>
-    </Tabs>
 
-Now your basic Aptos development environment is ready. Head over to our [Developer Tutorials](tutorials/index.md) to get started in Aptos.
+</TabItem>
+</Tabs>
+
+Now your basic Aptos development environment is ready. Head over to our [Developer Tutorials](../tutorials/index.md) to get started in Aptos.
+
+## Create and fund test accounts
+
+Use the Aptos CLI and wallet of your choice to create and fund an Aptos account in `testnet` (or `devnet`). For more options and details, see [Create and Fund Aptos Accounts](./get-test-funds.md).
 
 ## Understand the Aptos Token Standard
 
@@ -233,6 +227,4 @@ This section contains links to frequently referred Aptos developer resources.
 
 ### IDE plugins for Move language
 
-- [Syntax highlighting for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=damirka.move-syntax)
-- [Move analyzer for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=move.move-analyzer): Supports advanced code navigation and syntax highlighting.
-- [Move language plugin for Jetbrains IDEs](https://plugins.jetbrains.com/plugin/14721-move-language): Supports syntax highlighting, code navigation, renames, formatting, type checks and code generation.
+Install the [IDE plugins for the Move language](../guides/move-guides/index.md#ides-for-move) for even more handy features.

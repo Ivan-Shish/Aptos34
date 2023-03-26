@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{bail, format_err, Result};
@@ -8,7 +8,12 @@ use aptos_crypto::ed25519::Ed25519PrivateKey;
 use aptos_sdk::types::chain_id::ChainId;
 use clap::{ArgEnum, ArgGroup, Parser};
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, path::Path};
+use std::{
+    convert::TryFrom,
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 use url::Url;
 
 const DEFAULT_API_PORT: u16 = 8080;
@@ -60,7 +65,10 @@ pub struct ClusterArgs {
     /// Nodes the cluster should connect to, e.g. http://node.mysite.com:8080
     /// If the port is not provided, it is assumed to be 8080.
     #[clap(short, long, required = true, min_values = 1, parse(try_from_str = parse_target))]
-    pub targets: Vec<Url>,
+    pub targets: Option<Vec<Url>>,
+
+    #[clap(long, conflicts_with = "targets")]
+    pub targets_file: Option<String>,
 
     /// If set, try to use public peers instead of localhost.
     #[clap(long)]
@@ -73,17 +81,42 @@ pub struct ClusterArgs {
     pub coin_source_args: CoinSourceArgs,
 }
 
-#[derive(Debug, Clone, Copy, ArgEnum, Deserialize, Parser, Serialize)]
-pub enum TransactionType {
-    P2P,
-    AccountGeneration,
-    NftMintAndTransfer,
-    PublishPackage,
+impl ClusterArgs {
+    pub fn get_targets(&self) -> Result<Vec<Url>> {
+        return match (&self.targets, &self.targets_file) {
+            (Some(targets), _) => Ok(targets.clone()),
+            (None, Some(target_file)) => Self::get_targets_from_file(target_file),
+            (_, _) => Err(anyhow::anyhow!("Expected either targets or target_file")),
+        };
+    }
+
+    fn get_targets_from_file(path: &String) -> Result<Vec<Url>> {
+        let reader = BufReader::new(File::open(path)?);
+        let mut urls = Vec::new();
+
+        for line in reader.lines() {
+            let url_string = &line?;
+            urls.push(parse_target(url_string)?);
+        }
+        Ok(urls)
+    }
 }
 
-impl Default for TransactionType {
+#[derive(Debug, Copy, Clone, ArgEnum, Deserialize, Parser, Serialize)]
+pub enum TransactionTypeArg {
+    CoinTransfer,
+    AccountGeneration,
+    AccountGenerationLargePool,
+    NftMintAndTransfer,
+    PublishPackage,
+    CustomFunctionLargeModuleWorkingSet,
+    CreateNewResource,
+    NoOp,
+}
+
+impl Default for TransactionTypeArg {
     fn default() -> Self {
-        TransactionType::P2P
+        TransactionTypeArg::CoinTransfer
     }
 }
 
@@ -118,20 +151,49 @@ pub struct EmitArgs {
     #[clap(
         long,
         arg_enum,
-        default_value = "p2p",
+        default_value = "coin-transfer",
         min_values = 1,
         ignore_case = true
     )]
-    pub transaction_type: Vec<TransactionType>,
+    pub transaction_type: Vec<TransactionTypeArg>,
 
     #[clap(long, min_values = 0)]
-    pub transaction_type_weights: Vec<usize>,
+    pub transaction_weights: Vec<usize>,
+
+    #[clap(long, min_values = 0)]
+    pub transaction_phases: Vec<usize>,
+
+    #[clap(long)]
+    pub gas_price: Option<u64>,
+
+    #[clap(long)]
+    pub max_gas_per_txn: Option<u64>,
+
+    #[clap(long)]
+    pub init_gas_price_multiplier: Option<u64>,
 
     #[clap(long)]
     pub expected_max_txns: Option<u64>,
 
     #[clap(long)]
     pub expected_gas_per_txn: Option<u64>,
+
+    #[clap(long)]
+    pub max_transactions_per_account: Option<usize>,
+
+    // In cases you want to run txn emitter from multiple machines,
+    // and want to make sure that initialization succeeds
+    // (account minting and txn-specific initialization), before the
+    // loadtest puts significant load, you can add a delay here.
+    //
+    // This also enables few other changes needed to run txn emitter
+    // from multiple machines simultaneously:
+    // - retrying minting phase before this delay expires
+    // - having a single transaction on root/source account
+    //   (to reduce contention and issues with sequence numbers across multiple txn emitters).
+    //   basically creating a new source account (to then create seed accounts from).
+    #[clap(long)]
+    pub coordination_delay_between_instances: Option<u64>,
 }
 
 fn parse_target(target: &str) -> Result<Url> {

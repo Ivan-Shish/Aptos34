@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::common::types::{CliCommand, CliTypedResult, TransactionOptions};
@@ -61,6 +61,12 @@ pub struct TransferSummary {
     pub version: u64,
     pub vm_status: String,
     pub transaction_hash: HashValue,
+}
+
+impl TransferSummary {
+    pub fn octa_spent(&self) -> u64 {
+        self.gas_unit_price * self.gas_used
+    }
 }
 
 impl From<Transaction> for TransferSummary {

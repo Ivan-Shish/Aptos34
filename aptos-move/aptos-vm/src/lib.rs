@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -114,7 +115,6 @@ mod aptos_vm_impl;
 pub mod block_executor;
 mod delta_state_view;
 mod errors;
-pub mod logging;
 pub mod move_vm_ext;
 pub mod natives;
 pub mod read_write_set_analysis;
@@ -125,13 +125,8 @@ mod verifier;
 pub use crate::aptos_vm::AptosVM;
 use aptos_state_view::StateView;
 use aptos_types::{
-    access_path::AccessPath,
     transaction::{SignedTransaction, Transaction, TransactionOutput, VMValidatorResult},
     vm_status::VMStatus,
-};
-use move_core_types::{
-    account_address::AccountAddress,
-    language_storage::{ResourceKey, StructTag},
 };
 use std::marker::Sync;
 
@@ -159,8 +154,11 @@ pub trait VMExecutor: Send + Sync {
     ) -> Result<Vec<TransactionOutput>, VMStatus>;
 }
 
+/*
 /// Get the AccessPath to a resource stored under `address` with type name `tag`
-fn create_access_path(address: AccountAddress, tag: StructTag) -> AccessPath {
+/// DNS
+fn create_access_path(address: AccountAddress, tag: StructTag) -> anyhow::Result<AccessPath> {
     let resource_tag = ResourceKey::new(address, tag);
     AccessPath::resource_access_path(resource_tag)
 }
+ */

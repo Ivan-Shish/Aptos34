@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{CheckResult, Checker, CheckerError, CommonCheckerConfig};
@@ -12,7 +12,6 @@ use aptos_transaction_emitter_lib::{
     emit_transactions_with_cluster, Cluster, ClusterArgs, CoinSourceArgs, EmitArgs,
 };
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 use thiserror::Error as ThisError;
 
 const NODE_REQUIREMENTS_LINK: &str =
@@ -125,7 +124,8 @@ impl Checker for TpsChecker {
         };
 
         let cluster_config = ClusterArgs {
-            targets: vec![target_url; self.config.repeat_target_count],
+            targets: Some(vec![target_url; self.config.repeat_target_count]),
+            targets_file: None,
             reuse_accounts: false,
             coin_source_args: self.config.coin_source_args.clone(),
             chain_id,
@@ -139,7 +139,7 @@ impl Checker for TpsChecker {
             .map_err(TpsCheckerError::TransactionEmitterError)?;
 
         // AKA stats per second.
-        let rate = stats.rate(Duration::from_secs(self.config.emit_config.duration));
+        let rate = stats.rate();
 
         if rate.submitted < self.config.minimum_tps {
             return Err(TpsCheckerError::InsufficientSubmittedTransactionsError(

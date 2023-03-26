@@ -18,6 +18,7 @@ aptos-api = { workspace = true }
 aptos-backup-service = { workspace = true }
 aptos-build-info = { workspace = true }
 aptos-cached-packages = { workspace = true }
+aptos-channels = { workspace = true }
 aptos-config = { workspace = true }
 aptos-consensus = { workspace = true }
 aptos-consensus-notifications = { workspace = true }
@@ -32,6 +33,7 @@ aptos-executor-types = { workspace = true }
 aptos-framework = { workspace = true }
 aptos-genesis = { workspace = true }
 aptos-indexer = { workspace = true, optional = true }
+aptos-indexer-grpc-fullnode = { workspace = true }
 aptos-infallible = { workspace = true }
 aptos-inspection-service = { workspace = true }
 aptos-logger = { workspace = true }
@@ -39,6 +41,10 @@ aptos-mempool = { workspace = true }
 aptos-mempool-notifications = { workspace = true }
 aptos-network = { workspace = true }
 aptos-network-builder = { workspace = true }
+aptos-node-identity = { workspace = true }
+aptos-peer-monitoring-service-client = { workspace = true }
+aptos-peer-monitoring-service-server = { workspace = true }
+aptos-peer-monitoring-service-types = { workspace = true }
 aptos-runtimes = { workspace = true }
 aptos-secure-storage = { workspace = true }
 aptos-state-sync-driver = { workspace = true }
@@ -60,8 +66,11 @@ hex = { workspace = true }
 maplit = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+url = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = { workspace = true }

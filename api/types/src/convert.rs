@@ -1,18 +1,20 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
     transaction::{
         DecodedTableData, DeleteModule, DeleteResource, DeleteTableItem, DeletedTableData,
-        ModuleBundlePayload, StateCheckpointTransaction, UserTransactionRequestInner, WriteModule,
-        WriteResource, WriteTableItem,
+        ModuleBundlePayload, MultisigPayload, MultisigTransactionPayload,
+        StateCheckpointTransaction, UserTransactionRequestInner, WriteModule, WriteResource,
+        WriteTableItem,
     },
     view::ViewRequest,
     Bytecode, DirectWriteSet, EntryFunctionId, EntryFunctionPayload, Event, HexEncodedBytes,
     MoveFunction, MoveModuleBytecode, MoveResource, MoveScriptBytecode, MoveType, MoveValue,
-    PendingTransaction, ScriptPayload, ScriptWriteSet, SubmitTransactionRequest, Transaction,
-    TransactionInfo, TransactionOnChainData, TransactionPayload, UserTransactionRequest,
-    VersionedEvent, WriteSet, WriteSetChange, WriteSetPayload,
+    PendingTransaction, ResourceGroup, ScriptPayload, ScriptWriteSet, SubmitTransactionRequest,
+    Transaction, TransactionInfo, TransactionOnChainData, TransactionPayload,
+    UserTransactionRequest, VersionedEvent, WriteSet, WriteSetChange, WriteSetPayload,
 };
 use anyhow::{bail, ensure, format_err, Context as AnyhowContext, Result};
 use aptos_crypto::{hash::CryptoHash, HashValue};
@@ -21,9 +23,13 @@ use aptos_types::{
     access_path::{AccessPath, Path},
     chain_id::ChainId,
     contract_event::{ContractEvent, EventWithVersion},
-    state_store::{state_key::StateKey, table::TableHandle},
+    state_store::{
+        state_key::{StateKey, StateKeyInner},
+        table::TableHandle,
+    },
     transaction::{
-        EntryFunction, ExecutionStatus, ModuleBundle, RawTransaction, Script, SignedTransaction,
+        EntryFunction, ExecutionStatus, ModuleBundle, Multisig, RawTransaction, Script,
+        SignedTransaction,
     },
     vm_status::AbortLocation,
     write_set::WriteOp,
@@ -71,6 +77,23 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
 
     pub fn try_into_resource<'b>(&self, typ: &StructTag, bytes: &'b [u8]) -> Result<MoveResource> {
         self.inner.view_resource(typ, bytes)?.try_into()
+    }
+
+    pub fn try_into_resources_from_resource_group(
+        &self,
+        bytes: &[u8],
+    ) -> Result<Vec<MoveResource>> {
+        let resources_with_tag: Vec<(StructTag, Vec<u8>)> = bcs::from_bytes::<ResourceGroup>(bytes)
+            .map(|map| {
+                map.into_iter()
+                    .map(|(key, value)| (key, value))
+                    .collect::<Vec<_>>()
+            })?;
+
+        resources_with_tag
+            .iter()
+            .map(|(struct_tag, value_bytes)| self.try_into_resource(struct_tag, value_bytes))
+            .collect::<Result<Vec<_>>>()
     }
 
     pub fn move_struct_fields<'b>(
@@ -146,7 +169,8 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             // TODO: the resource value is interpreted by the type definition at the version of the converter, not the version of the tx: must be fixed before we allow module updates
             changes: write_set
                 .into_iter()
-                .filter_map(|(sk, wo)| self.try_into_write_set_change(sk, wo).ok())
+                .filter_map(|(sk, wo)| self.try_into_write_set_changes(sk, wo).ok())
+                .flatten()
                 .collect(),
             block_height: None,
             epoch: None,
@@ -160,12 +184,6 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
         use aptos_types::transaction::TransactionPayload::*;
         let ret = match payload {
             Script(s) => TransactionPayload::ScriptPayload(s.try_into()?),
-            ModuleBundle(modules) => TransactionPayload::ModuleBundlePayload(ModuleBundlePayload {
-                modules: modules
-                    .into_iter()
-                    .map(|module| MoveModuleBytecode::from(module).try_parse_abi())
-                    .collect::<Result<Vec<_>>>()?,
-            }),
             EntryFunction(fun) => {
                 let (module, function, ty_args, args) = fun.into_inner();
                 let func_args = self
@@ -191,6 +209,58 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     type_arguments: ty_args.into_iter().map(|arg| arg.into()).collect(),
                 })
             },
+            Multisig(multisig) => {
+                let transaction_payload = if let Some(payload) = multisig.transaction_payload {
+                    match payload {
+                        aptos_types::transaction::MultisigTransactionPayload::EntryFunction(
+                            entry_function,
+                        ) => {
+                            let (module, function, ty_args, args) = entry_function.into_inner();
+                            let func_args = self
+                                .inner
+                                .view_function_arguments(&module, &function, &args);
+                            let json_args = match func_args {
+                                Ok(values) => values
+                                    .into_iter()
+                                    .map(|v| MoveValue::try_from(v)?.json())
+                                    .collect::<Result<_>>()?,
+                                Err(_e) => args
+                                    .into_iter()
+                                    .map(|arg| HexEncodedBytes::from(arg).json())
+                                    .collect::<Result<_>>()?,
+                            };
+
+                            Some(MultisigTransactionPayload::EntryFunctionPayload(
+                                EntryFunctionPayload {
+                                    arguments: json_args,
+                                    function: EntryFunctionId {
+                                        module: module.into(),
+                                        name: function.into(),
+                                    },
+                                    type_arguments: ty_args
+                                        .into_iter()
+                                        .map(|arg| arg.into())
+                                        .collect(),
+                                },
+                            ))
+                        },
+                    }
+                } else {
+                    None
+                };
+                TransactionPayload::MultisigPayload(MultisigPayload {
+                    multisig_address: multisig.multisig_address.into(),
+                    transaction_payload,
+                })
+            },
+
+            // Deprecated. Will be removed in the future.
+            ModuleBundle(modules) => TransactionPayload::ModuleBundlePayload(ModuleBundlePayload {
+                modules: modules
+                    .into_iter()
+                    .map(|module| MoveModuleBytecode::from(module).try_parse_abi())
+                    .collect::<Result<Vec<_>>>()?,
+            }),
         };
         Ok(ret)
     }
@@ -209,13 +279,17 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             },
             Direct(d) => {
                 let (write_set, events) = d.into_inner();
+                let nested_writeset_changes: Vec<Vec<WriteSetChange>> = write_set
+                    .into_iter()
+                    .map(|(state_key, op)| self.try_into_write_set_changes(state_key, op))
+                    .collect::<Result<Vec<Vec<_>>>>()?;
                 WriteSetPayload {
                     write_set: WriteSet::DirectWriteSet(DirectWriteSet {
                         // TODO: the resource value is interpreted by the type definition at the version of the converter, not the version of the tx: must be fixed before we allow module updates
-                        changes: write_set
+                        changes: nested_writeset_changes
                             .into_iter()
-                            .map(|(state_key, op)| self.try_into_write_set_change(state_key, op))
-                            .collect::<Result<_>>()?,
+                            .flatten()
+                            .collect::<Vec<WriteSetChange>>(),
                         events: self.try_into_events(&events)?,
                     }),
                 }
@@ -224,57 +298,75 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
         Ok(ret)
     }
 
-    pub fn try_into_write_set_change(
+    pub fn try_into_write_set_changes(
         &self,
         state_key: StateKey,
         op: WriteOp,
-    ) -> Result<WriteSetChange> {
+    ) -> Result<Vec<WriteSetChange>> {
         let hash = state_key.hash().to_hex_literal();
-
+        let state_key = state_key.into_inner();
         match state_key {
-            StateKey::AccessPath(access_path) => {
-                self.try_access_path_into_write_set_change(hash, access_path, op)
+            StateKeyInner::AccessPath(access_path) => {
+                self.try_access_path_into_write_set_changes(hash, access_path, op)
             },
-            StateKey::TableItem { handle, key } => {
-                self.try_table_item_into_write_set_change(hash, handle, key, op)
+            StateKeyInner::TableItem { handle, key } => {
+                vec![self.try_table_item_into_write_set_change(hash, handle, key, op)]
+                    .into_iter()
+                    .collect()
             },
-            StateKey::Raw(_) => Err(format_err!(
+            StateKeyInner::Raw(_) => Err(format_err!(
                 "Can't convert account raw key {:?} to WriteSetChange",
                 state_key
             )),
         }
     }
 
-    pub fn try_access_path_into_write_set_change(
+    pub fn try_access_path_into_write_set_changes(
         &self,
         state_key_hash: String,
         access_path: AccessPath,
         op: WriteOp,
-    ) -> Result<WriteSetChange> {
-        let ret = match op {
-            WriteOp::Deletion => match access_path.get_path() {
-                Path::Code(module_id) => WriteSetChange::DeleteModule(DeleteModule {
+    ) -> Result<Vec<WriteSetChange>> {
+        let ret = match op.into_bytes() {
+            None => match access_path.get_path() {
+                Path::Code(module_id) => vec![WriteSetChange::DeleteModule(DeleteModule {
                     address: access_path.address.into(),
                     state_key_hash,
                     module: module_id.into(),
-                }),
-                Path::Resource(typ) => WriteSetChange::DeleteResource(DeleteResource {
+                })],
+                Path::Resource(typ) => vec![WriteSetChange::DeleteResource(DeleteResource {
                     address: access_path.address.into(),
                     state_key_hash,
                     resource: typ.into(),
-                }),
+                })],
+                Path::ResourceGroup(typ) => vec![WriteSetChange::DeleteResource(DeleteResource {
+                    address: access_path.address.into(),
+                    state_key_hash,
+                    resource: typ.into(),
+                })],
             },
-            WriteOp::Modification(val) | WriteOp::Creation(val) => match access_path.get_path() {
-                Path::Code(_) => WriteSetChange::WriteModule(WriteModule {
+            Some(bytes) => match access_path.get_path() {
+                Path::Code(_) => vec![WriteSetChange::WriteModule(WriteModule {
                     address: access_path.address.into(),
                     state_key_hash,
-                    data: MoveModuleBytecode::new(val).try_parse_abi()?,
-                }),
-                Path::Resource(typ) => WriteSetChange::WriteResource(WriteResource {
+                    data: MoveModuleBytecode::new(bytes).try_parse_abi()?,
+                })],
+                Path::Resource(typ) => vec![WriteSetChange::WriteResource(WriteResource {
                     address: access_path.address.into(),
                     state_key_hash,
-                    data: self.try_into_resource(&typ, &val)?,
-                }),
+                    data: self.try_into_resource(&typ, &bytes)?,
+                })],
+                Path::ResourceGroup(_) => self
+                    .try_into_resources_from_resource_group(&bytes)?
+                    .into_iter()
+                    .map(|data| {
+                        WriteSetChange::WriteResource(WriteResource {
+                            address: access_path.address.into(),
+                            state_key_hash: state_key_hash.clone(),
+                            data,
+                        })
+                    })
+                    .collect::<Vec<_>>(),
             },
         };
         Ok(ret)
@@ -289,8 +381,8 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
     ) -> Result<WriteSetChange> {
         let hex_handle = handle.0.to_vec().into();
         let key: HexEncodedBytes = key.into();
-        let ret = match op {
-            WriteOp::Deletion => {
+        let ret = match op.into_bytes() {
+            None => {
                 let data = self.try_delete_table_item_into_deleted_table_data(handle, &key.0)?;
 
                 WriteSetChange::DeleteTableItem(DeleteTableItem {
@@ -300,15 +392,15 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     data,
                 })
             },
-            WriteOp::Modification(value) | WriteOp::Creation(value) => {
+            Some(bytes) => {
                 let data =
-                    self.try_write_table_item_into_decoded_table_data(handle, &key.0, &value)?;
+                    self.try_write_table_item_into_decoded_table_data(handle, &key.0, &bytes)?;
 
                 WriteSetChange::WriteTableItem(WriteTableItem {
                     state_key_hash,
                     handle: hex_handle,
                     key,
-                    value: value.into(),
+                    value: bytes.into(),
                     data,
                 })
             },
@@ -325,7 +417,16 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
         if !self.db.indexer_enabled() {
             return Ok(None);
         }
-        let table_info = self.db.get_table_info(handle).unwrap();
+        let table_info = match self.db.get_table_info(handle) {
+            Ok(ti) => ti,
+            Err(_) => {
+                aptos_logger::warn!(
+                    "Table info not found for handle {:?}, can't decode table item. OK for simulation",
+                    handle
+                );
+                return Ok(None); // if table item not found return None anyway to avoid crash
+            },
+        };
         let key = self.try_into_move_value(&table_info.key_type, key)?;
         let value = self.try_into_move_value(&table_info.value_type, value)?;
 
@@ -345,7 +446,16 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
         if !self.db.indexer_enabled() {
             return Ok(None);
         }
-        let table_info = self.db.get_table_info(handle).unwrap();
+        let table_info = match self.db.get_table_info(handle) {
+            Ok(ti) => ti,
+            Err(_) => {
+                aptos_logger::warn!(
+                    "Table info not found for handle {:?}, can't decode table item. OK for simulation",
+                    handle
+                );
+                return Ok(None); // if table item not found return None anyway to avoid crash
+            },
+        };
         let key = self.try_into_move_value(&table_info.key_type, key)?;
 
         Ok(Some(DeletedTableData {
@@ -500,15 +610,6 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     args,
                 ))
             },
-            TransactionPayload::ModuleBundlePayload(payload) => {
-                Target::ModuleBundle(ModuleBundle::new(
-                    payload
-                        .modules
-                        .into_iter()
-                        .map(|m| m.bytecode.into())
-                        .collect(),
-                ))
-            },
             TransactionPayload::ScriptPayload(script) => {
                 let ScriptPayload {
                     code,
@@ -533,6 +634,71 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
                     },
                     None => return Err(anyhow::anyhow!("invalid transaction script bytecode")),
                 }
+            },
+            TransactionPayload::MultisigPayload(multisig) => {
+                let transaction_payload = if let Some(payload) = multisig.transaction_payload {
+                    match payload {
+                        MultisigTransactionPayload::EntryFunctionPayload(entry_function) => {
+                            let EntryFunctionPayload {
+                                function,
+                                type_arguments,
+                                arguments,
+                            } = entry_function;
+
+                            let module = function.module.clone();
+                            let code =
+                                self.inner.get_module(&module.clone().into())? as Rc<dyn Bytecode>;
+                            let func = code
+                                .find_entry_function(function.name.0.as_ident_str())
+                                .ok_or_else(|| {
+                                    format_err!("could not find entry function by {}", function)
+                                })?;
+                            ensure!(
+                                func.generic_type_params.len() == type_arguments.len(),
+                                "expect {} type arguments for entry function {}, but got {}",
+                                func.generic_type_params.len(),
+                                function,
+                                type_arguments.len()
+                            );
+
+                            let args = self
+                                .try_into_vm_values(func, arguments)?
+                                .iter()
+                                .map(bcs::to_bytes)
+                                .collect::<Result<_, bcs::Error>>()?;
+                            Some(
+                                aptos_types::transaction::MultisigTransactionPayload::EntryFunction(
+                                    EntryFunction::new(
+                                        module.into(),
+                                        function.name.into(),
+                                        type_arguments
+                                            .into_iter()
+                                            .map(|v| v.try_into())
+                                            .collect::<Result<_>>()?,
+                                        args,
+                                    ),
+                                ),
+                            )
+                        },
+                    }
+                } else {
+                    None
+                };
+                Target::Multisig(Multisig {
+                    multisig_address: multisig.multisig_address.into(),
+                    transaction_payload,
+                })
+            },
+
+            // Deprecated. Will be removed in the future.
+            TransactionPayload::ModuleBundlePayload(payload) => {
+                Target::ModuleBundle(ModuleBundle::new(
+                    payload
+                        .modules
+                        .into_iter()
+                        .map(|m| m.bytecode.into())
+                        .collect(),
+                ))
             },
         };
         Ok(ret)

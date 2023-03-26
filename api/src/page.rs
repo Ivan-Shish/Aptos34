@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::response::BadRequestError;
@@ -64,8 +65,8 @@ impl Page {
     pub fn limit<E: BadRequestError>(&self, ledger_info: &LedgerInfo) -> Result<u16, E> {
         determine_limit(
             self.limit,
-            self.max_page_size,
             DEFAULT_PAGE_SIZE,
+            self.max_page_size,
             ledger_info,
         )
     }

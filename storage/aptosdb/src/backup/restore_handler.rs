@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -21,6 +22,7 @@ use aptos_types::{
     proof::definition::LeafCount,
     state_store::{state_key::StateKey, state_value::StateValue},
     transaction::{Transaction, TransactionInfo, Version},
+    write_set::WriteSet,
 };
 use std::sync::Arc;
 
@@ -100,6 +102,7 @@ impl RestoreHandler {
         txns: &[Transaction],
         txn_infos: &[TransactionInfo],
         events: &[Vec<ContractEvent>],
+        write_sets: Vec<WriteSet>,
     ) -> Result<()> {
         restore_utils::save_transactions(
             self.ledger_db.clone(),
@@ -110,6 +113,7 @@ impl RestoreHandler {
             txns,
             txn_infos,
             events,
+            write_sets,
             None,
         )
     }

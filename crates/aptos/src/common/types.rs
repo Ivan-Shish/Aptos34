@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -20,7 +20,11 @@ use aptos_crypto::{
 };
 use aptos_global_constants::adjust_gas_headroom;
 use aptos_keygen::KeyGen;
-use aptos_rest_client::{aptos_api_types::HashValue, error::RestError, Client, Transaction};
+use aptos_rest_client::{
+    aptos_api_types::{HashValue, ViewRequest},
+    error::RestError,
+    Client, Transaction,
+};
 use aptos_sdk::{transaction_builder::TransactionFactory, types::LocalAccount};
 use aptos_types::{
     chain_id::ChainId,
@@ -44,6 +48,7 @@ use std::{
 };
 use thiserror::Error;
 
+pub const USER_AGENT: &str = concat!("aptos-cli/", env!("CARGO_PKG_VERSION"));
 const US_IN_SECS: u64 = 1_000_000;
 const ACCEPTED_CLOCK_SKEW_US: u64 = 5 * US_IN_SECS;
 pub const DEFAULT_EXPIRATION_SECS: u64 = 30;
@@ -86,6 +91,8 @@ pub enum CliError {
     UnexpectedError(String),
     #[error("Simulation failed with status: {0}")]
     SimulationError(String),
+    #[error("Coverage failed with status: {0}")]
+    CoverageError(String),
 }
 
 impl CliError {
@@ -105,6 +112,7 @@ impl CliError {
             CliError::UnableToReadFile(_, _) => "UnableToReadFile",
             CliError::UnexpectedError(_) => "UnexpectedError",
             CliError::SimulationError(_) => "SimulationError",
+            CliError::CoverageError(_) => "CoverageError",
         }
     }
 }
@@ -888,15 +896,16 @@ impl RestOptions {
     }
 
     pub fn client(&self, profile: &ProfileOptions) -> CliTypedResult<Client> {
-        Ok(Client::new_with_timeout(
+        Ok(Client::new_with_timeout_and_user_agent(
             self.url(profile)?,
             Duration::from_secs(self.connection_timeout_secs),
+            USER_AGENT,
         ))
     }
 }
 
 /// Options for compiling a move package dir
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 pub struct MovePackageDir {
     /// Path to a move package (the folder with a Move.toml file)
     #[clap(long, parse(from_os_str))]
@@ -949,10 +958,6 @@ impl MovePackageDir {
             .into_iter()
             .map(|(key, value)| (key, value.account_address))
             .collect()
-    }
-
-    pub fn bytecode_version_or_detault(&self) -> u32 {
-        self.bytecode_version.unwrap_or(5)
     }
 
     pub fn add_named_address(&mut self, key: String, value: String) {
@@ -1318,6 +1323,11 @@ impl TransactionOptions {
     pub async fn sequence_number(&self, sender_address: AccountAddress) -> CliTypedResult<u64> {
         let client = self.rest_client()?;
         get_sequence_number(&client, sender_address).await
+    }
+
+    pub async fn view(&self, payload: ViewRequest) -> CliTypedResult<Vec<serde_json::Value>> {
+        let client = self.rest_client()?;
+        Ok(client.view(&payload, None).await?.into_inner())
     }
 
     /// Submit a transaction

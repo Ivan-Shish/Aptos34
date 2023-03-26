@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! Parallel data aggregation uses a `Delta` op. Every delta is is a state key
@@ -170,8 +170,8 @@ impl DeltaOp {
         state_key: &StateKey,
     ) -> anyhow::Result<WriteOp, VMStatus> {
         state_view
-            .get_state_value(state_key)
-            .map_err(|_| VMStatus::Error(StatusCode::STORAGE_ERROR))
+            .get_state_value_bytes(state_key)
+            .map_err(|_| VMStatus::Error(StatusCode::STORAGE_ERROR, None))
             .and_then(|maybe_bytes| {
                 match maybe_bytes {
                     Some(bytes) => {
@@ -188,7 +188,7 @@ impl DeltaOp {
                     },
                     // Something is wrong, the value to which we apply delta should
                     // always exist. Guard anyway.
-                    None => Err(VMStatus::Error(StatusCode::STORAGE_ERROR)),
+                    None => Err(VMStatus::Error(StatusCode::STORAGE_ERROR, None)),
                 }
             })
     }
@@ -352,7 +352,9 @@ impl ::std::iter::IntoIterator for DeltaChangeSet {
 mod tests {
     use super::*;
     use aptos_state_view::TStateView;
-    use aptos_types::state_store::state_storage_usage::StateStorageUsage;
+    use aptos_types::state_store::{
+        state_storage_usage::StateStorageUsage, state_value::StateValue,
+    };
     use claims::{assert_err, assert_matches, assert_ok, assert_ok_eq};
     use once_cell::sync::Lazy;
     use std::collections::HashMap;
@@ -540,8 +542,12 @@ mod tests {
     impl TStateView for FakeView {
         type Key = StateKey;
 
-        fn get_state_value(&self, state_key: &StateKey) -> anyhow::Result<Option<Vec<u8>>> {
-            Ok(self.data.get(state_key).cloned())
+        fn get_state_value(&self, state_key: &StateKey) -> anyhow::Result<Option<StateValue>> {
+            Ok(self
+                .data
+                .get(state_key)
+                .cloned()
+                .map(StateValue::new_legacy))
         }
 
         fn is_genesis(&self) -> bool {
@@ -553,7 +559,7 @@ mod tests {
         }
     }
 
-    static KEY: Lazy<StateKey> = Lazy::new(|| StateKey::Raw(String::from("test-key").into_bytes()));
+    static KEY: Lazy<StateKey> = Lazy::new(|| StateKey::raw(String::from("test-key").into_bytes()));
 
     #[test]
     fn test_failed_delta_application() {
@@ -561,7 +567,7 @@ mod tests {
         let delta_op = delta_add(10, 1000);
         assert_matches!(
             delta_op.try_into_write_op(&state_view, &KEY),
-            Err(VMStatus::Error(StatusCode::STORAGE_ERROR))
+            Err(VMStatus::Error(StatusCode::STORAGE_ERROR, None))
         );
     }
 

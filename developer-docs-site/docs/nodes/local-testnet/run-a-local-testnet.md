@@ -8,7 +8,7 @@ sidebar_position: 9
 
 :::tip Using CLI to run a local testnet
 
-If you want to use CLI to start and run a local testnet, see [Using CLI to Run a Local Testnet](./using-cli-to-run-a-local-testnet).
+If you want to use CLI to start and run a local testnet, see [Using CLI to Run a Local Testnet](./using-cli-to-run-a-local-testnet.md).
 :::
 
 You can run a local testnet of the Aptos blockchain. This local testnet will not be connected to the Aptos devnet. It will run on your local machine, independent of other Aptos networks. You can use this local testnet for testing and development purposes.
@@ -96,12 +96,7 @@ Faucets are stateless services that can be run in parallel with the testnet. A F
 3. Copy the _Aptos root key path_ from your terminal where you started the testnet, and use it to replace the `mint-key-file-path` in the below command.
 4. Run the following command to start a Faucet:
 ```
-   cargo run --package aptos-faucet -- \
-      --chain-id TESTING \
-      --mint-key-file-path "/tmp/694173aa3bbe019499bbd5cf3fe0e2fc/mint.key" \
-      --address 0.0.0.0 \
-      --port 8000 \
-      --server-url http://127.0.0.1:8080
+cargo run --package aptos-faucet-service -- run-simple --mint-key-file-path "/tmp/694173aa3bbe019499bbd5cf3fe0e2fc/mint.key" --server-url http://127.0.0.1:8080
 ```
 
 This will start a Faucet running locally without any restrictions to tokens that can be claimed and minted. This Faucet service will be as accessible as the testnet you started above.
@@ -124,7 +119,7 @@ Completed generating configuration:
 Aptos is running, press ctrl-c to exit
 ```
 
-Use the [Aptos CLI tool](https://github.com/aptos-labs/aptos-core/blob/main/crates/aptos/README.md) to interact with your local testnet. The above output contains information you will use for starting the [Aptos CLI tool](https://github.com/aptos-labs/aptos-core/blob/main/crates/aptos/README.md):
+Use the [Aptos CLI tool](../../cli-tools/aptos-cli-tool/index.md) to interact with your local testnet. The above output contains information you will use for starting the [Aptos CLI tool](../../cli-tools/aptos-cli-tool/use-aptos-cli.md):
 
 * `Aptos root key path`: The root key (also known as the mint or faucet key) controls the account that can mint tokens. Available in the docker compose folder under `aptos_root_key`.
 * `Waypoint`: A verifiable checkpoint of the blockchain (available in the docker compose folder under waypoint.txt)
@@ -135,6 +130,6 @@ Use the [Aptos CLI tool](https://github.com/aptos-labs/aptos-core/blob/main/crat
 
 At this point, you will have a special root account at `0x1` that can perform the mint operation. Follow up with:
 
-* [Your first transaction](/tutorials/your-first-transaction) to learn how to submit transactions.
-* [Your first Move module](/tutorials/first-move-module) to learn how to create Move modules.
-* [Interacting with the Aptos Blockchain](/guides/interacting-with-the-aptos-blockchain) to learn how to mint coins.
+* [Your first transaction](../../tutorials/first-transaction.md) to learn how to submit transactions.
+* [Your first Move module](../../tutorials/first-move-module.md) to learn how to create Move modules.
+* [Interacting with the Aptos Blockchain](../../guides/interacting-with-the-blockchain.md) to learn how to mint coins.

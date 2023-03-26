@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::gas_meter::EXECUTION_GAS_MULTIPLIER as MUL;
@@ -8,6 +8,7 @@ crate::natives::define_gas_parameters_for_natives!(GasParameters, "aptos_framewo
     [.account.create_address.base, "account.create_address.base", 300 * MUL],
     [.account.create_signer.base, "account.create_signer.base", 300 * MUL],
 
+    [.algebra.placeholder, { 8.. => "algebra.placeholder"}, 1],
     [.bls12381.base, "bls12381.base", 150 * MUL],
 
     [.bls12381.per_pubkey_deserialize, "bls12381.per_pubkey_deserialize", 109_000 * MUL],
@@ -92,8 +93,8 @@ crate::natives::define_gas_parameters_for_natives!(GasParameters, "aptos_framewo
     // Using SHA2-256's cost
     [.hash.ripemd160.base, { 4.. => "hash.ripemd160.base" }, 3000],
     [.hash.ripemd160.per_byte, { 4.. => "hash.ripemd160.per_byte" }, 50],
-    [.hash.blake2b_256.base, { 5.. => "hash.blake2b_256.base" }, 1750],
-    [.hash.blake2b_256.per_byte, { 5.. => "hash.blake2b_256.per_byte" }, 15],
+    [.hash.blake2b_256.base, { 6.. => "hash.blake2b_256.base" }, 1750],
+    [.hash.blake2b_256.per_byte, { 6.. => "hash.blake2b_256.per_byte" }, 15],
 
     [.util.from_bytes.base, "util.from_bytes.base", 300 * MUL],
     [.util.from_bytes.per_byte, "util.from_bytes.per_byte", 5 * MUL],
@@ -104,7 +105,7 @@ crate::natives::define_gas_parameters_for_natives!(GasParameters, "aptos_framewo
     [.code.request_publish.per_byte, "code.request_publish.per_byte", 2 * MUL],
 
     // Note(Gas): These are storage operations so the values should not be multiplied.
-    [.event.write_to_event_store.base, "event.write_to_event_store.base", 500_000],
+    [.event.write_to_event_store.base, "event.write_to_event_store.base", 300_000],
     // TODO(Gas): the on-chain name is wrong...
     [.event.write_to_event_store.per_abstract_value_unit, "event.write_to_event_store.per_abstract_memory_unit", 5_000],
 
@@ -114,5 +115,10 @@ crate::natives::define_gas_parameters_for_natives!(GasParameters, "aptos_framewo
     [.aggregator.read.base, "aggregator.read.base", 300 * MUL],
     [.aggregator.sub.base, "aggregator.sub.base", 300 * MUL],
     [.aggregator.destroy.base, "aggregator.destroy.base", 500 * MUL],
-    [.aggregator_factory.new_aggregator.base, "aggregator_factory.new_aggregator.base", 500 * MUL]
+    [.aggregator_factory.new_aggregator.base, "aggregator_factory.new_aggregator.base", 500 * MUL],
+
+    [.object.exists_at.base, { 7.. => "object.exists_at.base" }, 250 * MUL],
+    // These are dummy value, they copied from storage gas in aptos-core/aptos-vm/src/aptos_vm_impl.rs
+    [.object.exists_at.per_byte_loaded, { 7.. => "object.exists_at.per_byte_loaded" }, 1000],
+    [.object.exists_at.per_item_loaded, { 7.. => "object.exists_at.per_item_loaded" }, 8000]
 ]);

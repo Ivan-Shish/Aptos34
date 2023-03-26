@@ -2,6 +2,11 @@ variable "region" {
   description = "AWS region"
 }
 
+variable "kubernetes_version" {
+  description = "Version of Kubernetes to use for GKE clusters"
+  default     = "1.24"
+}
+
 variable "workspace_name_override" {
   description = "If specified, overrides the usage of Terraform workspace for naming purposes"
   default     = ""
@@ -181,4 +186,9 @@ variable "enable_prometheus_node_exporter" {
 variable "enable_kube_state_metrics" {
   description = "Enable kube-state-metrics within monitoring helm chart"
   default     = false
+}
+
+variable "manage_via_tf" {
+  description = "Whether to manage the aptos-node k8s workload via Terraform. If set to false, the helm_release resource will still be created and updated when values change, but it may not be updated on every apply"
+  default     = true
 }
