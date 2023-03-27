@@ -7,10 +7,14 @@ use aptos_types::{
     on_chain_config::FeatureFlag,
     transaction::{ExecutionStatus, TransactionStatus},
 };
-use move_core_types::{ident_str, language_storage::TypeTag, parser::parse_struct_tag, vm_status::StatusCode};
+use move_core_types::{
+    ident_str,
+    identifier::Identifier,
+    language_storage::{StructTag, TypeTag},
+    parser::parse_struct_tag,
+    vm_status::StatusCode,
+};
 use serde::{Deserialize, Serialize};
-use move_core_types::identifier::Identifier;
-use move_core_types::language_storage::StructTag;
 
 /// Mimics `0xcafe::test::ModuleData`
 #[derive(Serialize, Deserialize)]
@@ -58,11 +62,15 @@ fn success_generic(ty_args: Vec<TypeTag>, tests: Vec<(&str, Vec<Vec<u8>>, &str)>
     }
 }
 
-type Closure = Box<dyn FnOnce(TransactionStatus) -> bool>;
+type Closure = Box<dyn FnOnce(&TransactionStatus) -> bool>;
 
 fn fail(tests: Vec<(&str, Vec<Vec<u8>>, Closure)>) {
-
-    fail_generic(tests.into_iter().map(|(name, args, closure)| (name, vec![], args, closure)).collect());
+    fail_generic(
+        tests
+            .into_iter()
+            .map(|(name, args, closure)| (name, vec![], args, closure))
+            .collect(),
+    );
 }
 
 fn fail_generic(tests: Vec<(&str, Vec<TypeTag>, Vec<Vec<u8>>, Closure)>) {
@@ -79,7 +87,8 @@ fn fail_generic(tests: Vec<(&str, Vec<TypeTag>, Vec<Vec<u8>>, Closure)>) {
 
     for (entry, ty_args, args, err) in tests {
         // Now send hi transaction, after that resource should exist and carry value
-        assert!(err(h.run_entry_function(&acc, str::parse(entry).unwrap(), ty_args.clone(), args)));
+        let e = h.run_entry_function(&acc, str::parse(entry).unwrap(), ty_args.clone(), args);
+        assert!(err(&e));
     }
 }
 
@@ -157,6 +166,11 @@ fn constructor_args_bad() {
             }),
         ),
         (
+            "0xcafe::test::initialize",
+            vec![],
+            Box::new(|e| matches!(e, TransactionStatus::Keep(ExecutionStatus::Success))),
+        ), // ensure object exist
+        (
             "0xcafe::test::pass_optional_vector_optional_string",
             vec![
                 bcs::to_bytes(&OBJECT_ADDRESS).unwrap(), // Object<T>
@@ -166,9 +180,7 @@ fn constructor_args_bad() {
             Box::new(|e| {
                 matches!(
                     e,
-                    TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(
-                        StatusCode::FAILED_TO_DESERIALIZE_ARGUMENT
-                    )))
+                    TransactionStatus::Keep(ExecutionStatus::MoveAbort { .. })
                 )
             }),
         ),
@@ -186,24 +198,22 @@ fn constructor_args_bad_generic() {
         type_params: vec![],
     };
     let struct_type = TypeTag::Struct(Box::new(struct_tag));
-    let tests: Vec<(&str, Vec<TypeTag>, Vec<Vec<u8>>, Closure)> = vec![
-        (
-            "0xcafe::test::doesnt_exist",
-            vec![struct_type],
-            vec![
-                bcs::to_bytes("hi").unwrap(),
-                bcs::to_bytes(&OBJECT_ADDRESS).unwrap(),
-            ],
-            Box::new(|e| {
-                matches!(
-                    e,
-                    TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(StatusCode::FUNCTION_RESOLUTION_FAILURE)))
-                )
-            }),
-        ),
-    ];
-
+    let tests: Vec<(&str, Vec<TypeTag>, Vec<Vec<u8>>, Closure)> = vec![(
+        "0xcafe::test::doesnt_exist",
+        vec![struct_type],
+        vec![
+            bcs::to_bytes("hi").unwrap(),
+            bcs::to_bytes(&OBJECT_ADDRESS).unwrap(),
+        ],
+        Box::new(|e| {
+            matches!(
+                e,
+                TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(
+                    StatusCode::FUNCTION_RESOLUTION_FAILURE
+                )))
+            )
+        }),
+    )];
 
     fail_generic(tests);
 }
-
