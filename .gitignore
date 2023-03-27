@@ -104,3 +104,6 @@ __pycache__
 # Profiler outputs
 aptos-move/aptos-vm-profiling/**/*.log
 aptos-move/aptos-vm-profiling/**/*.txt
+
+/*.json
+/*.tar.gz
