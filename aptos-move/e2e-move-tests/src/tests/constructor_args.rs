@@ -7,8 +7,10 @@ use aptos_types::{
     on_chain_config::FeatureFlag,
     transaction::{ExecutionStatus, TransactionStatus},
 };
-use move_core_types::{language_storage::TypeTag, parser::parse_struct_tag, vm_status::StatusCode};
+use move_core_types::{ident_str, language_storage::TypeTag, parser::parse_struct_tag, vm_status::StatusCode};
 use serde::{Deserialize, Serialize};
+use move_core_types::identifier::Identifier;
+use move_core_types::language_storage::StructTag;
 
 /// Mimics `0xcafe::test::ModuleData`
 #[derive(Serialize, Deserialize)]
@@ -59,10 +61,11 @@ fn success_generic(ty_args: Vec<TypeTag>, tests: Vec<(&str, Vec<Vec<u8>>, &str)>
 type Closure = Box<dyn FnOnce(TransactionStatus) -> bool>;
 
 fn fail(tests: Vec<(&str, Vec<Vec<u8>>, Closure)>) {
-    fail_generic(vec![], tests)
+
+    fail_generic(tests.into_iter().map(|(name, args, closure)| (name, vec![], args, closure)).collect());
 }
 
-fn fail_generic(ty_args: Vec<TypeTag>, tests: Vec<(&str, Vec<Vec<u8>>, Closure)>) {
+fn fail_generic(tests: Vec<(&str, Vec<TypeTag>, Vec<Vec<u8>>, Closure)>) {
     let mut h = MoveHarness::new_with_features(vec![FeatureFlag::STRUCT_CONSTRUCTORS], vec![]);
 
     // Load the code
@@ -74,9 +77,9 @@ fn fail_generic(ty_args: Vec<TypeTag>, tests: Vec<(&str, Vec<Vec<u8>>, Closure)>
     // Check in initial state, resource does not exist.
     assert!(!h.exists_resource(acc.address(), module_data));
 
-    for (entry, args, err) in tests {
+    for (entry, ty_args, args, err) in tests {
         // Now send hi transaction, after that resource should exist and carry value
-        err(h.run_entry_function(&acc, str::parse(entry).unwrap(), ty_args.clone(), args));
+        assert!(err(h.run_entry_function(&acc, str::parse(entry).unwrap(), ty_args.clone(), args)));
     }
 }
 
@@ -173,3 +176,34 @@ fn constructor_args_bad() {
 
     fail(tests);
 }
+
+#[test]
+fn constructor_args_bad_generic() {
+    let struct_tag = StructTag {
+        address: AccountAddress::from_hex_literal("0xcafe").expect("valid address"),
+        module: Identifier::from(ident_str!("test")),
+        name: Identifier::from(ident_str!("doesnt_exist")),
+        type_params: vec![],
+    };
+    let struct_type = TypeTag::Struct(Box::new(struct_tag));
+    let tests: Vec<(&str, Vec<TypeTag>, Vec<Vec<u8>>, Closure)> = vec![
+        (
+            "0xcafe::test::doesnt_exist",
+            vec![struct_type],
+            vec![
+                bcs::to_bytes("hi").unwrap(),
+                bcs::to_bytes(&OBJECT_ADDRESS).unwrap(),
+            ],
+            Box::new(|e| {
+                matches!(
+                    e,
+                    TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(StatusCode::FUNCTION_RESOLUTION_FAILURE)))
+                )
+            }),
+        ),
+    ];
+
+
+    fail_generic(tests);
+}
+
