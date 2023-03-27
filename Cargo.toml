@@ -75,7 +75,7 @@ members = [
     "crates/fallible",
     "crates/indexer",
     "crates/inspection-service",
-    "crates/moving-average",
+    "crates/misc-timer",
     "crates/node-resource-metrics",
     "crates/num-variants",
     "crates/proxy",
@@ -367,6 +367,7 @@ aptos-vm-genesis = { path = "aptos-move/vm-genesis" }
 aptos-vm-validator = { path = "vm-validator" }
 aptos-warp-webserver = { path = "crates/aptos-warp-webserver" }
 aptos-writeset-generator = { path = "aptos-move/writeset-transaction-generator" }
+misc-timer = { path = "crates/misc-timer" }
 
 # External crate dependencies.
 # Please do not add any test features here: they should be declared by the individual crate.

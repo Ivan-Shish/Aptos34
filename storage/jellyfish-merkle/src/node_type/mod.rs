@@ -326,6 +326,10 @@ impl InternalNode {
     }
 
     pub fn hash(&self) -> HashValue {
+        let _timer = misc_timer::OTHER_TIMERS_SECONDS
+            .with_label_values(&["node_hash"])
+            .start_timer();
+
         let (existence_bitmap, leaf_bitmap) = self.generate_bitmaps();
         self.merkle_hash(
             0, /* start index */

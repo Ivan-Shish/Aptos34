@@ -117,3 +117,5 @@ aptos-move/aptos-vm-profiling/**/*.txt
 metadata-cache
 /local/
 run_*
+/*.json
+/*.tar.gz

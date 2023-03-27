@@ -92,6 +92,10 @@ pub(crate) struct Node<V> {
 
 impl<V: CryptoHash> Node<V> {
     pub fn calc_hash(&self) -> HashValue {
+        let _timer = misc_timer::OTHER_TIMERS_SECONDS
+            .with_label_values(&["node_hash"])
+            .start_timer();
+
         match &self.inner {
             NodeInner::Internal(internal_node) => internal_node.calc_hash(),
             NodeInner::Leaf(leaf_node) => leaf_node.calc_hash(),
