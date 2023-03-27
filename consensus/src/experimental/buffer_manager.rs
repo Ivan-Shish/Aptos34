@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -12,6 +13,7 @@ use crate::{
         pipeline_phase::CountedRequest,
         signing_phase::{SigningRequest, SigningResponse},
     },
+    monitor,
     network::NetworkSender,
     round_manager::VerifiedEvent,
     state_replication::StateComputerCommitCallBackType,
@@ -160,7 +162,7 @@ impl BufferManager {
         duration: Duration,
     ) {
         counters::BUFFER_MANAGER_RETRY_COUNT.inc();
-        spawn_named!(&"retry request", async move {
+        spawn_named!("retry request", async move {
             tokio::time::sleep(duration).await;
             sender
                 .send(request)
@@ -442,11 +444,9 @@ impl BufferManager {
         match commit_msg {
             VerifiedEvent::CommitVote(vote) => {
                 // find the corresponding item
-                info!(
-                    "Receive commit vote {} from {}",
-                    vote.commit_info(),
-                    vote.author()
-                );
+                let author = vote.author();
+                let commit_info = vote.commit_info().clone();
+                info!("Receive commit vote {} from {}", commit_info, author);
                 let target_block_id = vote.commit_info().id();
                 let current_cursor = self
                     .buffer
@@ -456,7 +456,12 @@ impl BufferManager {
                     let new_item = match item.add_signature_if_matched(*vote) {
                         Ok(()) => item.try_advance_to_aggregated(&self.verifier),
                         Err(e) => {
-                            error!("Failed to add commit vote {:?}", e);
+                            error!(
+                                error = ?e,
+                                author = author,
+                                commit_info = commit_info,
+                                "Failed to add commit vote",
+                            );
                             item
                         },
                     };
@@ -569,26 +574,32 @@ impl BufferManager {
             // advancing the root will trigger sending requests to the pipeline
             ::futures::select! {
                 blocks = self.block_rx.select_next_some() => {
+                    monitor!("buffer_manager_process_ordered", {
                     self.process_ordered_blocks(blocks);
                     if self.execution_root.is_none() {
                         self.advance_execution_root().await;
-                    }
+                    }});
                 },
                 reset_event = self.reset_rx.select_next_some() => {
-                    self.process_reset_request(reset_event).await;
+                    monitor!("buffer_manager_process_reset",
+                    self.process_reset_request(reset_event).await);
                 },
                 response = self.execution_phase_rx.select_next_some() => {
+                    monitor!("buffer_manager_process_execution_response", {
                     self.process_execution_response(response).await;
                     self.advance_execution_root().await;
                     if self.signing_root.is_none() {
                         self.advance_signing_root().await;
-                    }
+                    }});
                 },
                 response = self.signing_phase_rx.select_next_some() => {
+                    monitor!("buffer_manager_process_signing_response", {
                     self.process_signing_response(response).await;
-                    self.advance_signing_root().await;
+                    self.advance_signing_root().await
+                    })
                 },
                 commit_msg = self.commit_msg_rx.select_next_some() => {
+                    monitor!("buffer_manager_process_commit_message",
                     if let Some(aggregated_block_id) = self.process_commit_message(commit_msg) {
                         self.advance_head(aggregated_block_id).await;
                         if self.execution_root.is_none() {
@@ -597,11 +608,13 @@ impl BufferManager {
                         if self.signing_root.is_none() {
                             self.advance_signing_root().await;
                         }
-                    }
+                    });
                 },
                 _ = interval.tick().fuse() => {
+                    monitor!("buffer_manager_process_interval_tick", {
                     self.update_buffer_manager_metrics();
-                    self.rebroadcast_commit_votes_if_needed().await;
+                    self.rebroadcast_commit_votes_if_needed().await
+                    });
                 },
                 // no else branch here because interval.tick will always be available
             }

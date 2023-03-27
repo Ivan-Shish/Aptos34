@@ -1,10 +1,16 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! This module defines all the gas parameters for transactions, along with their initial values
 //! in the genesis and a mapping between the Rust representation and the on-chain gas schedule.
 
-use crate::algebra::{AbstractValueSize, FeePerGasUnit, Gas, GasScalingFactor, GasUnit};
+use crate::algebra::{
+    AbstractValueSize, Fee, FeePerByte, FeePerGasUnit, FeePerSlot, Gas, GasScalingFactor, GasUnit,
+    NumSlots,
+};
+use aptos_types::{
+    contract_event::ContractEvent, state_store::state_key::StateKey, write_set::WriteOp,
+};
 use move_core_types::gas_algebra::{
     InternalGas, InternalGasPerArg, InternalGasPerByte, InternalGasUnit, NumBytes,
     ToUnitFractionalWithParams, ToUnitWithParams,
@@ -13,6 +19,8 @@ use move_core_types::gas_algebra::{
 mod storage;
 
 pub use storage::{ChangeSetConfigs, StorageGasParameters};
+
+const GAS_SCALING_FACTOR: u64 = 1_000_000;
 
 crate::params::define_gas_parameters!(
     TransactionGasParameters,
@@ -45,7 +53,7 @@ crate::params::define_gas_parameters!(
         [
             maximum_number_of_gas_units: Gas,
             "maximum_number_of_gas_units",
-            2_000_000
+            aptos_global_constants::MAX_GAS_AMOUNT
         ],
         // The minimum gas price that a transaction can be submitted with.
         // TODO(Gas): should probably change this to something > 0
@@ -68,7 +76,7 @@ crate::params::define_gas_parameters!(
         [
             gas_unit_scaling_factor: GasScalingFactor,
             "gas_unit_scaling_factor",
-            10_000
+            GAS_SCALING_FACTOR
         ],
         // Gas Parameters for reading data from storage.
         [load_data_base: InternalGas, "load_data.base", 16_000],
@@ -106,6 +114,11 @@ crate::params::define_gas_parameters!(
             1024, // 1KB free per state write
         ],
         [
+            free_event_bytes_quota: NumBytes,
+            { 7.. => "free_event_bytes_quota" },
+            1024, // 1KB free event bytes per transaction
+        ],
+        [
             max_bytes_per_write_op: NumBytes,
             { 5.. => "max_bytes_per_write_op" },
             1 << 20, // a single state item is 1MB max
@@ -125,6 +138,41 @@ crate::params::define_gas_parameters!(
             { 5.. => "max_bytes_all_events_per_transaction"},
             10 << 20, // all events from a single transaction are 10MB max
         ],
+        [
+            storage_fee_per_state_slot_create: FeePerSlot,
+            { 7.. => "storage_fee_per_state_slot_create" },
+            50000,
+        ],
+        [
+            storage_fee_per_excess_state_byte: FeePerByte,
+            { 7.. => "storage_fee_per_excess_state_byte" },
+            50,
+        ],
+        [
+            storage_fee_per_event_byte: FeePerByte,
+            { 7.. => "storage_fee_per_event_byte" },
+            20,
+        ],
+        [
+            storage_fee_per_transaction_byte: FeePerByte,
+            { 7.. => "storage_fee_per_transaction_byte" },
+            20,
+        ],
+        [
+            max_execution_gas: InternalGas,
+            { 7.. => "max_execution_gas" },
+            20_000_000_000,
+        ],
+        [
+            max_io_gas: InternalGas,
+            { 7.. => "max_io_gas" },
+            10_000_000_000,
+        ],
+        [
+            max_storage_fee: Fee,
+            { 7.. => "max_storage_fee" },
+            2_0000_0000, // 2 APT
+        ]
     ]
 );
 
@@ -136,6 +184,47 @@ impl TransactionGasParameters {
             0 => 1.into(),
             x => x.into(),
         }
+    }
+
+    /// New formula to charge storage fee for a write, measured in APT.
+    pub fn storage_fee_per_write(&self, key: &StateKey, op: &WriteOp) -> Fee {
+        use WriteOp::*;
+
+        let excess_fee = |key: &StateKey, data: &[u8]| -> Fee {
+            let size = NumBytes::new(key.size() as u64) + NumBytes::new(data.len() as u64);
+            match size.checked_sub(self.free_write_bytes_quota) {
+                Some(excess) => excess * self.storage_fee_per_excess_state_byte,
+                None => 0.into(),
+            }
+        };
+
+        match op {
+            Creation(data) | CreationWithMetadata { data, .. } => {
+                self.storage_fee_per_state_slot_create * NumSlots::new(1) + excess_fee(key, data)
+            },
+            Modification(data) | ModificationWithMetadata { data, .. } => excess_fee(key, data),
+            Deletion | DeletionWithMetadata { .. } => 0.into(),
+        }
+    }
+
+    /// New formula to charge storage fee for an event, measured in APT.
+    pub fn storage_fee_per_event(&self, event: &ContractEvent) -> Fee {
+        NumBytes::new(event.size() as u64) * self.storage_fee_per_event_byte
+    }
+
+    pub fn storage_discount_for_events(&self, total_cost: Fee) -> Fee {
+        std::cmp::min(
+            total_cost,
+            self.free_event_bytes_quota * self.storage_fee_per_event_byte,
+        )
+    }
+
+    /// New formula to charge storage fee for transaction, measured in APT.
+    pub fn storage_fee_for_transaction_storage(&self, txn_size: NumBytes) -> Fee {
+        txn_size
+            .checked_sub(self.large_transaction_cutoff)
+            .unwrap_or(NumBytes::zero())
+            * self.storage_fee_per_transaction_byte
     }
 
     /// Calculate the intrinsic gas for the transaction based upon its size in bytes.

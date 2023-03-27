@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -32,7 +33,7 @@ use aptos_consensus_types::{
 use aptos_crypto::{hash::ACCUMULATOR_PLACEHOLDER_HASH, HashValue};
 use aptos_infallible::Mutex;
 use aptos_network::{
-    application::{interface::NetworkClient, storage::PeerMetadataStorage},
+    application::{interface::NetworkClient, storage::PeersAndMetadata},
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
     protocols::{
         network,
@@ -103,7 +104,7 @@ pub fn prepare_buffer_manager() -> (
         DIRECT_SEND.into(),
         RPC.into(),
         hashmap! {NetworkId::Validator => network_sender},
-        PeerMetadataStorage::new(&[NetworkId::Validator]),
+        PeersAndMetadata::new(&[NetworkId::Validator]),
     );
     let consensus_network_client = ConsensusNetworkClient::new(network_client);
 
@@ -223,7 +224,10 @@ async fn loopback_commit_vote(
                 let event: UnverifiedEvent = msg.into();
                 // verify the message and send the message into self loop
                 msg_tx
-                    .push(author, event.verify(author, verifier, false).unwrap())
+                    .push(
+                        author,
+                        event.verify(author, verifier, false, false).unwrap(),
+                    )
                     .ok();
             }
         },

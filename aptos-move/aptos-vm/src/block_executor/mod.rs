@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 pub(crate) mod vm_wrapper;
@@ -16,23 +17,21 @@ use aptos_aggregator::{delta_change_set::DeltaOp, transaction::TransactionOutput
 use aptos_block_executor::{
     errors::Error,
     executor::{BlockExecutor, RAYON_EXEC_POOL},
-    output_delta_resolver::OutputDeltaResolver,
     task::{
         Transaction as BlockExecutorTransaction,
         TransactionOutput as BlockExecutorTransactionOutput,
     },
-    view::ResolvedData,
 };
-use aptos_logger::debug;
 use aptos_state_view::StateView;
 use aptos_types::{
     state_store::state_key::StateKey,
     transaction::{Transaction, TransactionOutput, TransactionStatus},
     write_set::{WriteOp, WriteSet, WriteSetMut},
 };
+use aptos_vm_logging::{flush_speculative_logs, init_speculative_logs};
 use move_core_types::vm_status::VMStatus;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::time::Instant;
 
 impl BlockExecutorTransaction for PreprocessedTransaction {
     type Key = StateKey;
@@ -40,6 +39,7 @@ impl BlockExecutorTransaction for PreprocessedTransaction {
 }
 
 // Wrapper to avoid orphan rule
+#[derive(PartialEq, Debug)]
 pub(crate) struct AptosTransactionOutput(TransactionOutputExt);
 
 impl AptosTransactionOutput {
@@ -49,10 +49,6 @@ impl AptosTransactionOutput {
 
     pub fn into(self) -> TransactionOutputExt {
         self.0
-    }
-
-    pub fn as_ref(&self) -> &TransactionOutputExt {
-        &self.0
     }
 }
 
@@ -90,48 +86,6 @@ impl BlockExecutorTransactionOutput for AptosTransactionOutput {
 pub struct BlockAptosVM();
 
 impl BlockAptosVM {
-    fn process_parallel_block_output<S: StateView>(
-        results: Vec<AptosTransactionOutput>,
-        delta_resolver: OutputDeltaResolver<StateKey, WriteOp>,
-        state_view: &S,
-    ) -> Vec<TransactionOutput> {
-        // TODO: MVHashmap, and then delta resolver should track aggregator base values.
-        let mut aggregator_base_values: HashMap<StateKey, anyhow::Result<ResolvedData>> =
-            HashMap::new();
-        for res in results.iter() {
-            for (key, _) in res.as_ref().delta_change_set().iter() {
-                if !aggregator_base_values.contains_key(key) {
-                    aggregator_base_values.insert(key.clone(), state_view.get_state_value(key));
-                }
-            }
-        }
-
-        let materialized_deltas =
-            delta_resolver.resolve(aggregator_base_values.into_iter().collect(), results.len());
-
-        results
-            .into_iter()
-            .zip(materialized_deltas.into_iter())
-            .map(|(res, delta_writes)| {
-                res.into()
-                    .output_with_delta_writes(WriteSetMut::new(delta_writes))
-            })
-            .collect()
-    }
-
-    fn process_sequential_block_output(
-        results: Vec<AptosTransactionOutput>,
-    ) -> Vec<TransactionOutput> {
-        results
-            .into_iter()
-            .map(|res| {
-                let (deltas, output) = res.into().into();
-                debug_assert!(deltas.is_empty(), "[Execution] Deltas must be materialized");
-                output
-            })
-            .collect()
-    }
-
     pub fn execute_block<S: StateView + Sync>(
         transactions: Vec<Transaction>,
         state_view: &S,
@@ -147,43 +101,36 @@ impl BlockAptosVM {
             RAYON_EXEC_POOL.install(|| {
                 transactions
                     .into_par_iter()
+                    .with_min_len(25)
                     .map(preprocess_transaction::<AptosVM>)
                     .collect()
             });
         drop(signature_verification_timer);
+
+        init_speculative_logs(signature_verified_block.len());
 
         BLOCK_EXECUTOR_CONCURRENCY.set(concurrency_level as i64);
         let executor = BlockExecutor::<PreprocessedTransaction, AptosExecutorTask<S>, S>::new(
             concurrency_level,
         );
 
-        let mut ret = if concurrency_level > 1 {
-            executor
-                .execute_transactions_parallel(state_view, &signature_verified_block, state_view)
-                .map(|(results, delta_resolver)| {
-                    Self::process_parallel_block_output(results, delta_resolver, state_view)
+        let ret = executor
+            .execute_block(state_view, signature_verified_block, state_view)
+            .map(|results| {
+                // Process the outputs in parallel, combining delta writes with other writes.
+                RAYON_EXEC_POOL.install(|| {
+                    results
+                        .into_par_iter()
+                        .map(|(output, delta_writes)| {
+                            output      // AptosTransactionOutput
+                            .into()     // TransactionOutputExt
+                            .output_with_delta_writes(WriteSetMut::new(delta_writes))
+                        })
+                        .collect()
                 })
-        } else {
-            executor
-                .execute_transactions_sequential(state_view, &signature_verified_block, state_view)
-                .map(Self::process_sequential_block_output)
-        };
+            });
 
-        if ret == Err(Error::ModulePathReadWrite) {
-            debug!("[Execution]: Module read & written, sequential fallback");
-
-            ret = executor
-                .execute_transactions_sequential(state_view, &signature_verified_block, state_view)
-                .map(Self::process_sequential_block_output);
-        }
-
-        // Explicit async drop. Happens here because we can't currently move to
-        // BlockExecutor due to the Module publishing fallback. TODO: fix after
-        // module publishing fallback is removed.
-        RAYON_EXEC_POOL.spawn(move || {
-            // Explicit async drops.
-            drop(signature_verified_block);
-        });
+        flush_speculative_logs();
 
         match ret {
             Ok(outputs) => Ok(outputs),
@@ -192,5 +139,73 @@ impl BlockAptosVM {
             },
             Err(Error::UserError(err)) => Err(err),
         }
+    }
+
+    pub fn execute_block_benchmark<S: StateView + Sync>(
+        transactions: Vec<Transaction>,
+        state_view: &S,
+        concurrency_level: usize,
+    ) -> (usize, usize) {
+        // Verify the signatures of all the transactions in parallel.
+        // This is time consuming so don't wait and do the checking
+        // sequentially while executing the transactions.
+        let signature_verified_block: Vec<PreprocessedTransaction> =
+            RAYON_EXEC_POOL.install(|| {
+                transactions
+                    .clone()
+                    .into_par_iter()
+                    .with_min_len(25)
+                    .map(preprocess_transaction::<AptosVM>)
+                    .collect()
+            });
+        let signature_verified_block_for_seq: Vec<PreprocessedTransaction> = RAYON_EXEC_POOL
+            .install(|| {
+                transactions
+                    .into_par_iter()
+                    .with_min_len(25)
+                    .map(preprocess_transaction::<AptosVM>)
+                    .collect()
+            });
+        let block_size = signature_verified_block.len();
+
+        init_speculative_logs(signature_verified_block.len());
+
+        BLOCK_EXECUTOR_CONCURRENCY.set(concurrency_level as i64);
+        let executor = BlockExecutor::<PreprocessedTransaction, AptosExecutorTask<S>, S>::new(
+            concurrency_level,
+        );
+        println!("Parallel execution starts...");
+        let timer = Instant::now();
+        let ret = executor.execute_block(state_view, signature_verified_block, state_view);
+        let exec_t = timer.elapsed();
+        println!(
+            "Parallel execution finishes, TPS = {}",
+            block_size * 1000 / exec_t.as_millis() as usize
+        );
+
+        flush_speculative_logs();
+
+        // sequentially execute the block and check if the results match
+        let seq_executor =
+            BlockExecutor::<PreprocessedTransaction, AptosExecutorTask<S>, S>::new(1);
+        println!("Sequential execution starts...");
+        let seq_timer = Instant::now();
+        let seq_ret =
+            seq_executor.execute_block(state_view, signature_verified_block_for_seq, state_view);
+        let seq_exec_t = seq_timer.elapsed();
+        println!(
+            "Sequential execution finishes, TPS = {}",
+            block_size * 1000 / seq_exec_t.as_millis() as usize
+        );
+
+        assert_eq!(ret, seq_ret);
+
+        drop(ret);
+        drop(seq_ret);
+
+        (
+            block_size * 1000 / exec_t.as_millis() as usize,
+            block_size * 1000 / seq_exec_t.as_millis() as usize,
+        )
     }
 }

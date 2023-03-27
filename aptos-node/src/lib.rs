@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -16,6 +17,7 @@ mod tests;
 
 use anyhow::anyhow;
 use aptos_api::bootstrap as bootstrap_api;
+use aptos_build_info::build_information;
 use aptos_config::config::{NodeConfig, PersistableConfig};
 use aptos_framework::ReleaseBundle;
 use aptos_logger::{prelude::*, telemetry_log_writer::TelemetryLog, Level, LoggerFilterUpdater};
@@ -44,7 +46,13 @@ const EPOCH_LENGTH_SECS: u64 = 60;
 #[clap(name = "Aptos Node", author, version)]
 pub struct AptosNodeArgs {
     /// Path to node configuration file (or template for local test mode).
-    #[clap(short = 'f', long, parse(from_os_str), required_unless = "test")]
+    #[clap(
+        short = 'f',
+        long,
+        parse(from_os_str),
+        required_unless = "test",
+        required_unless = "info"
+    )]
     config: Option<PathBuf>,
 
     /// Directory to run the test mode in.
@@ -75,11 +83,25 @@ pub struct AptosNodeArgs {
     /// only commit a block when there are user transactions in mempool.
     #[clap(long, requires("test"))]
     lazy: bool,
+
+    /// Display information about the build of this node
+    #[clap(long)]
+    info: bool,
 }
 
 impl AptosNodeArgs {
     /// Runs an Aptos node based on the given command line arguments and config flags
     pub fn run(self) {
+        if self.info {
+            let build_information = build_information!();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&build_information)
+                    .expect("Failed to print build information")
+            );
+            return;
+        }
+
         if self.test {
             println!("WARNING: Entering test mode! This should never be used in production!");
 
@@ -122,7 +144,6 @@ impl AptosNodeArgs {
                     error
                 )
             });
-            println!("Using node config {:?}", &config);
 
             // Start the node
             start(config, None, true).expect("Node should start correctly");
@@ -135,9 +156,11 @@ pub struct AptosHandle {
     _api_runtime: Option<Runtime>,
     _backup_runtime: Option<Runtime>,
     _consensus_runtime: Option<Runtime>,
+    _indexer_grpc_runtime: Option<Runtime>,
+    _indexer_runtime: Option<Runtime>,
     _mempool_runtime: Runtime,
     _network_runtimes: Vec<Runtime>,
-    _index_runtime: Option<Runtime>,
+    _peer_monitoring_service_runtime: Runtime,
     _state_sync_runtimes: StateSyncRuntimes,
     _telemetry_runtime: Option<Runtime>,
 }
@@ -153,6 +176,9 @@ pub fn start(
 
     // Create global rayon thread pool
     utils::create_global_rayon_pool(create_global_rayon_pool);
+
+    // Initialize the global aptos-node-identity
+    aptos_node_identity::init(config.peer_id())?;
 
     // Instantiate the global logger
     let (remote_log_receiver, logger_filter_update) = logger::create_logger(&config, log_file);
@@ -345,6 +371,9 @@ pub fn setup_environment_and_start_node(
     remote_log_rx: Option<mpsc::Receiver<TelemetryLog>>,
     logger_filter_update_job: Option<LoggerFilterUpdater>,
 ) -> anyhow::Result<AptosHandle> {
+    // Log the node config at node startup
+    info!("Using node config {:?}", &node_config);
+
     // Start the node inspection service
     services::start_node_inspection_service(&node_config);
 
@@ -355,8 +384,13 @@ pub fn setup_environment_and_start_node(
     // Set the Aptos VM configurations
     utils::set_aptos_vm_configurations(&node_config);
 
-    // Start the telemetry service (as early as possible and before any blocking calls)
+    // Obtain the chain_id from the DB
     let chain_id = utils::fetch_chain_id(&db_rw)?;
+
+    // Set the chain_id in global AptosNodeIdentity
+    aptos_node_identity::set_chain_id(chain_id)?;
+
+    // Start the telemetry service (as early as possible and before any blocking calls)
     let telemetry_runtime = services::start_telemetry_service(
         &node_config,
         remote_log_rx,
@@ -376,11 +410,18 @@ pub fn setup_environment_and_start_node(
         network_runtimes,
         consensus_network_interfaces,
         mempool_network_interfaces,
+        peer_monitoring_service_network_interfaces,
         storage_service_network_interfaces,
     ) = network::setup_networks_and_get_interfaces(
         &node_config,
         chain_id,
         &mut event_subscription_service,
+    );
+
+    // Start the peer monitoring service
+    let peer_monitoring_service_runtime = services::start_peer_monitoring_service(
+        &node_config,
+        peer_monitoring_service_network_interfaces,
     );
 
     // Start state sync and get the notification endpoints for mempool and consensus
@@ -394,7 +435,7 @@ pub fn setup_environment_and_start_node(
         )?;
 
     // Bootstrap the API and indexer
-    let (mempool_client_receiver, api_runtime, index_runtime) =
+    let (mempool_client_receiver, api_runtime, indexer_runtime, indexer_grpc_runtime) =
         services::bootstrap_api_and_indexer(&node_config, aptos_db, chain_id)?;
 
     // Create mempool and get the consensus to mempool sender
@@ -430,9 +471,11 @@ pub fn setup_environment_and_start_node(
         _api_runtime: api_runtime,
         _backup_runtime: backup_service,
         _consensus_runtime: consensus_runtime,
+        _indexer_grpc_runtime: indexer_grpc_runtime,
+        _indexer_runtime: indexer_runtime,
         _mempool_runtime: mempool_runtime,
         _network_runtimes: network_runtimes,
-        _index_runtime: index_runtime,
+        _peer_monitoring_service_runtime: peer_monitoring_service_runtime,
         _state_sync_runtimes: state_sync_runtimes,
         _telemetry_runtime: telemetry_runtime,
     })

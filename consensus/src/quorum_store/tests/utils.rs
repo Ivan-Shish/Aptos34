@@ -1,7 +1,6 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::quorum_store::types::SerializedTransaction;
 use aptos_crypto::{
     ed25519::{Ed25519PrivateKey, Ed25519Signature},
     PrivateKey, Uniform,
@@ -36,18 +35,11 @@ fn create_transaction() -> Transaction {
     Transaction::UserTransaction(signed_transaction)
 }
 
-fn create_vec_signed_transactions(size: u64) -> Vec<SignedTransaction> {
+pub(crate) fn create_vec_signed_transactions(size: u64) -> Vec<SignedTransaction> {
     (0..size)
         .map(|_| match create_transaction() {
             Transaction::UserTransaction(inner) => inner,
             _ => panic!("Not a user transaction."),
         })
-        .collect()
-}
-
-pub(crate) fn create_vec_serialized_transactions(size: u64) -> Vec<SerializedTransaction> {
-    create_vec_signed_transactions(size)
-        .iter()
-        .map(SerializedTransaction::from_signed_txn)
         .collect()
 }

@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! This crate is the core of the gas metering system of the Aptos blockchain.
@@ -37,7 +37,7 @@ mod transaction;
 pub use algebra::*;
 pub use gas_meter::{
     AptosGasMeter, AptosGasParameters, FromOnChainGasSchedule, InitialGasSchedule,
-    NativeGasParameters, ToOnChainGasSchedule, LATEST_GAS_FEATURE_VERSION,
+    NativeGasParameters, StandardGasMeter, ToOnChainGasSchedule, LATEST_GAS_FEATURE_VERSION,
 };
 pub use instr::InstructionGasParameters;
 pub use misc::{AbstractValueSizeGasParameters, MiscGasParameters};

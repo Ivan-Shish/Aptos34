@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::proof_of_store::ProofOfStore;
@@ -97,7 +98,7 @@ impl Payload {
             Payload::InQuorumStore(proof_with_status) => proof_with_status
                 .proofs
                 .iter()
-                .map(|proof| proof.info().num_txns as usize)
+                .map(|proof| proof.num_txns() as usize)
                 .sum(),
         }
     }
@@ -124,7 +125,7 @@ impl Payload {
             Payload::InQuorumStore(proof_with_status) => proof_with_status
                 .proofs
                 .iter()
-                .map(|proof| proof.info().num_bytes as usize)
+                .map(|proof| proof.num_bytes() as usize)
                 .sum(),
         }
     }
