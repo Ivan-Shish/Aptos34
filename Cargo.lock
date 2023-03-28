@@ -2228,6 +2228,7 @@ dependencies = [
 name = "aptos-peer-monitoring-service-client"
 version = "0.1.0"
 dependencies = [
+ "aptos-build-info",
  "aptos-channels",
  "aptos-config",
  "aptos-id-generator",
