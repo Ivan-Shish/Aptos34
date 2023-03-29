@@ -14,18 +14,18 @@ pub struct RequestTracker {
     last_request_time: Option<Instant>, // The most recent request time
     last_response_time: Option<Instant>, // The most recent response time
     num_consecutive_request_failures: u64, // The number of consecutive request failures
-    request_interval_ms: u64, // The interval (ms) between requests
+    request_interval_usecs: u64, // The interval (microseconds) between requests
     time_service: TimeService, // The time service to use for duration calculation
 }
 
 impl RequestTracker {
-    pub fn new(request_interval_ms: u64, time_service: TimeService) -> Self {
+    pub fn new(request_interval_usecs: u64, time_service: TimeService) -> Self {
         Self {
             in_flight_request: false,
             last_request_time: None,
             last_response_time: None,
             num_consecutive_request_failures: 0,
-            request_interval_ms,
+            request_interval_usecs,
             time_service,
         }
     }
@@ -76,7 +76,7 @@ impl RequestTracker {
         match self.last_request_time {
             Some(last_request_time) => {
                 self.time_service.now()
-                    > last_request_time.add(Duration::from_millis(self.request_interval_ms))
+                    > last_request_time.add(Duration::from_micros(self.request_interval_usecs))
             },
             None => true, // A request should be sent immediately
         }
@@ -106,9 +106,9 @@ mod test {
     #[test]
     fn test_simple_request_flow() {
         // Create the request tracker
-        let request_interval_ms = 100;
+        let request_interval_usecs = 100;
         let time_service = TimeService::mock();
-        let mut request_tracker = RequestTracker::new(request_interval_ms, time_service.clone());
+        let mut request_tracker = RequestTracker::new(request_interval_usecs, time_service.clone());
 
         // Verify no requests have been sent
         assert!(request_tracker.get_last_request_time().is_none());
@@ -136,7 +136,7 @@ mod test {
 
             // Elapse a little time, record a successful response and verify the
             // state of the tracker (the number of consecutive failures should reset).
-            mock_time.advance(Duration::from_millis(request_interval_ms / 2));
+            mock_time.advance(Duration::from_micros(request_interval_usecs / 2));
             let response_time = mock_time.now();
             request_tracker.record_response_success();
             assert_eq!(request_tracker.get_last_request_time(), Some(request_time));
@@ -150,7 +150,7 @@ mod test {
             assert_eq!(request_tracker.get_num_consecutive_failures(), 0);
 
             // Elapse more time and verify a new request is now required
-            mock_time.advance(Duration::from_millis((request_interval_ms / 2) + 1));
+            mock_time.advance(Duration::from_micros((request_interval_usecs / 2) + 1));
             assert!(request_tracker.new_request_required());
         }
     }
@@ -158,9 +158,9 @@ mod test {
     #[test]
     fn test_response_failures() {
         // Create the request tracker
-        let request_interval_ms = 100;
+        let request_interval_usecs = 100;
         let time_service = TimeService::mock();
-        let mut request_tracker = RequestTracker::new(request_interval_ms, time_service.clone());
+        let mut request_tracker = RequestTracker::new(request_interval_usecs, time_service.clone());
 
         // Emulate several failure flows
         let mock_time = time_service.into_mock();
@@ -180,7 +180,7 @@ mod test {
             assert_eq!(request_tracker.get_num_consecutive_failures(), i + 1);
 
             // Elapse more time and verify a new request is now required
-            mock_time.advance(Duration::from_millis(request_interval_ms + 1));
+            mock_time.advance(Duration::from_micros(request_interval_usecs + 1));
             assert!(request_tracker.new_request_required());
         }
 
@@ -195,7 +195,7 @@ mod test {
         request_tracker.request_completed();
 
         // Elapse a little time, record a successful response and verify the state of the tracker
-        mock_time.advance(Duration::from_millis(request_interval_ms / 2));
+        mock_time.advance(Duration::from_micros(request_interval_usecs / 2));
         let response_time = mock_time.now();
         request_tracker.record_response_success();
         assert_eq!(request_tracker.get_last_request_time(), Some(request_time));
@@ -224,7 +224,7 @@ mod test {
             assert_eq!(request_tracker.get_num_consecutive_failures(), i + 1);
 
             // Elapse more time and verify a new request is now required
-            mock_time.advance(Duration::from_millis(request_interval_ms + 1));
+            mock_time.advance(Duration::from_micros(request_interval_usecs + 1));
             assert!(request_tracker.new_request_required());
         }
     }

@@ -28,12 +28,8 @@ use aptos_network::{
     transport::{ConnectionId, ConnectionMetadata},
 };
 use aptos_peer_monitoring_service_types::{
-    request::{LatencyPingRequest, PeerMonitoringServiceRequest},
-    response::{
-        NetworkInformationResponse, NodeInformationResponse, PeerMonitoringServiceResponse,
-        ServerProtocolVersionResponse,
-    },
-    PeerMonitoringMetadata, PeerMonitoringServiceError, PeerMonitoringServiceMessage,
+    request::*, response::*, PeerMonitoringMetadata, PeerMonitoringServiceError,
+    PeerMonitoringServiceMessage,
 };
 use aptos_storage_interface::{DbReader, ExecutedTrees, Order};
 use aptos_time_service::{MockTimeService, TimeService};
@@ -58,6 +54,7 @@ use aptos_types::{
     },
     PeerId,
 };
+use cfg_block::cfg_block;
 use futures::channel::oneshot;
 use maplit::hashmap;
 use mockall::mock;
@@ -373,6 +370,39 @@ async fn test_latency_ping_request() {
     }
 }
 
+cfg_block! {
+    #[cfg(feature = "network-perf-test")] { // Disabled by default
+        #[tokio::test]
+        async fn test_performance_monitoring_request() {
+            // Create the peer monitoring client and server
+            let (mut mock_client, service, _, _) = MockClient::new(None, None, None);
+            tokio::spawn(service.start());
+
+            // Process several performance monitoring requests
+            for i in 0..10 {
+                let request = PeerMonitoringServiceRequest::PerformanceMonitoringRequest(
+                    PerformanceMonitoringRequest {
+                        request_counter: i,
+                        data: [0; 100].to_vec(), // 100 bytes of zero's
+                    },
+                );
+                let response = mock_client.send_request(request).await.unwrap();
+                match response {
+                    PeerMonitoringServiceResponse::PerformanceMonitoringResponse(
+                        performance_monitoring_response,
+                    ) => {
+                        assert_eq!(performance_monitoring_response.response_counter, i);
+                    },
+                    _ => panic!(
+                        "Expected performance monitoring response but got: {:?}",
+                        response
+                    ),
+                }
+            }
+        }
+    }
+}
+
 /// A simple utility function to create a new connection metadata for tests
 fn create_connection_metadata(peer_id: AccountAddress) -> ConnectionMetadata {
     ConnectionMetadata::new(
@@ -477,7 +507,7 @@ impl MockClient {
         let peer_monitoring_config = peer_monitoring_config.unwrap_or_default();
         let node_config = NodeConfig {
             base: base_config,
-            peer_monitoring_service: peer_monitoring_config.clone(),
+            peer_monitoring_service: peer_monitoring_config,
             ..Default::default()
         };
 

@@ -10,19 +10,12 @@ use crate::{
 use aptos_config::{
     config::{
         LatencyMonitoringConfig, NetworkMonitoringConfig, NodeConfig, NodeMonitoringConfig,
-        PeerMonitoringServiceConfig, PeerRole,
+        PeerMonitoringServiceConfig, PeerRole, PerformanceMonitoringConfig,
     },
     network_id::{NetworkId, PeerNetworkId},
 };
 use aptos_network::application::{interface::NetworkClient, storage::PeersAndMetadata};
-use aptos_peer_monitoring_service_types::{
-    request::{LatencyPingRequest, PeerMonitoringServiceRequest},
-    response::{
-        ConnectionMetadata, LatencyPingResponse, NetworkInformationResponse,
-        NodeInformationResponse, PeerMonitoringServiceResponse, ServerProtocolVersionResponse,
-    },
-    PeerMonitoringServiceMessage,
-};
+use aptos_peer_monitoring_service_types::{request::*, response::*, PeerMonitoringServiceMessage};
 use aptos_time_service::{MockTimeService, TimeService, TimeServiceTrait};
 use aptos_types::{network_address::NetworkAddress, PeerId};
 use maplit::hashmap;
@@ -50,6 +43,8 @@ pub fn config_with_latency_ping_requests() -> NodeConfig {
         peer_monitoring_service: PeerMonitoringServiceConfig {
             network_monitoring: disabled_network_monitoring_config(),
             node_monitoring: disabled_node_monitoring_config(),
+            performance_monitoring: disabled_performance_monitoring_config(),
+
             ..Default::default()
         },
         ..Default::default()
@@ -62,6 +57,10 @@ pub fn config_with_network_info_requests() -> NodeConfig {
         peer_monitoring_service: PeerMonitoringServiceConfig {
             latency_monitoring: disabled_latency_monitoring_config(),
             node_monitoring: disabled_node_monitoring_config(),
+
+            #[cfg(feature = "network-perf-test")] // Disabled by default
+            performance_monitoring: disabled_performance_monitoring_config(),
+
             ..Default::default()
         },
         ..Default::default()
@@ -74,6 +73,10 @@ pub fn config_with_node_info_requests() -> NodeConfig {
         peer_monitoring_service: PeerMonitoringServiceConfig {
             latency_monitoring: disabled_latency_monitoring_config(),
             network_monitoring: disabled_network_monitoring_config(),
+
+            #[cfg(feature = "network-perf-test")] // Disabled by default
+            performance_monitoring: disabled_performance_monitoring_config(),
+
             ..Default::default()
         },
         ..Default::default()
@@ -146,6 +149,15 @@ fn disabled_network_monitoring_config() -> NetworkMonitoringConfig {
 fn disabled_node_monitoring_config() -> NodeMonitoringConfig {
     NodeMonitoringConfig {
         node_info_request_interval_ms: UNREALISTIC_INTERVAL_MS,
+        ..Default::default()
+    }
+}
+
+/// Returns a performance monitoring config where performance monitoring is disabled
+fn disabled_performance_monitoring_config() -> PerformanceMonitoringConfig {
+    PerformanceMonitoringConfig {
+        enable_direct_send_testing: false,
+        enable_rpc_testing: false,
         ..Default::default()
     }
 }
@@ -258,7 +270,7 @@ pub async fn initialize_and_verify_peer_states(
     verify_all_requests_and_respond(
         network_id,
         mock_monitoring_server,
-        3,
+        PeerStateKey::get_all_keys().len() as u64,
         Some(network_info_response.clone()),
         Some(node_info_response.clone()),
     )
@@ -333,7 +345,7 @@ pub async fn start_peer_metadata_updater(
 ) {
     // Spawn the peer metadata updater
     tokio::spawn(spawn_peer_metadata_updater(
-        node_config.peer_monitoring_service.clone(),
+        node_config.peer_monitoring_service,
         peer_monitor_state.clone(),
         peers_and_metadata,
         time_service.clone(),
@@ -615,6 +627,14 @@ pub async fn verify_all_requests_and_respond(
                     PeerMonitoringServiceResponse::LatencyPing(LatencyPingResponse {
                         ping_counter: latency_ping.ping_counter,
                     })
+                },
+                #[cfg(feature = "network-perf-test")] // Disabled by default
+                PeerMonitoringServiceRequest::PerformanceMonitoringRequest(request) => {
+                    PeerMonitoringServiceResponse::PerformanceMonitoringResponse(
+                        PerformanceMonitoringResponse {
+                            response_counter: request.request_counter,
+                        },
+                    )
                 },
                 request => panic!("Unexpected monitoring request received: {:?}", request),
             };

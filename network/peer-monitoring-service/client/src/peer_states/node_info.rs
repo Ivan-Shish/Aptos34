@@ -27,7 +27,7 @@ pub struct NodeInfoState {
 impl NodeInfoState {
     pub fn new(node_monitoring_config: NodeMonitoringConfig, time_service: TimeService) -> Self {
         let request_tracker = RequestTracker::new(
-            node_monitoring_config.node_info_request_interval_ms,
+            node_monitoring_config.node_info_request_interval_ms * 1000, // Convert to microseconds
             time_service,
         );
 

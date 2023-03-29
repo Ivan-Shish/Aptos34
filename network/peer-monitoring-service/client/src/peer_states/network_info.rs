@@ -34,7 +34,7 @@ impl NetworkInfoState {
         let base_config = node_config.base;
         let network_monitoring_config = node_config.peer_monitoring_service.network_monitoring;
         let request_tracker = RequestTracker::new(
-            network_monitoring_config.network_info_request_interval_ms,
+            network_monitoring_config.network_info_request_interval_ms * 1000, // Convert to microseconds
             time_service,
         );
 
