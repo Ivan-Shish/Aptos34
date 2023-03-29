@@ -16,7 +16,7 @@ pub mod utils;
 mod tests;
 
 use anyhow::anyhow;
-use aptos_api::bootstrap as bootstrap_api;
+use aptos_api_entrypoint::bootstrap as bootstrap_api;
 use aptos_build_info::build_information;
 use aptos_config::config::{NodeConfig, PersistableConfig};
 use aptos_framework::ReleaseBundle;

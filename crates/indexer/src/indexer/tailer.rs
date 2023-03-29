@@ -377,10 +377,9 @@ mod test {
         wipe_database(&mut conn_pool.get()?);
 
         let test_context = new_test_context("doesnt_matter".to_string(), true);
-        let context: Arc<ApiContext> = Arc::new(test_context.context);
         let pg_transaction_processor = DefaultTransactionProcessor::new(conn_pool.clone());
         let mut tailer = Tailer::new(
-            context,
+            test_context.context,
             conn_pool.clone(),
             Arc::new(pg_transaction_processor),
             TransactionFetcherOptions::default(),

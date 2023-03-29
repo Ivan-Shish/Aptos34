@@ -1,0 +1,121 @@
+// Copyright © Aptos Foundation
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package aptos.api.v2;
+
+import "aptos/transaction/testing1/v1/transaction.proto";
+import "google/api/v1/annotations.proto";
+import "google/protobuf/struct.proto";
+
+message GetAccountModulesRequest {
+    // Required; Account address, e.g. 0x1.
+    string account_address = 1;
+
+    // Required; The names of the module to retrieve, e.g. coin,token. If not provided,
+    // all modules on the given account will be returned.
+    repeated string module_names = 2;
+
+    // Optional; Ledger version at which to perform the lookup.
+    //
+    // If not given, the latest ledger state is used.
+    optional uint64 ledger_version = 3;
+
+    // Optional; How many items to return. If not given, or the value is zero, the
+    // server will decide the page
+    optional uint32 page_size = 4;
+
+    // Optional; If provided, results will be returned from this point. This is the BCS
+    // representation of the pagination cursor, e.g. StateKeyInner or an appropriate
+    // wrapper. Consider it an opaque blob to pass into the next call.
+    optional bytes page_token = 5;
+
+    // Optional; Defaults to false. This determines whether to return `raw` or `parsed`
+    // in MoveModuleWrapper.
+    bool raw = 6;
+}
+
+message MoveModuleWrapper {
+    oneof response {
+        // MoveModuleBytecode, which contains the ABI in bytes as well as the results
+        // of parsing the ABI.
+        aptos.transaction.testing1.v1.MoveModuleBytecode parsed = 1;
+        // Purely the ABI of the Move module.
+        bytes raw = 2;
+    }
+}
+
+message GetAccountModulesResponse {
+    // The key is the module name, without an address prefixing it.
+    map<string, MoveModuleWrapper> modules = 1;
+}
+
+message GetResourcesRequest {
+    // Optional; Addresses to query, either for an account address or object address,
+    // e.g. 0x1,0x2.
+    repeated string addresses = 1;
+
+    // Optional; Resource types to query, e.g.
+    // 0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>,0x1::account::Account
+    repeated string resource_types = 2;
+
+    // Optional; Ledger version at which to perform the lookup.
+    //
+    // If not given, the latest ledger state is used.
+    optional uint64 ledger_version = 3;
+
+    // Optional; How many items to return. If not given, or the value is zero, the
+    // server will decide the page
+    optional uint32 page_size = 4;
+
+    // Optional; If provided, results will be returned from this point. This is the BCS
+    // representation of the pagination cursor, e.g. StateKeyInner or an appropriate
+    // wrapper. Consider it an opaque blob to pass into the next call.
+    optional bytes page_token = 5;
+
+    // Optional; Defaults to false. If false, the ResourceWrappers will be of the
+    // `parsed` variant, where Move values are parsed and then represented as Value.
+    // If `raw` is true, the ResourceWrappers will be of the `raw` variant, where the
+    // Move values are represented as BCS bytes.
+    bool raw = 6;
+}
+
+message ResourceWrapper {
+    oneof response {
+        // The parsed representation of the Move resource. Value is just a proto
+        // representation of a JSON object.
+        google.protobuf.Value parsed = 1;
+        // The raw representation of the Move resource.
+        bytes raw = 2;
+    }
+}
+
+// Just a wrapper around a map, since you can't nest maps directly in proto.
+message Resources {
+    // The key is the resource type.
+    map<string, ResourceWrapper> resources = 1;
+}
+
+message GetResourcesResponse {
+    // The first key is the account address, followed by another map where the key is
+    // the resource type.
+    map<string, Resources> resources = 1;
+
+    // If not null, the server has more data and this value should be provided as
+    // page_token in the next call to retrieve the next page.
+    optional bytes next_page_token = 2;
+}
+
+service ApiV2 {
+    rpc GetAccountModules(GetAccountModulesRequest) returns (GetAccountModulesResponse) {
+        //option (google.api.v1.http) = { get: "/modules/{account_address}/modules/{module_names}" };
+    }
+
+    // Use this endpoint to lookup multiple resources across multiple accounts.
+    // Naturally a more restrictive expression of this request is possible too, such as
+    // looking up a single resource across multiple accounts, or looking up multiple
+    // resources across a single account, or just looking up a single resource on a
+    // single account.
+    rpc GetResources(GetResourcesRequest) returns (GetResourcesResponse);
+}

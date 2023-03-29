@@ -38,6 +38,9 @@ members = [
     "consensus/consensus-types",
     "consensus/safety-rules",
     "crates/aptos",
+    "crates/aptos-api/entrypoint",
+    "crates/aptos-api/v1",
+    "crates/aptos-api/v2",
     "crates/aptos-bitvec",
     "crates/aptos-build-info",
     "crates/aptos-compression",
@@ -206,8 +209,6 @@ members = [
     "vm-validator",
 ]
 
-exclude = ["crates/aptos-protos"]
-
 # NOTE: default-members is the complete list of binaries that form the "production Aptos codebase". These members should
 # never include crates that require fuzzing features or test features. These are the crates we want built with no extra
 # test-only code included.
@@ -245,6 +246,9 @@ rust-version = "1.64"
 aptos = { path = "crates/aptos" }
 aptos-accumulator = { path = "storage/accumulator" }
 aptos-aggregator = { path = "aptos-move/aptos-aggregator" }
+aptos-api-entrypoint = { path = "crates/aptos-api/entrypoint" }
+aptos-api-v1 = { path = "crates/aptos-api/v1" }
+aptos-api-v2 = { path = "crates/aptos-api/v2" }
 aptos-api = { path = "api" }
 aptos-api-test-context = { path = "api/test-context" }
 aptos-api-types = { path = "api/types" }
@@ -387,7 +391,7 @@ assert_approx_eq = "1.1.0"
 assert_unordered = "0.1.1"
 async-stream = "0.3"
 async-trait = "0.1.53"
-axum = "0.5.16"
+axum = "0.6.11"
 base64 = "0.13.0"
 backoff = { version = "0.4.0", features = ["tokio"] }
 backtrace = "0.3.58"
@@ -504,8 +508,9 @@ prometheus-http-query = "0.5.2"
 prometheus-parse = "0.2.4"
 proptest = "1.0.0"
 proptest-derive = "0.3.0"
-prost = "0.11.3"
-prost-types = "0.10.1"
+prost = "0.11.8"
+prost-types = "0.11.8"
+reverse-proxy-service = "0.1.2"
 quanta = "0.10.1"
 quote = "1.0.18"
 rand = "0.7.3"
@@ -568,6 +573,9 @@ tonic = { version = "0.8.3", features = [
     "gzip",
     "codegen",
 ] }
+tonic-reflection = "0.6.0"
+# tower = { git = "https://github.com/tower-rs/tower", rev = "664cb35abb8da07b6c46212375c481153d8abfb9", features = ["util"] }
+tower = "0.4.13"
 ureq = { version = "1.5.4", features = [
     "json",
     "native-tls",

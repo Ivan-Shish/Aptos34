@@ -5,6 +5,8 @@ plugins:
     opt:
       #- bytes=.
       - file_descriptor_set
+      - compile_well_known_types
+      - extern_path=.google.protobuf=::pbjson_types
 
   - name: prost-serde
     out: src/pb
@@ -17,3 +19,6 @@ plugins:
 
   - name: tonic
     out: src/pb
+    opt:
+      - compile_well_known_types
+      - extern_path=.google.protobuf=::pbjson_types

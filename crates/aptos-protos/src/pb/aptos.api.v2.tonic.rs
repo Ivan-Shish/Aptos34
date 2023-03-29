@@ -1,15 +1,15 @@
 // @generated
 /// Generated client implementations.
-pub mod indexer_stream_client {
+pub mod api_v2_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     ///
     #[derive(Debug, Clone)]
-    pub struct IndexerStreamClient<T> {
+    pub struct ApiV2Client<T> {
         inner: tonic::client::Grpc<T>,
     }
-    impl IndexerStreamClient<tonic::transport::Channel> {
+    impl ApiV2Client<tonic::transport::Channel> {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
@@ -20,7 +20,7 @@ pub mod indexer_stream_client {
             Ok(Self::new(conn))
         }
     }
-    impl<T> IndexerStreamClient<T>
+    impl<T> ApiV2Client<T>
     where
         T: tonic::client::GrpcService<tonic::body::BoxBody>,
         T::Error: Into<StdError>,
@@ -38,7 +38,7 @@ pub mod indexer_stream_client {
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
-        ) -> IndexerStreamClient<InterceptedService<T, F>>
+        ) -> ApiV2Client<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -52,7 +52,7 @@ pub mod indexer_stream_client {
                 http::Request<tonic::body::BoxBody>,
             >>::Error: Into<StdError> + Send + Sync,
         {
-            IndexerStreamClient::new(InterceptedService::new(inner, interceptor))
+            ApiV2Client::new(InterceptedService::new(inner, interceptor))
         }
         /// Compress requests with the given encoding.
         ///
@@ -70,13 +70,10 @@ pub mod indexer_stream_client {
             self
         }
         ///
-        pub async fn raw_datastream(
+        pub async fn get_account_modules(
             &mut self,
-            request: impl tonic::IntoRequest<super::RawDatastreamRequest>,
-        ) -> Result<
-            tonic::Response<tonic::codec::Streaming<super::RawDatastreamResponse>>,
-            tonic::Status,
-        > {
+            request: impl tonic::IntoRequest<super::GetAccountModulesRequest>,
+        ) -> Result<tonic::Response<super::GetAccountModulesResponse>, tonic::Status> {
             self.inner
                 .ready()
                 .await
@@ -88,40 +85,69 @@ pub mod indexer_stream_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/aptos.datastream.v1.IndexerStream/RawDatastream",
+                "/aptos.api.v2.ApiV2/GetAccountModules",
             );
-            self.inner.server_streaming(request.into_request(), path, codec).await
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        /** Use this endpoint to lookup multiple resources across multiple accounts.
+ Naturally a more restrictive expression of this request is possible too, such as
+ looking up a single resource across multiple accounts, or looking up multiple
+ resources across a single account, or just looking up a single resource on a
+ single account.
+*/
+        pub async fn get_resources(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetResourcesRequest>,
+        ) -> Result<tonic::Response<super::GetResourcesResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/aptos.api.v2.ApiV2/GetResources",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
         }
     }
 }
 /// Generated server implementations.
-pub mod indexer_stream_server {
+pub mod api_v2_server {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
-    /// Generated trait containing gRPC methods that should be implemented for use with IndexerStreamServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with ApiV2Server.
     #[async_trait]
-    pub trait IndexerStream: Send + Sync + 'static {
-        /// Server streaming response type for the RawDatastream method.
-        type RawDatastreamStream: futures_core::Stream<
-                Item = Result<super::RawDatastreamResponse, tonic::Status>,
-            >
-            + Send
-            + 'static;
+    pub trait ApiV2: Send + Sync + 'static {
         ///
-        async fn raw_datastream(
+        async fn get_account_modules(
             &self,
-            request: tonic::Request<super::RawDatastreamRequest>,
-        ) -> Result<tonic::Response<Self::RawDatastreamStream>, tonic::Status>;
+            request: tonic::Request<super::GetAccountModulesRequest>,
+        ) -> Result<tonic::Response<super::GetAccountModulesResponse>, tonic::Status>;
+        /** Use this endpoint to lookup multiple resources across multiple accounts.
+ Naturally a more restrictive expression of this request is possible too, such as
+ looking up a single resource across multiple accounts, or looking up multiple
+ resources across a single account, or just looking up a single resource on a
+ single account.
+*/
+        async fn get_resources(
+            &self,
+            request: tonic::Request<super::GetResourcesRequest>,
+        ) -> Result<tonic::Response<super::GetResourcesResponse>, tonic::Status>;
     }
     ///
     #[derive(Debug)]
-    pub struct IndexerStreamServer<T: IndexerStream> {
+    pub struct ApiV2Server<T: ApiV2> {
         inner: _Inner<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
     }
     struct _Inner<T>(Arc<T>);
-    impl<T: IndexerStream> IndexerStreamServer<T> {
+    impl<T: ApiV2> ApiV2Server<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -155,9 +181,9 @@ pub mod indexer_stream_server {
             self
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for IndexerStreamServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for ApiV2Server<T>
     where
-        T: IndexerStream,
+        T: ApiV2,
         B: Body + Send + 'static,
         B::Error: Into<StdError> + Send + 'static,
     {
@@ -173,26 +199,25 @@ pub mod indexer_stream_server {
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             let inner = self.inner.clone();
             match req.uri().path() {
-                "/aptos.datastream.v1.IndexerStream/RawDatastream" => {
+                "/aptos.api.v2.ApiV2/GetAccountModules" => {
                     #[allow(non_camel_case_types)]
-                    struct RawDatastreamSvc<T: IndexerStream>(pub Arc<T>);
+                    struct GetAccountModulesSvc<T: ApiV2>(pub Arc<T>);
                     impl<
-                        T: IndexerStream,
-                    > tonic::server::ServerStreamingService<super::RawDatastreamRequest>
-                    for RawDatastreamSvc<T> {
-                        type Response = super::RawDatastreamResponse;
-                        type ResponseStream = T::RawDatastreamStream;
+                        T: ApiV2,
+                    > tonic::server::UnaryService<super::GetAccountModulesRequest>
+                    for GetAccountModulesSvc<T> {
+                        type Response = super::GetAccountModulesResponse;
                         type Future = BoxFuture<
-                            tonic::Response<Self::ResponseStream>,
+                            tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::RawDatastreamRequest>,
+                            request: tonic::Request<super::GetAccountModulesRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
                             let fut = async move {
-                                (*inner).raw_datastream(request).await
+                                (*inner).get_account_modules(request).await
                             };
                             Box::pin(fut)
                         }
@@ -202,14 +227,54 @@ pub mod indexer_stream_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = RawDatastreamSvc(inner);
+                        let method = GetAccountModulesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
                                 accept_compression_encodings,
                                 send_compression_encodings,
                             );
-                        let res = grpc.server_streaming(method, req).await;
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/aptos.api.v2.ApiV2/GetResources" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetResourcesSvc<T: ApiV2>(pub Arc<T>);
+                    impl<
+                        T: ApiV2,
+                    > tonic::server::UnaryService<super::GetResourcesRequest>
+                    for GetResourcesSvc<T> {
+                        type Response = super::GetResourcesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetResourcesRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_resources(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetResourcesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
@@ -229,7 +294,7 @@ pub mod indexer_stream_server {
             }
         }
     }
-    impl<T: IndexerStream> Clone for IndexerStreamServer<T> {
+    impl<T: ApiV2> Clone for ApiV2Server<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -239,7 +304,7 @@ pub mod indexer_stream_server {
             }
         }
     }
-    impl<T: IndexerStream> Clone for _Inner<T> {
+    impl<T: ApiV2> Clone for _Inner<T> {
         fn clone(&self) -> Self {
             Self(self.0.clone())
         }
@@ -249,7 +314,7 @@ pub mod indexer_stream_server {
             write!(f, "{:?}", self.0)
         }
     }
-    impl<T: IndexerStream> tonic::server::NamedService for IndexerStreamServer<T> {
-        const NAME: &'static str = "aptos.datastream.v1.IndexerStream";
+    impl<T: ApiV2> tonic::server::NamedService for ApiV2Server<T> {
+        const NAME: &'static str = "aptos.api.v2.ApiV2";
     }
 }
