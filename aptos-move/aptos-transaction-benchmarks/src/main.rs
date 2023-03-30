@@ -5,6 +5,10 @@
 use aptos_language_e2e_tests::account_universe::P2PTransferGen;
 use aptos_transaction_benchmarks::transactions::TransactionBencher;
 use proptest::prelude::*;
+extern crate jemallocator;
+
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 fn main() {
     let bencher = TransactionBencher::new(any_with::<P2PTransferGen>((1_000, 1_000_000)));
