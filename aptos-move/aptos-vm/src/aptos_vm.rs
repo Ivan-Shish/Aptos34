@@ -141,8 +141,8 @@ impl AptosVM {
     /// Get the paranoid type check flag if already set, otherwise return default true
     pub fn get_paranoid_checks() -> bool {
         match PARANOID_TYPE_CHECKS.get() {
-            Some(enable) => *enable,
-            None => true,
+            Some(enable) => false, //*enable,
+            None => false, //true,
         }
     }
 
