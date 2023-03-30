@@ -12,4 +12,4 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Run PowerShell script as admin
-        run: powershell ./windows_dev_setup.ps1
+        run: powershell ./scripts/windows_dev_setup.ps1
