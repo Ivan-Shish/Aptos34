@@ -1,0 +1,15 @@
+name: Windows Dev Setup
+
+on:
+  push:
+    branches:
+      - saharct/windows-ci-cd
+
+jobs:
+  run-setup:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run PowerShell script as admin
+        run: powershell ./windows_dev_setup.ps1
