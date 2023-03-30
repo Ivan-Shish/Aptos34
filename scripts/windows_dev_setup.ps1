@@ -42,18 +42,6 @@ function welcome_message {
 
 
     Write-Host $welcome_message
-    Write-Host "`nInstallation will begin after 15 seconds or upon key input..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    $timeout = New-Object System.Diagnostics.Stopwatch
-    $timeout.Start()
-    while ($timeout.Elapsed.Seconds -lt 15) {
-        if ($Host.UI.RawUI.KeyAvailable) {
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            return
-        }
-        Start-Sleep -Milliseconds 100
-    }
-    $timeout.Stop()
 }
 
 function verify_architecture {  # Checks whether the Windows machine is 32-bit or 64-bit
