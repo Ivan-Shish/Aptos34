@@ -15,7 +15,7 @@
 //! use aptos_network::noise::{AntiReplayTimestamps, HandshakeAuthMode, NoiseUpgrader};
 //! use futures::{executor, future, io::{AsyncReadExt, AsyncWriteExt}};
 //! use aptos_memsocket::MemorySocket;
-//! use aptos_config::{config::{Peer, PeerRole, RoleType}, network_id::{NetworkContext, NetworkId}};
+//! use aptos_config::{config::{Peer, PeerRole}, network_id::{NetworkContext, NetworkId}};
 //! use aptos_crypto::{x25519, ed25519, Uniform, PrivateKey, test_utils::TEST_SEED};
 //! use aptos_infallible::RwLock;
 //! use rand::{rngs::StdRng, SeedableRng};
