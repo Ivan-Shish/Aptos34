@@ -10,6 +10,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Run PowerShell script as admin
-        run: powershell ./scripts/windows_dev_setup.ps1
+        uses: actions/checkout@v3
+      - name: Run PowerShell script to establish dev environment
+        run: powershell ./scripts/windows_dev_setup.ps1 -t
