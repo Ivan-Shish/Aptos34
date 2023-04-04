@@ -1,47 +1,69 @@
 # This script installs the necessary dependencies to build in Aptos.
 
+param (
+    [switch]$t,
+    [switch]$y
+)
+
 $ErrorActionPreference = 'Stop'
 
 Set-Location (Split-Path -Parent $MyInvocation.MyCommand.Path) | Out-Null; Set-Location '..' -ErrorAction Stop
 
+$global:user_selection = $null
 $global:os = $null
 $global:architecture = $null
 $global:msvcpath = $null
 $global:grcov_version = "0.8.2"
 $global:protoc_version = "21.4"
+$global:cvc5_version = "0.0.8"
 
 function welcome_message {
-    $welcome_message = "`nWelcome to Aptos!
+    $message = "`nWelcome to Aptos!
+    `nThis script will download and install the necessary dependencies for Aptos Core based on your selection:
+      * Install Aptos build tools: t
+      * Install Move Prover tools: y`n
+      Selection"
+    
+    return $message
+}
 
-    This script will download and install the necessary dependencies needed to build Aptos Core.
+function build_tools_message {
+    $message = "`nYou selected option 't'.
+    `nThe following dependencies needed to build Aptos Core will be downloaded and installed if not found on your system:
+    * Rust (and necessary components)
+      * rust-fmt
+      * clippy
+      * cargo-sort
+      * cargo-nextest
+    * MSVC Build Tools - Desktop development with C++ (and necessary components)
+      * MSVC C++ build tools
+      * Windows 10/11 SDK
+    * Protoc (and necessary components)
+      * protoc-gen-prost
+      * protoc-gen-prost-serde
+      * protoc-gen-prost-crate
+    * Python (and necessary components)
+      * pip
+      * schemathesis
+    * LLVM
+    * CMake
+    * OpenSSL
+    * NodeJS
+    * NPM
+    * PostgreSQL
+    * Grcov"
 
-    These tools will be installed if not found on your system:
-        
-        * Rust (and necessary components)
-            * rust-fmt
-            * clippy
-            * cargo-sort
-            * cargo-nextest
-        * MSVC Build Tools - Desktop development with C++ (and necessary components)
-            * MSVC C++ build tools
-            * Windows 10/11 SDK
-        * Protoc (and necessary components)
-            * protoc-gen-prost
-            * protoc-gen-prost-serde
-            * protoc-gen-prost-crate
-        * Python (and necessary components)
-            * pip
-	    * schemathesis
-	* LLVM
-        * CMake
-        * OpenSSL
-        * NodeJS
-        * NPM
-        * PostgreSQL
-        * Grcov"
+    return $message
+}
 
-
-    Write-Host $welcome_message
+function move_prover_message {
+    $message = "`nYou selected option 'y'.
+    `nThe following dependencies needed to use the Move Prover will be downloaded and installed if not found on your system:
+    * Dotnet
+    * Z3
+    * Boogie
+    * CVC5"
+    return $message
 }
 
 function verify_architecture {  # Checks whether the Windows machine is 32-bit or 64-bit
@@ -118,7 +140,15 @@ function install_winget {
     # Add WinGet directory to the user's PATH environment variable
     [Environment]::SetEnvironmentVariable("PATH", "$env:PATH;%LOCALAPPDATA%\Microsoft\WindowsApps", "User")
     
-    Write-Host "Please restart your system to ensure WinGet is setup correctly. Afterward, re-run the script."
+    # Check if running within a GitHub Actions job and rerun the script in a new window
+    if ($env:GITHUB_ACTIONS -eq "true") {  
+      Write-Host "Detected GitHub Actions environment. Starting a new PowerShell instance to continue the script..."
+      $scriptPath = $MyInvocation.MyCommand.Path
+      Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -$global:userSelection"
+    }
+    else {
+      Write-Host "Please restart your system to ensure WinGet is setup correctly. Afterward, re-run the script."
+    }
 }
 
 function check_for_winget {
@@ -334,17 +364,90 @@ function existing_package {
 	Write-Host "This package is already installed."
 }
 
-welcome_message
-verify_architecture
-check_os
-install_msvc_build_tools
-install_llvm
-install_openssl
-install_nodejs
-install_pnpm
-install_postgresql
-install_python
-install_protoc
-install_rustup
-install_cargo_plugins
+function install_cvc5 {
+  $exists = check_non_winget_or_installer_package "cvc5"
+  if (!$exists) {
+      if ($global:os -eq "64") {
+          # Download and extract the 64-bit version of Protoc
+          Invoke-WebRequest -Uri "https://github.com/cvc5/cvc5/releases/download/cvc5-$global:cvc5_version/cvc5-Win64.exe" -OutFile "$env:USERPROFILE\cvc5-$global:cvc5_version\cvc5-Win64.exe" -ErrorAction SilentlyContinue
+          while ((Get-Item "cvc5-Win64.exe").Length -lt 20MB) {
+              Start-Sleep -Seconds 1
+          }
+          [Environment]::SetEnvironmentVariable("PATH", "$env:PATH;$env:USERPROFILE\cvc5-$global:cvc5_version", "User")        }
+      else {
+          Write-Host "Only 64-bit systems can install cvc5"
+      }
+  }
+  else {
+      Write-Host "CVC5 is already installed."
+  }
+}
+
+function install_dotnet {
+  $result = check_package "DotNet"
+  if ($result) {
+    winget install Microsoft.DotNet.SDK.6 --accept-source-agreements --silent
+  }
+}
+
+function install_z3 {
+  $result = check_package "Z3"
+  if ($result) {
+      winget install Microsoft.NuGet
+      nuget install Microsoft.Z3 -Version 4.11.2
+  }
+}
+
+function install_boogie {
+  $result = check_package "Boogie"
+  if ($result) {
+      dotnet tool install --global Boogie --version 2.16.3
+    }
+}
+
+function install_build_tools {
+  Write-Host (build_tools_message)
+  verify_architecture
+  check_os
+  install_msvc_build_tools
+  install_llvm
+  install_openssl
+  install_nodejs
+  install_pnpm
+  install_postgresql
+  install_python
+  install_protoc
+  install_rustup
+  install_cargo_plugins
+}
+
+function install_move_prover {
+  Write-Host (move_prover_message)
+  verify_architecture
+  check_os
+  install_cvc5
+  install_dotnet
+  install_z3
+  install_boogie
+}
+
+
+if ($t -or $y) {
+    if ($t) {
+      $global:user_selection = 't'
+      install_build_tools
+    }
+    if ($y) {
+      $global:user_selection = 'y'
+      install_move_prover
+    }
+} else {
+    $selection = Read-Host -Prompt (welcome_message)
+    $global:user_selection = $selection
+    switch ($selection) {
+        't' { install_build_tools }
+        'y' { install_move_prover }
+        default { Write-Host "Invalid option selected. Please enter 't' or 'y'." }
+    }
+}
 Write-Host "Finished..."
