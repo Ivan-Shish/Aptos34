@@ -138,7 +138,7 @@ function install_winget {
     Add-AppxProvisionedPackage -Online -PackagePath "msftwinget.msixbundle" -LicensePath "license.xml" -ErrorAction SilentlyContinue
 
     # Add WinGet directory to the user's PATH environment variable
-    [Environment]::SetEnvironmentVariable("PATH", "$env:PATH;%LOCALAPPDATA%\Microsoft\WindowsApps", "User")
+    [Environment]::SetEnvironmentVariable("PATH", "$(([Environment]::GetEnvironmentVariable('PATH', 'User')) + ';' + [IO.Path]::Combine([Environment]::GetEnvironmentVariable('LOCALAPPDATA'), 'Microsoft', 'WindowsApps'))", "User")
     
     # Check if running within a GitHub Actions job and rerun the script in a new window
     if ($env:GITHUB_ACTIONS -eq "true") {  
