@@ -11,5 +11,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Run PowerShell script to establish dev environment
+      - name: Run PowerShell script to install winget
+        run: powershell ./scripts/windows_dev_setup.ps1 -t
+      - name: Run Powershell script to install build environment
         run: powershell ./scripts/windows_dev_setup.ps1 -t
