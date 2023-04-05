@@ -281,6 +281,52 @@ where
     Arc::new(closure)
 }
 
+pub fn make_safe_native_v2<G>(
+    gas_params: Arc<G>,
+    timed_features: TimedFeatures,
+    features: Arc<Features>,
+    func: impl Fn(
+        &G,
+        &mut SafeNativeContext,
+        Vec<Type>,
+        VecDeque<Value>,
+    ) -> SafeNativeResult<SmallVec<[Value; 1]>>
+    + Sync
+    + Send
+    + 'static,
+) -> NativeFunction
+    where
+        G: Send + Sync + 'static,
+{
+    let closure = move |context: &mut NativeContext, ty_args, args| {
+        use SafeNativeError::*;
+
+        let gas_budget = context.gas_balance();
+
+        let mut context = SafeNativeContext {
+            timed_features: &timed_features,
+            features: features.clone(),
+            inner: context,
+
+            gas_budget,
+            gas_used: 0.into(),
+        };
+
+        let res = func(gas_params.as_ref(), &mut context, ty_args, args);
+
+        match res {
+            Ok(ret_vals) => Ok(NativeResult::ok(context.gas_used, ret_vals)),
+            Err(err) => match err {
+                Abort { abort_code } => Ok(NativeResult::err(context.gas_used, abort_code)),
+                OutOfGas => Ok(NativeResult::out_of_gas(context.gas_used)),
+                InvariantViolation(err) => Err(err),
+            },
+        }
+    };
+
+    Arc::new(closure)
+}
+
 /// For all $n > 0$, returns $\floor{\log_2{n}}$, contained within a `Some`.
 /// For $n = 0$, returns `None`.
 pub fn log2_floor(n: usize) -> Option<usize> {

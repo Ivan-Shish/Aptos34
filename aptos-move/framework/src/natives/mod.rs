@@ -264,7 +264,7 @@ impl GasParameters {
 
 pub fn all_natives(
     framework_addr: AccountAddress,
-    sha256_gas_params: move_stdlib::natives::hash::Sha2_256GasParameters,
+    move_stdlib_gas_params: move_stdlib::natives::GasParameters,
     gas_params: GasParameters,
     timed_features: TimedFeatures,
     features: Arc<Features>,
@@ -307,8 +307,8 @@ pub fn all_natives(
     add_natives_from_module!(
         "crypto_algebra",
         cryptography::algebra::make_all(
-            gas_params.algebra.clone(),
-            sha256_gas_params,
+            gas_params.algebra,
+            move_stdlib_gas_params,
             timed_features.clone(),
             features.clone()
         )

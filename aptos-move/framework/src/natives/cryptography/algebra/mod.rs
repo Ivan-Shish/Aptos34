@@ -37,6 +37,7 @@ use move_core_types::{language_storage::TypeTag, vm_status::StatusCode};
 use move_vm_runtime::native_functions::NativeFunction;
 use once_cell::sync::Lazy;
 use std::{any::Any, hash::Hash, rc::Rc, sync::Arc};
+use crate::natives::helpers::make_safe_native_v2;
 
 pub mod arithmetics;
 pub mod casting;
@@ -247,18 +248,18 @@ static BLS12381_Q12_LENDIAN: Lazy<Vec<u8>> = Lazy::new(|| {
 
 pub fn make_all(
     gas_params: crate::natives::cryptography::algebra::gas::GasParameters,
-    sha256_gas_params: move_stdlib::natives::hash::Sha2_256GasParameters,
+    move_stdlib_gas_params: move_stdlib::natives::GasParameters,
     timed_features: TimedFeatures,
     features: Arc<Features>,
 ) -> impl Iterator<Item = (String, NativeFunction)> {
     let mut natives = vec![];
-
+    let gas_params_ptr = Arc::new(gas_params.clone());
     // Always-on natives.
     natives.append(&mut vec![
         (
             "deserialize_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 deserialize_internal,
@@ -266,8 +267,8 @@ pub fn make_all(
         ),
         (
             "downcast_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 downcast_internal,
@@ -275,8 +276,8 @@ pub fn make_all(
         ),
         (
             "eq_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 eq_internal,
@@ -284,8 +285,8 @@ pub fn make_all(
         ),
         (
             "add_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 add_internal,
@@ -293,8 +294,8 @@ pub fn make_all(
         ),
         (
             "div_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 div_internal,
@@ -302,8 +303,8 @@ pub fn make_all(
         ),
         (
             "inv_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 inv_internal,
@@ -311,8 +312,8 @@ pub fn make_all(
         ),
         (
             "mul_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 mul_internal,
@@ -320,8 +321,8 @@ pub fn make_all(
         ),
         (
             "neg_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 neg_internal,
@@ -329,8 +330,8 @@ pub fn make_all(
         ),
         (
             "one_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 one_internal,
@@ -338,8 +339,8 @@ pub fn make_all(
         ),
         (
             "sqr_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 sqr_internal,
@@ -347,8 +348,8 @@ pub fn make_all(
         ),
         (
             "sub_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 sub_internal,
@@ -356,8 +357,8 @@ pub fn make_all(
         ),
         (
             "zero_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 zero_internal,
@@ -365,8 +366,8 @@ pub fn make_all(
         ),
         (
             "from_u64_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 from_u64_internal,
@@ -374,8 +375,8 @@ pub fn make_all(
         ),
         (
             "double_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 double_internal,
@@ -383,8 +384,8 @@ pub fn make_all(
         ),
         (
             "multi_scalar_mul_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 multi_scalar_mul_internal,
@@ -392,8 +393,8 @@ pub fn make_all(
         ),
         (
             "order_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 order_internal,
@@ -401,8 +402,8 @@ pub fn make_all(
         ),
         (
             "scalar_mul_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 scalar_mul_internal,
@@ -412,8 +413,8 @@ pub fn make_all(
             "hash_to_internal",
             make_safe_native(
                 HashToGasParameters {
-                    algebra: gas_params.clone(),
-                    sha2: sha256_gas_params,
+                    algebra: gas_params,
+                    sha2: move_stdlib_gas_params.hash.sha2_256,
                 },
                 timed_features.clone(),
                 features.clone(),
@@ -422,8 +423,8 @@ pub fn make_all(
         ),
         (
             "multi_pairing_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 multi_pairing_internal,
@@ -431,8 +432,8 @@ pub fn make_all(
         ),
         (
             "pairing_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 pairing_internal,
@@ -440,8 +441,8 @@ pub fn make_all(
         ),
         (
             "serialize_internal",
-            make_safe_native(
-                gas_params.clone(),
+            make_safe_native_v2(
+                gas_params_ptr.clone(),
                 timed_features.clone(),
                 features.clone(),
                 serialize_internal,
@@ -449,7 +450,7 @@ pub fn make_all(
         ),
         (
             "upcast_internal",
-            make_safe_native(gas_params, timed_features, features, upcast_internal),
+            make_safe_native_v2(gas_params_ptr.clone(), timed_features, features, upcast_internal),
         ),
     ]);
 
