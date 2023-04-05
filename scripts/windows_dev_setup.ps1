@@ -101,11 +101,11 @@ function check_os {
 
 function install_winget {
     # Download and extract XAML dependency
-    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.8.2" -OutFile "Microsoft.UI.Xaml.2.8.2.nupkg.zip" -ErrorAction SilentlyContinue
-    while ((Get-Item "Microsoft.UI.Xaml.2.8.2.nupkg.zip").Length -lt 19MB) {
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.UI.Xaml/2.7.1" -OutFile "Microsoft.UI.Xaml.2.7.1.nupkg.zip" -ErrorAction SilentlyContinue
+    while ((Get-Item "Microsoft.UI.Xaml.2.7.1.nupkg.zip").Length -lt 18MB) {
         Start-Sleep -Seconds 1
     }
-    Expand-Archive "Microsoft.UI.Xaml.2.8.2.nupkg.zip" -ErrorAction SilentlyContinue
+    Expand-Archive "Microsoft.UI.Xaml.2.7.1.nupkg.zip" -ErrorAction SilentlyContinue
 
     if ($global:architecture -eq "64") {
         # Install x64 dependencies (VCLibs and XAML)
@@ -114,7 +114,7 @@ function install_winget {
             Start-Sleep -Seconds 1
         }
         Add-AppxPackage "Microsoft.VCLibs.x64.14.00.Desktop.appx" -ErrorAction SilentlyContinue
-        Add-AppxPackage "Microsoft.UI.Xaml.2.8.2.nupkg\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.8.appx" -ErrorAction SilentlyContinue
+        Add-AppxPackage "Microsoft.UI.Xaml.2.7.1.nupkg\tools\AppX\x64\Release\Microsoft.UI.Xaml.2.7.appx" -ErrorAction SilentlyContinue
     }
     elseif ($global:architecture -eq "86") {
         # Install x86 dependencies (VCLibs and XAML)
@@ -123,7 +123,7 @@ function install_winget {
             Start-Sleep -Seconds 1
         }
         Add-AppxPackage "Microsoft.VCLibs.x86.14.00.Desktop.appx" -ErrorAction SilentlyContinue
-        Add-AppxPackage "Microsoft.UI.Xaml.2.8.2.nupkg\tools\AppX\x86\Release\Microsoft.UI.Xaml.2.8.appx" -ErrorAction SilentlyContinue
+        Add-AppxPackage "Microsoft.UI.Xaml.2.7.1.nupkg\tools\AppX\x86\Release\Microsoft.UI.Xaml.2.7.appx" -ErrorAction SilentlyContinue
     }
 
     # Install WinGet
