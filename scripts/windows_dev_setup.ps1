@@ -142,9 +142,8 @@ function install_winget {
     
     # Check if running within a GitHub Actions job and rerun the script in a new window
     if ($env:GITHUB_ACTIONS -eq "true") {  
-      $envpath = [Environment]::GetEnvironmentVariable('PATH', 'User')
-      Add-Content -Path $env:GITHUB_ENV -Value "PATH=$envpath"
-      exit
+      $script_path = $MyInvocation.MyCommand.Path
+      Start-Process -FilePath "powershell.exe" -ArgumentList "-ExecutionPolicy Bypass -File `"$script_path`" -$global:user_selection"
     }
     else {
       Write-Host "Please restart your system to ensure WinGet is setup correctly. Afterward, re-run the script."
