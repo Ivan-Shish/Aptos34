@@ -2,7 +2,10 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config::{QuorumStoreConfig, SafetyRulesConfig};
+use crate::config::{
+    config_sanitizer::ConfigSanitizer, Error, NodeConfig, QuorumStoreConfig, SafetyRulesConfig,
+};
+use aptos_types::chain_id::ChainId;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -172,6 +175,13 @@ impl ConsensusConfig {
         } else {
             self.max_receiving_block_bytes
         }
+    }
+}
+
+impl ConfigSanitizer for ConsensusConfig {
+    /// Validate and process the consensus config according to the given chain ID
+    fn sanitize(_node_config: &mut NodeConfig, _chain_id: ChainId) -> Result<(), Error> {
+        return Ok(()); // TODO: add basic validation checks to the consensus config?
     }
 }
 

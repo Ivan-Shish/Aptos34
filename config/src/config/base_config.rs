@@ -1,13 +1,12 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config::SecureBackend;
+use crate::config::{config_sanitizer::ConfigSanitizer, Error, NodeConfig, SecureBackend};
 use aptos_secure_storage::{KVStorage, Storage};
-use aptos_types::waypoint::Waypoint;
+use aptos_types::{chain_id::ChainId, waypoint::Waypoint};
 use poem_openapi::Enum as PoemEnum;
 use serde::{Deserialize, Serialize};
 use std::{fmt, fs, path::PathBuf, str::FromStr};
-use thiserror::Error;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -26,6 +25,22 @@ impl Default for BaseConfig {
             role: RoleType::Validator,
             waypoint: WaypointConfig::None,
         }
+    }
+}
+
+impl ConfigSanitizer for BaseConfig {
+    /// Validate and process the base config according to the given chain ID
+    fn sanitize(node_config: &mut NodeConfig, _chain_id: ChainId) -> Result<(), Error> {
+        let base_config = &mut node_config.base;
+
+        // Verify the waypoint is not None
+        if let WaypointConfig::None = base_config.waypoint {
+            return Err(Error::Validation(
+                "The waypoint config must be set in the base config!".to_string(),
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -110,6 +125,10 @@ pub enum RoleType {
 impl RoleType {
     pub fn is_validator(self) -> bool {
         self == RoleType::Validator
+    }
+
+    pub fn is_fullnode(self) -> bool {
+        self == RoleType::FullNode
     }
 
     pub fn as_str(self) -> &'static str {

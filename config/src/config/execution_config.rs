@@ -2,8 +2,8 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config::{Error, RootPath};
-use aptos_types::transaction::Transaction;
+use crate::config::{config_sanitizer::ConfigSanitizer, node_config::RootPath, Error, NodeConfig};
+use aptos_types::{chain_id::ChainId, transaction::Transaction};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -111,6 +111,29 @@ impl ExecutionConfig {
             file.write_all(&data)
                 .map_err(|e| Error::IO("genesis".into(), e))?;
         }
+        Ok(())
+    }
+}
+
+impl ConfigSanitizer for ExecutionConfig {
+    /// Validate and process the execution config according to the given chain ID
+    fn sanitize(node_config: &mut NodeConfig, chain_id: ChainId) -> Result<(), Error> {
+        let execution_config = &mut node_config.execution;
+
+        // If this is a mainnet node, ensure that additional verifiers are enabled
+        if chain_id.is_mainnet() {
+            if !execution_config.paranoid_hot_potato_verification {
+                return Err(Error::Validation(
+                    "paranoid_hot_potato_verification must be enabled for mainnet nodes!".into(),
+                ));
+            }
+            if !execution_config.paranoid_type_verification {
+                return Err(Error::Validation(
+                    "paranoid_type_verification must be enabled for mainnet nodes!".into(),
+                ));
+            }
+        }
+
         Ok(())
     }
 }

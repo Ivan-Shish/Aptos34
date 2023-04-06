@@ -49,8 +49,7 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
 
     /// Adds a [`TestNode`] of [`NodeType::Validator`]
     pub fn add_validator(mut self, owner: u32) -> Self {
-        let config = NodeConfig::random_with_template(
-            owner,
+        let config = NodeConfig::generate_random_config_with_template(
             &NodeConfig::default_for_validator(),
             &mut self.rng,
         );
@@ -68,8 +67,7 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
 
     /// Adds a [`TestNode`] of [`NodeType::ValidatorFullNode`]
     pub fn add_vfn(mut self, owner: u32) -> Self {
-        let config = NodeConfig::random_with_template(
-            owner,
+        let config = NodeConfig::generate_random_config_with_template(
             &NodeConfig::default_for_validator_full_node(),
             &mut self.rng,
         );
@@ -88,8 +86,7 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
 
     /// Adds a [`TestNode`] of [`NodeType::PublicFullNode`]
     pub fn add_pfn(mut self, owner: u32) -> Self {
-        let config = NodeConfig::random_with_template(
-            owner,
+        let config = NodeConfig::generate_random_config_with_template(
             &NodeConfig::default_for_public_full_node(),
             &mut self.rng,
         );

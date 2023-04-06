@@ -2,7 +2,14 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils;
+use crate::{
+    config::{
+        config_sanitizer::{verify_field_not_zero, ConfigSanitizer},
+        Error, NodeConfig,
+    },
+    utils,
+};
+use aptos_types::chain_id::ChainId;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
@@ -103,5 +110,52 @@ impl ApiConfig {
             Some(v) => v,
             None => DEFAULT_REQUEST_CONTENT_LENGTH_LIMIT,
         }
+    }
+}
+
+impl ConfigSanitizer for ApiConfig {
+    /// Validate and process the API config according to the given chain ID
+    fn sanitize(node_config: &mut NodeConfig, chain_id: ChainId) -> Result<(), Error> {
+        // Get the API config and check if it is enabled
+        let api_config = &mut node_config.api;
+        if !api_config.enabled {
+            return Ok(());
+        }
+
+        // Verify that failpoints are not enabled in mainnet
+        if chain_id.is_mainnet() && api_config.failpoints_enabled {
+            return Err(Error::Validation(
+                "Failpoints are not supported on mainnet nodes".to_string(),
+            ));
+        }
+
+        // Perform basic field validation for non-zero properties
+        verify_field_not_zero(
+            api_config.max_submit_transaction_batch_size,
+            "max_submit_transaction_batch_size",
+        )?;
+        verify_field_not_zero(
+            api_config.max_transactions_page_size,
+            "max_transactions_page_size",
+        )?;
+        verify_field_not_zero(api_config.max_events_page_size, "max_events_page_size")?;
+        verify_field_not_zero(
+            api_config.max_account_resources_page_size,
+            "max_account_resources_page_size",
+        )?;
+        verify_field_not_zero(
+            api_config.max_account_modules_page_size,
+            "max_account_modules_page_size",
+        )?;
+        verify_field_not_zero(api_config.max_gas_view_function, "max_gas_view_function")?;
+
+        // Validate basic runtime properties
+        if api_config.max_runtime_workers.is_none() && api_config.runtime_worker_multiplier == 0 {
+            return Err(Error::Validation(
+                "runtime_worker_multiplier must be greater than 0".to_string(),
+            ));
+        }
+
+        Ok(())
     }
 }

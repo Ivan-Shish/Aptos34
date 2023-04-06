@@ -28,6 +28,9 @@
 # Owner for aptos node (just to prevent things from becoming out of hand, again :D)
 /aptos-node/ @joshlind
 
+# Owners for config (just to prevent things from becoming out of hand, again :D)
+/config/ @gregnazario @joshlind @msmouse @zekun000
+
 # Owner for logger config
 /config/src/config/logger_config.rs @joshlind @gregnazario
 

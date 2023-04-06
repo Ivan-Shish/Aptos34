@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    config::{Error, IdentityBlob, SecureBackend},
+    config::{config_sanitizer::ConfigSanitizer, Error, IdentityBlob, NodeConfig, SecureBackend},
     keys::ConfigKey,
     network_id::NetworkId,
     utils,
@@ -12,7 +12,7 @@ use aptos_crypto::{x25519, Uniform};
 use aptos_secure_storage::{CryptoStorage, KVStorage, Storage};
 use aptos_short_hex_str::AsShortHexStr;
 use aptos_types::{
-    account_address::from_identity_public_key, network_address::NetworkAddress,
+    account_address::from_identity_public_key, chain_id::ChainId, network_address::NetworkAddress,
     transaction::authenticator::AuthenticationKey, PeerId,
 };
 use rand::{
@@ -203,29 +203,17 @@ impl NetworkConfig {
         }
     }
 
-    /// Per convenience, so that NetworkId isn't needed to be specified for `validator_networks`
-    pub fn load_validator_network(&mut self) -> Result<(), Error> {
-        self.network_id = NetworkId::Validator;
-        self.load()
-    }
-
-    pub fn load_fullnode_network(&mut self) -> Result<(), Error> {
-        if self.network_id.is_validator_network() {
-            return Err(Error::InvariantViolation(format!(
-                "Set {} network for a non-validator network",
-                self.network_id
-            )));
-        }
-        self.load()
-    }
-
-    fn load(&mut self) -> Result<(), Error> {
+    /// Loads the listen address and identity from the config
+    fn load_listen_address_and_identity(&mut self) -> Result<(), Error> {
+        // If the listen address is not specified, use the local IP
         if self.listen_address.to_string().is_empty() {
             self.listen_address = utils::get_local_ip()
                 .ok_or_else(|| Error::InvariantViolation("No local IP".to_string()))?;
         }
 
+        // Prepare the identity
         self.prepare_identity();
+
         Ok(())
     }
 
@@ -321,6 +309,80 @@ impl NetworkConfig {
                 format!("Seed peer {} has no pubkeys", peer_id.short_str()),
             )?;
         }
+        Ok(())
+    }
+}
+
+impl ConfigSanitizer for NetworkConfig {
+    fn sanitize(node_config: &mut NodeConfig, _chain_id: ChainId) -> Result<(), Error> {
+        // Verify that the validator network config is consistent with the base role
+        let validator_network_config = node_config.validator_network.as_mut();
+        if node_config.base.role.is_validator() && validator_network_config.is_none() {
+            return Err(Error::Validation(
+                "Missing a validator network config for a validator node!".into(),
+            ));
+        } else if node_config.base.role.is_fullnode() && validator_network_config.is_some() {
+            return Err(Error::Validation(
+                "Provided a validator network config for a fullnode!".into(),
+            ));
+        }
+
+        // Sanitize the validator network config (if provided)
+        if let Some(validator_network) = validator_network_config {
+            // Ensure the validator network is using the correct network id
+            if !validator_network.network_id.is_validator_network() {
+                return Err(Error::Validation(
+                    "Validator network must use the validator network id!".into(),
+                ));
+            }
+
+            // Ensure that mutual authentication is enabled for the validator network
+            if !validator_network.mutual_authentication {
+                return Err(Error::Validation(
+                    "Mutual authentication must be enabled for the validator network!".into(),
+                ));
+            }
+
+            // Load the listen address and identity
+            validator_network.load_listen_address_and_identity()?;
+        }
+
+        // Verify that the fullnode network configs are consistent with the base role
+        if node_config.base.role.is_fullnode() && node_config.full_node_networks.is_empty() {
+            return Err(Error::Validation(
+                "Missing fullnode network configs for a fullnode!".into(),
+            ));
+        }
+
+        // Sanitize the fullnode network configs (if provided)
+        let mut fullnode_network_ids = HashSet::new();
+        for fullnode_network in &mut node_config.full_node_networks {
+            // Ensure the fullnode network is using the correct network id
+            if !fullnode_network.network_id.is_full_node_network() {
+                return Err(Error::Validation(
+                    "Fullnode network must use the fullnode network id!".into(),
+                ));
+            }
+
+            // Verify that the fullnode network config is unique
+            if fullnode_network_ids.insert(fullnode_network_config.network_id()) {
+                return Err(Error::Validation(
+                    "Fullnode network configs must be unique!".into(),
+                ));
+            }
+
+            // Load the listen address and identity
+            fullnode_network.load_listen_address_and_identity()?;
+        }
+
+        Ok(())
+    }
+}
+
+pub fn invariant(cond: bool, msg: String) -> Result<(), Error> {
+    if !cond {
+        Err(Error::InvariantViolation(msg))
+    } else {
         Ok(())
     }
 }

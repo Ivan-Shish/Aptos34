@@ -16,14 +16,8 @@ pub enum Error {
     Yaml(String, #[source] serde_yaml::Error),
     #[error("Config is missing expected value: {0}")]
     Missing(&'static str),
+    #[error("Failed to validate config: {0}")]
+    Validation(String),
     #[error("Unexpected error: {0}")]
     Unexpected(String),
-}
-
-pub fn invariant(cond: bool, msg: String) -> Result<(), Error> {
-    if !cond {
-        Err(Error::InvariantViolation(msg))
-    } else {
-        Ok(())
-    }
 }

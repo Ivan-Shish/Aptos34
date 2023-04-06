@@ -2,7 +2,6 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config::NodeConfig;
 use aptos_crypto::_once_cell::sync::Lazy;
 use aptos_logger::prelude::*;
 use aptos_types::{

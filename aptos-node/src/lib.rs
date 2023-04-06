@@ -139,7 +139,7 @@ impl AptosNodeArgs {
             // A config file exists, attempt to parse the config
             let config = NodeConfig::load(config_path.clone()).unwrap_or_else(|error| {
                 panic!(
-                    "Failed to parse node config file! Given file path: {:?}. Error: {:?}",
+                    "Failed to load the node config! Given file path: {:?}. Error: {:?}",
                     config_path.display(),
                     error
                 )
@@ -178,7 +178,7 @@ pub fn start(
     utils::create_global_rayon_pool(create_global_rayon_pool);
 
     // Initialize the global aptos-node-identity
-    aptos_node_identity::init(config.peer_id())?;
+    aptos_node_identity::init(config.get_peer_id())?;
 
     // Instantiate the global logger
     let (remote_log_receiver, logger_filter_update) = logger::create_logger(&config, log_file);
