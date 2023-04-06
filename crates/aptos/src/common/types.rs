@@ -1110,6 +1110,7 @@ impl From<Transaction> for TransactionSummary {
         TransactionSummary::from(&transaction)
     }
 }
+
 impl From<&Transaction> for TransactionSummary {
     fn from(transaction: &Transaction) -> Self {
         match transaction {
@@ -1277,7 +1278,7 @@ pub struct TransactionOptions {
     ///
     /// This allows you to override the account address from the derived account address
     /// in the event that the authentication key was rotated or for a resource account
-    #[clap(long, parse(try_from_str=crate::common::types::load_account_arg))]
+    #[clap(long, parse(try_from_str = crate::common::types::load_account_arg))]
     pub(crate) sender_account: Option<AccountAddress>,
 
     #[clap(flatten)]
@@ -1339,6 +1340,134 @@ impl TransactionOptions {
         Ok(client.view(&payload, None).await?.into_inner())
     }
 
+    pub async fn submit_many_transactions(
+        &self,
+        payload: TransactionPayload,
+        amount: u32,
+    ) -> CliTypedResult<Vec<HashValue>> {
+        let client = self.rest_client()?;
+        let (sender_key, sender_address) = self.get_key_and_address()?;
+
+        // Ask to confirm price if the gas unit price is estimated above the lowest value when
+        // it is automatically estimated
+        let ask_to_confirm_price;
+        let gas_unit_price = if let Some(gas_unit_price) = self.gas_options.gas_unit_price {
+            ask_to_confirm_price = false;
+            gas_unit_price
+        } else {
+            return Err(CliError::CommandArgumentError(
+                "Must provide a gas unit price, can't simulate bulk".to_string(),
+            ));
+        };
+
+        // Get sequence number for account
+        let (account, state) = get_account_with_state(&client, sender_address).await?;
+        let sequence_number = account.sequence_number;
+
+        // Retrieve local time, and ensure it's within an expected skew of the blockchain
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|err| CliError::UnexpectedError(err.to_string()))?
+            .as_secs();
+        let now_usecs = now * US_IN_SECS;
+
+        // Warn local user that clock is skewed behind the blockchain.
+        // There will always be a little lag from real time to blockchain time
+        if now_usecs < state.timestamp_usecs - ACCEPTED_CLOCK_SKEW_US {
+            eprintln!("Local clock is is skewed from blockchain clock.  Clock is more than {} seconds behind the blockchain {}", ACCEPTED_CLOCK_SKEW_US, state.timestamp_usecs / US_IN_SECS);
+        }
+
+        let chain_id = ChainId::new(state.chain_id);
+        // TODO: Check auth key against current private key and provide a better message
+
+        let max_gas = if let Some(max_gas) = self.gas_options.max_gas {
+            // If the gas unit price was estimated ask, but otherwise you've chosen hwo much you want to spend
+            if ask_to_confirm_price {
+                let message = format!("Do you want to submit transaction for a maximum of {} Octas at a gas unit price of {} Octas?", max_gas * gas_unit_price, gas_unit_price);
+                prompt_yes_with_override(&message, self.prompt_options)?;
+            }
+            max_gas
+        } else {
+            // FIXME
+            panic!("Simulation not supported for many")
+        };
+
+        // Sign and submit transaction
+        let transaction_factory = TransactionFactory::new(chain_id)
+            .with_gas_unit_price(gas_unit_price)
+            .with_max_gas_amount(max_gas)
+            .with_transaction_expiration_time(self.gas_options.expiration_secs);
+        let sender_account = &mut LocalAccount::new(sender_address, sender_key, sequence_number);
+
+        let mut total_hashes: Vec<HashValue> = Vec::new();
+
+        const SUBMIT_SIZE: usize = 10;
+        const MEMPOOL_SIZE: usize = 100;
+
+        let mut count = 0;
+        while count < amount {
+            let mut transactions = Vec::new();
+            let mut hashes: Vec<HashValue> = Vec::new();
+
+            let mut j = 0;
+            while count < amount && j < MEMPOOL_SIZE {
+                let mut transactions_batch = Vec::new();
+                let mut i = 0;
+                while count < amount && i < SUBMIT_SIZE {
+                    let transaction = sender_account.sign_with_transaction_builder(
+                        transaction_factory.payload(payload.clone()),
+                    );
+                    count += 1;
+                    let hash = transaction.clone().committed_hash();
+                    hashes.push(hash.into());
+                    total_hashes.push(hash.into());
+                    transactions_batch.push(transaction.clone());
+                    transactions.push(transaction);
+                    i += 1;
+                    j += 1;
+                    count += 1;
+                }
+
+                println!(
+                    "Submitting {} -> {}",
+                    transactions_batch.first().unwrap().sequence_number(),
+                    transactions_batch.last().unwrap().sequence_number()
+                );
+                if let Ok(output) = client.submit_batch(&transactions_batch).await {
+                    if !output.inner().transaction_failures.is_empty() {
+                        eprintln!("Failed to submit, trying again");
+                        // Resubmit if it failed, if it fails again, stop
+                        match client.submit_batch(&transactions_batch).await {
+                            Ok(output) => {
+                                output.into_inner();
+                            },
+                            Err(err) => {
+                                println!("Submitted Hashes {:?}", total_hashes);
+                                panic!("Wasn't able to submit batch after two tries, wait for them to complete {}", err);
+                            },
+                        };
+                    }
+                }
+            }
+
+            // Wait on last transaction
+            let txn = &transactions.last().expect("Expect a transaction");
+            eprintln!("Waiting on {}", txn.sequence_number());
+
+            client
+                .wait_for_transaction_by_hash(
+                    (*total_hashes.last().unwrap()).into(),
+                    transactions.last().unwrap().expiration_timestamp_secs(),
+                    Some(Duration::from_secs(3600)),
+                    None,
+                )
+                .await
+                .unwrap();
+        }
+
+        Ok(total_hashes)
+    }
+
     /// Submit a transaction
     pub async fn submit_transaction(
         &self,
@@ -1374,7 +1503,7 @@ impl TransactionOptions {
         // Warn local user that clock is skewed behind the blockchain.
         // There will always be a little lag from real time to blockchain time
         if now_usecs < state.timestamp_usecs - ACCEPTED_CLOCK_SKEW_US {
-            eprintln!("Local clock is is skewed from blockchain clock.  Clock is more than {} seconds behind the blockchain {}", ACCEPTED_CLOCK_SKEW_US, state.timestamp_usecs / US_IN_SECS );
+            eprintln!("Local clock is is skewed from blockchain clock.  Clock is more than {} seconds behind the blockchain {}", ACCEPTED_CLOCK_SKEW_US, state.timestamp_usecs / US_IN_SECS);
         }
         let expiration_time_secs = now + self.gas_options.expiration_secs;
 
@@ -1384,7 +1513,7 @@ impl TransactionOptions {
         let max_gas = if let Some(max_gas) = self.gas_options.max_gas {
             // If the gas unit price was estimated ask, but otherwise you've chosen hwo much you want to spend
             if ask_to_confirm_price {
-                let message = format!("Do you want to submit transaction for a maximum of {} Octas at a gas unit price of {} Octas?",  max_gas * gas_unit_price, gas_unit_price);
+                let message = format!("Do you want to submit transaction for a maximum of {} Octas at a gas unit price of {} Octas?", max_gas * gas_unit_price, gas_unit_price);
                 prompt_yes_with_override(&message, self.prompt_options)?;
             }
             max_gas
@@ -1427,10 +1556,10 @@ impl TransactionOptions {
             let upper_cost_bound = adjusted_max_gas * gas_unit_price;
             let lower_cost_bound = gas_used * gas_unit_price;
             let message = format!(
-                    "Do you want to submit a transaction for a range of [{} - {}] Octas at a gas unit price of {} Octas?",
-                    lower_cost_bound,
-                    upper_cost_bound,
-                    gas_unit_price);
+                "Do you want to submit a transaction for a range of [{} - {}] Octas at a gas unit price of {} Octas?",
+                lower_cost_bound,
+                upper_cost_bound,
+                gas_unit_price);
             prompt_yes_with_override(&message, self.prompt_options)?;
             adjusted_max_gas
         };
@@ -1635,14 +1764,14 @@ pub struct OptionalPoolAddressArgs {
     /// Address of the Staking pool
     ///
     /// Defaults to the profile's `AccountAddress`
-    #[clap(long, parse(try_from_str=crate::common::types::load_account_arg))]
+    #[clap(long, parse(try_from_str = crate::common::types::load_account_arg))]
     pub(crate) pool_address: Option<AccountAddress>,
 }
 
 #[derive(Parser)]
 pub struct PoolAddressArgs {
     /// Address of the Staking pool
-    #[clap(long, parse(try_from_str=crate::common::types::load_account_arg))]
+    #[clap(long, parse(try_from_str = crate::common::types::load_account_arg))]
     pub(crate) pool_address: AccountAddress,
 }
 

@@ -10,6 +10,7 @@ pub mod derive_resource_account;
 pub mod fund;
 pub mod key_rotation;
 pub mod list;
+pub mod load_test;
 pub mod transfer;
 
 /// Tool for interacting with accounts
@@ -26,6 +27,7 @@ pub enum AccountTool {
     LookupAddress(key_rotation::LookupAddress),
     RotateKey(key_rotation::RotateKey),
     Transfer(transfer::TransferCoins),
+    LoadTest(load_test::LoadTest),
 }
 
 impl AccountTool {
@@ -39,6 +41,7 @@ impl AccountTool {
             AccountTool::LookupAddress(tool) => tool.execute_serialized().await,
             AccountTool::RotateKey(tool) => tool.execute_serialized().await,
             AccountTool::Transfer(tool) => tool.execute_serialized().await,
+            AccountTool::LoadTest(tool) => tool.execute_serialized().await,
         }
     }
 }
