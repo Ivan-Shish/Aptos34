@@ -204,8 +204,14 @@ fn main() -> Result<()> {
     logger.build();
 
     let args = Args::from_args();
-    let duration = Duration::from_secs(args.duration_secs as u64);
+    let duration = Duration::from_secs(6 * 420); // args.duration_secs as u64);
     let suite_name: &str = args.suite.as_ref();
+
+    let suite_name = if suite_name == "land_blocking" {
+        "three_region_simulation_graceful_overload"
+    } else {
+        panic!();
+    };
 
     let runtime = Runtime::new()?;
     match args.cli_cmd {
@@ -839,27 +845,53 @@ fn graceful_overload(config: ForgeConfig) -> ForgeConfig {
 
 fn three_region_sim_graceful_overload(config: ForgeConfig) -> ForgeConfig {
     config
-        .with_initial_validator_count(NonZeroUsize::new(20).unwrap())
+        .with_initial_validator_count(NonZeroUsize::new(50).unwrap())
         // if we have full nodes for subset of validators, TPS drops.
         // Validators without VFN are proposing almost empty blocks,
         // as no useful transaction reach their mempool.
         // something to potentially improve upon.
         // So having VFNs for all validators
-        .with_initial_fullnode_count(20)
-        .with_network_tests(vec![&ThreeRegionSimulationTwoTrafficsTest {
-            traffic_test: TwoTrafficsTest {
-                inner_tps: 15000,
-                inner_gas_price: aptos_global_constants::GAS_UNIT_PRICE,
-                inner_init_gas_price_multiplier: 20,
-                // Additionally - we are not really gracefully handling overlaods,
-                // setting limits based on current reality, to make sure they
-                // don't regress, but something to investigate
-                avg_tps: 3400,
-                latency_thresholds: &[],
+        // .with_initial_fullnode_count(20)
+        .with_network_tests(vec![&CompositeNetworkLoadTest {
+            wrapper: &ThreeRegionSameCloudSimulationTest,
+            wrapper: &CompositeNetworkLoadTest {
+                wrapper: &ThreeRegionSameCloudSimulationTest,
+                test: &NetworkUnreliabilityWrapper {
+                    config: NetworkUnreliabilityConfig {
+                        inject_unreliability_fraction: 0.4,
+                        inject_max_unreliability_percentage: 1.0,
+                    },
+                },
+            //     // test: &ExecutionDelayWrapper{
+            //     //     add_execution_delay: ExecutionDelayConfig {
+            //     //         inject_delay_node_fraction: 0.4,
+            //     //         inject_delay_max_transaction_percentage: 10,
+            //     //         inject_delay_per_transaction_ms: 2,
+            //     //     }
+            //     // },
             },
-            three_region_simulation_test: ThreeRegionSameCloudSimulationTest {
-                add_execution_delay: None,
+            test: &LoadVsPerfBenchmark {
+                test: &PerformanceBenchmark,
+                workloads: Workloads::TPS(&[
+                    1000, 2000, 3000, 4000, 5000, 6000
+                ]),
             },
+            // test: &TwoTrafficsTest {
+            //     inner_tps: 5000,
+            //     inner_gas_price: aptos_global_constants::GAS_UNIT_PRICE,
+            //     inner_init_gas_price_multiplier: 20,
+            //     // because it is static, cannot use ::default_account_creation() method
+            //     inner_transaction_type: TransactionType::AccountGeneration {
+            //         add_created_accounts_to_pool: true,
+            //         max_account_working_set: 1_000_000,
+            //         creation_balance: 0,
+            //     },
+            //     // Additionally - we are not really gracefully handling overlaods,
+            //     // setting limits based on current reality, to make sure they
+            //     // don't regress, but something to investigate
+            //     avg_tps: 3000,
+            //     latency_thresholds: &[],
+            // },
         }])
         // First start higher gas-fee traffic, to not cause issues with TxnEmitter setup - account creation
         .with_emit_job(
@@ -869,6 +901,9 @@ fn three_region_sim_graceful_overload(config: ForgeConfig) -> ForgeConfig {
         )
         .with_genesis_helm_config_fn(Arc::new(|helm_values| {
             helm_values["chain"]["epoch_duration_secs"] = 300.into();
+        }))
+        .with_node_helm_config_fn(Arc::new(move |helm_values| {
+            helm_values["validator"]["config"]["api"]["failpoints_enabled"] = true.into();
         }))
         .with_success_criteria(
             SuccessCriteria::new(900)
