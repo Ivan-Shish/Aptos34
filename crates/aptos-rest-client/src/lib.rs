@@ -1548,10 +1548,21 @@ impl Client {
                 ledger_version,
                 cursor,
             )?;
-            let response: Response<BTreeMap<T, Vec<u8>>> = self
-                .get_bcs(url)
-                .await?
-                .and_then(|inner| bcs::from_bytes(&inner))?;
+            // The response isn't guaranteed to be ordered in the same order as the BTree, so we have to deserialize as a vec then convert to map
+            let response: Response<BTreeMap<T, Vec<u8>>> =
+                self.get_bcs(url).await?.and_then(|inner| {
+                    match bcs::from_bytes::<Vec<(T, Vec<u8>)>>(&inner) {
+                        Ok(vec) => {
+                            let mut map = BTreeMap::new();
+                            for (key, value) in vec.into_iter() {
+                                map.insert(key, value);
+                            }
+                            Ok(map)
+                        },
+                        Err(err) => Err(err),
+                    }
+                })?;
+
             cursor = response.state().cursor.clone();
             if cursor.is_none() {
                 break Ok(response.map(|mut v| {
