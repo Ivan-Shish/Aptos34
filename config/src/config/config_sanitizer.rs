@@ -241,3 +241,136 @@ fn sanitize_validator_network_config(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{config::NetworkConfig, network_id::NetworkId};
+
+    #[test]
+    fn test_sanitize_missing_fullnode_network_configs() {
+        // Create a fullnode config with empty fullnode network configs
+        let mut node_config = NodeConfig {
+            full_node_networks: vec![],
+            ..Default::default()
+        };
+
+        // Sanitize the config and verify that it fails
+        let error = sanitize_fullnode_network_configs(
+            &mut node_config,
+            RoleType::FullNode,
+            ChainId::testnet(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
+    }
+
+    #[test]
+    fn test_sanitize_validator_network_for_fullnode() {
+        // Create a fullnode config that includes a validator network
+        let mut node_config = NodeConfig {
+            full_node_networks: vec![NetworkConfig {
+                network_id: NetworkId::Validator,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        // Sanitize the config and verify that it fails
+        let error = sanitize_fullnode_network_configs(
+            &mut node_config,
+            RoleType::FullNode,
+            ChainId::testnet(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
+    }
+
+    #[test]
+    fn test_sanitize_duplicate_fullnode_network_configs() {
+        // Create a node config with multiple fullnode network configs with the same network id
+        let mut node_config = NodeConfig {
+            full_node_networks: vec![
+                NetworkConfig {
+                    network_id: NetworkId::Public,
+                    ..Default::default()
+                },
+                NetworkConfig {
+                    network_id: NetworkId::Public,
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+
+        // Sanitize the config and verify that it fails
+        let error = sanitize_fullnode_network_configs(
+            &mut node_config,
+            RoleType::FullNode,
+            ChainId::testnet(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
+    }
+
+    #[test]
+    fn test_sanitize_missing_validator_network_config() {
+        // Create a node config with an empty validator network config
+        let mut node_config = NodeConfig {
+            validator_network: None,
+            ..Default::default()
+        };
+
+        // Sanitize the config and verify that it fails
+        let error = sanitize_validator_network_config(
+            &mut node_config,
+            RoleType::Validator,
+            ChainId::testnet(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
+    }
+
+    #[test]
+    fn test_sanitize_validator_non_validator_network_id() {
+        // Create a validator config with an invalid network ID
+        let mut node_config = NodeConfig {
+            validator_network: Some(NetworkConfig {
+                network_id: NetworkId::Public,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        // Sanitize the config and verify that it fails
+        let error = sanitize_validator_network_config(
+            &mut node_config,
+            RoleType::Validator,
+            ChainId::testnet(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
+    }
+
+    #[test]
+    fn test_sanitize_validator_disabled_authentication() {
+        // Create a validator config with disabled mutual authentication
+        let mut node_config = NodeConfig {
+            validator_network: Some(NetworkConfig {
+                network_id: NetworkId::Validator,
+                mutual_authentication: false,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        // Sanitize the config and verify that it fails
+        let error = sanitize_validator_network_config(
+            &mut node_config,
+            RoleType::Validator,
+            ChainId::testnet(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
+    }
+}
