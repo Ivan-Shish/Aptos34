@@ -3,7 +3,8 @@
 
 use crate::{
     config::{
-        config_sanitizer::ConfigSanitizer, utils::RootPath, Error, NodeConfig, PersistableConfig,
+        config_optimizer::ConfigOptimizer, config_sanitizer::ConfigSanitizer, utils::RootPath,
+        Error, NodeConfig, PersistableConfig,
     },
     utils::get_genesis_txn,
 };
@@ -14,6 +15,7 @@ use aptos_types::{
     transaction::{Transaction, WriteSetPayload},
     write_set::WriteOp,
 };
+use serde_yaml::Value;
 use std::path::Path;
 
 /// A simple node config loader that performs basic config
@@ -37,10 +39,9 @@ impl<P: AsRef<Path>> NodeConfigLoader<P> {
         let input_dir = RootPath::new(&self.node_config_path);
         node_config.execution.load_from_path(&input_dir)?;
 
-        // Sanitize the node config
-        sanitize_node_config(&mut node_config)?;
-
-        // TODO: post-process the config for the current environment
+        // Optimize and sanitize the node config
+        let node_config_yaml = get_node_config_yaml(&self.node_config_path)?;
+        optimize_and_sanitize_node_config(&mut node_config, node_config_yaml)?;
 
         // Update the data directory
         node_config.set_data_dir(node_config.get_data_dir().to_path_buf());
@@ -48,8 +49,27 @@ impl<P: AsRef<Path>> NodeConfigLoader<P> {
     }
 }
 
-/// Sanitize the node config for the current environment
-fn sanitize_node_config(node_config: &mut NodeConfig) -> Result<(), Error> {
+/// Return the node config file contents as a string
+fn get_node_config_yaml<P: AsRef<Path>>(node_config_path: P) -> Result<Value, Error> {
+    // Read the file contents into a string
+    let node_config_yaml = NodeConfig::read_config_file(&node_config_path)?;
+
+    // Parse the file contents as a yaml value
+    let node_config_yaml = serde_yaml::from_str(&node_config_yaml).map_err(|error| {
+        Error::Yaml(
+            "Failed to parse the node config file into a YAML value".into(),
+            error,
+        )
+    })?;
+
+    Ok(node_config_yaml)
+}
+
+/// Optimize and sanitize the node config for the current environment
+fn optimize_and_sanitize_node_config(
+    node_config: &mut NodeConfig,
+    node_config_yaml: Value,
+) -> Result<(), Error> {
     // Get the role and chain_id for the node
     let node_role = node_config.base.role;
     let chain_id = match get_chain_id(node_config) {
@@ -59,6 +79,9 @@ fn sanitize_node_config(node_config: &mut NodeConfig) -> Result<(), Error> {
             return Ok(());
         },
     };
+
+    // Optimize the node config
+    NodeConfig::optimize(node_config, &node_config_yaml, node_role, chain_id)?;
 
     // Sanitize the node config
     NodeConfig::sanitize(node_config, node_role, chain_id)

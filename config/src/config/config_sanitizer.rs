@@ -3,6 +3,7 @@
 
 use crate::{
     config::{
+        utils::{are_failpoints_enabled, get_config_name},
         ApiConfig, BaseConfig, ConsensusConfig, Error, ExecutionConfig, IndexerConfig,
         IndexerGrpcConfig, InspectionServiceConfig, LoggerConfig, MempoolConfig, NodeConfig,
         PeerMonitoringServiceConfig, RoleType, StateSyncConfig, StorageConfig,
@@ -10,7 +11,6 @@ use crate::{
     network_id::NetworkId,
 };
 use aptos_types::chain_id::ChainId;
-use cfg_if::cfg_if;
 use std::collections::HashSet;
 
 // Useful sanitizer constants
@@ -62,25 +62,6 @@ impl ConfigSanitizer for NodeConfig {
 
         Ok(()) // All configs passed validation
     }
-}
-
-/// Returns true iff failpoints are enabled
-fn are_failpoints_enabled() -> bool {
-    cfg_if! {
-        if #[cfg(feature = "failpoints")] {
-            true
-        } else {
-            false
-        }
-    }
-}
-
-/// Returns the name of the given config type
-fn get_config_name<T: ?Sized>() -> &'static str {
-    std::any::type_name::<T>()
-        .split("::")
-        .last()
-        .unwrap_or("UnknownConfig")
 }
 
 /// Validate and process the failpoints config according to the node role and chain ID

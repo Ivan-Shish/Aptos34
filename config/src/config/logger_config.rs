@@ -3,13 +3,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    config::{config_sanitizer::ConfigSanitizer, Error, NodeConfig, RoleType},
+    config::{
+        config_optimizer::ConfigOptimizer, config_sanitizer::ConfigSanitizer,
+        utils::is_tokio_console_enabled, Error, NodeConfig, RoleType,
+    },
     utils,
 };
 use aptos_logger::{Level, CHANNEL_SIZE};
 use aptos_types::chain_id::ChainId;
-use cfg_if::cfg_if;
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
+
+// Useful constants for the logger config
+const DEFAULT_TOKIO_CONSOLE_PORT: u16 = 6669;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -86,14 +92,25 @@ impl ConfigSanitizer for LoggerConfig {
     }
 }
 
-/// Returns true iff the tokio-console feature is enabled
-fn is_tokio_console_enabled() -> bool {
-    cfg_if! {
-        if #[cfg(feature = "tokio-console")] {
-            true
-        } else {
-            false
+impl ConfigOptimizer for LoggerConfig {
+    fn optimize(
+        node_config: &mut NodeConfig,
+        node_config_yaml: &Value,
+        _node_role: RoleType,
+        _chain_id: ChainId,
+    ) -> Result<(), Error> {
+        // Optimize the tokio console port (if it is not set in the config file)
+        if node_config_yaml["logger"]["tokio_console_port"].is_null() {
+            // If the tokio-console feature is not enabled, disable the tokio
+            // console port. Otherwise, enable the tokio console port.
+            if !is_tokio_console_enabled() {
+                node_config.logger.tokio_console_port = None;
+            } else {
+                node_config.logger.tokio_console_port = Some(DEFAULT_TOKIO_CONSOLE_PORT);
+            }
         }
+
+        Ok(())
     }
 }
 
