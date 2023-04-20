@@ -992,7 +992,7 @@ fn validator_reboot_stress_test(config: ForgeConfig) -> ForgeConfig {
 }
 
 fn apply_quorum_store_configs_for_single_node(helm_values: &mut serde_yaml::Value) {
-    helm_values["validator"]["config"]["consensus"]["quorum_store_configs"]["back_pressure"]
+    helm_values["validator"]["config"]["consensus"]["quorum_store"]["back_pressure"]
         ["dynamic_max_txn_per_s"] = 5500.into();
 }
 
