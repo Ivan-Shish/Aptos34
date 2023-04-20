@@ -3,13 +3,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    config::{config_sanitizer::ConfigSanitizer, Error, NodeConfig, RoleType},
+    config::{
+        config_optimizer::ConfigOptimizer, config_sanitizer::ConfigSanitizer,
+        node_config_loader::NodeType, utils::is_tokio_console_enabled, Error, NodeConfig,
+    },
     utils,
 };
 use aptos_logger::{Level, CHANNEL_SIZE};
 use aptos_types::chain_id::ChainId;
-use cfg_if::cfg_if;
 use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
+
+// Useful constants for the logger config
+const DEFAULT_TOKIO_CONSOLE_PORT: u16 = 6669;
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -58,10 +64,10 @@ impl LoggerConfig {
 }
 
 impl ConfigSanitizer for LoggerConfig {
-    /// Validate and process the logger config according to the given node role and chain ID
+    /// Validate and process the logger config according to the given node type and chain ID
     fn sanitize(
         node_config: &mut NodeConfig,
-        _node_role: RoleType,
+        _node_type: NodeType,
         _chain_id: ChainId,
     ) -> Result<(), Error> {
         let sanitizer_name = Self::get_sanitizer_name();
@@ -86,20 +92,68 @@ impl ConfigSanitizer for LoggerConfig {
     }
 }
 
-/// Returns true iff the tokio-console feature is enabled
-fn is_tokio_console_enabled() -> bool {
-    cfg_if! {
-        if #[cfg(feature = "tokio-console")] {
-            true
-        } else {
-            false
+impl ConfigOptimizer for LoggerConfig {
+    /// Optimize the logger config according to the given node type and chain ID
+    fn optimize(
+        node_config: &mut NodeConfig,
+        local_config_yaml: &Value,
+        _node_type: NodeType,
+        _chain_id: ChainId,
+    ) -> Result<(), Error> {
+        let logger_config = &mut node_config.logger;
+        let local_logger_config_yaml = &local_config_yaml["logger"];
+
+        // Set the tokio console port
+        if local_logger_config_yaml["tokio_console_port"].is_null() {
+            // If the tokio-console feature is enabled, set the default port.
+            // Otherwise, disable the tokio console port.
+            if is_tokio_console_enabled() {
+                logger_config.tokio_console_port = Some(DEFAULT_TOKIO_CONSOLE_PORT);
+            } else {
+                logger_config.tokio_console_port = None;
+            }
         }
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_optimize_tokio_console_port() {
+        // Create a logger config with the tokio console port set
+        let mut node_config = NodeConfig {
+            logger: LoggerConfig {
+                tokio_console_port: Some(100),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        // Create a local config YAML without any relevant fields
+        let local_config_yaml = serde_yaml::from_str(
+            r#"
+            logger:
+                irrelevant_field: true
+            "#,
+        )
+        .unwrap();
+
+        // Verify that the configuration is optimized successfully
+        // and that the tokio console port is disabled (because
+        // the feature flag is not enabled).
+        LoggerConfig::optimize(
+            &mut node_config,
+            &local_config_yaml,
+            NodeType::Validator,
+            ChainId::testnet(),
+        )
+        .unwrap();
+        assert!(node_config.logger.tokio_console_port.is_none());
+    }
 
     #[test]
     fn test_sanitize_missing_feature() {
@@ -114,7 +168,7 @@ mod tests {
 
         // Verify that the config fails sanitization (the tokio-console feature is missing!)
         let error =
-            LoggerConfig::sanitize(&mut node_config, RoleType::Validator, ChainId::testnet())
+            LoggerConfig::sanitize(&mut node_config, NodeType::Validator, ChainId::testnet())
                 .unwrap_err();
         assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
     }

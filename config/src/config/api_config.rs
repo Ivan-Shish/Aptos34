@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    config::{config_sanitizer::ConfigSanitizer, Error, NodeConfig, RoleType},
+    config::{config_sanitizer::ConfigSanitizer, node_config_loader::NodeType, Error, NodeConfig},
     utils,
 };
 use aptos_types::chain_id::ChainId;
@@ -111,9 +111,10 @@ impl ApiConfig {
 }
 
 impl ConfigSanitizer for ApiConfig {
+    /// Validate and process the API config according to the given node type and chain ID
     fn sanitize(
         node_config: &mut NodeConfig,
-        _node_role: RoleType,
+        _node_type: NodeType,
         chain_id: ChainId,
     ) -> Result<(), Error> {
         let sanitizer_name = Self::get_sanitizer_name();
@@ -161,7 +162,7 @@ mod tests {
         };
 
         // Sanitize the config and verify that it succeeds
-        ApiConfig::sanitize(&mut node_config, RoleType::Validator, ChainId::mainnet()).unwrap();
+        ApiConfig::sanitize(&mut node_config, NodeType::Validator, ChainId::mainnet()).unwrap();
     }
 
     #[test]
@@ -178,7 +179,7 @@ mod tests {
 
         // Sanitize the config and verify that it fails because
         // failpoints are not supported on mainnet.
-        let error = ApiConfig::sanitize(&mut node_config, RoleType::Validator, ChainId::mainnet())
+        let error = ApiConfig::sanitize(&mut node_config, NodeType::Validator, ChainId::mainnet())
             .unwrap_err();
         assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
     }
@@ -198,7 +199,7 @@ mod tests {
 
         // Sanitize the config and verify that it fails because
         // the runtime worker multiplier is invalid.
-        let error = ApiConfig::sanitize(&mut node_config, RoleType::Validator, ChainId::mainnet())
+        let error = ApiConfig::sanitize(&mut node_config, NodeType::Validator, ChainId::mainnet())
             .unwrap_err();
         assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
     }

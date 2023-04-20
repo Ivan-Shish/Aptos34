@@ -1,7 +1,10 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::config::{config_sanitizer::ConfigSanitizer, Error, NodeConfig, SecureBackend};
+use crate::config::{
+    config_sanitizer::ConfigSanitizer, node_config_loader::NodeType, Error, NodeConfig,
+    SecureBackend,
+};
 use aptos_secure_storage::{KVStorage, Storage};
 use aptos_types::{chain_id::ChainId, waypoint::Waypoint};
 use poem_openapi::Enum as PoemEnum;
@@ -30,9 +33,10 @@ impl Default for BaseConfig {
 }
 
 impl ConfigSanitizer for BaseConfig {
+    /// Validate and process the base config according to the given node type and chain ID
     fn sanitize(
         node_config: &mut NodeConfig,
-        _node_role: RoleType,
+        _node_type: NodeType,
         _chain_id: ChainId,
     ) -> Result<(), Error> {
         let sanitizer_name = Self::get_sanitizer_name();
@@ -185,7 +189,7 @@ mod test {
         };
 
         // Sanitize the config and verify that it passes
-        BaseConfig::sanitize(&mut node_config, RoleType::Validator, ChainId::mainnet()).unwrap();
+        BaseConfig::sanitize(&mut node_config, NodeType::Validator, ChainId::mainnet()).unwrap();
     }
 
     #[test]
@@ -200,7 +204,7 @@ mod test {
         };
 
         // Sanitize the config and verify that it fails because of the missing waypoint
-        let error = BaseConfig::sanitize(&mut node_config, RoleType::Validator, ChainId::mainnet())
+        let error = BaseConfig::sanitize(&mut node_config, NodeType::Validator, ChainId::mainnet())
             .unwrap_err();
         assert!(matches!(error, Error::ConfigSanitizerFailed(_, _)));
     }
