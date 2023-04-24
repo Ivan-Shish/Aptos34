@@ -42,3 +42,6 @@ claims = { workspace = true }
 maplit = { workspace = true }
 mockall = { workspace = true }
 rand = { workspace = true }
+
+[features]
+network-perf-test = []

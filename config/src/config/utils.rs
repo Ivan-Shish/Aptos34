@@ -55,6 +55,17 @@ pub fn get_config_name<T: ?Sized>() -> &'static str {
         .unwrap_or("UnknownConfig")
 }
 
+/// Returns true iff the network-perf-test feature is enabled
+pub fn is_network_perf_test_enabled() -> bool {
+    cfg_if! {
+        if #[cfg(feature = "network-perf-test")] {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 /// Returns true iff the tokio-console feature is enabled
 pub fn is_tokio_console_enabled() -> bool {
     cfg_if! {

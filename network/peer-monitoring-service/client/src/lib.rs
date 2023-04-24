@@ -20,7 +20,7 @@ use error::Error;
 use futures::StreamExt;
 use network::PeerMonitoringServiceClient;
 use peer_states::peer_state::PeerState;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{cmp::min, collections::HashMap, sync::Arc, time::Duration};
 use thiserror::Error;
 use tokio::{runtime::Handle, task::JoinHandle};
 
@@ -102,9 +102,8 @@ async fn start_peer_monitor_with_state(
 
     // Create an interval ticker for the monitor loop
     let monitoring_service_config = node_config.peer_monitoring_service;
-    let peer_monitor_duration =
-        Duration::from_millis(monitoring_service_config.peer_monitor_interval_ms);
-    let peer_monitor_ticker = time_service.interval(peer_monitor_duration);
+    let monitor_interval_duration = calculate_monitor_interval_duration(&monitoring_service_config);
+    let peer_monitor_ticker = time_service.interval(monitor_interval_duration);
     futures::pin_mut!(peer_monitor_ticker);
 
     // Start the peer monitoring loop
@@ -154,6 +153,34 @@ async fn start_peer_monitor_with_state(
                 .message("Failed to refresh peer states!"));
         }
     }
+}
+
+/// Calculates the duration between each peer monitor loop execution
+pub(crate) fn calculate_monitor_interval_duration(
+    monitoring_service_config: &PeerMonitoringServiceConfig,
+) -> Duration {
+    // If performance monitoring is disabled, use the default monitor interval
+    let performance_monitoring_config = monitoring_service_config.performance_monitoring;
+    let direct_send_testing_enabled = performance_monitoring_config.enable_direct_send_testing;
+    let rpc_testing_enabled = performance_monitoring_config.enable_rpc_testing;
+    if !direct_send_testing_enabled && !rpc_testing_enabled {
+        return Duration::from_millis(monitoring_service_config.peer_monitor_interval_ms);
+    }
+
+    // Otherwise, we need to run as fast as the performance message interval
+    let peer_monitor_interval_usecs = monitoring_service_config.peer_monitor_interval_ms * 1000;
+    let monitor_interval_usecs = if direct_send_testing_enabled {
+        min(
+            peer_monitor_interval_usecs,
+            performance_monitoring_config.direct_send_interval_usec,
+        )
+    } else {
+        min(
+            peer_monitor_interval_usecs,
+            performance_monitoring_config.rpc_interval_usec,
+        )
+    };
+    Duration::from_micros(monitor_interval_usecs)
 }
 
 /// Creates a new peer state for peers that don't yet have one

@@ -31,7 +31,7 @@ impl LatencyInfoState {
         time_service: TimeService,
     ) -> Self {
         let request_tracker = RequestTracker::new(
-            latency_monitoring_config.latency_ping_interval_ms,
+            latency_monitoring_config.latency_ping_interval_ms * 1000, // Convert to microseconds
             time_service,
         );
 

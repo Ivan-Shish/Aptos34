@@ -14,18 +14,18 @@ pub struct RequestTracker {
     last_request_time: Option<Instant>, // The most recent request time
     last_response_time: Option<Instant>, // The most recent response time
     num_consecutive_request_failures: u64, // The number of consecutive request failures
-    request_interval_ms: u64, // The interval (ms) between requests
+    request_interval_usecs: u64, // The interval (microseconds) between requests
     time_service: TimeService, // The time service to use for duration calculation
 }
 
 impl RequestTracker {
-    pub fn new(request_interval_ms: u64, time_service: TimeService) -> Self {
+    pub fn new(request_interval_usecs: u64, time_service: TimeService) -> Self {
         Self {
             in_flight_request: false,
             last_request_time: None,
             last_response_time: None,
             num_consecutive_request_failures: 0,
-            request_interval_ms,
+            request_interval_usecs,
             time_service,
         }
     }
@@ -76,7 +76,7 @@ impl RequestTracker {
         match self.last_request_time {
             Some(last_request_time) => {
                 self.time_service.now()
-                    > last_request_time.add(Duration::from_millis(self.request_interval_ms))
+                    > last_request_time.add(Duration::from_micros(self.request_interval_usecs))
             },
             None => true, // A request should be sent immediately
         }
@@ -106,9 +106,9 @@ mod test {
     #[test]
     fn test_simple_request_flow() {
         // Create the request tracker
-        let request_interval_ms = 100;
+        let request_interval_usecs = 100;
         let time_service = TimeService::mock();
-        let mut request_tracker = RequestTracker::new(request_interval_ms, time_service.clone());
+        let mut request_tracker = RequestTracker::new(request_interval_usecs, time_service.clone());
 
         // Verify no requests have been sent
         assert!(request_tracker.get_last_request_time().is_none());
