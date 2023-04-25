@@ -14,7 +14,7 @@ use std::{
 };
 
 // Lru cache will consume about 2G RAM based on this default value.
-pub const DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD: usize = 1 << 13;
+pub const DEFAULT_MAX_NUM_NODES_PER_LRU_CACHE_SHARD: usize = 0;
 
 pub const BUFFERED_STATE_TARGET_ITEMS: usize = 100_000;
 
@@ -44,8 +44,8 @@ impl Default for RocksdbConfig {
             // threads to use internally.
             max_background_jobs: 16,
             // Default block cache size is 8MB,
-            block_cache_size: 8 * (1u64 << 20),
-            // Default block cache size is 4KB,
+            block_cache_size: 8 * (1u64 << 30),
+            // Default block size is 4KB,
             block_size: 4 * (1u64 << 10),
             // Whether cache index and filter blocks into block cache.
             cache_index_and_filter_blocks: false,
