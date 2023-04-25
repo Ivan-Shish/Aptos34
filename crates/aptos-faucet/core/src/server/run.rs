@@ -30,9 +30,6 @@ use tokio::{sync::Semaphore, task::JoinSet};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct HandlerConfig {
-    /// Whether we should return helpful errors.
-    pub use_helpful_errors: bool,
-
     /// Whether we should return rejections the moment a Checker returns any,
     /// or should instead run through all Checkers first. Generally prefer
     /// setting this to true, as it is less work on the tap, but setting it
@@ -70,12 +67,6 @@ impl RunConfig {
     pub async fn run(self) -> Result<()> {
         info!("Running with config: {:#?}", self);
         info!("Starting server...");
-
-        // Set whether we should use useful errors.
-        #[cfg(not(test))]
-        crate::endpoints::USE_HELPFUL_ERRORS
-            .set(self.handler_config.use_helpful_errors)
-            .expect("OnceCell somehow already set");
 
         let concurrent_requests_semaphore = self
             .handler_config
@@ -278,7 +269,6 @@ impl RunConfig {
                 do_not_delegate,
             }),
             handler_config: HandlerConfig {
-                use_helpful_errors: true,
                 return_rejections_early: false,
                 max_concurrent_requests: None,
             },
@@ -394,9 +384,6 @@ mod test {
 
     fn init() {
         INIT.call_once(|| {
-            crate::endpoints::USE_HELPFUL_ERRORS
-                .set(true)
-                .expect("OnceCell somehow already set");
             MUTEX
                 .set(Mutex::new(()))
                 .expect("OnceCell somehow already set");

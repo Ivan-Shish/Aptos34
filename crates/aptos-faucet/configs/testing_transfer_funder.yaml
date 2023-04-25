@@ -14,5 +14,4 @@ funder_config:
   amount_to_fund: 2000
   max_gas_amount: 50000
 handler_config:
-  use_helpful_errors: true
   return_rejections_early: false

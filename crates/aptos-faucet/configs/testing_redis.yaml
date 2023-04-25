@@ -11,5 +11,4 @@ checker_configs:
 funder_config:
   type: "FakeFunder"
 handler_config:
-  use_helpful_errors: true
   return_rejections_early: false

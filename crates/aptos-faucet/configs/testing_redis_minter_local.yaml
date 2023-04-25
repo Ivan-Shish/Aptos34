@@ -18,5 +18,4 @@ funder_config:
   do_not_delegate: false
   mint_account_address: "0xA550C18"
 handler_config:
-  use_helpful_errors: true
   return_rejections_early: false

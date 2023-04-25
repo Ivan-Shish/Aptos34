@@ -15,5 +15,4 @@ funder_config:
   mint_account_address: "0xA550C18"
   wait_for_transactions: true
 handler_config:
-  use_helpful_errors: true
   return_rejections_early: false

@@ -12,9 +12,7 @@ pub use self::captcha::{CaptchaApi, CAPTCHA_KEY, CAPTCHA_VALUE};
 pub use api::build_openapi_service;
 pub use basic::BasicApi;
 pub use error_converter::convert_error;
-pub use errors::{
-    AptosTapError, AptosTapErrorCode, RejectionReason, RejectionReasonCode, USE_HELPFUL_ERRORS,
-};
+pub use errors::{AptosTapError, AptosTapErrorCode, RejectionReason, RejectionReasonCode};
 pub use fund::{mint, FundApi, FundApiComponents, FundRequest, FundResponse};
 use poem_openapi::Tags;
 

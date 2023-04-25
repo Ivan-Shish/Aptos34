@@ -2,12 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::middleware::bump_rejection_reason_counters;
-use once_cell::sync::OnceCell;
 use poem::http::StatusCode;
 use poem_openapi::{payload::Json, ApiResponse, Enum, Object};
 use std::fmt::Formatter;
-
-pub static USE_HELPFUL_ERRORS: OnceCell<bool> = OnceCell::new();
 
 /// This is the generic struct we use for all API errors, it contains a string
 /// message and a service specific error code.
@@ -26,20 +23,11 @@ pub struct AptosTapError {
 
 impl AptosTapError {
     pub fn new(message: String, error_code: AptosTapErrorCode) -> Self {
-        if *USE_HELPFUL_ERRORS.get().unwrap_or(&true) {
-            Self {
-                message,
-                error_code,
-                rejection_reasons: vec![],
-                txn_hashes: vec![],
-            }
-        } else {
-            Self {
-                message: "hah hah hah".to_string(),
-                error_code: AptosTapErrorCode::YeahNahYeahYeahYeahNahYeahNah,
-                rejection_reasons: vec![],
-                txn_hashes: vec![],
-            }
+        Self {
+            message,
+            error_code,
+            rejection_reasons: vec![],
+            txn_hashes: vec![],
         }
     }
 
@@ -113,9 +101,6 @@ impl From<AptosTapError> for AptosTapErrorResponse {
 #[derive(Copy, Clone, Debug, Enum, Eq, PartialEq)]
 #[repr(u32)]
 pub enum AptosTapErrorCode {
-    /// Intentionally unhelpful error code.
-    YeahNahYeahYeahYeahNahYeahNah = 1,
-
     /// The request itself was invalid.
     InvalidRequest = 40,
 
@@ -197,18 +182,10 @@ pub struct RejectionReason {
 
 impl RejectionReason {
     pub fn new(reason: String, code: RejectionReasonCode) -> Self {
-        if *USE_HELPFUL_ERRORS.get().unwrap() {
-            Self {
-                reason,
-                code,
-                retry_after: None,
-            }
-        } else {
-            Self {
-                reason: "keep dreaming mate".to_string(),
-                code: RejectionReasonCode::Hehe,
-                retry_after: None,
-            }
+        Self {
+            reason,
+            code,
+            retry_after: None,
         }
     }
 
@@ -227,9 +204,6 @@ impl RejectionReason {
 #[derive(Copy, Clone, Debug, Enum, Eq, Hash, PartialEq)]
 #[repr(u32)]
 pub enum RejectionReasonCode {
-    /// Intentionally unhelpful reason code.
-    Hehe = 1,
-
     /// Account already has funds.
     AccountAlreadyExists = 100,
 
