@@ -118,10 +118,25 @@ impl DbReader for StateDb {
         &self,
         next_version: Version,
     ) -> Result<Option<(Version, HashValue)>> {
-        self.state_merkle_db
-            .get_state_snapshot_version_before(next_version)?
-            .map(|ver| Ok((ver, self.state_merkle_db.get_root_hash(ver)?)))
-            .transpose()
+        match self.state_merkle_db.get_state_snapshot_version_before(next_version) {
+            Ok(maybe_ver) => {
+                if let Some(ver) = maybe_ver {
+                    match self.state_merkle_db.get_root_hash(ver) {
+                        Ok(root_hash) => {
+                            Ok(Some((ver, root_hash)))
+                        }
+                        Err(e) => {
+                            Err(e)
+                        }
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 
     /// Get the latest state value of the given key up to the given version. Only used for testing for now

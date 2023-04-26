@@ -65,12 +65,10 @@ impl StateMerkleBatchCommitter {
                         .state_merkle_db
                         .commit(current_version, top_levels_batch, sharded_batch)
                         .expect("State merkle nodes commit failed.");
-                    if self.state_db.state_merkle_db.cache_enabled() {
-                        self.state_db
-                            .state_merkle_db
-                            .version_cache()
-                            .maybe_evict_version(self.state_db.state_merkle_db.lru_cache());
-                    }
+                    self.state_db
+                        .state_merkle_db
+                        .version_cache()
+                        .maybe_evict_version(self.state_db.state_merkle_db.lru_cache());
                     info!(
                         version = current_version,
                         base_version = state_delta.base_version,
