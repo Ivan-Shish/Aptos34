@@ -111,11 +111,30 @@ export class AptosAccount {
    * @param seed The seed bytes
    * @returns The resource account address
    */
-
   static getResourceAccountAddress(sourceAddress: MaybeHexString, seed: Uint8Array): HexString {
     const source = bcsToBytes(AccountAddress.fromHex(sourceAddress));
 
     const bytes = new Uint8Array([...source, ...seed, AuthenticationKey.DERIVE_RESOURCE_ACCOUNT_SCHEME]);
+
+    const hash = sha3Hash.create();
+    hash.update(bytes);
+
+    return HexString.fromUint8Array(hash.digest());
+  }
+
+  /**
+   * Takes creator address and collection name and returns the collection object address.
+   * Collection object addresses are generated as sha256 hash of (creator address + collection_name)
+   *
+   * @param creatorAddress Collection creator address
+   * @param collectionName The collection name
+   * @returns The collection object address
+   */
+  static getCollectionObjectAddress(creatorAddress: MaybeHexString, collectionName: string): HexString {
+    const source = bcsToBytes(AccountAddress.fromHex(creatorAddress));
+    const seed = new TextEncoder().encode(collectionName);
+
+    const bytes = new Uint8Array([...source, ...seed, AuthenticationKey.DERIVE_COLLECTION_OBJECT_ACCOUNT_SCHEME]);
 
     const hash = sha3Hash.create();
     hash.update(bytes);
