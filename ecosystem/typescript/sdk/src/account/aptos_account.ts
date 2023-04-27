@@ -4,6 +4,7 @@
 import nacl from "tweetnacl";
 import * as bip39 from "@scure/bip39";
 import { bytesToHex } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha256";
 import { sha3_256 as sha3Hash } from "@noble/hashes/sha3";
 import { derivePath } from "../utils/hd-key";
 import { HexString, MaybeHexString, Memoize } from "../utils";
@@ -123,22 +124,17 @@ export class AptosAccount {
   }
 
   /**
-   * Takes creator address and collection name and returns the collection object address.
-   * Collection object addresses are generated as sha256 hash of (creator address + collection_name)
+   * Takes creator address and collection name and returns the collection id hash.
+   * Collection id hash are generated as sha256 hash of (`creator_address::collection_name`)
    *
    * @param creatorAddress Collection creator address
    * @param collectionName The collection name
-   * @returns The collection object address
+   * @returns The collection id hash
    */
-  static getCollectionObjectAddress(creatorAddress: MaybeHexString, collectionName: string): HexString {
-    const source = bcsToBytes(AccountAddress.fromHex(creatorAddress));
-    const seed = new TextEncoder().encode(collectionName);
-
-    const bytes = new Uint8Array([...source, ...seed, AuthenticationKey.DERIVE_COLLECTION_OBJECT_ACCOUNT_SCHEME]);
-
-    const hash = sha3Hash.create();
-    hash.update(bytes);
-
+  static getCollectionID(creatorAddress: MaybeHexString, collectionName: string): HexString {
+    const seed = new TextEncoder().encode(creatorAddress + "::" + collectionName);
+    const hash = sha256.create();
+    hash.update(seed);
     return HexString.fromUint8Array(hash.digest());
   }
 
