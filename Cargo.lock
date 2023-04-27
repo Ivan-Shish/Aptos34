@@ -1326,7 +1326,7 @@ name = "aptos-fuzz"
 version = "0.1.0"
 dependencies = [
  "aptos-fuzzer",
- "libfuzzer-sys 0.3.2",
+ "libfuzzer-sys",
  "once_cell",
 ]
 
@@ -1357,6 +1357,7 @@ dependencies = [
  "datatest-stable",
  "hex",
  "move-binary-format",
+ "move-bytecode-verifier",
  "move-core-types",
  "move-vm-types",
  "once_cell",
@@ -3339,12 +3340,6 @@ dependencies = [
 
 [[package]]
 name = "arbitrary"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db55d72333851e17d572bec876e390cd3b11eb1ef53ae821dd9f3b653d2b4569"
-
-[[package]]
-name = "arbitrary"
 version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86fd10d912cab78764cc44307d9cd5f164e09abbeb87fb19fb6d95937e8da5f"
@@ -4198,8 +4193,8 @@ checksum = "e3b5ca7a04898ad4bcd41c90c5285445ff5b791899bb1b0abdd2a2aa791211d7"
 name = "bytecode-verifier-libfuzzer"
 version = "0.0.0"
 dependencies = [
- "arbitrary 1.1.7",
- "libfuzzer-sys 0.4.6",
+ "arbitrary",
+ "libfuzzer-sys",
  "move-binary-format",
  "move-bytecode-verifier",
  "move-core-types",
@@ -7189,21 +7184,11 @@ checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
 
 [[package]]
 name = "libfuzzer-sys"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d718794b8e23533b9069bd2c4597d69e41cc7ab1c02700a502971aca0cdcf24"
-dependencies = [
- "arbitrary 0.4.7",
- "cc",
-]
-
-[[package]]
-name = "libfuzzer-sys"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "beb09950ae85a0a94b27676cccf37da5ff13f27076aa1adbc6545dd0d0e1bd4e"
 dependencies = [
- "arbitrary 1.1.7",
+ "arbitrary",
  "cc",
  "once_cell",
 ]
@@ -7771,7 +7756,7 @@ name = "move-binary-format"
 version = "0.0.3"
 dependencies = [
  "anyhow",
- "arbitrary 1.1.7",
+ "arbitrary",
  "indexmap",
  "move-core-types",
  "once_cell",
@@ -7949,7 +7934,7 @@ name = "move-core-types"
 version = "0.0.4"
 dependencies = [
  "anyhow",
- "arbitrary 1.1.7",
+ "arbitrary",
  "bcs 0.1.4 (git+https://github.com/aptos-labs/bcs.git?rev=d31fab9d81748e2594be5cd5cdf845786a30562d)",
  "ethnum",
  "hex",

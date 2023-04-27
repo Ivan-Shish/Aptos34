@@ -11,6 +11,7 @@ use std::{collections::BTreeMap, env};
 mod consensus;
 mod executor;
 mod mempool;
+mod move_bytecode_verifier;
 mod move_vm;
 mod network;
 mod proof;
@@ -88,6 +89,9 @@ static ALL_TARGETS: Lazy<BTreeMap<&'static str, Box<dyn FuzzTargetImpl>>> = Lazy
         Box::<transaction::TwoSignedTransactions>::default(),
         // VM
         Box::<vm::CompiledModuleTarget>::default(),
+        Box::<move_bytecode_verifier::MoveBytecodeVerifierCodeUnit>::default(),
+        Box::<move_bytecode_verifier::MoveBytecodeVerifierCompiledModule>::default(),
+        Box::<move_bytecode_verifier::MoveBytecodeVerifierMixed>::default(),
     ];
     targets
         .into_iter()
