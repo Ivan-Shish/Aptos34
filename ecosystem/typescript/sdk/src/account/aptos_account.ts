@@ -132,7 +132,7 @@ export class AptosAccount {
    * @returns The collection id hash
    */
   static getCollectionID(creatorAddress: MaybeHexString, collectionName: string): HexString {
-    const seed = new TextEncoder().encode(creatorAddress + "::" + collectionName);
+    const seed = new TextEncoder().encode(`${creatorAddress}::${collectionName}`);
     const hash = sha256.create();
     hash.update(seed);
     return HexString.fromUint8Array(hash.digest());
