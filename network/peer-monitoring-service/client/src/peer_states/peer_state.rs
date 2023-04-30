@@ -24,7 +24,7 @@ use aptos_peer_monitoring_service_types::{
 };
 use aptos_time_service::{TimeService, TimeServiceTrait};
 use rand::{rngs::OsRng, Rng};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 use tokio::{runtime::Handle, task::JoinHandle, time::sleep};
 
 #[derive(Clone, Debug)]
@@ -172,6 +172,10 @@ impl PeerState {
         let average_latency_ping_secs = latency_info_state.get_average_latency_ping_secs();
         peer_monitoring_metadata.average_ping_latency_secs = average_latency_ping_secs;
 
+        // Get and store the detailed monitoring metadata
+        let internal_client_state = self.get_internal_client_state()?;
+        peer_monitoring_metadata.internal_client_state = internal_client_state;
+
         // Get and store the latest network info response
         let network_info_state = self.get_network_info_state()?;
         let network_info_response = network_info_state.get_latest_network_info_response();
@@ -260,6 +264,27 @@ impl PeerState {
                 peer_state_value
             ))),
         }
+    }
+
+    /// Returns a detailed internal state string (for logging and debugging purposes)
+    fn get_internal_client_state(&self) -> Result<Option<String>, Error> {
+        // Construct a metadata summary map for each of the state entries
+        let mut metadata_summary_strings = HashMap::new();
+        for (peer_state_key, peer_state_value) in self.state_entries.read().iter() {
+            let peer_state_label = peer_state_key.get_label().to_string();
+            let peer_state_value = format!("{}", peer_state_value.read().deref());
+            metadata_summary_strings.insert(peer_state_label, peer_state_value);
+        }
+
+        // Pretty print and return the metadata summary
+        let metadata_summary_string = serde_json::to_string_pretty(&metadata_summary_strings)
+            .map_err(|error| {
+                Error::UnexpectedError(format!(
+                    "Failed to serialize the metadata summary string: {:?}",
+                    error
+                ))
+            })?;
+        Ok(Some(metadata_summary_string))
     }
 }
 
