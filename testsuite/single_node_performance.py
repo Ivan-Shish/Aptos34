@@ -31,7 +31,7 @@ EXPECTED_TPS = {
     ("token-v1nft-mint-and-transfer-sequential", False): (1100.0, True),
     ("token-v1ft-mint-and-transfer20-collections", False): (6000.0, False),
     ("token-v1nft-mint-and-transfer-sequential20-collections", False): (4000.0, False),
-    # ("token-v1nft-mint-and-transfer-parallel", False): 1000.0,
+    ("token-v1nft-mint-and-transfer-parallel", False): (1000.0, False),
     # ("token-v1nft-mint-and-store-sequential", False): 1000.0,
     # ("token-v1nft-mint-and-store-parallel", False): 1000.0,
 }
@@ -54,7 +54,7 @@ else:
     EXECUTION_ONLY_CONCURRENCY_LEVELS = []
 
 if os.environ.get("DEFAULT_BUILD"):
-    BUILD_FLAG = ""  #  "--release"
+    BUILD_FLAG = ""  # "--release"
 else:
     BUILD_FLAG = "--profile performance"
 
