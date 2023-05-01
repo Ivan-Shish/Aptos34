@@ -102,6 +102,7 @@ pub fn fuzz_target(
         // runs on nightly. This is a test-only environment so this use of RUSTC_BOOTSTRAP seems
         // appropriate.
         .env("RUSTC_BOOTSTRAP", "1")
+        .env("RUSTFLAGS", "--cfg tokio_unstable") // required for tokio
         .status()
         .context("cargo fuzz run errored")?;
     if !status.success() {
