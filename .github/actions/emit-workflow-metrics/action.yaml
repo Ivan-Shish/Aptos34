@@ -1,0 +1,15 @@
+name: "Emit Workflow Metrics"
+description: Emit standard workflow metrics
+
+runs:
+  using: composite
+  steps:
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        echo "${HOME}/bin/" >> $GITHUB_PATH # default INSTALL_DIR to path
+        scripts/dev_setup.sh -b # Install dependencies
+    - name: Run fullnode sync
+      shell: bash
+      run: |
+        python3 ${{ github.action_path }}/emit_workflow_metrics.py
