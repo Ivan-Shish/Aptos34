@@ -90,9 +90,9 @@ impl TransactionBuilder {
 
 #[derive(Clone, Debug)]
 pub struct TransactionFactory {
-    max_gas_amount: u64,
-    gas_unit_price: u64,
-    transaction_expiration_time: u64,
+    pub max_gas_amount: u64,
+    pub gas_unit_price: u64,
+    pub transaction_expiration_time: u64,
     chain_id: ChainId,
 }
 
