@@ -27,6 +27,7 @@ pub enum TransactionTypeArg {
     TokenV1FTMintAndStore,
     TokenV1FTMintAndTransfer,
     TokenV2AmbassadorMint,
+    NbcuV1Mint,
 }
 
 impl Default for TransactionTypeArg {
@@ -128,6 +129,9 @@ impl TransactionTypeArg {
                 entry_point: EntryPoints::TokenV2AmbassadorMint,
                 num_modules: module_working_set_size,
                 use_account_pool: false,
+            },
+            TransactionTypeArg::NbcuV1Mint => TransactionType::NbcuMint {
+                num_modules: module_working_set_size,
             },
         }
     }
