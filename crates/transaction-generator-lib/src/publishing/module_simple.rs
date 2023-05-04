@@ -28,11 +28,28 @@ use std::collections::HashMap;
 // Functions to load and update the original package
 //
 
-pub fn load_package() -> (HashMap<String, CompiledModule>, PackageMetadata) {
-    let metadata = bcs::from_bytes::<PackageMetadata>(&raw_module_data::PACKAGE_METADATA)
+pub fn load_package_simple() -> (HashMap<String, CompiledModule>, PackageMetadata) {
+    load_package(
+        &raw_module_data::PACKAGE_SIMPLE_METADATA,
+        &raw_module_data::MODULES_SIMPLE,
+    )
+}
+
+pub fn load_package_nbcu_v1() -> (HashMap<String, CompiledModule>, PackageMetadata) {
+    load_package(
+        &raw_module_data::PACKAGE_NBCU_V1_METADATA,
+        &raw_module_data::MODULES_NBCU_V1,
+    )
+}
+
+pub fn load_package(
+    package_bytes: &[u8],
+    modules_bytes: &[Vec<u8>],
+) -> (HashMap<String, CompiledModule>, PackageMetadata) {
+    let metadata = bcs::from_bytes::<PackageMetadata>(package_bytes)
         .expect("PackageMetadata for GenericModule must deserialize");
     let mut modules = HashMap::new();
-    for module_content in &*raw_module_data::MODULES {
+    for module_content in modules_bytes {
         let module =
             CompiledModule::deserialize(module_content).expect("Simple.move must deserialize");
         modules.insert(module.self_id().name().to_string(), module);
@@ -201,8 +218,9 @@ impl EntryPoints {
             | EntryPoints::TokenV1MintAndTransferNFTSequential
             | EntryPoints::TokenV1MintAndStoreFT
             | EntryPoints::TokenV1MintAndTransferFT => "simple",
-            EntryPoints::TokenV2AmbassadorInitCollection
-            | EntryPoints::TokenV2AmbassadorMint => "simple",
+            EntryPoints::TokenV2AmbassadorInitCollection | EntryPoints::TokenV2AmbassadorMint => {
+                "simple"
+            },
         }
     }
 
@@ -232,8 +250,9 @@ impl EntryPoints {
             | EntryPoints::TokenV1MintAndTransferNFTSequential
             | EntryPoints::TokenV1MintAndStoreFT
             | EntryPoints::TokenV1MintAndTransferFT => "token_v1",
-            EntryPoints::TokenV2AmbassadorInitCollection
-            | EntryPoints::TokenV2AmbassadorMint => "ambassador",
+            EntryPoints::TokenV2AmbassadorInitCollection | EntryPoints::TokenV2AmbassadorMint => {
+                "ambassador"
+            },
         }
     }
 
@@ -339,7 +358,7 @@ impl EntryPoints {
                     vec![
                         bcs::to_bytes(&rand_string(rng, 100)).unwrap(), // description
                         bcs::to_bytes(&"unique ambasador collection").unwrap(), // name
-                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(), // uri
+                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(),  // uri
                     ],
                 )
             },
@@ -350,9 +369,9 @@ impl EntryPoints {
                     ident_str!("mint_ambassador_token").to_owned(),
                     vec![
                         bcs::to_bytes(&"unique ambasador collection").unwrap(), // collection_name
-                        bcs::to_bytes(&rand_string(rng, 100)).unwrap(), // description
-                        bcs::to_bytes(&rand_string(rng, 20)).unwrap(), // name
-                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(), // uri
+                        bcs::to_bytes(&rand_string(rng, 100)).unwrap(),         // description
+                        bcs::to_bytes(&rand_string(rng, 20)).unwrap(),          // name
+                        bcs::to_bytes(&rand_string(rng, 50)).unwrap(),          // uri
                     ],
                 )
             },
@@ -369,8 +388,9 @@ impl EntryPoints {
             | EntryPoints::TokenV1MintAndTransferFT => {
                 Some(EntryPoints::TokenV1InitializeCollection)
             },
-            EntryPoints::TokenV2AmbassadorMint =>
-                Some(EntryPoints::TokenV2AmbassadorInitCollection),
+            EntryPoints::TokenV2AmbassadorMint => {
+                Some(EntryPoints::TokenV2AmbassadorInitCollection)
+            },
             _ => None,
         }
     }
@@ -507,8 +527,7 @@ fn mint_new_token(module_id: ModuleId, other: AccountAddress) -> TransactionPayl
 }
 
 fn rand_string(rng: &mut StdRng, len: usize) -> String {
-    rng
-        .sample_iter(&Alphanumeric)
+    rng.sample_iter(&Alphanumeric)
         .take(len)
         .map(char::from)
         .collect()

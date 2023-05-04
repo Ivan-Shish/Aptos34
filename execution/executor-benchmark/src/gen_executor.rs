@@ -6,7 +6,7 @@ use crate::{
     benchmark_transaction::BenchmarkTransaction,
     db_access::{CoinStore, DbAccessUtil},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use aptos_crypto::HashValue;
 use aptos_state_view::account_with_state_view::AsAccountWithStateView;
 use aptos_storage_interface::{state_view::LatestDbStateCheckpointView, DbReaderWriter};
@@ -25,7 +25,6 @@ use std::{
     sync::{atomic::AtomicUsize, mpsc},
     time::Duration,
 };
-use anyhow::Context;
 
 pub struct DbGenInitTransactionExecutor {
     pub db: DbReaderWriter,

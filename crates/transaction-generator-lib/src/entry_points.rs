@@ -7,7 +7,8 @@ use super::{
 };
 use crate::{
     call_custom_modules::{TransactionGeneratorWorker, UserModuleTransactionGenerator},
-    create_account_transaction, publishing::module_simple::MultiSigConfig,
+    create_account_transaction,
+    publishing::module_simple::MultiSigConfig,
 };
 use aptos_sdk::{
     transaction_builder::TransactionFactory,
@@ -64,7 +65,9 @@ impl UserModuleTransactionGenerator for EntryPointTransactionGenerator {
                     .execute_transactions(
                         &new_accounts
                             .iter()
-                            .map(|to| create_account_transaction(sender, to.address(), txn_factory, 0))
+                            .map(|to| {
+                                create_account_transaction(sender, to.address(), txn_factory, 0)
+                            })
                             .collect::<Vec<_>>(),
                     )
                     .await
@@ -88,10 +91,9 @@ impl UserModuleTransactionGenerator for EntryPointTransactionGenerator {
                     additional_signers.as_ref().unwrap().iter().collect(),
                     builder,
                 ),
-                MultiSigConfig::Publisher => account.sign_multi_agent_with_transaction_builder(
-                    vec![publisher],
-                    builder,
-                ),
+                MultiSigConfig::Publisher => {
+                    account.sign_multi_agent_with_transaction_builder(vec![publisher], builder)
+                },
             }
         })
     }

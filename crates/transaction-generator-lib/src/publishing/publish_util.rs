@@ -44,6 +44,7 @@ impl PackageTracker {
 #[derive(Clone, Debug)]
 pub struct PackageHandler {
     packages: Vec<PackageTracker>,
+    is_simple: bool,
 }
 
 impl Default for PackageHandler {
@@ -59,7 +60,10 @@ impl PackageHandler {
             suffix: 0,
             package: Package::by_name(name),
         }];
-        PackageHandler { packages }
+        PackageHandler {
+            packages,
+            is_simple: name == "simple",
+        }
     }
 
     // Return a `Package` to be published. Packages are tracked by publisher so if
@@ -89,10 +93,12 @@ impl PackageHandler {
             tracker.publishers[idx].publisher,
             tracker.publishers[idx].suffix,
         );
-        if version {
-            package.version(rng);
+        if self.is_simple {
+            if version {
+                package.version(rng);
+            }
+            package.scramble(tracker.publishers[idx].fn_count, rng);
         }
-        package.scramble(tracker.publishers[idx].fn_count, rng);
         // info!("PACKAGE: {:#?}", package);
         package
     }
@@ -107,7 +113,8 @@ pub enum Package {
 impl Package {
     pub fn by_name(name: &str) -> Self {
         let (modules, metadata) = match name {
-            "simple" => module_simple::load_package(),
+            "simple" => module_simple::load_package_simple(),
+            "nbcu_v1" => module_simple::load_package_nbcu_v1(),
             _ => unreachable!(),
         };
         Self::Simple(modules, metadata)
@@ -169,7 +176,10 @@ impl Package {
 
     pub fn get_module_id(&self, module_name: &str) -> ModuleId {
         match self {
-            Self::Simple(modules, _) => modules.get(module_name).expect("Wanted module doesn't exist").self_id(),
+            Self::Simple(modules, _) => modules
+                .get(module_name)
+                .expect("Wanted module doesn't exist")
+                .self_id(),
         }
     }
 }
@@ -187,23 +197,29 @@ fn update(
             .module_handles
             .get(module.self_handle_idx().0 as usize)
             .expect("ModuleId for self must exists");
+        let original_address_idx = module_handle.address.0;
         let _ = std::mem::replace(
-            &mut new_module.address_identifiers[module_handle.address.0 as usize],
+            &mut new_module.address_identifiers[original_address_idx as usize],
             publisher,
         );
-        let mut new_name = new_module.identifiers[module_handle.name.0 as usize].to_string();
-        new_name.push_str(suffix.to_string().as_str());
-        let _ = std::mem::replace(
-            &mut new_module.identifiers[module_handle.name.0 as usize],
-            Identifier::new(new_name).expect("Identifier must be legal"),
-        );
+
+        if suffix > 0 {
+            let mut new_name = new_module.identifiers[module_handle.name.0 as usize].to_string();
+            new_name.push_str(suffix.to_string().as_str());
+            let _ = std::mem::replace(
+                &mut new_module.identifiers[module_handle.name.0 as usize],
+                Identifier::new(new_name).expect("Identifier must be legal"),
+            );
+        }
         new_modules.insert(original_name.clone(), new_module);
     }
     let mut metadata = metadata.clone();
-    for module in &mut metadata.modules {
-        let mut new_name = module.name.clone();
-        new_name.push_str(suffix.to_string().as_str());
-        module.name = new_name;
+    if suffix > 0 {
+        for module in &mut metadata.modules {
+            let mut new_name = module.name.clone();
+            new_name.push_str(suffix.to_string().as_str());
+            module.name = new_name;
+        }
     }
     (new_modules, metadata)
 }

@@ -90,6 +90,7 @@ use once_cell::sync::Lazy;
 
     // write out package metadata
     write_pacakge(&mut generic_mod, "simple");
+    write_pacakge(&mut generic_mod, "nbcu_v1");
     Ok(())
 }
 
@@ -105,7 +106,11 @@ fn write_pacakge(file: &mut File, package_name: &str) {
     let metadata = bcs::to_bytes(&package_metadata).expect("Metadata must serialize");
 
     // write out package metadata
-    write_lazy(file, "PACKAGE_METADATA", &metadata);
+    write_lazy(
+        file,
+        format!("PACKAGE_{}_METADATA", package_name.to_uppercase()).as_str(),
+        &metadata,
+    );
 
     let mut module_names = Vec::new();
 
@@ -116,7 +121,11 @@ fn write_pacakge(file: &mut File, package_name: &str) {
         let compiled_module = CompiledModule::deserialize(module).expect("Module must deserialize");
         let module_name = compiled_module.self_id().name().to_owned().into_string();
         // start Lazy declaration
-        let name = format!("MODULE_{}", module_name.to_uppercase());
+        let name: String = format!(
+            "MODULE_{}_{}",
+            package_name.to_uppercase(),
+            module_name.to_uppercase()
+        );
         writeln!(file).expect("Empty line failed");
         write_lazy(file, name.as_str(), module);
         module_names.push(name);
@@ -127,7 +136,8 @@ fn write_pacakge(file: &mut File, package_name: &str) {
     // Write accessors:
     writeln!(
         file,
-        "pub static MODULES: Lazy<Vec<Vec<u8>>> = Lazy::new(|| {{ vec![",
+        "pub static MODULES_{}: Lazy<Vec<Vec<u8>>> = Lazy::new(|| {{ vec![",
+        package_name.to_uppercase(),
     )
     .expect("Lazy MODULES declaration failed");
 
@@ -136,6 +146,7 @@ fn write_pacakge(file: &mut File, package_name: &str) {
     }
 
     writeln!(file, "]}});").expect("Lazy declaration closing } failed");
+    writeln!(file).expect("Empty line failed");
 }
 
 // Write out a `Lazy` declaration

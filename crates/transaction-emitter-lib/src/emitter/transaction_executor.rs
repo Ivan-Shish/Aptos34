@@ -4,7 +4,7 @@
 use super::RETRY_POLICY;
 use anyhow::{Context, Result};
 use aptos_logger::{debug, sample, sample::SampleRate, warn};
-use aptos_rest_client::{Client as RestClient, error::RestError, aptos_api_types::TransactionInfo};
+use aptos_rest_client::{aptos_api_types::TransactionInfo, error::RestError, Client as RestClient};
 use aptos_sdk::{
     move_types::account_address::AccountAddress, types::transaction::SignedTransaction,
 };
@@ -116,11 +116,17 @@ impl RestApiTransactionExecutor {
         }
 
         // if submission timeouts, it might still get committed:
-        let onchain_info = self.random_rest_client()
+        let onchain_info = self
+            .random_rest_client()
             .wait_for_signed_transaction_bcs(txn)
-            .await?.into_inner().info;
+            .await?
+            .into_inner()
+            .info;
         if !onchain_info.status().is_success() {
-            anyhow::bail!("Transaction failed execution with {:?}", onchain_info.status());
+            anyhow::bail!(
+                "Transaction failed execution with {:?}",
+                onchain_info.status()
+            );
         }
 
         counters
@@ -149,7 +155,12 @@ async fn warn_detailed_error(
                     )
                     .await
                     .ok()
-                    .map(|r| r.into_inner().into_iter().map(|t| t.info).collect::<Vec<_>>()),
+                    .map(|r| {
+                        r.into_inner()
+                            .into_iter()
+                            .map(|t| t.info)
+                            .collect::<Vec<_>>()
+                    }),
                 Some(inner.sequence_number()),
             )
         } else {
@@ -198,7 +209,8 @@ async fn submit_and_check(
             None,
             Some(wait_duration.saturating_sub(start.elapsed())),
         )
-        .await {
+        .await
+    {
         Err(err) => {
             sample!(
                 SampleRate::Duration(Duration::from_secs(60)),
@@ -212,11 +224,15 @@ async fn submit_and_check(
             if !transaction_info.success {
                 sample!(
                     SampleRate::Duration(Duration::from_secs(60)),
-                    warn_detailed_error("waiting on a", rest_client, txn, Ok(transaction_info)).await
+                    warn_detailed_error("waiting on a", rest_client, txn, Ok(transaction_info))
+                        .await
                 );
-                anyhow::bail!("Transaction failed execution with VM status {}", transaction_info.vm_status);
+                anyhow::bail!(
+                    "Transaction failed execution with VM status {}",
+                    transaction_info.vm_status
+                );
             }
-        }
+        },
     }
 
     Ok(())
