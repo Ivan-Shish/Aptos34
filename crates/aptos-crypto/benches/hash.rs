@@ -19,6 +19,7 @@ use rand::thread_rng;
 use sha2::{Sha256, Sha512};
 use std::ptr::null;
 use tiny_keccak::{Hasher as KeccakHasher, Keccak};
+use sha3::Digest as sha3_digest;
 
 /// Runs all the benchmarks.
 fn bench_group(c: &mut Criterion) {
@@ -111,7 +112,7 @@ fn sha3_256<M: Measurement>(g: &mut BenchmarkGroup<M>, n: usize) {
 
                 let mut hasher = sha3::Sha3_256::new();
 
-                hasher.update(bytes);
+                sha3_digest::update(&mut hasher, bytes);
 
                 let output = hasher.finalize();
                 assert_eq!(output.as_slice().len(), 32);

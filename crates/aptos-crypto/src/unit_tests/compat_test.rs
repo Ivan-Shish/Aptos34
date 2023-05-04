@@ -4,6 +4,7 @@
 use crate::compat;
 use digest::Digest;
 use proptest::{collection::vec, prelude::*};
+use sha3::Digest as sha3_digest;
 
 // sanity check our compatibility layer by testing some basic SHA3-256 test vectors.
 #[test]
