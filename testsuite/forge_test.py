@@ -55,6 +55,7 @@ from forge_wrapper_core.filesystem import Filesystem
 from forge_wrapper_core.git import Git
 from forge_wrapper_core.process import Process, Processes
 from forge_wrapper_core.cluster import (
+    Cloud,
     GetPodsItem,
     GetPodsItemMetadata,
     GetPodsItemStatus,
@@ -965,7 +966,7 @@ class GetForgeJobsTests(unittest.IsolatedAsyncioTestCase):
     maxDiff = None
 
     async def testGetAllForgeJobs(self) -> None:
-        fake_clusters = ["aptos-forge-banana", "aptos-forge-apple-2"]
+        fake_clusters = ["aptos-forge-banana", "aptos-forge-big-apple-2"]
 
         # The first set of test runner pods and their test pods
         fake_first_pods = GetPodsResult(
@@ -1033,6 +1034,16 @@ class GetForgeJobsTests(unittest.IsolatedAsyncioTestCase):
         shell = SpyShell(
             [
                 FakeCommand(
+                    "gcloud container clusters list --format=json",
+                    RunResult(
+                        0, b'[{"name": "aptos-forge-banana", "location": "us-west1-a"}]'
+                    ),
+                ),
+                FakeCommand(
+                    "aws eks list-clusters",
+                    RunResult(0, b'{ "clusters": [ "aptos-forge-big-apple-2" ] }'),
+                ),
+                FakeCommand(
                     "aws eks update-kubeconfig --name aptos-forge-banana --kubeconfig temp1",
                     RunResult(0, b""),
                 ),
@@ -1097,6 +1108,8 @@ class GetForgeJobsTests(unittest.IsolatedAsyncioTestCase):
                 phase="Running",
                 cluster=ForgeCluster(
                     name="aptos-forge-banana",
+                    cloud=Cloud.GCP,
+                    region="us-west1-a",
                     kubeconf="temp1",
                 ),
                 num_validators=2,
@@ -1106,6 +1119,8 @@ class GetForgeJobsTests(unittest.IsolatedAsyncioTestCase):
                 phase="Failed",
                 cluster=ForgeCluster(
                     name="aptos-forge-banana",
+                    cloud=Cloud.GCP,
+                    region="us-west1-a",
                     kubeconf="temp1",
                 ),
                 num_validators=2,
@@ -1115,7 +1130,9 @@ class GetForgeJobsTests(unittest.IsolatedAsyncioTestCase):
                 name="forge-second",
                 phase="Running",
                 cluster=ForgeCluster(
-                    name="aptos-forge-apple-2",
+                    name="aptos-forge-big-apple-2",
+                    cloud=Cloud.AWS,
+                    region="us-west-2",
                     kubeconf="temp2",
                 ),
                 num_validators=1,
@@ -1125,7 +1142,9 @@ class GetForgeJobsTests(unittest.IsolatedAsyncioTestCase):
                 name="forge-succeeded",
                 phase="Succeeded",
                 cluster=ForgeCluster(
-                    name="aptos-forge-apple-2",
+                    name="aptos-forge-big-apple-2",
+                    cloud=Cloud.AWS,
+                    region="us-west-2",
                     kubeconf="temp2",
                 ),
             ),

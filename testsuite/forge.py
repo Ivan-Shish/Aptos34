@@ -99,25 +99,29 @@ except ImportError:
     import psutil
 
 
-@click.group()
-@click.option(
-    "--log-metadata/--no-log-metadata",
-    default=True,
-)
-@logger
-def main(log_metadata: bool) -> None:
-    init_logging(logger=log, print_metadata=log_metadata)
-    # Check that the current directory is the root of the repository.
-    if not os.path.exists(".git"):
-        log.fatal("This script must be run from the root of the repository.")
-
-
 def envoption(name: str, default: Optional[Any] = None) -> Any:
     return click.option(
         f"--{name.lower().replace('_', '-')}",
         default=lambda: os.getenv(name, default() if callable(default) else default),
         show_default=True,
     )
+
+
+@click.group()
+@envoption("VERBOSE")
+@click.option(
+    "--log-metadata/--no-log-metadata",
+    default=True,
+)
+@logger
+def main(log_metadata: bool, verbose: Optional[str]) -> None:
+    init_logging(logger=log, print_metadata=log_metadata)
+    if verbose:
+        log.setLevel(logging.DEBUG)
+
+    # Check that the current directory is the root of the repository.
+    if not os.path.exists(".git"):
+        log.fatal("This script must be run from the root of the repository.")
 
 
 # o11y resources
@@ -1177,7 +1181,6 @@ async def run_multiple(
 @envoption("IMAGE_TAG")
 @envoption("UPGRADE_IMAGE_TAG")
 @envoption("FORGE_NAMESPACE")
-@envoption("VERBOSE")
 @envoption("GITHUB_ACTIONS", "false")
 @click.option("--balance-clusters", is_flag=True)
 @envoption("FORGE_BLOCKING", "true")
@@ -1219,7 +1222,6 @@ def test(
     image_tag: Optional[str],
     upgrade_image_tag: Optional[str],
     forge_namespace: Optional[str],
-    verbose: Optional[str],
     github_actions: str,
     balance_clusters: bool,
     forge_blocking: Optional[str],
@@ -1233,9 +1235,6 @@ def test(
     test_suites: Tuple[str],
 ) -> None:
     """Run a forge test"""
-
-    if verbose:
-        log.setLevel(logging.DEBUG)
 
     ### XXX: hack these arguments to force Forge to run with overrides
     # forge_cluster_name = "aptos-forge-0"
@@ -1326,14 +1325,10 @@ def test(
         log.warning(
             "Explicitly setting the cloud is deprecated. The cloud is now inferred from the cluster name."
         )
-    if "big" in forge_cluster_name:
-        cloud_enum = Cloud.AWS
-    else:
-        cloud_enum = Cloud.GCP
 
-    log.info(f"Looking for cluster {forge_cluster_name} in cloud {cloud_enum.value}")
+    log.info(f"Looking for cluster {forge_cluster_name}")
     forge_cluster = find_forge_cluster(
-        context.shell, cloud_enum, forge_cluster_name, context.filesystem.mkstemp()
+        forge_cluster_name, context.shell, context.filesystem.mkstemp()
     )
     log.info(f"Found cluster: {forge_cluster}")
     asyncio.run(forge_cluster.write(context.shell))
@@ -1434,7 +1429,7 @@ def test(
         processes=processes,
         time=time,
         # cluster auth
-        cloud=cloud_enum,
+        cloud=forge_cluster.cloud,
         aws_account_num=aws_account_num,
         aws_region=aws_region,
         gcp_zone=gcp_zone,
@@ -1508,6 +1503,7 @@ def test(
         ) from e
 
 
+@logger
 async def get_all_forge_jobs(
     context: SystemContext,
     clusters: List[str],
@@ -1517,13 +1513,14 @@ async def get_all_forge_jobs(
     tempfiles = []
     for cluster in clusters:
         temp = context.filesystem.mkstemp()
-        config = ForgeCluster(name=cluster, kubeconf=temp)
+        config = find_forge_cluster(cluster, context.shell, temp)
+        log.debug(f"Listing jobs on cluster: {config}")
         try:
             await config.write(context.shell)
             tempfiles.append(temp)
             all_jobs.extend(await config.get_jobs(context.shell))
         except Exception as e:
-            log.info(f"Failed to get jobs from cluster: {cluster}: {e}")
+            log.error(f"Failed to get jobs from cluster: {cluster}: {e}")
 
     def unlink_tempfiles():
         for temp in tempfiles:
@@ -1544,6 +1541,7 @@ def job() -> None:
 @job.command("list")
 @click.option("--phase", multiple=True, help="Only show jobs in this phase")
 @click.option("--regex", help="Only show jobs matching this regex")
+@logger
 def list_jobs(
     phase: List[str],
     regex: str,
@@ -1560,9 +1558,11 @@ def list_jobs(
     # Default to show running jobs
     phase = phase or ["Running"]
 
-    pattern = re.compile(regex or ".*")
-    jobs = asyncio.run(get_all_forge_jobs(context, config.get("all_clusters")))
+    clusters = config.get("all_clusters")
+    log.debug(f"Configured clusters: {clusters}")
+    jobs = asyncio.run(get_all_forge_jobs(context, clusters))
 
+    pattern = re.compile(regex or ".*")
     for job in jobs:
         if not pattern.match(job.name) or phase and job.phase not in phase:
             continue

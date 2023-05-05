@@ -1,5 +1,5 @@
-Looking for cluster aptos-forge-big-1 in cloud AWS
-Found cluster: Cloud.AWS/us-west-2/aptos-forge-big-1
+Looking for cluster aptos-forge-big-1
+Found cluster: aws/us-west-2/aptos-forge-big-1
 Using the following image tags:
 	forge:  banana
 	swarm:  banana

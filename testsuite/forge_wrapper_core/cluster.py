@@ -6,6 +6,7 @@ import json
 import os
 from typing import Dict, List, Optional, TypedDict
 
+from applogging import logger
 from .shell import Shell
 
 
@@ -52,7 +53,7 @@ class ForgeCluster:
     kubeconf: Optional[str] = None
 
     def __repr__(self) -> str:
-        return f"{self.cloud}/{self.region}/{self.name}"
+        return f"{self.cloud.value.lower()}/{self.region}/{self.name}"
 
     def set_kubeconf(self, kubeconf: str) -> ForgeCluster:
         self.kubeconf = kubeconf
@@ -211,17 +212,21 @@ def list_gke_clusters(shell: Shell) -> Dict[str, ForgeCluster]:
         raise GcpError("Failed to list GKE clusters") from e
 
 
-def find_forge_cluster(
-    shell: Shell, cloud: Cloud, name: str, kubeconf: str
-) -> ForgeCluster:
-    clusters: Dict[str, ForgeCluster] = {}
-    if cloud == Cloud.AWS:
-        clusters = list_eks_clusters(shell)
-    else:
-        clusters = list_gke_clusters(shell)
-    if name not in clusters:
+known_clusters: Dict[str, ForgeCluster] = {}
+
+
+@logger
+def find_forge_cluster(name: str, shell: Shell, kubeconf: str) -> ForgeCluster:
+    if len(known_clusters) == 0:
+        log.debug("Initializing cluster cache...")
+        known_clusters.update(list_eks_clusters(shell))
+        known_clusters.update(list_gke_clusters(shell))
+        log.debug(
+            f"Found {len(known_clusters)} clusters: {list(known_clusters.keys())}"
+        )
+    if name not in known_clusters:
         raise Exception(f"Cluster {name} not found")
-    return clusters[name].set_kubeconf(kubeconf)
+    return known_clusters[name].set_kubeconf(kubeconf)
 
 
 @dataclass
