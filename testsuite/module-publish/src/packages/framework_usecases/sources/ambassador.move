@@ -59,7 +59,7 @@ module 0xABCD::ambassador {
         name: String,
         uri: String,
     ) {
-        let constructor_ref = collection::create_unlimited_collection(
+        let constructor_ref = collection::create_untracked_collection(
             creator,
             description,
             name,
