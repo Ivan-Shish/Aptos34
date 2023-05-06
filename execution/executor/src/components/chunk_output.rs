@@ -7,19 +7,19 @@
 use crate::{components::apply_chunk_output::ApplyChunkOutput, metrics};
 use anyhow::Result;
 use aptos_executor_types::{ExecutedBlock, ExecutedChunk};
-use aptos_logger::{sample, sample::SampleRate, trace, warn};
+use aptos_logger::{sample, sample::SampleRate, trace, warn, info};
 use aptos_storage_interface::{
     cached_state_view::{CachedStateView, StateCache},
     ExecutedTrees,
 };
 use aptos_types::{
     account_config::CORE_CODE_ADDRESS,
-    transaction::{ExecutionStatus, Transaction, TransactionOutput, TransactionStatus},
+    transaction::{ExecutionStatus, Transaction, TransactionOutput, TransactionStatus}, state_store::state_key::StateKey,
 };
 use aptos_vm::{AptosVM, VMExecutor};
 use fail::fail_point;
 use move_core_types::vm_status::StatusCode;
-use std::time::Duration;
+use std::{time::Duration, collections::HashMap};
 
 pub struct ChunkOutput {
     /// Input transactions.
@@ -40,7 +40,23 @@ impl ChunkOutput {
         let transaction_outputs = Self::execute_block::<V>(transactions.clone(), &state_view)?;
 
         // to print txn output for debugging, uncomment:
-        // println!("{:?}", transaction_outputs.iter().map(|t| t.status() ).collect::<Vec<_>>());
+        // println!("{:?}", transaction_outputs.iter().map(|t|  ).collect::<Vec<_>>());
+
+        info!("Analayzing block with {} txns", transactions.len());
+        let mut seen: HashMap<StateKey, usize> = HashMap::new();
+        let mut idx = 0;
+        for t_output in &transaction_outputs {
+            let mut write_set = t_output.write_set().clone().into_mut();
+            let write_set_map = write_set.as_inner_mut();
+
+            for key in write_set_map.keys() {
+                seen.entry(key.clone()).and_modify(|e| {
+                    info!("duplicate write key {:?}: for {} and {}", key, *e, idx);
+                }).or_insert(idx);
+            }
+
+            idx += 1;
+        }
 
         update_counters_for_processed_chunk(&transactions, &transaction_outputs, "executed");
 

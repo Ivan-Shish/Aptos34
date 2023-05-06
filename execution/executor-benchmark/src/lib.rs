@@ -406,10 +406,10 @@ mod tests {
         println!("run_benchmark");
 
         super::run_benchmark::<E>(
-            6, /* block_size */
-            5, /* num_blocks */
-            transaction_type.map(|t| t.materialize(2)),
-            2,  /* transactions per sender */
+            4, /* block_size */
+            1, /* num_blocks */
+            transaction_type.map(|t| t.materialize(20)),
+            1,  /* transactions per sender */
             25, /* num_main_signer_accounts */
             30, /* num_dst_pool_accounts */
             storage_dir.as_ref(),
