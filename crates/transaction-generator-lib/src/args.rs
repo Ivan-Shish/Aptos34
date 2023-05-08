@@ -28,6 +28,7 @@ pub enum TransactionTypeArg {
     TokenV1FTMintAndTransfer,
     TokenV2AmbassadorMint,
     NbcuV1Mint,
+    NbcuPremintMint,
 }
 
 impl Default for TransactionTypeArg {
@@ -130,9 +131,13 @@ impl TransactionTypeArg {
                 num_modules: module_working_set_size,
                 use_account_pool: false,
             },
-            TransactionTypeArg::NbcuV1Mint => TransactionType::NbcuMint {
+            TransactionTypeArg::NbcuV1Mint => TransactionType::NbcuV1Mint {
                 num_modules: module_working_set_size,
             },
+            TransactionTypeArg::NbcuPremintMint => TransactionType::NbcuPremintMint {
+                num_modules: module_working_set_size,
+            },
+
         }
     }
 }

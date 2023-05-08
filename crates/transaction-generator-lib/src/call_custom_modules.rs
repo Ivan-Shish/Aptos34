@@ -29,6 +29,10 @@ pub type TransactionGeneratorWorker = dyn Fn(
 
 #[async_trait]
 pub trait UserModuleTransactionGenerator: Sync + Send {
+    fn publisher_funds(&self) -> u64 {
+        0
+    }
+
     fn initialize_package(
         &mut self,
         package: &Package,
@@ -122,7 +126,7 @@ impl CustomModulesDelegationGeneratorCreator {
                 account,
                 publisher_address,
                 &init_txn_factory,
-                2 * init_txn_factory.gas_unit_price * init_txn_factory.max_gas_amount,
+                1000 * init_txn_factory.gas_unit_price * init_txn_factory.max_gas_amount,
             ));
 
             let package = package_handler.pick_package(&mut rng, &mut publisher);

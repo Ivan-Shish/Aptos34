@@ -1981,11 +1981,10 @@ impl DbWriter for AptosDB {
                     ledger_info_with_sigs,
                 )?;
 
-                let is_reconfig = txns_to_commit.last().map_or(false, |txn| txn.is_reconfig());
                 buffered_state.update(
                     Some(block_state_updates),
                     latest_in_memory_state,
-                    sync_commit || is_reconfig,
+                    sync_commit || txns_to_commit.last().unwrap().is_reconfig(),
                 )?;
             }
 
