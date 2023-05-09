@@ -999,6 +999,7 @@ name = "aptos-executor-benchmark"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "aptos-block-executor",
  "aptos-config",
  "aptos-crypto",
  "aptos-db",
@@ -2982,6 +2983,7 @@ name = "aptos-transaction-benchmarks"
 version = "0.1.0"
 dependencies = [
  "aptos-bitvec",
+ "aptos-block-executor",
  "aptos-crypto",
  "aptos-gas",
  "aptos-language-e2e-tests",

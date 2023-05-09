@@ -21,7 +21,7 @@ use crate::{
 };
 use aptos_config::config::{NodeConfig, PrunerConfig};
 use aptos_db::AptosDB;
-use aptos_executor::block_executor::{BlockExecutor, TransactionBlockExecutor};
+use aptos_executor::{block_executor::{BlockExecutor, TransactionBlockExecutor}, metrics::{APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS, APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS}};
 use aptos_jellyfish_merkle::metrics::{
     APTOS_JELLYFISH_INTERNAL_ENCODED_BYTES, APTOS_JELLYFISH_LEAF_ENCODED_BYTES,
 };
@@ -176,6 +176,9 @@ pub fn run_benchmark<V>(
     );
     info!("Overall TPS: {} txn/s", delta_v as f32 / elapsed);
     info!("Overall GPS: {} gas/s", delta_gas as f32 / elapsed);
+
+    info!("Overall fraction in execution: {} fraction", APTOS_EXECUTOR_EXECUTE_BLOCK_SECONDS.get_sample_sum() / elapsed);
+    info!("Overall fraction in VM: {} fraction", APTOS_EXECUTOR_VM_EXECUTE_BLOCK_SECONDS.get_sample_sum() / elapsed);
 
     if verify_sequence_numbers {
         generator.verify_sequence_numbers(db.reader);
@@ -370,6 +373,7 @@ mod tests {
     use aptos_temppath::TempPath;
     use aptos_transaction_generator_lib::args::TransactionTypeArg;
     use aptos_vm::AptosVM;
+    use aptos_block_executor::THREADS_PER_COUNTER;
 
     fn test_generic_benchmark<E>(
         transaction_type: Option<TransactionTypeArg>,
@@ -406,11 +410,11 @@ mod tests {
         println!("run_benchmark");
 
         super::run_benchmark::<E>(
-            6, /* block_size */
-            5, /* num_blocks */
+            100, /* block_size */
+            3, /* num_blocks */
             transaction_type.map(|t| t.materialize(2)),
-            2,  /* transactions per sender */
-            25, /* num_main_signer_accounts */
+            1,  /* transactions per sender */
+            50, /* num_main_signer_accounts */
             30, /* num_dst_pool_accounts */
             storage_dir.as_ref(),
             checkpoint_dir,
@@ -435,8 +439,10 @@ mod tests {
 
     #[test]
     fn test_benchmark_transaction() {
+        AptosVM::set_concurrency_level_once(2);
+        THREADS_PER_COUNTER.set(1).ok();
         test_generic_benchmark::<AptosVM>(
-            Some(TransactionTypeArg::TokenV1NFTMintAndTransferSequential),
+            Some(TransactionTypeArg::NoOp),
             true,
         );
     }

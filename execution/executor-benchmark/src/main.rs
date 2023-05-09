@@ -20,6 +20,7 @@ use std::{
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
+use aptos_block_executor::THREADS_PER_COUNTER;
 
 #[cfg(unix)]
 #[global_allocator]
@@ -119,6 +120,9 @@ struct Opt {
 
     #[clap(long)]
     concurrency_level: Option<usize>,
+
+    #[clap(long)]
+    threads_per_counter: Option<usize>,
 
     #[clap(flatten)]
     pruner_opt: PrunerOpt,
@@ -296,6 +300,7 @@ fn main() {
         .build_global()
         .expect("Failed to build rayon global thread pool.");
     AptosVM::set_concurrency_level_once(opt.concurrency_level());
+    THREADS_PER_COUNTER.set(opt.threads_per_counter.unwrap_or(1024)).ok();
     NativeExecutor::set_concurrency_level_once(opt.concurrency_level());
 
     if opt.use_native_executor {

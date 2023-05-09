@@ -35,16 +35,20 @@ THRESHOLDS_NOISE = 0.15
 SPEEDUPS_NOISE_BELOW = 1
 SPEEDUPS_NOISE_ABOVE = 2
 
-THREADS = [8, 16, 32]
-BLOCK_SIZES = ["1k", "10k", "50k"]
+THREADS = [(8, 1), (8, 2), (8, 8), (16, 1), (16, 4), (16, 16), (32, 1), (32, 4), (32, 8), (32, 32)]
+BLOCK_SIZES = ["10k", "50k"]
 target_directory = "aptos-move/aptos-transaction-benchmarks/src/"
 
 tps_set = {}
 speedups_set = {}
 
+MAC = False
+
 fail = False
-for threads in THREADS:
-    command = f"taskset -c 0-{threads-1} cargo run --profile performance main true true"
+for (threads, threads_per_counter) in THREADS:
+    command = f"cargo run --profile performance main true true {threads} {threads_per_counter}"
+    if not MAC:
+        command = f"taskset -c 0-{threads-1} {command}" 
     output = subprocess.check_output(
         command, shell=True, text=True, cwd=target_directory
     )
@@ -53,7 +57,7 @@ for threads in THREADS:
     for i, block_size in enumerate(BLOCK_SIZES):
         tps_index = i * 2
         speedup_index = i * 2 + 1
-        key = f"{block_size}_{threads}"
+        key = f"{block_size}_{threads}_{threads_per_counter}"
         tps = int(re.findall(r"Avg Parallel TPS = (\d+)", output)[i])
         speedups = int(re.findall(r"Speed up (\d+)x over sequential", output)[i])
         tps_set[key] = tps
@@ -77,10 +81,10 @@ for threads in THREADS:
                 fail = True
 
 for block_size in BLOCK_SIZES:
-    for threads in THREADS:
-        key = f"{block_size}_{threads}"
+    for (threads, threads_per_counter) in THREADS:
+        key = f"{block_size}_{threads}_{threads_per_counter}"
         print(
-            f"Average Parallel TPS with {threads} threads for {block_size} block: TPS {tps_set[key]}, Threshold TPS: {THRESHOLDS[key]}, Speedup: {speedups_set[key]}x, Speedup Threshold: {SPEEDUPS[key]}x"
+            f"Average Parallel TPS with {threads} threads and {threads_per_counter} per counter for {block_size} block: TPS {tps_set[key]}, Threshold TPS: {THRESHOLDS[key]}, Speedup: {speedups_set[key]}x, Speedup Threshold: {SPEEDUPS[key]}x"
         )
 
 if fail:

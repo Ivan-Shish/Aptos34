@@ -15,7 +15,7 @@ use crate::{
     view::{LatestView, MVHashMapView},
 };
 use aptos_aggregator::delta_change_set::{deserialize, serialize};
-use aptos_logger::debug;
+use aptos_logger::{debug, info, sample, sample::SampleRate};
 use aptos_mvhashmap::{
     types::{MVDataError, MVDataOutput, TxnIndex, Version},
     MVHashMap,
@@ -27,14 +27,14 @@ use aptos_types::{
 };
 use aptos_vm_logging::{clear_speculative_txn_logs, init_speculative_logs};
 use num_cpus;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use std::{
     collections::btree_map::BTreeMap,
     marker::PhantomData,
     sync::{
         mpsc,
         mpsc::{Receiver, Sender},
-    },
+    }, time::Duration,
 };
 
 #[derive(Debug)]
@@ -42,6 +42,8 @@ enum CommitRole {
     Coordinator(Vec<Sender<TxnIndex>>, usize),
     Worker(Receiver<TxnIndex>),
 }
+
+pub static THREADS_PER_COUNTER: OnceCell<usize> = OnceCell::new();
 
 pub static RAYON_EXEC_POOL: Lazy<rayon::ThreadPool> = Lazy::new(|| {
     rayon::ThreadPoolBuilder::new()
@@ -55,6 +57,7 @@ pub struct BlockExecutor<T, E, S> {
     // number of active concurrent tasks, corresponding to the maximum number of rayon
     // threads that may be concurrently participating in parallel execution.
     concurrency_level: usize,
+    threads_per_counter: usize,
     phantom: PhantomData<(T, E, S)>,
 }
 
@@ -74,6 +77,7 @@ where
         );
         Self {
             concurrency_level,
+            threads_per_counter: THREADS_PER_COUNTER.get().copied().unwrap_or(1024),
             phantom: PhantomData,
         }
     }
@@ -161,6 +165,7 @@ where
         last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
         versioned_cache: &MVHashMap<T::Key, T::Value, ExecutableTestType>,
         scheduler: &Scheduler,
+        group_idx: usize,
     ) -> SchedulerTask {
         use MVDataError::*;
         use MVDataOutput::*;
@@ -203,7 +208,7 @@ where
                 versioned_cache.mark_estimate(&k, idx_to_validate);
             }
 
-            scheduler.finish_abort(idx_to_validate, incarnation)
+            scheduler.finish_abort(idx_to_validate, incarnation, group_idx)
         } else {
             scheduler.finish_validation(idx_to_validate, validation_wave);
             SchedulerTask::NoTask
@@ -262,6 +267,7 @@ where
         scheduler: &Scheduler,
         base_view: &S,
         role: CommitRole,
+        group_idx: usize,
     ) {
         // Make executor for each task. TODO: fast concurrent executor.
         let init_timer = VM_INIT_SECONDS.start_timer();
@@ -273,6 +279,8 @@ where
         let _timer = WORK_WITH_TASK_SECONDS.start_timer();
         let mut scheduler_task = SchedulerTask::NoTask;
         loop {
+            // std::thread::sleep(std::time::Duration::from_millis(100));
+
             // Only one thread does try_commit to avoid contention.
             match &role {
                 CommitRole::Coordinator(post_commit_txs, mut idx) => {
@@ -297,6 +305,10 @@ where
                 },
             }
 
+            sample!(
+                SampleRate::Duration(Duration::from_secs(2)),
+                info!("Thread from {} group_idx with {:?} role executing task {:?}, current counters: {:?} out of {}", group_idx, role, scheduler_task, scheduler.execution_idxs, scheduler.num_txns)
+            );
             scheduler_task = match scheduler_task {
                 SchedulerTask::ValidationTask(version_to_validate, wave) => self.validate(
                     version_to_validate,
@@ -304,6 +316,7 @@ where
                     last_input_output,
                     versioned_cache,
                     scheduler,
+                    group_idx,
                 ),
                 SchedulerTask::ExecutionTask(version_to_execute, None) => self.execute(
                     version_to_execute,
@@ -323,7 +336,7 @@ where
 
                     SchedulerTask::NoTask
                 },
-                SchedulerTask::NoTask => scheduler.next_task(committing),
+                SchedulerTask::NoTask => scheduler.next_task(committing, group_idx),
                 SchedulerTask::Done => {
                     // Make sure to drain any remaining commit tasks assigned by the coordinator.
                     if let CommitRole::Worker(rx) = &role {
@@ -364,7 +377,9 @@ where
 
         let num_txns = signature_verified_block.len() as u32;
         let last_input_output = TxnLastInputOutput::new(num_txns);
-        let scheduler = Scheduler::new(num_txns);
+        let num_groups = (self.concurrency_level / self.threads_per_counter).max(1);
+        info!("Executing block with {} thread groups and {} threads with {} txns", num_groups, self.concurrency_level, num_txns);
+        let scheduler = Scheduler::new(num_txns, num_groups);
 
         let mut roles: Vec<CommitRole> = vec![];
         let mut senders = Vec::with_capacity(self.concurrency_level - 1);
@@ -382,17 +397,24 @@ where
 
         let timer = RAYON_EXECUTION_SECONDS.start_timer();
         RAYON_EXEC_POOL.scope(|s| {
-            for _ in 0..self.concurrency_level {
+            for i in 0..self.concurrency_level {
                 let role = roles.pop().expect("Role must be set for all threads");
-                s.spawn(|_| {
+                let group_idx = i % num_groups;
+                let executor_initial_arguments_ref = &executor_initial_arguments;
+                let last_input_output_ref = &last_input_output;
+                let versioned_cache_ref = &versioned_cache;
+                let scheduler_ref = &scheduler;
+
+                s.spawn(move |_| {
                     self.work_task_with_scope(
-                        &executor_initial_arguments,
+                        executor_initial_arguments_ref,
                         signature_verified_block,
-                        &last_input_output,
-                        &versioned_cache,
-                        &scheduler,
+                        last_input_output_ref,
+                        versioned_cache_ref,
+                        scheduler_ref,
                         base_view,
                         role,
+                        group_idx,
                     );
                 });
             }

@@ -166,7 +166,7 @@ impl ValidationStatus {
 
 pub struct Scheduler {
     /// Number of txns to execute, immutable.
-    num_txns: TxnIndex,
+    pub num_txns: TxnIndex,
 
     /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
     /// should be re-executed once transaction i's next incarnation finishes.
@@ -189,7 +189,7 @@ pub struct Scheduler {
     /// transaction, if the status of the txn is 'ReadyToExecute'. This implements a counting-based
     /// concurrent ordered set. It is reduced as necessary when transactions become ready to be
     /// executed, in particular, when execution finishes and dependencies are resolved.
-    execution_idx: AtomicU32,
+    pub execution_idxs: Vec<CachePadded<AtomicU32>>,
     /// The first 32 bits identifies a validation wave while the last 32 bits contain an index
     /// that tracks the minimum of all transaction indices that require validation.
     /// The threads increment this index and attempt to create a validation task for the
@@ -208,7 +208,7 @@ pub struct Scheduler {
 
 /// Public Interfaces for the Scheduler
 impl Scheduler {
-    pub fn new(num_txns: TxnIndex) -> Self {
+    pub fn new(num_txns: TxnIndex, num_groups: usize) -> Self {
         // Empty block should early return and not create a scheduler.
         assert!(num_txns > 0, "No scheduler needed for 0 transactions");
 
@@ -226,7 +226,8 @@ impl Scheduler {
                 })
                 .collect(),
             commit_state: CachePadded::new(Mutex::new((0, 0))),
-            execution_idx: AtomicU32::new(0),
+            execution_idxs: (0..num_groups).map(|i|
+                CachePadded::new(AtomicU32::new(i as u32))).collect(),
             validation_idx: AtomicU64::new(0),
             done_marker: CachePadded::new(AtomicBool::new(false)),
         }
@@ -304,7 +305,7 @@ impl Scheduler {
     }
 
     /// Return the next task for the thread.
-    pub fn next_task(&self, committing: bool) -> SchedulerTask {
+    pub fn next_task(&self, committing: bool, group_idx: usize) -> SchedulerTask {
         let _timer = GET_NEXT_TASK_SECONDS.start_timer();
         loop {
             if self.done() {
@@ -314,7 +315,7 @@ impl Scheduler {
 
             let (idx_to_validate, wave) =
                 Self::unpack_validation_idx(self.validation_idx.load(Ordering::Acquire));
-            let idx_to_execute = self.execution_idx.load(Ordering::Acquire);
+            let idx_to_execute = self.execution_idxs[group_idx].load(Ordering::Acquire);
 
             let prefer_validate = idx_to_validate < min(idx_to_execute, self.num_txns)
                 && !self.never_executed(idx_to_validate);
@@ -343,7 +344,7 @@ impl Scheduler {
                     return SchedulerTask::ValidationTask(version_to_validate, wave);
                 }
             } else if let Some((version_to_execute, maybe_condvar)) =
-                self.try_execute_next_version()
+                self.try_execute_next_version(group_idx)
             {
                 return SchedulerTask::ExecutionTask(version_to_execute, maybe_condvar);
             }
@@ -440,8 +441,12 @@ impl Scheduler {
         if let Some(execution_target_idx) = min_dep {
             // Decrease the execution index as necessary to ensure resolved dependencies
             // get a chance to be re-executed.
-            self.execution_idx
-                .fetch_min(execution_target_idx, Ordering::SeqCst);
+
+            let offset = execution_target_idx as usize % self.execution_idxs.len();
+            for i in 0..self.execution_idxs.len() {
+                let idx = (i + offset) % self.execution_idxs.len();
+                self.execution_idxs[idx].fetch_min(execution_target_idx + i as u32, Ordering::SeqCst);
+            }
         }
 
         let (cur_val_idx, mut cur_wave) =
@@ -468,7 +473,7 @@ impl Scheduler {
 
     /// Finalize a validation task of version (txn_idx, incarnation). In some cases,
     /// may return a re-execution task back to the caller (otherwise, NoTask).
-    pub fn finish_abort(&self, txn_idx: TxnIndex, incarnation: Incarnation) -> SchedulerTask {
+    pub fn finish_abort(&self, txn_idx: TxnIndex, incarnation: Incarnation, group_idx: usize) -> SchedulerTask {
         {
             // acquire exclusive lock on the validation status of txn_idx, and hold the lock
             // while calling decrease_validation_idx below. Otherwise, this thread might get
@@ -490,8 +495,9 @@ impl Scheduler {
             // can release the lock early.
         }
 
+        // assert!(txn_idx as usize % self.execution_idxs.len() == group_idx, "txn_idx: {}, group_idx: {}, execution_len: {}", txn_idx, group_idx, self.execution_idxs.len());
         // txn_idx must be re-executed, and if execution_idx is lower, it will be.
-        if self.execution_idx.load(Ordering::Acquire) > txn_idx {
+        if self.execution_idxs[txn_idx as usize % self.execution_idxs.len()].load(Ordering::Acquire) > txn_idx {
             // Optimization: execution_idx is higher than txn_idx, but decreasing it may
             // lead to wasted work for all indices between txn_idx and execution_idx.
             // Instead, attempt to create a new incarnation and return the corresponding
@@ -663,8 +669,8 @@ impl Scheduler {
     /// to create the next incarnation (should happen exactly once), and if successful,
     /// return the version to the caller for the corresponding ExecutionTask.
     /// - Otherwise, return None.
-    fn try_execute_next_version(&self) -> Option<(Version, Option<DependencyCondvar>)> {
-        let idx_to_execute = self.execution_idx.fetch_add(1, Ordering::SeqCst);
+    fn try_execute_next_version(&self, group_idx: usize) -> Option<(Version, Option<DependencyCondvar>)> {
+        let idx_to_execute = self.execution_idxs[group_idx].fetch_add(self.execution_idxs.len() as u32, Ordering::SeqCst);
 
         if idx_to_execute >= self.num_txns {
             return None;
