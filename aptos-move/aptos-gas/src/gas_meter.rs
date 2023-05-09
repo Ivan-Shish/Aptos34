@@ -960,43 +960,43 @@ impl AptosGasMeter for StandardGasMeter {
         amount: Fee,
         gas_unit_price: FeePerGasUnit,
     ) -> PartialVMResult<()> {
-        let txn_params = &self.gas_params.txn;
+        // let txn_params = &self.gas_params.txn;
 
-        // Because the storage fees are defined in terms of fixed APT costs, we need
-        // to convert them into gas units.
-        //
-        // u128 is used to protect against overflow and preverse as much precision as
-        // possible in the extreme cases.
-        fn div_ceil(n: u128, d: u128) -> u128 {
-            if n % d == 0 {
-                n / d
-            } else {
-                n / d + 1
-            }
-        }
-        let gas_consumed_internal = div_ceil(
-            (u64::from(amount) as u128) * (u64::from(txn_params.gas_unit_scaling_factor) as u128),
-            u64::from(gas_unit_price) as u128,
-        );
-        let gas_consumed_internal = InternalGas::new(
-            if gas_consumed_internal > u64::MAX as u128 {
-                error!(
-                    "Something's wrong in the gas schedule: gas_consumed_internal ({}) > u64::MAX",
-                    gas_consumed_internal
-                );
-                u64::MAX
-            } else {
-                gas_consumed_internal as u64
-            },
-        );
+        // // Because the storage fees are defined in terms of fixed APT costs, we need
+        // // to convert them into gas units.
+        // //
+        // // u128 is used to protect against overflow and preverse as much precision as
+        // // possible in the extreme cases.
+        // fn div_ceil(n: u128, d: u128) -> u128 {
+        //     if n % d == 0 {
+        //         n / d
+        //     } else {
+        //         n / d + 1
+        //     }
+        // }
+        // let gas_consumed_internal = div_ceil(
+        //     (u64::from(amount) as u128) * (u64::from(txn_params.gas_unit_scaling_factor) as u128),
+        //     u64::from(gas_unit_price) as u128,
+        // );
+        // let gas_consumed_internal = InternalGas::new(
+        //     if gas_consumed_internal > u64::MAX as u128 {
+        //         error!(
+        //             "Something's wrong in the gas schedule: gas_consumed_internal ({}) > u64::MAX",
+        //             gas_consumed_internal
+        //         );
+        //         u64::MAX
+        //     } else {
+        //         gas_consumed_internal as u64
+        //     },
+        // );
 
-        self.charge(gas_consumed_internal)?;
+        // self.charge(gas_consumed_internal)?;
 
-        self.storage_fee_used += amount;
-        if self.feature_version >= 7 && self.storage_fee_used > self.gas_params.txn.max_storage_fee
-        {
-            return Err(PartialVMError::new(StatusCode::STORAGE_LIMIT_REACHED));
-        }
+        // self.storage_fee_used += amount;
+        // if self.feature_version >= 7 && self.storage_fee_used > self.gas_params.txn.max_storage_fee
+        // {
+        //     return Err(PartialVMError::new(StatusCode::STORAGE_LIMIT_REACHED));
+        // }
 
         Ok(())
     }
