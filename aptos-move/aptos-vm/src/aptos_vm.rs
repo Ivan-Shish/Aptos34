@@ -13,6 +13,7 @@ use crate::{
     delta_state_view::DeltaStateView,
     errors::expect_only_successful_execution,
     move_vm_ext::{MoveResolverExt, SessionExt, SessionId},
+    sharded_block_executor::ShardedBlockExecutor,
     system_module_names::*,
     transaction_metadata::TransactionMetadata,
     verifier, VMExecutor, VMValidator,
@@ -75,15 +76,17 @@ use std::{
     marker::Sync,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
-static EXECUTION_CONCURRENCY_LEVEL: OnceCell<usize> = OnceCell::new();
+static EXECUTION_CONCURRENCY_LEVEL_PER_SHARD: OnceCell<usize> = OnceCell::new();
+static NUM_EXECUTION_SHARDS: OnceCell<usize> = OnceCell::new();
 static NUM_PROOF_READING_THREADS: OnceCell<usize> = OnceCell::new();
 static PARANOID_TYPE_CHECKS: OnceCell<bool> = OnceCell::new();
 static PROCESSED_TRANSACTIONS_DETAILED_COUNTERS: OnceCell<bool> = OnceCell::new();
 static TIMED_FEATURE_OVERRIDE: OnceCell<TimedFeatureOverride> = OnceCell::new();
+//static SHARDED_BLOCK_EXECUTOR: OnceCell<Lazy<Arc<Mutex<ShardedBlockExecutor>>>> = OnceCell::new();
 
 pub static RAYON_EXEC_POOL: Lazy<Arc<rayon::ThreadPool>> = Lazy::new(|| {
     Arc::new(
@@ -128,23 +131,51 @@ impl AptosVM {
     }
 
     /// Sets execution concurrency level when invoked the first time.
-    pub fn set_concurrency_level_once(mut concurrency_level: usize) {
+    pub fn set_concurrency_level_per_shard(mut concurrency_level: usize) {
         concurrency_level = min(concurrency_level, num_cpus::get());
         // Only the first call succeeds, due to OnceCell semantics.
-        EXECUTION_CONCURRENCY_LEVEL.set(concurrency_level).ok();
+        EXECUTION_CONCURRENCY_LEVEL_PER_SHARD
+            .set(concurrency_level)
+            .ok();
+    }
+
+    /// Sets number of execution shards when invoked the first time.
+    pub fn set_num_execution_shards(mut num_shards: usize) {
+        num_shards = min(num_shards, 1);
+        // Only the first call succeeds, due to OnceCell semantics.
+        NUM_EXECUTION_SHARDS.set(num_shards).ok();
+    }
+
+    /// Gets the number of execution shards
+    pub fn get_num_execution_shards() -> usize {
+        match NUM_EXECUTION_SHARDS.get() {
+            Some(num_shards) => *num_shards,
+            None => 1,
+        }
     }
 
     /// Get the concurrency level if already set, otherwise return default 1
     /// (sequential execution).
     ///
     /// The concurrency level is fixed to 1 if gas profiling is enabled.
-    pub fn get_concurrency_level() -> usize {
-        match EXECUTION_CONCURRENCY_LEVEL.get() {
+    pub fn get_concurrency_level_per_shard() -> usize {
+        match EXECUTION_CONCURRENCY_LEVEL_PER_SHARD.get() {
             Some(concurrency_level) => *concurrency_level,
             None => 1,
         }
     }
 
+    // pub fn init_sharded_block_executor() {
+    //     SHARDED_BLOCK_EXECUTOR
+    //         .set(Lazy::new(|| {
+    //             Arc::new(Mutex::new(ShardedBlockExecutor::new(
+    //                 Self::get_num_execution_shards(),
+    //                 Some(Self::get_concurrency_level_per_shard()),
+    //             )))
+    //         }))
+    //         .ok();
+    // }
+    //
     /// Sets runtime config when invoked the first time.
     pub fn set_paranoid_type_checks(enable: bool) {
         // Only the first call succeeds, due to OnceCell semantics.
@@ -1475,7 +1506,7 @@ impl VMExecutor for AptosVM {
             Arc::clone(&RAYON_EXEC_POOL),
             transactions,
             state_view,
-            Self::get_concurrency_level(),
+            Self::get_concurrency_level_per_shard(),
         );
         if ret.is_ok() {
             // Record the histogram count for transactions per block.

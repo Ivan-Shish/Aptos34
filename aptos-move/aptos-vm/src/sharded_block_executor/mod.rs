@@ -6,13 +6,14 @@ use crate::sharded_block_executor::{
     block_partitioner::{BlockPartitioner, UniformPartitioner},
     executor_shard::ExecutorShard,
 };
-use aptos_block_executor::errors::Error;
 use aptos_logger::trace;
 use aptos_state_view::StateView;
-use aptos_types::transaction::{Transaction, TransactionOutput};
+use aptos_types::{
+    state_store::state_key::StateKey,
+    transaction::{Transaction, TransactionOutput},
+};
 use move_core_types::vm_status::VMStatus;
 use std::{
-    marker::PhantomData,
     sync::{
         mpsc::{Receiver, Sender},
         Arc,
@@ -24,26 +25,24 @@ mod block_partitioner;
 mod executor_shard;
 
 /// A wrapper around sharded block executors that manages multiple shards and aggregates the results.
-pub struct ShardedBlockExecutor<S: StateView + Sync + Send + 'static> {
+pub struct ShardedBlockExecutor<'a> {
     num_executor_shards: usize,
     partitioner: Arc<dyn BlockPartitioner>,
-    command_txs: Vec<Sender<ExecutorShardCommand>>,
+    command_txs: Vec<Sender<ExecutorShardCommand<'a>>>,
     shard_threads: Vec<thread::JoinHandle<()>>,
-    result_rxs: Vec<Receiver<Result<Vec<TransactionOutput>, Error<VMStatus>>>>,
-    phantom: PhantomData<S>,
+    result_rxs: Vec<Receiver<Result<Vec<TransactionOutput>, VMStatus>>>,
 }
 
-pub enum ExecutorShardCommand {
-    ExecuteBlock(Vec<Transaction>),
+pub enum ExecutorShardCommand<'a> {
+    ExecuteBlock(
+        &'a (dyn StateView<Key = StateKey> + Send + Sync),
+        Vec<Transaction>,
+    ),
     Stop,
 }
 
-impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
-    pub fn new(
-        num_executor_shards: usize,
-        num_threads_per_executor: Option<usize>,
-        state_view: Arc<S>,
-    ) -> Self {
+impl ShardedBlockExecutor<'_> {
+    pub fn new(num_executor_shards: usize, num_threads_per_executor: Option<usize>) -> Self {
         assert!(num_executor_shards > 0, "num_executor_shards must be > 0");
         let num_threads_per_executor = num_threads_per_executor.unwrap_or_else(|| {
             (num_cpus::get() as f64 / num_executor_shards as f64).ceil() as usize
@@ -59,7 +58,6 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
             shard_join_handles.push(spawn_executor_shard(
                 i,
                 num_threads_per_executor,
-                state_view.clone(),
                 transactions_rx,
                 result_tx,
             ));
@@ -70,7 +68,6 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
             command_txs,
             shard_threads: shard_join_handles,
             result_rxs,
-            phantom: PhantomData,
         }
     }
 
@@ -78,12 +75,13 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
     /// dispatching each partition to a remote executor shard.
     pub fn execute_block(
         &self,
+        state_view: &(impl StateView + Sync + Send),
         block: Vec<Transaction>,
-    ) -> Result<Vec<TransactionOutput>, Error<VMStatus>> {
+    ) -> Result<Vec<TransactionOutput>, VMStatus> {
         let block_partitions = self.partitioner.partition(block, self.num_executor_shards);
         for (i, transactions) in block_partitions.into_iter().enumerate() {
             self.command_txs[i]
-                .send(ExecutorShardCommand::ExecuteBlock(transactions))
+                .send(ExecutorShardCommand::ExecuteBlock(state_view, transactions))
                 .unwrap();
         }
         // wait for all remote executors to send the result back and append them in order by shard id
@@ -97,7 +95,7 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
     }
 }
 
-impl<S: StateView + Sync + Send + 'static> Drop for ShardedBlockExecutor<S> {
+impl Drop for ShardedBlockExecutor<'_> {
     fn drop(&mut self) {
         // send stop command to all executor shards
         for command_tx in self.command_txs.iter() {
@@ -111,24 +109,18 @@ impl<S: StateView + Sync + Send + 'static> Drop for ShardedBlockExecutor<S> {
     }
 }
 
-fn spawn_executor_shard<S: StateView + Sync + Send + 'static>(
+fn spawn_executor_shard(
     shard_id: usize,
     concurrency_level: usize,
-    state_view: Arc<S>,
     command_rx: Receiver<ExecutorShardCommand>,
-    result_tx: Sender<Result<Vec<TransactionOutput>, Error<VMStatus>>>,
+    result_tx: Sender<Result<Vec<TransactionOutput>, VMStatus>>,
 ) -> thread::JoinHandle<()> {
     // create and start a new executor shard in a separate thread
     thread::Builder::new()
         .name(format!("executor-shard-{}", shard_id))
         .spawn(move || {
-            let executor_shard = ExecutorShard::new(
-                shard_id,
-                concurrency_level,
-                state_view.clone(),
-                command_rx,
-                result_tx,
-            );
+            let executor_shard =
+                ExecutorShard::new(shard_id, concurrency_level, command_rx, result_tx);
             executor_shard.start();
         })
         .unwrap()
