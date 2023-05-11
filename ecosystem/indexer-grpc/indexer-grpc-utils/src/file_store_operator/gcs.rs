@@ -10,14 +10,14 @@ const JSON_FILE_TYPE: &str = "application/json";
 pub struct GcsFileStoreOperator {
     bucket_name: String,
     /// The timestamp of the latest metadata update; this is to avoid too frequent metadata update.
-    latest_metadata_update_timestamp: std::time::Instant,
+    latest_metadata_update_timestamp: Option<std::time::Instant>,
 }
 
 impl GcsFileStoreOperator {
     pub fn new(bucket_name: String) -> Self {
         Self {
             bucket_name,
-            latest_metadata_update_timestamp: std::time::Instant::now(),
+            latest_metadata_update_timestamp: None,
         }
     }
 }
@@ -129,14 +129,16 @@ impl FileStoreOperator for GcsFileStoreOperator {
         }
     }
 
-    /// Updates the file store metadata. This is only performed by the operator when new file transactions are uploaded.
     async fn update_file_store_metadata(
         &mut self,
         chain_id: u64,
         version: u64,
     ) -> anyhow::Result<()> {
-        if (std::time::Instant::now() - self.latest_metadata_update_timestamp).as_secs() < 5 {
-            return Ok(());
+        // if we already have a timestamp and it's less than a minimum threshold old, don't update
+        if let Some(latest_metadata_update_timestamp) = self.latest_metadata_update_timestamp {
+            if (std::time::Instant::now() - latest_metadata_update_timestamp).as_secs() < 5 {
+                return Ok(());
+            }
         }
 
         let metadata = FileStoreMetadata::new(chain_id, version);
@@ -150,7 +152,7 @@ impl FileStoreOperator for GcsFileStoreOperator {
         .await
         {
             Ok(_) => {
-                self.latest_metadata_update_timestamp = std::time::Instant::now();
+                self.latest_metadata_update_timestamp = Some(std::time::Instant::now());
                 Ok(())
             },
             Err(err) => Err(anyhow::Error::from(err)),

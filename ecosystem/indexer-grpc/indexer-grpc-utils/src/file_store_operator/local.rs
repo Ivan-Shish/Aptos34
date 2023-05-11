@@ -2,20 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{constants::BLOB_STORAGE_SIZE, file_store_operator::*, EncodedTransactionWithVersion};
+use aptos_logger::info;
 use itertools::{any, Itertools};
 use std::path::PathBuf;
 
 pub struct LocalFileStoreOperator {
     path: PathBuf,
     /// The timestamp of the latest metadata update; this is to avoid too frequent metadata update.
-    latest_metadata_update_timestamp: std::time::Instant,
+    latest_metadata_update_timestamp: Option<std::time::Instant>,
 }
 
 impl LocalFileStoreOperator {
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
-            latest_metadata_update_timestamp: std::time::Instant::now(),
+            latest_metadata_update_timestamp: None,
         }
     }
 }
@@ -116,8 +117,11 @@ impl FileStoreOperator for LocalFileStoreOperator {
         chain_id: u64,
         version: u64,
     ) -> anyhow::Result<()> {
-        if (std::time::Instant::now() - self.latest_metadata_update_timestamp).as_secs() < 5 {
-            return Ok(());
+        // if we already have a timestamp and it's less than a minimum threshold old, don't update
+        if let Some(latest_metadata_update_timestamp) = self.latest_metadata_update_timestamp {
+            if (std::time::Instant::now() - latest_metadata_update_timestamp).as_secs() < 5 {
+                return Ok(());
+            }
         }
 
         let metadata = FileStoreMetadata::new(chain_id, version);
@@ -125,7 +129,7 @@ impl FileStoreOperator for LocalFileStoreOperator {
         let metadata_path = self.path.join(METADATA_FILE_NAME);
         match tokio::fs::write(metadata_path, serde_json::to_vec(&metadata).unwrap()).await {
             Ok(_) => {
-                self.latest_metadata_update_timestamp = std::time::Instant::now();
+                self.latest_metadata_update_timestamp = Some(std::time::Instant::now());
                 Ok(())
             },
             Err(err) => Err(anyhow::Error::from(err)),

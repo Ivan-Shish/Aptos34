@@ -65,7 +65,7 @@ pub trait FileStoreOperator: Send + Sync {
         &mut self,
         expected_chain_id: u64,
     ) -> anyhow::Result<FileStoreMetadata>;
-    /// Updates the file store metadata. This is only performed by the operator when new file transactions are uploaded.
+    /// Updates the file store metadata. This is only performed by the operator when new file transactions are uploaded or upon startup
     async fn update_file_store_metadata(
         &mut self,
         chain_id: u64,

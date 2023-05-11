@@ -10,6 +10,7 @@ use aptos_indexer_grpc_utils::{
     file_store_operator::{FileStoreOperator, GcsFileStoreOperator, LocalFileStoreOperator},
     EncodedTransactionWithVersion,
 };
+use aptos_logger::info;
 use aptos_moving_average::MovingAverage;
 use std::time::Duration;
 
@@ -144,7 +145,7 @@ impl Processor {
                 .unwrap();
             PROCESSED_VERSIONS_COUNT.inc_by(process_size as u64);
             tps_calculator.tick_now(process_size as u64);
-            aptos_logger::info!(
+            info!(
                 tps = (tps_calculator.avg() * 1000.0) as u64,
                 current_file_store_version = current_file_store_version,
                 "Upload transactions to file store."

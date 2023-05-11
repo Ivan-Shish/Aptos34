@@ -80,3 +80,25 @@ pub fn time_diff_since_pb_timestamp_in_secs(timestamp: &Timestamp) -> f64 {
     let transaction_time = timestamp.seconds as f64 + timestamp.nanos as f64 * 1e-9;
     current_timestamp - transaction_time
 }
+
+#[cfg(test)]
+mod tests {
+    use std::thread::current;
+
+    use super::*;
+
+    #[test]
+    fn test_build_protobuf_encoded_transaction_wrappers() {
+        let starting_version: u64 = 100;
+        let encoded_transactions = vec!["txn0".to_string(), "txn1".to_string(), "txn2".to_string()];
+        let expected = vec![
+            ("txn0".to_string(), 100),
+            ("txn1".to_string(), 101),
+            ("txn2".to_string(), 102),
+        ];
+        assert_eq!(
+            build_protobuf_encoded_transaction_wrappers(encoded_transactions, starting_version),
+            expected
+        );
+    }
+}
