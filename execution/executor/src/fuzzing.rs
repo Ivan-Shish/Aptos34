@@ -57,9 +57,9 @@ impl TransactionBlockExecutor<Transaction> for FakeVM {
 }
 
 impl VMExecutor for FakeVM {
-    fn execute_block(
+    fn execute_block<S: StateView + Sync + Send>(
         _transactions: Vec<Transaction>,
-        _state_view: &impl StateView,
+        _state_view: &S,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
         Ok(Vec::new())
     }

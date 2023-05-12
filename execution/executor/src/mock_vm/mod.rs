@@ -67,9 +67,9 @@ impl TransactionBlockExecutor<Transaction> for MockVM {
 }
 
 impl VMExecutor for MockVM {
-    fn execute_block(
+    fn execute_block<S: StateView + Sync + Send>(
         transactions: Vec<Transaction>,
-        state_view: &impl StateView,
+        state_view: &S,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
         if state_view.is_genesis() {
             assert_eq!(

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::{block_executor::BlockAptosVM, sharded_block_executor::ExecutorShardCommand};
 use aptos_logger::trace;
+use aptos_state_view::StateView;
 use aptos_types::transaction::TransactionOutput;
 use move_core_types::vm_status::VMStatus;
 use std::sync::{
@@ -12,19 +13,19 @@ use std::sync::{
 
 /// A remote block executor that receives transactions from a channel and executes them in parallel.
 /// Currently it runs in the local machine and it will be further extended to run in a remote machine.
-pub struct ExecutorShard<'a> {
+pub struct ExecutorShard<'a, S: StateView + Sync + Send + 'static> {
     shard_id: usize,
     executor_thread_pool: Arc<rayon::ThreadPool>,
     num_executor_threads: usize,
-    command_rx: Receiver<ExecutorShardCommand>,
+    command_rx: Receiver<ExecutorShardCommand<'a, S>>,
     result_tx: Sender<Result<Vec<TransactionOutput>, VMStatus>>,
 }
 
-impl ExecutorShard<'_> {
+impl<'a, S: StateView + Sync + Send + 'static> ExecutorShard<'a, S> {
     pub fn new(
         shard_id: usize,
         concurrency_level: usize,
-        command_rx: Receiver<ExecutorShardCommand>,
+        command_rx: Receiver<ExecutorShardCommand<'a, S>>,
         result_tx: Sender<Result<Vec<TransactionOutput>, VMStatus>>,
     ) -> Self {
         let executor_thread_pool = Arc::new(

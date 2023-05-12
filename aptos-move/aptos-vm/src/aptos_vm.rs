@@ -7,7 +7,6 @@ use crate::{
         discard_error_output, discard_error_vm_status, PreprocessedTransaction, VMAdapter,
     },
     aptos_vm_impl::{get_transaction_output, AptosVMImpl, AptosVMInternals},
-    block_executor::BlockAptosVM,
     counters::*,
     data_cache::{AsMoveResolver, IntoMoveResolver, StorageAdapter},
     delta_state_view::DeltaStateView,
@@ -76,7 +75,7 @@ use std::{
     marker::Sync,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
@@ -86,6 +85,9 @@ static NUM_PROOF_READING_THREADS: OnceCell<usize> = OnceCell::new();
 static PARANOID_TYPE_CHECKS: OnceCell<bool> = OnceCell::new();
 static PROCESSED_TRANSACTIONS_DETAILED_COUNTERS: OnceCell<bool> = OnceCell::new();
 static TIMED_FEATURE_OVERRIDE: OnceCell<TimedFeatureOverride> = OnceCell::new();
+// static SHARDED_BLOCK_EXECUTOR: Lazy<
+//     Arc<Mutex<Box<OnceCell<ShardedBlockExecutor<CachedStateView>>>>>,
+// > = Lazy::new(|| Arc::new(Mutex::new(Box::new(OnceCell::new()))));
 //static SHARDED_BLOCK_EXECUTOR: OnceCell<Lazy<Arc<Mutex<ShardedBlockExecutor>>>> = OnceCell::new();
 
 pub static RAYON_EXEC_POOL: Lazy<Arc<rayon::ThreadPool>> = Lazy::new(|| {
@@ -1483,9 +1485,10 @@ impl VMExecutor for AptosVM {
     /// have an empty `WriteSet`. Also `state_view` is immutable, and does not have interior
     /// mutability. Writes to be applied to the data view are encoded in the write set part of a
     /// transaction output.
-    fn execute_block(
+    fn execute_block<'a, S: StateView + Sync + Send>(
+        sharded_block_executor: Arc<ShardedBlockExecutor<'a, S>>,
         transactions: Vec<Transaction>,
-        state_view: &(impl StateView + Sync),
+        state_view: &'a S,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
         fail_point!("move_adapter::execute_block", |_| {
             Err(VMStatus::Error(
@@ -1502,12 +1505,7 @@ impl VMExecutor for AptosVM {
         );
 
         let count = transactions.len();
-        let ret = BlockAptosVM::execute_block(
-            Arc::clone(&RAYON_EXEC_POOL),
-            transactions,
-            state_view,
-            Self::get_concurrency_level_per_shard(),
-        );
+        let ret = sharded_block_executor.execute_block(state_view, transactions);
         if ret.is_ok() {
             // Record the histogram count for transactions per block.
             BLOCK_TRANSACTION_COUNT.observe(count as f64);

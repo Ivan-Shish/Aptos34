@@ -162,6 +162,7 @@ struct TransactionBenchState<S> {
     parallel_block_executor: Arc<ShardedBlockExecutor<FakeDataStore>>,
     sequential_block_executor: Arc<ShardedBlockExecutor<FakeDataStore>>,
     validator_set: ValidatorSet,
+    state_view: Arc<FakeDataStore>,
 }
 
 impl<S> TransactionBenchState<S>
@@ -229,6 +230,7 @@ where
             parallel_block_executor,
             sequential_block_executor,
             validator_set,
+            state_view,
         }
     }
 
@@ -288,7 +290,7 @@ where
         let txns = self.gen_transaction(false);
         let executor = self.parallel_block_executor.clone();
         executor
-            .execute_block(self.state_view.clone, txns)
+            .execute_block(self.state_view.clone(), txns)
             .expect("VM should not fail to start");
     }
 
