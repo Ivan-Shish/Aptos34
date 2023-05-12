@@ -75,7 +75,7 @@ use std::{
     marker::Sync,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -85,6 +85,12 @@ static NUM_PROOF_READING_THREADS: OnceCell<usize> = OnceCell::new();
 static PARANOID_TYPE_CHECKS: OnceCell<bool> = OnceCell::new();
 static PROCESSED_TRANSACTIONS_DETAILED_COUNTERS: OnceCell<bool> = OnceCell::new();
 static TIMED_FEATURE_OVERRIDE: OnceCell<TimedFeatureOverride> = OnceCell::new();
+static SHARDED_BLOCK_EXECUTOR: Lazy<Arc<Mutex<Arc<ShardedBlockExecutor>>>> = Lazy::new(|| {
+    Arc::new(Mutex::new(Arc::new(ShardedBlockExecutor::new(
+        AptosVM::get_num_execution_shards(),
+        Some(AptosVM::get_concurrency_level_per_shard()),
+    ))))
+});
 // static SHARDED_BLOCK_EXECUTOR: Lazy<
 //     Arc<Mutex<Box<OnceCell<ShardedBlockExecutor<CachedStateView>>>>>,
 // > = Lazy::new(|| Arc::new(Mutex::new(Box::new(OnceCell::new()))));
@@ -1485,10 +1491,9 @@ impl VMExecutor for AptosVM {
     /// have an empty `WriteSet`. Also `state_view` is immutable, and does not have interior
     /// mutability. Writes to be applied to the data view are encoded in the write set part of a
     /// transaction output.
-    fn execute_block<'a, S: StateView + Sync + Send>(
-        sharded_block_executor: Arc<ShardedBlockExecutor<'a, S>>,
+    fn execute_block<S: StateView + Sync + Send + 'static>(
         transactions: Vec<Transaction>,
-        state_view: &'a S,
+        state_view: &S,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
         fail_point!("move_adapter::execute_block", |_| {
             Err(VMStatus::Error(
@@ -1505,7 +1510,10 @@ impl VMExecutor for AptosVM {
         );
 
         let count = transactions.len();
-        let ret = sharded_block_executor.execute_block(state_view, transactions);
+        let ret = SHARDED_BLOCK_EXECUTOR
+            .lock()
+            .unwrap()
+            .execute_block(state_view, transactions);
         if ret.is_ok() {
             // Record the histogram count for transactions per block.
             BLOCK_TRANSACTION_COUNT.observe(count as f64);

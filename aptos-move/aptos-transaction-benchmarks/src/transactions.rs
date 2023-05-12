@@ -159,10 +159,10 @@ struct TransactionBenchState<S> {
     num_transactions: usize,
     strategy: S,
     account_universe: AccountUniverse,
-    parallel_block_executor: Arc<ShardedBlockExecutor<FakeDataStore>>,
-    sequential_block_executor: Arc<ShardedBlockExecutor<FakeDataStore>>,
+    parallel_block_executor: Arc<ShardedBlockExecutor>,
+    sequential_block_executor: Arc<ShardedBlockExecutor>,
     validator_set: ValidatorSet,
-    state_view: Arc<FakeDataStore>,
+    state_view: FakeDataStore,
 }
 
 impl<S> TransactionBenchState<S>
@@ -209,7 +209,7 @@ where
         // characteristics.
         let universe = universe_gen.setup_gas_cost_stability(&mut executor);
 
-        let state_view = Arc::new(executor.get_state_view().clone());
+        let state_view = executor.get_state_view().clone();
         let parallel_block_executor = Arc::new(ShardedBlockExecutor::new(
             num_executor_shards,
             Some(concurrency_level_per_shard),
@@ -279,7 +279,7 @@ where
         let txns = self.gen_transaction(false);
         let executor = self.sequential_block_executor;
         executor
-            .execute_block(self.state_view.clone(), txns)
+            .execute_block(&self.state_view, txns)
             .expect("VM should not fail to start");
     }
 
@@ -290,15 +290,15 @@ where
         let txns = self.gen_transaction(false);
         let executor = self.parallel_block_executor.clone();
         executor
-            .execute_block(self.state_view.clone(), txns)
+            .execute_block(&self.state_view, txns)
             .expect("VM should not fail to start");
     }
 
     fn execute_benchmark(
         &self,
-        state_view: Arc<FakeDataStore>,
+        state_view: &FakeDataStore,
         transactions: Vec<Transaction>,
-        block_executor: Arc<ShardedBlockExecutor<FakeDataStore>>,
+        block_executor: Arc<ShardedBlockExecutor>,
     ) -> usize {
         let block_size = transactions.len();
         let timer = Instant::now();
@@ -320,7 +320,7 @@ where
         let par_tps = if run_par {
             println!("Parallel execution starts...");
             let tps = self.execute_benchmark(
-                self.state_view.clone(),
+                &self.state_view,
                 transactions.clone(),
                 self.parallel_block_executor.clone(),
             );
@@ -332,7 +332,7 @@ where
         let seq_tps = if run_seq {
             println!("Sequential execution starts...");
             let tps = self.execute_benchmark(
-                self.state_view.clone(),
+                &self.state_view,
                 transactions,
                 self.sequential_block_executor.clone(),
             );

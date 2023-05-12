@@ -124,13 +124,12 @@ pub mod transaction_metadata;
 mod verifier;
 
 pub use crate::aptos_vm::AptosVM;
-use crate::sharded_block_executor::ShardedBlockExecutor;
 use aptos_state_view::StateView;
 use aptos_types::{
     transaction::{SignedTransaction, Transaction, TransactionOutput, VMValidatorResult},
     vm_status::VMStatus,
 };
-use std::{marker::Sync, sync::Arc};
+use std::marker::Sync;
 pub use verifier::view_function::determine_is_view;
 
 /// This trait describes the VM's validation interfaces.
@@ -151,10 +150,9 @@ pub trait VMExecutor: Send + Sync {
     // sorted out before that's possible.
 
     /// Executes a block of transactions and returns output for each one of them.
-    fn execute_block<'a, S: StateView + Sync + Send>(
-        sharded_block_executor: Arc<ShardedBlockExecutor<'a, S>>,
+    fn execute_block<S: StateView + Sync + Send + 'static>(
         transactions: Vec<Transaction>,
-        state_view: &'a S,
+        state_view: &S,
     ) -> Result<Vec<TransactionOutput>, VMStatus>;
 }
 

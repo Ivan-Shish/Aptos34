@@ -87,7 +87,6 @@ pub fn flush_speculative_logs() {
             },
         },
         None => {
-            alert!("Flush called on uninitialized speculative log storage");
         },
     }
 }
