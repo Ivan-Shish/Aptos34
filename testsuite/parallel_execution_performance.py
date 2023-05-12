@@ -50,9 +50,7 @@ for threads in THREADS:
         command = f"taskset -c 0-{threads-1} cargo run --profile performance param-sweep"
     else:
         command = f"cargo run --profile performance param-sweep"
-    output = subprocess.check_output(
-        command, shell=True, text=True, cwd=target_directory
-    )
+    output = subprocess.check_output(command, shell=True, text=True, cwd=target_directory)
     print(output)
 
     for i, block_size in enumerate(BLOCK_SIZES):
