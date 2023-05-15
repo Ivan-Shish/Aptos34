@@ -171,7 +171,7 @@ impl DeltaOp {
     /// error VM status is returned.
     pub fn try_into_write_op(
         self,
-        state_view: &impl StateView,
+        state_view: &dyn StateView,
         state_key: &StateKey,
     ) -> anyhow::Result<WriteOp, VMStatus> {
         state_view
@@ -319,7 +319,7 @@ impl DeltaChangeSet {
 
     pub(crate) fn take(
         self,
-        state_view: &impl StateView,
+        state_view: &dyn StateView,
     ) -> anyhow::Result<Vec<(StateKey, WriteOp)>, VMStatus> {
         let mut ret = Vec::with_capacity(self.delta_change_set.len());
 
@@ -331,12 +331,10 @@ impl DeltaChangeSet {
         Ok(ret)
     }
 
-    /// Consumes the delta change set and tries to materialize it. Returns a
-    /// mutable write set if materialization succeeds (mutability since we want
-    /// to merge these writes with transaction outputs).
+    /// Consumes the delta change set and tries to materialize it.
     pub fn try_into_write_set(
         self,
-        state_view: &impl StateView,
+        state_view: &dyn StateView,
     ) -> anyhow::Result<WriteSet, VMStatus> {
         let materialized_write_set = self
             .take(state_view)
