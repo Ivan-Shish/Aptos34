@@ -107,6 +107,7 @@ The following vulnerabilities are excluded from the rewards for this bug bounty 
 - Vulnerabilities only exploitable on out-of-date browsers or platforms.
 - Attacks requiring physical access to the victim device.
 - Incorrect data supplied by third party oracles.
+- Attacks caused by incomplete gas metering that slow down the network.
 
 ### Blockchain:
 
