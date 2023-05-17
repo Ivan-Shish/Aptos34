@@ -353,7 +353,7 @@ impl<'r, 'l> SessionExt<'r, 'l> {
 
             match change {
                 AggregatorChange::Write(value) => {
-                    let write_op = woc.convert_aggregator_mod(&state_key, value)?;
+                    let write_op = WriteOp::Modification(serialize(&value));
                     write_set_mut.insert((state_key, write_op));
                 },
                 AggregatorChange::Merge(delta_op) => delta_change_set.insert((state_key, delta_op)),
