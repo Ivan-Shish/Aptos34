@@ -14,6 +14,7 @@ use aptos_config::{
     network_id::NetworkId,
 };
 use aptos_forge::{LocalSwarm, NodeExt, Swarm, SwarmExt};
+use aptos_logger::info;
 use aptos_types::network_address::{NetworkAddress, Protocol};
 use std::{
     collections::HashSet,
@@ -23,7 +24,7 @@ use std::{
 
 #[tokio::test]
 async fn test_full_node_basic_flow() {
-    let mut swarm = local_swarm_with_fullnodes(1, 1).await;
+    let mut swarm = local_swarm_with_fullnodes(4, 4).await;
     let validator_peer_id = swarm.validators().next().unwrap().peer_id();
     let vfn_peer_id = swarm.full_nodes().next().unwrap().peer_id();
     let version = swarm.versions().max().unwrap();
@@ -110,6 +111,98 @@ async fn test_full_node_basic_flow() {
     assert_balance(&pfn_client, &account_1, 13).await;
 }
 
+#[tokio::test]
+async fn test_pfn_route_updates() {
+    // VFN will not forward to other VFN
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
+    vfn_config.mempool.default_failovers = 0;
+    let mut swarm = SwarmBuilder::new_local(2)
+        .with_num_fullnodes(2)
+        .with_aptos()
+        .with_vfn_config(vfn_config)
+        .build()
+        .await;
+    let vfn_peer_ids = swarm.full_nodes().map(|v| v.peer_id()).collect::<Vec<_>>();
+    let version = swarm.versions().max().unwrap();
+    // The PFN only forwards to a single VFN at a time. Route updates allow the txns to succeed.
+    let mut pfn_config = NodeConfig::get_default_pfn_config();
+    pfn_config.mempool.default_failovers = 0;
+    let pfn_peer_id = swarm.add_full_node(&version, pfn_config).await.unwrap();
+    for fullnode in swarm.full_nodes_mut() {
+        fullnode
+            .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_HEALTHY_WAIT_SECS))
+            .await
+            .unwrap();
+    }
+    let transaction_factory = swarm.chain_info().transaction_factory();
+
+    // create client for pfn
+    let pfn_client = swarm.full_node(pfn_peer_id).unwrap().rest_client();
+
+    let mut account_0 = create_and_fund_account(&mut swarm, 10).await;
+    let account_1 = create_and_fund_account(&mut swarm, 10).await;
+
+    swarm
+        .wait_for_all_nodes_to_catchup(Duration::from_secs(MAX_CATCH_UP_WAIT_SECS))
+        .await
+        .unwrap();
+
+    // Send txn to PFN
+    info!("Send txn to PFN, all nodes up");
+    let _txn = transfer_coins(
+        &pfn_client,
+        &transaction_factory,
+        &mut account_0,
+        &account_1,
+        1,
+    )
+    .await;
+    assert_balance(&pfn_client, &account_0, 9).await;
+    assert_balance(&pfn_client, &account_1, 11).await;
+
+    // Turn off a VFN, send txn to PFN
+    let vfn_0 = swarm.full_node_mut(vfn_peer_ids[0]).unwrap();
+    vfn_0.stop().await.unwrap();
+    info!("Send txn to PFN, VFN 0 is down");
+    let _txn = transfer_coins(
+        &pfn_client,
+        &transaction_factory,
+        &mut account_0,
+        &account_1,
+        1,
+    )
+    .await;
+    assert_balance(&pfn_client, &account_0, 8).await;
+    assert_balance(&pfn_client, &account_1, 12).await;
+
+    // Turn the VFN back on
+    vfn_0.start().await.unwrap();
+    vfn_0
+        .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_HEALTHY_WAIT_SECS))
+        .await
+        .unwrap();
+    vfn_0
+        .wait_for_connectivity(Instant::now() + Duration::from_secs(MAX_CONNECTIVITY_WAIT_SECS))
+        .await
+        .unwrap();
+
+    // Turn off the other VFN, send txn to PFN
+    let vfn_1 = swarm.full_node_mut(vfn_peer_ids[0]).unwrap();
+    vfn_1.stop().await.unwrap();
+    info!("Send txn to PFN, VFN 1 is down");
+    let _txn = transfer_coins(
+        &pfn_client,
+        &transaction_factory,
+        &mut account_0,
+        &account_1,
+        1,
+    )
+    .await;
+    assert_balance(&pfn_client, &account_0, 7).await;
+    assert_balance(&pfn_client, &account_1, 13).await;
+}
+
+// TODO: This will always fail because retry has not been implemented yet
 #[tokio::test]
 async fn test_vfn_failover() {
     // VFN failover happens when validator is down even for default_failovers = 0
