@@ -258,9 +258,7 @@ impl AptosVM {
         log_context: &AdapterLogSchema,
         change_set_configs: &ChangeSetConfigs,
     ) -> (VMStatus, TransactionOutputExt) {
-        let mut session = self
-            .0
-            .new_session(resolver, SessionId::txn_meta(txn_data), true);
+        let mut session = self.0.new_session(resolver, SessionId::txn_meta(txn_data));
 
         match TransactionStatus::from(error_code.clone()) {
             TransactionStatus::Keep(status) => {
@@ -338,9 +336,7 @@ impl AptosVM {
         let delta_state_view = DeltaStateView::new(&storage_with_changes, &delta_write_set);
         let resolver = delta_state_view.as_move_resolver();
 
-        let mut session = self
-            .0
-            .new_session(&resolver, SessionId::txn_meta(txn_data), true);
+        let mut session = self.0.new_session(&resolver, SessionId::txn_meta(txn_data));
 
         self.0
             .run_success_epilogue(&mut session, gas_meter.balance(), txn_data, log_context)?;
@@ -688,9 +684,7 @@ impl AptosVM {
             .try_into_write_set(resolver)?;
         let delta_state_view = DeltaStateView::new(&storage_with_changes, &delta_write_set);
         let resolver = delta_state_view.as_move_resolver();
-        let mut cleanup_session =
-            self.0
-                .new_session(&resolver, SessionId::txn_meta(txn_data), true);
+        let mut cleanup_session = self.0.new_session(&resolver, SessionId::txn_meta(txn_data));
         cleanup_session.execute_function_bypass_visibility(
             &MULTISIG_ACCOUNT_MODULE,
             SUCCESSFUL_TRANSACTION_EXECUTION_CLEANUP,
@@ -720,9 +714,7 @@ impl AptosVM {
     ) -> Result<ChangeSetExt, VMStatus> {
         // Start a fresh session for running cleanup that does not contain any changes from
         // the inner function call earlier (since it failed).
-        let mut cleanup_session = self
-            .0
-            .new_session(resolver, SessionId::txn_meta(txn_data), true);
+        let mut cleanup_session = self.0.new_session(resolver, SessionId::txn_meta(txn_data));
         let execution_error = ExecutionError::try_from(execution_error)
             .map_err(|_| VMStatus::Error(StatusCode::UNREACHABLE, None))?;
         // Serialization is not expected to fail so we're using invariant_violation error here.
@@ -1040,7 +1032,7 @@ impl AptosVM {
         gas_meter: &mut impl AptosGasMeter,
     ) -> (VMStatus, TransactionOutputExt) {
         // Revalidate the transaction.
-        let mut session = self.0.new_session(resolver, SessionId::txn(txn), true);
+        let mut session = self.0.new_session(resolver, SessionId::txn(txn));
         if let Err(err) = self.validate_signature_checked_transaction(
             &mut session,
             resolver,
@@ -1057,7 +1049,7 @@ impl AptosVM {
             // have been previously cached in the prologue.
             //
             // TODO(Gas): Do this in a better way in the future, perhaps without forcing the data cache to be flushed.
-            session = self.0.new_session(resolver, SessionId::txn(txn), true);
+            session = self.0.new_session(resolver, SessionId::txn(txn));
         }
 
         let storage_gas_params = unwrap_or_discard!(self.0.get_storage_gas_parameters(log_context));
@@ -1208,7 +1200,7 @@ impl AptosVM {
                 Arc::new(change_set_configs),
             )),
             WriteSetPayload::Script { script, execute_as } => {
-                let mut tmp_session = self.0.new_session(resolver, session_id, true);
+                let mut tmp_session = self.0.new_session(resolver, session_id);
                 let senders = match txn_sender {
                     None => vec![*execute_as],
                     Some(sender) => vec![sender, *execute_as],
@@ -1323,9 +1315,9 @@ impl AptosVM {
             ..Default::default()
         };
         let mut gas_meter = UnmeteredGasMeter;
-        let mut session =
-            self.0
-                .new_session(resolver, SessionId::block_meta(&block_metadata), true);
+        let mut session = self
+            .0
+            .new_session(resolver, SessionId::block_meta(&block_metadata));
 
         let args = serialize_values(&block_metadata.get_prologue_move_args(txn_data.sender));
         session
@@ -1623,7 +1615,7 @@ impl VMAdapter for AptosVM {
         resolver: &'r impl MoveResolverExt,
         session_id: SessionId,
     ) -> SessionExt<'r, '_> {
-        self.0.new_session(resolver, session_id, true)
+        self.0.new_session(resolver, session_id)
     }
 
     fn check_signature(txn: SignedTransaction) -> Result<SignatureCheckedTransaction> {
