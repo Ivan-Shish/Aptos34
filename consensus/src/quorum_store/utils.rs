@@ -362,19 +362,22 @@ impl ProofQueue {
         for key in &expired {
             if let Some(mut queue) = self.author_to_batches.remove(&key.author()) {
                 if let Some(batch) = queue.remove(key) {
-                    if self
-                        .batch_to_proof
-                        .get(&key.batch_key)
-                        .expect("Entry for unexpired batch must exist")
-                        .is_some()
-                    {
-                        // non-committed proof that is expired
-                        num_expired_but_not_committed += 1;
-                        counters::GAP_BETWEEN_BATCH_EXPIRATION_AND_CURRENT_TIME_WHEN_COMMIT
-                            .observe((block_timestamp - batch.expiration()) as f64);
-                        self.dec_remaining(&batch.author(), batch.num_txns());
+                    // PVSS batches are not subject to expiration
+                    if !batch.contain_pvss() {
+                        if self
+                            .batch_to_proof
+                            .get(&key.batch_key)
+                            .expect("Entry for unexpired batch must exist")
+                            .is_some()
+                        {
+                            // non-committed proof that is expired
+                            num_expired_but_not_committed += 1;
+                            counters::GAP_BETWEEN_BATCH_EXPIRATION_AND_CURRENT_TIME_WHEN_COMMIT
+                                .observe((block_timestamp - batch.expiration()) as f64);
+                            self.dec_remaining(&batch.author(), batch.num_txns());
+                        }
+                        claims::assert_some!(self.batch_to_proof.remove(&key.batch_key));
                     }
-                    claims::assert_some!(self.batch_to_proof.remove(&key.batch_key));
                 }
                 if !queue.is_empty() {
                     self.author_to_batches.insert(key.author(), queue);

@@ -76,6 +76,9 @@ pub struct BatchInfo {
     num_txns: u64,
     num_bytes: u64,
     gas_bucket_start: u64,
+    // We create special batch for PVSS transcript.
+    // The batch contains only one transaction, does not expire, and has the highest gas_bucket_start.
+    contain_pvss: bool,
 }
 
 impl BatchInfo {
@@ -88,6 +91,7 @@ impl BatchInfo {
         num_txns: u64,
         num_bytes: u64,
         gas_bucket_start: u64,
+        contain_pvss: bool,
     ) -> Self {
         Self {
             author,
@@ -98,7 +102,26 @@ impl BatchInfo {
             num_txns,
             num_bytes,
             gas_bucket_start,
+            contain_pvss,
         }
+    }
+
+    pub fn verify(&self) -> anyhow::Result<()> {
+        if self.contain_pvss {
+            ensure!(
+                self.num_txns == 1,
+                "PVSS batch should contain only one transaction"
+            );
+            ensure!(
+                self.expiration == u64::MAX,
+                "PVSS batch should not have expiration"
+            );
+            ensure!(
+                self.gas_bucket_start == u64::MAX,
+                "PVSS batch should have highest gas_bucket_start"
+            );
+        }
+        Ok(())
     }
 
     pub fn epoch(&self) -> u64 {
@@ -131,6 +154,10 @@ impl BatchInfo {
 
     pub fn gas_bucket_start(&self) -> u64 {
         self.gas_bucket_start
+    }
+
+    pub fn contain_pvss(&self) -> bool {
+        self.contain_pvss
     }
 }
 
@@ -209,6 +236,7 @@ impl SignedBatchInfo {
 
     pub fn verify(&self, sender: PeerId, validator: &ValidatorVerifier) -> anyhow::Result<()> {
         if sender == self.signer {
+            self.info.verify()?;
             Ok(validator.verify(self.signer, &self.info, &self.signature)?)
         } else {
             bail!("Sender {} mismatch signer {}", sender, self.signer);
@@ -263,6 +291,7 @@ impl ProofOfStoreMsg {
             max_num_proofs
         );
         for proof in &self.proofs {
+            proof.info().verify()?;
             proof.verify(validator)?
         }
         Ok(())

@@ -17,8 +17,8 @@ use aptos_crypto::HashValue;
 use aptos_executor_types::Error;
 use aptos_logger::prelude::*;
 use aptos_types::{
-    transaction::SignedTransaction, validator_signer::ValidatorSigner,
-    validator_verifier::ValidatorVerifier, PeerId,
+    account_address::AccountAddress, transaction::SignedTransaction,
+    validator_signer::ValidatorSigner, validator_verifier::ValidatorVerifier, PeerId,
 };
 use dashmap::{
     mapref::entry::Entry::{Occupied, Vacant},
@@ -118,6 +118,8 @@ pub struct BatchStore<T> {
     memory_quota: usize,
     db_quota: usize,
     batch_quota: usize,
+    // Each peer should only send one PVSS batch at an epoch.
+    pvss_batch_quota: DashMap<PeerId, bool>,
     batch_requester: BatchRequester<T>,
     validator_signer: ValidatorSigner,
     validator_verifier: ValidatorVerifier,
@@ -146,6 +148,11 @@ impl<T: QuorumStoreSender + Clone + Send + Sync + 'static> BatchStore<T> {
             memory_quota,
             db_quota,
             batch_quota,
+            pvss_batch_quota: validator_verifier
+                .get_ordered_account_addresses()
+                .into_iter()
+                .map(|peer| (peer, true))
+                .collect(),
             batch_requester,
             validator_signer,
             validator_verifier,
@@ -311,6 +318,14 @@ impl<T: QuorumStoreSender + Clone + Send + Sync + 'static> BatchStore<T> {
     pub fn persist(&self, persist_requests: Vec<PersistedValue>) -> Vec<SignedBatchInfo> {
         let mut signed_infos = vec![];
         for persist_request in persist_requests.into_iter() {
+            let author = persist_request.author();
+            if persist_request.batch_info().contain_pvss() && !self.check_pvss_quota(author) {
+                warn!(
+                    "Batch from {} exceeds PVSS batch quota, should only send one PVSS batch per epoch",
+                    author,
+                );
+                continue;
+            }
             if let Some(signed_info) = self.persist_inner(persist_request) {
                 signed_infos.push(signed_info);
             }
@@ -385,6 +400,20 @@ impl<T: QuorumStoreSender + Clone + Send + Sync + 'static> BatchStore<T> {
         } else {
             Err(Error::CouldNotGetData)
         }
+    }
+
+    /// Return true if the peer has not sent a PVSS batch.
+    /// Consume the quota as well.
+    pub(crate) fn check_pvss_quota(&self, peer: AccountAddress) -> bool {
+        if let Some(mut quota) = self.pvss_batch_quota.get_mut(&peer) {
+            println!("debug1");
+            if *quota {
+                println!("debug2");
+                *quota = false;
+                return true;
+            }
+        }
+        false
     }
 }
 

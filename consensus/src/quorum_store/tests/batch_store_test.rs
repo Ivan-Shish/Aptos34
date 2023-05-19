@@ -14,8 +14,9 @@ use aptos_consensus_types::proof_of_store::{BatchId, BatchInfo};
 use aptos_crypto::HashValue;
 use aptos_temppath::TempPath;
 use aptos_types::{
-    account_address::AccountAddress, transaction::SignedTransaction,
-    validator_verifier::random_validator_verifier,
+    account_address::AccountAddress,
+    transaction::SignedTransaction,
+    validator_verifier::{random_validator_verifier, ValidatorVerifier},
 };
 use claims::{assert_err, assert_ok, assert_ok_eq};
 use futures::executor::block_on;
@@ -28,7 +29,9 @@ use tokio::{sync::mpsc::channel, task::spawn_blocking};
 
 static TEST_REQUEST_ACCOUNT: Lazy<AccountAddress> = Lazy::new(AccountAddress::random);
 
-fn batch_store_for_test(memory_quota: usize) -> Arc<BatchStore<MockQuorumStoreSender>> {
+fn batch_store_for_test(
+    memory_quota: usize,
+) -> (Arc<BatchStore<MockQuorumStoreSender>>, ValidatorVerifier) {
     let tmp_dir = TempPath::new();
     let db = Arc::new(QuorumStoreDB::new(&tmp_dir));
     let (tx, _rx) = channel(10);
@@ -43,17 +46,20 @@ fn batch_store_for_test(memory_quota: usize) -> Arc<BatchStore<MockQuorumStoreSe
     );
     let (signers, validator_verifier) = random_validator_verifier(4, None, false);
 
-    Arc::new(BatchStore::new(
-        10, // epoch
-        10, // last committed round
-        db,
-        memory_quota, // memory_quota
-        2001,         // db quota
-        2001,         // batch quota
-        requester,
-        signers[0].clone(),
+    (
+        Arc::new(BatchStore::new(
+            10, // epoch
+            10, // last committed round
+            db,
+            memory_quota, // memory_quota
+            2001,         // db quota
+            2001,         // batch quota
+            requester,
+            signers[0].clone(),
+            validator_verifier.clone(),
+        )),
         validator_verifier,
-    ))
+    )
 }
 
 fn request_for_test(
@@ -72,6 +78,29 @@ fn request_for_test(
             10,
             num_bytes,
             0,
+            false,
+        ),
+        maybe_payload,
+    )
+}
+
+fn request_for_test_pvss(
+    author: &AccountAddress,
+    digest: &HashValue,
+    num_bytes: u64,
+    maybe_payload: Option<Vec<SignedTransaction>>, // dkg todo: change to real pvss txn
+) -> PersistedValue {
+    PersistedValue::new(
+        BatchInfo::new(
+            *author, // make sure all request come from the same account
+            BatchId::new_for_test(1),
+            10,
+            u64::MAX,
+            *digest,
+            1,
+            num_bytes,
+            u64::MAX,
+            true,
         ),
         maybe_payload,
     )
@@ -79,7 +108,7 @@ fn request_for_test(
 
 #[test]
 fn test_insert_expire() {
-    let batch_store = batch_store_for_test(30);
+    let (batch_store, _) = batch_store_for_test(30);
 
     let digest = HashValue::random();
 
@@ -105,7 +134,7 @@ fn test_insert_expire() {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_extend_expiration_vs_save() {
     let num_experiments = 2000;
-    let batch_store = batch_store_for_test(2001);
+    let (batch_store, _) = batch_store_for_test(2001);
 
     let batch_store_clone1 = batch_store.clone();
     let batch_store_clone2 = batch_store.clone();
@@ -241,7 +270,7 @@ fn test_quota_manager() {
 
 #[test]
 fn test_get_local_batch() {
-    let store = batch_store_for_test(30);
+    let (store, _) = batch_store_for_test(30);
 
     let digest_1 = HashValue::random();
     let request_1 = request_for_test(&digest_1, 50, 20, Some(vec![]));
@@ -294,4 +323,41 @@ fn test_get_local_batch() {
     assert_err!(store.get_batch_from_local(&digest_1));
     assert_err!(store.get_batch_from_local(&digest_2));
     assert_err!(store.get_batch_from_local(&digest_3));
+}
+
+#[test]
+fn test_check_pvss_quota() {
+    let (store, validators) = batch_store_for_test(30);
+
+    let digest_1 = HashValue::random();
+    let request_1 = request_for_test_pvss(
+        &validators.get_ordered_account_addresses()[0],
+        &digest_1,
+        20,
+        Some(vec![]),
+    );
+    // Should be stored in memory and DB.
+    assert!(!store.persist(vec![request_1]).is_empty());
+
+    let digest_2 = HashValue::random();
+    let request_2 = request_for_test_pvss(
+        &validators.get_ordered_account_addresses()[0],
+        &digest_2,
+        20,
+        Some(vec![]),
+    );
+    // Persist again should fail due to PVSS quota.
+    assert!(store.persist(vec![request_2]).is_empty());
+    // Should fail since PVSS quota is exceeded.
+    assert!(!store.check_pvss_quota(*TEST_REQUEST_ACCOUNT));
+
+    let digest_3 = HashValue::random();
+    let request_3 = request_for_test_pvss(
+        &validators.get_ordered_account_addresses()[1],
+        &digest_3,
+        20,
+        Some(vec![]),
+    );
+    // Should be stored in memory and DB.
+    assert!(!store.persist(vec![request_3]).is_empty());
 }

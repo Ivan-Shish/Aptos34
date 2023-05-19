@@ -30,6 +30,7 @@ fn test_batch() {
         1,
         source,
         0,
+        false,
     );
 
     assert!(batch.verify().is_ok());

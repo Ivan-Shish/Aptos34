@@ -218,6 +218,10 @@ impl ProofCoordinator {
     async fn expire(&mut self) {
         let mut batch_ids = vec![];
         for signed_batch_info_info in self.timeouts.expire() {
+            if signed_batch_info_info.contain_pvss() {
+                // PVSS batches are not subject to timeout
+                continue;
+            }
             if let Some(state) = self.digest_to_proof.remove(signed_batch_info_info.digest()) {
                 if !state.completed {
                     batch_ids.push(signed_batch_info_info.batch_id());

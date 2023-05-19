@@ -136,6 +136,7 @@ impl Batch {
         expiration: u64,
         batch_author: PeerId,
         gas_bucket_start: u64,
+        contain_pvss: bool,
     ) -> Self {
         let payload = BatchPayload::new(batch_author, payload);
         let batch_info = BatchInfo::new(
@@ -147,6 +148,7 @@ impl Batch {
             payload.num_txns() as u64,
             payload.num_bytes() as u64,
             gas_bucket_start,
+            contain_pvss,
         );
         Self {
             batch_info,
@@ -155,6 +157,7 @@ impl Batch {
     }
 
     pub fn verify(&self) -> anyhow::Result<()> {
+        self.batch_info.verify()?;
         ensure!(
             self.payload.author == self.author(),
             "Payload author doesn't match the info"
@@ -171,11 +174,15 @@ impl Batch {
             self.payload.num_bytes() as u64 == self.num_bytes(),
             "Payload num bytes doesn't match batch info"
         );
-        for txn in &self.payload.txns {
-            ensure!(
-                txn.gas_unit_price() >= self.gas_bucket_start(),
-                "Payload gas unit price doesn't match batch info"
-            )
+        if self.batch_info.contain_pvss() {
+            // dkg todo: verify pvss transcript
+        } else {
+            for txn in &self.payload.txns {
+                ensure!(
+                    txn.gas_unit_price() >= self.gas_bucket_start(),
+                    "Payload gas unit price doesn't match batch info"
+                )
+            }
         }
         Ok(())
     }

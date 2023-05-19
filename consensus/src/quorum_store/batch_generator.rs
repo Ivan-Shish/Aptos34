@@ -102,6 +102,7 @@ impl BatchGenerator {
         txns: Vec<SignedTransaction>,
         expiry_time: u64,
         bucket_start: u64,
+        contain_pvss: bool,
     ) -> Batch {
         let batch_id = self.batch_id;
         self.batch_id.increment();
@@ -132,6 +133,7 @@ impl BatchGenerator {
             expiry_time,
             self.my_peer_id,
             bucket_start,
+            contain_pvss,
         )
     }
 
@@ -152,7 +154,7 @@ impl BatchGenerator {
             }
             let num_batch_txns = std::cmp::min(self.config.sender_max_batch_txns, remaining_txns);
             let batch_txns: Vec<_> = txns.drain(0..num_batch_txns).collect();
-            let batch = self.create_new_batch(batch_txns, expiry_time, bucket_start);
+            let batch = self.create_new_batch(batch_txns, expiry_time, bucket_start, false);
             batches.push(batch);
             remaining_txns -= num_batch_txns;
         }

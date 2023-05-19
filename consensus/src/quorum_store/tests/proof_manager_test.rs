@@ -38,6 +38,7 @@ fn create_proof_with_gas(
             1,
             1,
             gas_bucket_start,
+            false,
         ),
         AggregateSignature::empty(),
     )
@@ -184,7 +185,7 @@ async fn test_duplicate_batches_on_commit() {
     let author = PeerId::random();
     let digest = HashValue::random();
     let batch_id = BatchId::new_for_test(1);
-    let batch = BatchInfo::new(author, batch_id, 0, 10, digest, 1, 1, 0);
+    let batch = BatchInfo::new(author, batch_id, 0, 10, digest, 1, 1, 0, false);
     let proof0 = ProofOfStore::new(batch.clone(), AggregateSignature::empty());
     let proof1 = ProofOfStore::new(batch.clone(), AggregateSignature::empty());
     let proof2 = ProofOfStore::new(batch.clone(), AggregateSignature::empty());
@@ -217,7 +218,7 @@ async fn test_duplicate_batches_on_expiration() {
     let author = PeerId::random();
     let digest = HashValue::random();
     let batch_id = BatchId::new_for_test(1);
-    let batch = BatchInfo::new(author, batch_id, 0, 10, digest, 1, 1, 0);
+    let batch = BatchInfo::new(author, batch_id, 0, 10, digest, 1, 1, 0, false);
     let proof0 = ProofOfStore::new(batch.clone(), AggregateSignature::empty());
     let proof1 = ProofOfStore::new(batch.clone(), AggregateSignature::empty());
 

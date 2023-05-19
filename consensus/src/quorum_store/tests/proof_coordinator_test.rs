@@ -57,7 +57,7 @@ async fn test_proof_coordinator_basic() {
     let batch_author = signers[0].author();
     let batch_id = BatchId::new_for_test(1);
     let payload = create_vec_signed_transactions(100);
-    let batch = Batch::new(batch_id, payload, 1, 20, batch_author, 0);
+    let batch = Batch::new(batch_id, payload, 1, 20, batch_author, 0, false);
     let digest = batch.digest();
 
     for signer in &signers {
@@ -77,5 +77,61 @@ async fn test_proof_coordinator_basic() {
     // check normal path
     assert!(proof_msg.verify(100, &verifier).is_ok());
     let proofs = proof_msg.take();
+    assert_eq!(proofs[0].digest(), digest);
+
+    // test correct pvss batch
+    let batch_author = signers[0].author();
+    let batch_id = BatchId::new_for_test(2);
+    // create correct pvss batch
+    // dkg todo: use real pvss transaction
+    let payload = create_vec_signed_transactions(1);
+    let batch = Batch::new(batch_id, payload, 1, u64::MAX, batch_author, u64::MAX, true);
+    let digest = batch.digest();
+
+    for signer in &signers {
+        let signed_batch_info = SignedBatchInfo::new(batch.batch_info().clone(), signer).unwrap();
+        assert!(proof_coordinator_tx
+            .send(ProofCoordinatorCommand::AppendSignature(
+                SignedBatchInfoMsg::new(vec![signed_batch_info])
+            ))
+            .await
+            .is_ok());
+    }
+
+    let proof_msg = match rx.recv().await.expect("channel dropped") {
+        (ConsensusMsg::ProofOfStoreMsg(proof_msg), _) => *proof_msg,
+        msg => panic!("Expected LocalProof but received: {:?}", msg),
+    };
+    // check normal path
+    assert!(proof_msg.verify(100, &verifier).is_ok());
+    let proofs = proof_msg.take();
+    assert_eq!(proofs[0].digest(), digest);
+
+    // test wrong pvss batch
+    let batch_author = signers[0].author();
+    let batch_id = BatchId::new_for_test(2);
+    // create wrong pvss batch
+    // dkg todo: use real pvss transaction
+    let payload = create_vec_signed_transactions(1);
+    let batch = Batch::new(batch_id, payload, 1, 1, batch_author, 1, true);
+    let digest = batch.digest();
+
+    for signer in &signers {
+        let signed_batch_info = SignedBatchInfo::new(batch.batch_info().clone(), signer).unwrap();
+        assert!(proof_coordinator_tx
+            .send(ProofCoordinatorCommand::AppendSignature(
+                SignedBatchInfoMsg::new(vec![signed_batch_info])
+            ))
+            .await
+            .is_ok());
+    }
+
+    let proof_msg = match rx.recv().await.expect("channel dropped") {
+        (ConsensusMsg::ProofOfStoreMsg(proof_msg), _) => *proof_msg,
+        msg => panic!("Expected LocalProof but received: {:?}", msg),
+    };
+    // check normal path
+    assert!(proof_msg.verify(100, &verifier).is_err());
+    let proofs: Vec<ProofOfStore> = proof_msg.take();
     assert_eq!(proofs[0].digest(), digest);
 }
