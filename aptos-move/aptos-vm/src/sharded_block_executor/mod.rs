@@ -22,6 +22,8 @@ use std::{
 
 mod block_partitioner;
 mod executor_shard;
+#[cfg(test)]
+mod test_utils;
 mod transaction_dependency_graph;
 
 /// A wrapper around sharded block executors that manages multiple shards and aggregates the results.
