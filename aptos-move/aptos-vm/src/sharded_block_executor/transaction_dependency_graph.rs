@@ -70,9 +70,7 @@ impl<'a> DependencyGraph<'a> {
         self.reverse_adjacency_list.get(&node)
     }
 
-    pub fn create_dependency_graph(
-        analyzed_transactions: &[AnalyzedTransaction],
-    ) -> DependencyGraph {
+    pub fn create(analyzed_transactions: &[AnalyzedTransaction]) -> DependencyGraph {
         let mut dependency_graph = DependencyGraph::new();
 
         let read_hint_index = Self::build_hint_index(analyzed_transactions, |txn| txn.read_hints());
@@ -163,7 +161,7 @@ mod tests {
             receivers.push(generate_test_account());
         }
         let transactions = create_signed_p2p_transaction(sender, receivers);
-        let dependency_graph = DependencyGraph::create_dependency_graph(&transactions);
+        let dependency_graph = DependencyGraph::create(&transactions);
         assert_eq!(dependency_graph.size(), num_txns);
         let adjacency_list = dependency_graph.get_adjacency_list();
         let reverse_adjacency_list = dependency_graph.get_reverse_adjacency_list();
@@ -213,7 +211,7 @@ mod tests {
             transactions.extend(transaction);
         }
 
-        let dependency_graph = DependencyGraph::create_dependency_graph(&transactions);
+        let dependency_graph = DependencyGraph::create(&transactions);
         assert_eq!(dependency_graph.size(), num_senders);
 
         let adjacency_list = dependency_graph.get_adjacency_list();
@@ -241,7 +239,7 @@ mod tests {
             let transaction = create_signed_p2p_transaction(sender, vec![receiver]);
             transactions.extend(transaction);
         }
-        let dependency_graph = DependencyGraph::create_dependency_graph(&transactions);
+        let dependency_graph = DependencyGraph::create(&transactions);
         assert_eq!(dependency_graph.size(), num_txns);
         let adjacency_list = dependency_graph.get_adjacency_list();
         let reverse_adjacency_list = dependency_graph.get_reverse_adjacency_list();
@@ -278,7 +276,7 @@ mod tests {
             .flat_map(|_| create_no_dependency_transaction(1))
             .collect::<Vec<_>>();
 
-        let dependency_graph = DependencyGraph::create_dependency_graph(&transactions);
+        let dependency_graph = DependencyGraph::create(&transactions);
         assert_eq!(dependency_graph.size(), num_txns);
 
         let adjacency_list = dependency_graph.get_adjacency_list();

@@ -10,7 +10,7 @@ use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
 use std::collections::{HashMap, HashSet};
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
-enum TxnPartitioningStatus {
+enum PartitioningStatus {
     // Transaction is accepted after partitioning.
     Accepted,
     // Transaction is discarded due to creating cross-shard dependency.
@@ -18,6 +18,91 @@ enum TxnPartitioningStatus {
 }
 
 pub struct DependencyAwareUniformPartitioner {}
+
+struct PartitionerState<'a> {
+    transactions: &'a [AnalyzedTransaction],
+    // HashMap of transaction index to its status after partitioning.
+    txn_statuses: HashMap<usize, PartitioningStatus>,
+    // Dependency graph
+    graph: DependencyGraph<'a>,
+    txns_per_shard: usize,
+}
+
+// Maintains the state of the depedency-aware partitioner.
+impl<'a> PartitionerState<'a> {
+    fn new(transactions: &'a [AnalyzedTransaction], num_shards: usize) -> Self {
+        let graph = DependencyGraph::create(transactions);
+        let txns_per_shard = (transactions.len() as f64 / num_shards as f64).ceil() as usize;
+        Self {
+            transactions,
+            txn_statuses: HashMap::new(),
+            graph,
+            txns_per_shard,
+        }
+    }
+
+    pub fn discard_conflicting_cross_shard_txns(&mut self) {
+        // We traverse the transactions in reverse order because we want to prioritize the transactions
+        // at the beginning of the block.
+        for (index, txn) in self.transactions.iter().enumerate().rev() {
+            let current_shard_index =
+                block_partitioner::get_shard_for_index(self.txns_per_shard, index);
+            let mut is_discarded = false;
+
+            // For each transaction that is dependent on this transaction, check if that is in the same
+            // shard. If not, we discard this transaction.
+            let dependent_nodes = self.graph.get_dependent_nodes(Node::new(txn, index));
+            if let Some(dependent_nodes) = dependent_nodes {
+                for node in dependent_nodes {
+                    if let Some(txn_status) = self.txn_statuses.get(&node.index()) {
+                        if *txn_status == PartitioningStatus::Discarded {
+                            continue;
+                        }
+                    }
+                    let dependent_shard_index =
+                        block_partitioner::get_shard_for_index(self.txns_per_shard, node.index());
+                    if dependent_shard_index != current_shard_index {
+                        is_discarded = true;
+                        break;
+                    }
+                }
+            }
+            if !is_discarded {
+                self.txn_statuses
+                    .insert(index, PartitioningStatus::Accepted);
+            } else {
+                self.txn_statuses
+                    .insert(index, PartitioningStatus::Discarded);
+            }
+        }
+    }
+
+    pub fn discard_txns_from_discarded_senders(&mut self) {
+        // Discard transactions based on the sender.
+        let mut discarded_senders = HashSet::new();
+        for (index, txn) in self.transactions.iter().enumerate() {
+            // check if the sender of the transaction is already discarded.
+            // If yes, discard this transaction as well.
+            if let Some(sender) = txn.get_sender() {
+                if discarded_senders.contains(&sender) {
+                    self.txn_statuses
+                        .insert(index, PartitioningStatus::Discarded);
+                    continue;
+                }
+            }
+            let status = self.txn_statuses.get(&index).unwrap();
+            if status == &PartitioningStatus::Discarded {
+                if let Some(sender) = txn.get_sender() {
+                    discarded_senders.insert(sender);
+                }
+            }
+        }
+    }
+
+    pub fn into_txn_statuses(self) -> HashMap<usize, PartitioningStatus> {
+        self.txn_statuses
+    }
+}
 
 impl BlockPartitioner for DependencyAwareUniformPartitioner {
     fn partition(
@@ -32,88 +117,31 @@ impl BlockPartitioner for DependencyAwareUniformPartitioner {
         if total_txns == 0 {
             return (HashMap::new(), HashMap::new());
         }
-        let txns_per_shard = (total_txns as f64 / num_shards as f64).ceil() as usize;
-        // first build the dependency graph of the transactions
-        let graph = DependencyGraph::create_dependency_graph(&transactions);
+        let txns_per_shard = (transactions.len() as f64 / num_shards as f64).ceil() as usize;
 
-        // HashMap of transaction index to its status after partitioning.
-        let mut txn_statuses = HashMap::new();
+        let mut partitioner_state = PartitionerState::new(&transactions, num_shards);
+        partitioner_state.discard_conflicting_cross_shard_txns();
+        partitioner_state.discard_txns_from_discarded_senders();
+        let txn_statuses = partitioner_state.into_txn_statuses();
 
-        // We traverse the transactions in reverse order because we want to prioritize the transactions
-        // at the beginning of the block.
-        for (index, txn) in transactions.iter().enumerate().rev() {
-            let current_shard_index = block_partitioner::get_shard_for_index(txns_per_shard, index);
-            let mut is_discarded = false;
-
-            // For each transaction that is dependent on this transaction, check if that is in the same
-            // shard. If not, we discard this transaction.
-            let dependent_nodes = graph.get_dependent_nodes(Node::new(txn, index));
-            if let Some(dependent_nodes) = dependent_nodes {
-                for node in dependent_nodes {
-                    if let Some(txn_status) = txn_statuses.get(&node.index()) {
-                        if *txn_status == TxnPartitioningStatus::Discarded {
-                            continue;
-                        }
-                    }
-                    let dependent_shard_index =
-                        block_partitioner::get_shard_for_index(txns_per_shard, node.index());
-                    if dependent_shard_index != current_shard_index {
-                        is_discarded = true;
-                        break;
-                    }
-                }
-            }
-            if !is_discarded {
-                txn_statuses.insert(index, TxnPartitioningStatus::Accepted);
-            } else {
-                txn_statuses.insert(index, TxnPartitioningStatus::Discarded);
-            }
-        }
-
-        // Discard transactions based on the sender.
-        let mut discarded_senders = HashSet::new();
-        for (index, txn) in transactions.iter().enumerate() {
-            // check if the sender of the transaction is already discarded.
-            // If yes, discard this transaction as well.
-            if let Some(sender) = txn.get_sender() {
-                if discarded_senders.contains(&sender) {
-                    txn_statuses.insert(index, TxnPartitioningStatus::Discarded);
-                    continue;
-                }
-            }
-            let status = txn_statuses.get(&index).unwrap();
-            if status == &TxnPartitioningStatus::Discarded {
-                if let Some(sender) = txn.get_sender() {
-                    discarded_senders.insert(sender);
-                }
-            }
-        }
-
-        // Iterate through the accepted and rejected transactions and create the final maps.
-        let mut accpeted_transactions: HashMap<usize, Vec<AnalyzedTransaction>> = HashMap::new();
-        let mut rejected_transactions: HashMap<usize, Vec<AnalyzedTransaction>> = HashMap::new();
-        // Senders of the transactions that are discarded. Used to discard subsequent transactions from the same sender
-        // as well.
+        let mut accepted_txns = HashMap::new();
+        let mut discarded_txns = HashMap::new();
         for (index, txn) in transactions.into_iter().enumerate() {
             let status = txn_statuses.get(&index).unwrap();
-            match status {
-                TxnPartitioningStatus::Accepted => {
-                    let shard_index = block_partitioner::get_shard_for_index(txns_per_shard, index);
-                    accpeted_transactions
-                        .entry(shard_index)
-                        .or_insert_with(Vec::new)
-                        .push(txn);
-                },
-                TxnPartitioningStatus::Discarded => {
-                    let shard_index = block_partitioner::get_shard_for_index(txns_per_shard, index);
-                    rejected_transactions
-                        .entry(shard_index)
-                        .or_insert_with(Vec::new)
-                        .push(txn);
-                },
+            let shard_index = block_partitioner::get_shard_for_index(txns_per_shard, index);
+            if status == &PartitioningStatus::Accepted {
+                accepted_txns
+                    .entry(shard_index)
+                    .or_insert_with(Vec::new)
+                    .push(txn);
+            } else {
+                discarded_txns
+                    .entry(shard_index)
+                    .or_insert_with(Vec::new)
+                    .push(txn);
             }
         }
-        (accpeted_transactions, rejected_transactions)
+        (accepted_txns, discarded_txns)
     }
 }
 
@@ -121,9 +149,7 @@ impl BlockPartitioner for DependencyAwareUniformPartitioner {
 mod tests {
     use crate::sharded_block_executor::{
         block_partitioner::{
-            dependency_aware_partitioner::{
-                DependencyAwareUniformPartitioner, TxnPartitioningStatus,
-            },
+            dependency_aware_partitioner::{DependencyAwareUniformPartitioner, PartitioningStatus},
             get_shard_for_index, BlockPartitioner,
         },
         test_utils::{
@@ -136,8 +162,8 @@ mod tests {
     use std::collections::HashMap;
 
     fn verify_txn_statuses(
-        txn_statuses: &HashMap<usize, TxnPartitioningStatus>,
-        expected_txn_statuses: &HashMap<usize, TxnPartitioningStatus>,
+        txn_statuses: &HashMap<usize, PartitioningStatus>,
+        expected_txn_statuses: &HashMap<usize, PartitioningStatus>,
     ) {
         assert_eq!(txn_statuses.len(), expected_txn_statuses.len());
         for (index, status) in txn_statuses {
@@ -175,10 +201,10 @@ mod tests {
     }
 
     fn populate_txn_statuses(
-        orig_txns: &Vec<AnalyzedTransaction>,
+        orig_txns: &[AnalyzedTransaction],
         txns_map: &HashMap<usize, Vec<AnalyzedTransaction>>,
-        txn_statuses: &mut HashMap<usize, TxnPartitioningStatus>,
-        status: TxnPartitioningStatus,
+        txn_statuses: &mut HashMap<usize, PartitioningStatus>,
+        status: PartitioningStatus,
     ) {
         for txns in txns_map.values() {
             for txn in txns {
@@ -192,7 +218,7 @@ mod tests {
         orig_txns: &Vec<AnalyzedTransaction>,
         accepted_txns: &HashMap<usize, Vec<AnalyzedTransaction>>,
         rejected_txns: &HashMap<usize, Vec<AnalyzedTransaction>>,
-        expected_txn_statuses: &HashMap<usize, TxnPartitioningStatus>,
+        expected_txn_statuses: &HashMap<usize, PartitioningStatus>,
         num_shards: usize,
     ) {
         let mut txn_statuses = HashMap::new();
@@ -201,14 +227,14 @@ mod tests {
             orig_txns,
             accepted_txns,
             &mut txn_statuses,
-            TxnPartitioningStatus::Accepted,
+            PartitioningStatus::Accepted,
         );
 
         populate_txn_statuses(
             orig_txns,
             rejected_txns,
             &mut txn_statuses,
-            TxnPartitioningStatus::Discarded,
+            PartitioningStatus::Discarded,
         );
 
         verify_txn_statuses(&txn_statuses, expected_txn_statuses);
@@ -234,9 +260,9 @@ mod tests {
         let mut expected_txn_statuses = HashMap::new();
         for index in 0..num_txns {
             if index < 3 {
-                expected_txn_statuses.insert(index, TxnPartitioningStatus::Accepted);
+                expected_txn_statuses.insert(index, PartitioningStatus::Accepted);
             } else {
-                expected_txn_statuses.insert(index, TxnPartitioningStatus::Discarded);
+                expected_txn_statuses.insert(index, PartitioningStatus::Discarded);
             }
         }
         verify_txn_statuses_and_shards(
@@ -263,7 +289,7 @@ mod tests {
         // Create a map of transaction index to its expected status, all transactions are expected to be accepted.
         let mut expected_txn_statuses = HashMap::new();
         for index in 0..transactions.len() {
-            expected_txn_statuses.insert(index, TxnPartitioningStatus::Accepted);
+            expected_txn_statuses.insert(index, PartitioningStatus::Accepted);
         }
         verify_txn_statuses_and_shards(
             &transactions,
@@ -319,14 +345,14 @@ mod tests {
             partitioner.partition(transactions.clone(), num_shards);
         // Create a map of transaction index to its expected status, all transactions are expected to be accepted.
         let mut expected_txn_statuses = HashMap::new();
-        expected_txn_statuses.insert(0, TxnPartitioningStatus::Accepted);
-        expected_txn_statuses.insert(1, TxnPartitioningStatus::Accepted);
-        expected_txn_statuses.insert(2, TxnPartitioningStatus::Accepted);
-        expected_txn_statuses.insert(3, TxnPartitioningStatus::Accepted);
-        expected_txn_statuses.insert(4, TxnPartitioningStatus::Discarded);
-        expected_txn_statuses.insert(5, TxnPartitioningStatus::Discarded);
-        expected_txn_statuses.insert(6, TxnPartitioningStatus::Accepted);
-        expected_txn_statuses.insert(7, TxnPartitioningStatus::Discarded);
+        expected_txn_statuses.insert(0, PartitioningStatus::Accepted);
+        expected_txn_statuses.insert(1, PartitioningStatus::Accepted);
+        expected_txn_statuses.insert(2, PartitioningStatus::Accepted);
+        expected_txn_statuses.insert(3, PartitioningStatus::Accepted);
+        expected_txn_statuses.insert(4, PartitioningStatus::Discarded);
+        expected_txn_statuses.insert(5, PartitioningStatus::Discarded);
+        expected_txn_statuses.insert(6, PartitioningStatus::Accepted);
+        expected_txn_statuses.insert(7, PartitioningStatus::Discarded);
         verify_txn_statuses_and_shards(
             &transactions,
             &accepted_txns,
