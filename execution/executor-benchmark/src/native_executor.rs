@@ -366,7 +366,7 @@ impl TransactionBlockExecutor<BenchmarkTransaction> for NativeExecutor {
                             )
                         },
                     },
-                    None => match &txn.transaction {
+                    None => match &txn.analyzed_transaction.transaction() {
                         Transaction::StateCheckpoint(_) => Self::handle_state_checkpoint(),
                         Transaction::UserTransaction(user_txn) => match user_txn.payload() {
                             aptos_types::transaction::TransactionPayload::EntryFunction(f) => {
@@ -433,7 +433,7 @@ impl TransactionBlockExecutor<BenchmarkTransaction> for NativeExecutor {
         Ok(ChunkOutput {
             transactions: transactions
                 .into_iter()
-                .map(|txn| txn.transaction)
+                .map(|txn| txn.analyzed_transaction.into())
                 .collect(),
             transaction_outputs,
             state_cache: state_view.into_state_cache(),

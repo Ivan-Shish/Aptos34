@@ -1,5 +1,4 @@
 // Copyright © Aptos Foundation
-// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::sharded_block_executor::{
@@ -8,7 +7,9 @@ use crate::sharded_block_executor::{
 };
 use aptos_logger::{error, info, trace};
 use aptos_state_view::StateView;
-use aptos_types::transaction::{Transaction, TransactionOutput};
+use aptos_types::transaction::{
+    analyzed_transaction::AnalyzedTransaction, Transaction, TransactionOutput,
+};
 use move_core_types::vm_status::VMStatus;
 use std::{
     marker::PhantomData,
@@ -21,6 +22,7 @@ use std::{
 
 mod block_partitioner;
 mod executor_shard;
+mod transaction_dependency_graph;
 
 /// A wrapper around sharded block executors that manages multiple shards and aggregates the results.
 pub struct ShardedBlockExecutor<S: StateView + Sync + Send + 'static> {
@@ -82,18 +84,18 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
     pub fn execute_block(
         &self,
         state_view: Arc<S>,
-        block: Vec<Transaction>,
+        block: Vec<AnalyzedTransaction>,
         concurrency_level_per_shard: usize,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
-        let block_partitions = self.partitioner.partition(block, self.num_executor_shards);
+        let (accepted_txns, _) = self.partitioner.partition(block, self.num_executor_shards);
         // Number of partitions might be smaller than the number of executor shards in case of
         // block size is smaller than number of executor shards.
-        let num_partitions = block_partitions.len();
-        for (i, transactions) in block_partitions.into_iter().enumerate() {
-            self.command_txs[i]
+        let num_partitions = accepted_txns.len();
+        for (shard_index, txns) in accepted_txns.into_iter() {
+            self.command_txs[shard_index]
                 .send(ExecutorShardCommand::ExecuteBlock(
                     state_view.clone(),
-                    transactions,
+                    txns.into_iter().map(|t| t.into()).collect(),
                     concurrency_level_per_shard,
                 ))
                 .unwrap();

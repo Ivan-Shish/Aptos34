@@ -291,7 +291,7 @@ impl TransactionGenerator {
                         .generate_transactions(sender, transactions_per_sender)
                         .into_iter()
                         .map(|t| BenchmarkTransaction {
-                            transaction: Transaction::UserTransaction(t),
+                            analyzed_transaction: Transaction::UserTransaction(t).into(),
                             extra_info: None,
                         })
                         .collect::<Vec<_>>()

@@ -6,7 +6,10 @@ use aptos_executor::{
     block_executor::TransactionBlockExecutor, components::chunk_output::ChunkOutput,
 };
 use aptos_storage_interface::cached_state_view::CachedStateView;
-use aptos_types::{account_address::AccountAddress, transaction::Transaction};
+use aptos_types::{
+    account_address::AccountAddress,
+    transaction::{analyzed_transaction::AnalyzedTransaction, Transaction},
+};
 use aptos_vm::AptosVM;
 
 pub struct TransferInfo {
@@ -27,7 +30,7 @@ pub enum ExtraInfo {
 }
 
 pub struct BenchmarkTransaction {
-    pub transaction: Transaction,
+    pub analyzed_transaction: AnalyzedTransaction,
     pub extra_info: Option<ExtraInfo>,
 }
 
@@ -54,7 +57,7 @@ impl AccountCreationInfo {
 impl BenchmarkTransaction {
     pub fn new(transaction: Transaction, extra_info: ExtraInfo) -> Self {
         Self {
-            transaction,
+            analyzed_transaction: transaction.into(),
             extra_info: Some(extra_info),
         }
     }
@@ -63,7 +66,7 @@ impl BenchmarkTransaction {
 impl From<Transaction> for BenchmarkTransaction {
     fn from(transaction: Transaction) -> Self {
         Self {
-            transaction,
+            analyzed_transaction: transaction.into(),
             extra_info: None,
         }
     }
@@ -77,7 +80,7 @@ impl TransactionBlockExecutor<BenchmarkTransaction> for AptosVM {
         ChunkOutput::by_transaction_execution_sharded::<AptosVM>(
             transactions
                 .into_iter()
-                .map(|txn| txn.transaction)
+                .map(|txn| txn.analyzed_transaction)
                 .collect(),
             state_view,
         )
@@ -91,8 +94,8 @@ impl TransactionBlockExecutor<BenchmarkTransaction> for AptosVM {
         AptosVM::execute_transaction_block_with_gas_limit(
             transactions
                 .into_iter()
-                .map(|txn| txn.transaction)
-                .collect(),
+                .map(|txn| txn.analyzed_transaction.into())
+                .collect::<Vec<Transaction>>(),
             state_view,
             maybe_gas_limit,
         )

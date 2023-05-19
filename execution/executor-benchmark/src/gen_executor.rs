@@ -61,7 +61,7 @@ impl GenInitTransactionExecutor for DbGenInitTransactionExecutor {
         self.block_sender.send(
             txns.iter()
                 .map(|t| BenchmarkTransaction {
-                    transaction: Transaction::UserTransaction(t.clone()),
+                    analyzed_transaction: Transaction::UserTransaction(t.clone()).into(),
                     extra_info: None,
                 })
                 .chain(once(
