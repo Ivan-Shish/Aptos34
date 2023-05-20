@@ -1,6 +1,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::storage::GenesisState;
 use anyhow::anyhow;
 use aptos_config::config::NodeConfig;
 use aptos_state_view::account_with_state_view::AsAccountWithStateView;
@@ -32,9 +33,18 @@ pub fn create_global_rayon_pool(create_global_rayon_pool: bool) {
     }
 }
 
-/// Fetches the chain ID from on-chain resources
-pub fn fetch_chain_id(db: &DbReaderWriter) -> anyhow::Result<ChainId> {
-    let db_state_view = db
+/// Fetches the chain ID from the genesis state or storage
+pub fn fetch_chain_id(
+    genesis_state: Option<&GenesisState>,
+    db_rw: &DbReaderWriter,
+) -> anyhow::Result<ChainId> {
+    // If we have a genesis state, use the extracted chain ID
+    if let Some(genesis_state) = genesis_state {
+        return Ok(genesis_state.get_chain_id());
+    }
+
+    // Otherwise, fetch the chain ID directly from storage
+    let db_state_view = db_rw
         .reader
         .latest_state_checkpoint_view()
         .map_err(|err| anyhow!("[aptos-node] failed to create db state view {}", err))?;

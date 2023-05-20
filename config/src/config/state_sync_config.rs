@@ -59,6 +59,12 @@ impl BootstrappingMode {
             BootstrappingMode::ExecuteOrApplyFromGenesis => "execute_or_apply_from_genesis",
         }
     }
+
+    /// Returns true iff the bootstrapping mode is set
+    /// to download the latest states.
+    pub fn is_fast_sync_mode(&self) -> bool {
+        self == &BootstrappingMode::DownloadLatestStates
+    }
 }
 
 /// The continuous syncing mode determines how the node will stay up-to-date

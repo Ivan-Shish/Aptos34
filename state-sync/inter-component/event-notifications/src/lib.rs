@@ -64,11 +64,14 @@ pub trait EventNotificationSender: Send {
     /// Notify the subscription service of the events at the specified version.
     fn notify_events(&mut self, version: Version, events: Vec<ContractEvent>) -> Result<(), Error>;
 
-    /// Forces the subscription service to notify subscribers of the current
-    /// on-chain configurations at the specified version.
-    /// This is useful for forcing reconfiguration notifications even if no
-    /// reconfiguration event was processed (e.g., on startup).
-    fn notify_initial_configs(&mut self, version: Version) -> Result<(), Error>;
+    /// Notifies subscribers of the on-chain configurations at the specified
+    /// version. If the genesis config payload is present, it will be used to
+    /// notify subscribers instead of fetching the configurations from storage.
+    fn notify_initial_configs(
+        &mut self,
+        genesis_config_payload: Option<OnChainConfigPayload>,
+        version: Version,
+    ) -> Result<(), Error>;
 }
 
 /// The subscription service offered by state sync, responsible for notifying
@@ -243,16 +246,29 @@ impl EventSubscriptionService {
         Ok(reconfig_event_found)
     }
 
-    /// This notifies all the reconfiguration subscribers of the on-chain
-    /// configurations at the specified version.
-    fn notify_reconfiguration_subscribers(&mut self, version: Version) -> Result<(), Error> {
+    /// Notifies active subscribers of the on-chain configs at the specified
+    /// version. If the genesis config payload is present, it will be used to
+    /// notify subscribers (instead of reading the configs from storage).
+    fn notify_reconfiguration_subscribers(
+        &mut self,
+        genesis_config_payload: Option<OnChainConfigPayload>,
+        version: Version,
+    ) -> Result<(), Error> {
+        // If there are no reconfiguration subscribers, nothing needs to be done
         if self.reconfig_subscriptions.is_empty() {
-            return Ok(()); // No reconfiguration subscribers!
+            return Ok(());
         }
 
-        let new_configs = self.read_on_chain_configs(version)?;
+        // Determine the config payload to use for the notification
+        let on_chain_configs = match genesis_config_payload {
+            Some(genesis_config_payload) => genesis_config_payload,
+            None => self.read_on_chain_configs(version)?, // Read the configs from storage
+        };
+
+        // Notify all reconfiguration subscribers of the on-chain configs
         for (_, reconfig_subscription) in self.reconfig_subscriptions.iter_mut() {
-            reconfig_subscription.notify_subscriber_of_configs(version, new_configs.clone())?;
+            reconfig_subscription
+                .notify_subscriber_of_configs(version, on_chain_configs.clone())?;
         }
 
         Ok(())
@@ -328,14 +344,18 @@ impl EventNotificationSender for EventSubscriptionService {
         // If a reconfiguration event was found, also notify the reconfig subscribers
         // of the new configuration values.
         if reconfig_event_processed {
-            self.notify_reconfiguration_subscribers(version)
+            self.notify_reconfiguration_subscribers(None, version)
         } else {
             Ok(())
         }
     }
 
-    fn notify_initial_configs(&mut self, version: Version) -> Result<(), Error> {
-        self.notify_reconfiguration_subscribers(version)
+    fn notify_initial_configs(
+        &mut self,
+        genesis_config_payload: Option<OnChainConfigPayload>,
+        version: Version,
+    ) -> Result<(), Error> {
+        self.notify_reconfiguration_subscribers(genesis_config_payload, version)
     }
 }
 

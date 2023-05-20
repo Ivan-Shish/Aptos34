@@ -387,7 +387,7 @@ fn test_missing_configs() {
     let mut reconfig_listener = event_service.subscribe_to_reconfigurations().unwrap();
 
     // Notify the subscriber of a reconfiguration (where 1 on-chain config is missing from genesis)
-    assert_ok!(event_service.notify_reconfiguration_subscribers(0));
+    assert_ok!(event_service.notify_reconfiguration_subscribers(None, 0));
 
     // Verify the reconfiguration notification contains everything except the missing config
     if let Some(reconfig_notification) = reconfig_listener.select_next_some().now_or_never() {
@@ -511,7 +511,7 @@ fn verify_reconfig_notifications_received(
 }
 
 fn notify_initial_configs(event_service: &mut EventSubscriptionService, version: Version) {
-    assert_ok!(event_service.notify_initial_configs(version));
+    assert_ok!(event_service.notify_initial_configs(None, version));
 }
 
 fn notify_events(

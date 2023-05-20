@@ -87,6 +87,7 @@ fn test_new_initialized_configs() {
         true,
         &node_config,
         node_config.base.waypoint.waypoint(),
+        None,
         db_rw,
         chunk_executor,
         mempool_notifier,

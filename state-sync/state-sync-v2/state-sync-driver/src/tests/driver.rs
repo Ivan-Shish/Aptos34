@@ -317,6 +317,7 @@ async fn create_driver_for_tests(
         false,
         &node_config,
         waypoint,
+        None,
         db_rw,
         chunk_executor,
         mempool_notifier,

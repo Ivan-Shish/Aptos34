@@ -474,14 +474,14 @@ pub fn setup_environment_and_start_node(
     services::start_node_inspection_service(&node_config, peers_and_metadata.clone());
 
     // Set up the storage database and any RocksDB checkpoints
-    let (aptos_db, db_rw, backup_service, genesis_waypoint) =
+    let (aptos_db, genesis_state, db_rw, backup_service, genesis_waypoint) =
         storage::initialize_database_and_checkpoints(&mut node_config)?;
 
     // Set the Aptos VM configurations
     utils::set_aptos_vm_configurations(&node_config);
 
-    // Obtain the chain_id from the DB
-    let chain_id = utils::fetch_chain_id(&db_rw)?;
+    // Obtain the chain_id from the genesis state or the DB
+    let chain_id = utils::fetch_chain_id(genesis_state.as_ref(), &db_rw)?;
 
     // Set the chain_id in global AptosNodeIdentity
     aptos_node_identity::set_chain_id(chain_id)?;
@@ -529,6 +529,7 @@ pub fn setup_environment_and_start_node(
             storage_service_network_interfaces,
             genesis_waypoint,
             event_subscription_service,
+            genesis_state.as_ref(),
             db_rw.clone(),
         )?;
 

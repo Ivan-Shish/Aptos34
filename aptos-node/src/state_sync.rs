@@ -1,7 +1,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::network::ApplicationNetworkInterfaces;
+use crate::{network::ApplicationNetworkInterfaces, storage::GenesisState};
 use aptos_config::config::{NodeConfig, StateSyncConfig, StorageServiceConfig};
 use aptos_consensus_notifications::ConsensusNotifier;
 use aptos_data_client::client::AptosDataClient;
@@ -78,6 +78,7 @@ pub fn start_state_sync_and_get_notification_handles(
     storage_network_interfaces: ApplicationNetworkInterfaces<StorageServiceMessage>,
     waypoint: Waypoint,
     event_subscription_service: EventSubscriptionService,
+    genesis_state: Option<&GenesisState>,
     db_rw: DbReaderWriter,
 ) -> anyhow::Result<(
     StateSyncRuntimes,
@@ -120,11 +121,16 @@ pub fn start_state_sync_and_get_notification_handles(
                 .commit_notification_timeout_ms,
         );
 
-    // Create the state sync driver factory
+    // Determine the genesis config payload
+    let genesis_config_payload =
+        genesis_state.map(|genesis_state| genesis_state.get_on_chain_config_payload());
+
+    // Create the state sync driver factory`
     let state_sync = DriverFactory::create_and_spawn_driver(
         true,
         node_config,
         waypoint,
+        genesis_config_payload,
         db_rw,
         chunk_executor,
         mempool_notifier,

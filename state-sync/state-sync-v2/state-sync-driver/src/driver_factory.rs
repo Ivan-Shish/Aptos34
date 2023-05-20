@@ -22,7 +22,9 @@ use aptos_infallible::Mutex;
 use aptos_mempool_notifications::MempoolNotificationSender;
 use aptos_storage_interface::DbReaderWriter;
 use aptos_time_service::TimeService;
-use aptos_types::{move_resource::MoveStorage, waypoint::Waypoint};
+use aptos_types::{
+    move_resource::MoveStorage, on_chain_config::OnChainConfigPayload, waypoint::Waypoint,
+};
 use futures::{channel::mpsc, executor::block_on};
 use std::sync::Arc;
 use tokio::runtime::Runtime;
@@ -43,6 +45,7 @@ impl DriverFactory {
         create_runtime: bool,
         node_config: &NodeConfig,
         waypoint: Waypoint,
+        genesis_config_payload: Option<OnChainConfigPayload>,
         storage: DbReaderWriter,
         chunk_executor: Arc<ChunkExecutor>,
         mempool_notification_sender: MempoolNotifier,
@@ -53,20 +56,12 @@ impl DriverFactory {
         streaming_service_client: StreamingServiceClient,
         time_service: TimeService,
     ) -> Self {
-        // Notify subscribers of the initial on-chain config values
-        match (&*storage.reader).fetch_latest_state_checkpoint_version() {
-            Ok(synced_version) => {
-                if let Err(error) =
-                    event_subscription_service.notify_initial_configs(synced_version)
-                {
-                    panic!(
-                        "Failed to notify subscribers of initial on-chain configs: {:?}",
-                        error
-                    )
-                }
-            },
-            Err(error) => panic!("Failed to fetch the initial synced version: {:?}", error),
-        }
+        // Notify event subscribers of the initial on-chain config values
+        notify_initial_configs(
+            genesis_config_payload,
+            &storage,
+            &mut event_subscription_service,
+        );
 
         // Create the notification handlers
         let (client_notification_sender, client_notification_receiver) = mpsc::unbounded();
@@ -179,5 +174,37 @@ impl StateSyncRuntimes {
         let state_sync_client = self.state_sync.create_driver_client();
         block_on(state_sync_client.notify_once_bootstrapped())
             .expect("State sync v2 initialization failure");
+    }
+}
+
+/// Notifies event subscribers of the initial on-chain config values
+fn notify_initial_configs(
+    genesis_config_payload: Option<OnChainConfigPayload>,
+    storage: &DbReaderWriter,
+    event_subscription_service: &mut EventSubscriptionService,
+) {
+    // Calculate the latest synced version
+    let latest_synced_version = if genesis_config_payload.is_some() {
+        0 // Genesis is always version 0
+    } else {
+        // Otherwise, load the latest synced version from storage
+        (&*storage.reader)
+            .fetch_latest_state_checkpoint_version()
+            .unwrap_or_else(|error| {
+                panic!(
+                    "Failed to fetch the initial synced version from storage: {:?}",
+                    error
+                )
+            })
+    };
+
+    // Notify the subscribers of the initial configs
+    if let Err(error) = event_subscription_service
+        .notify_initial_configs(genesis_config_payload, latest_synced_version)
+    {
+        panic!(
+            "Failed to notify subscribers of initial on-chain configs: {:?}",
+            error
+        )
     }
 }
