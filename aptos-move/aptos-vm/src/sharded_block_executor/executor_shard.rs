@@ -1,6 +1,9 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
-use crate::{block_executor::BlockAptosVM, sharded_block_executor::ExecutorShardCommand};
+use crate::{
+    block_executor::BlockAptosVM,
+    sharded_block_executor::{ExecuteBlockCommand, ExecutorShardCommand},
+};
 use aptos_logger::trace;
 use aptos_state_view::StateView;
 use aptos_types::transaction::TransactionOutput;
@@ -47,19 +50,22 @@ impl<S: StateView + Sync + Send + 'static> ExecutorShard<S> {
         loop {
             let command = self.command_rx.recv().unwrap();
             match command {
-                ExecutorShardCommand::ExecuteBlock(
-                    state_view,
-                    transactions,
-                    concurrency_level_per_shard,
-                ) => {
+                ExecutorShardCommand::ExecuteBlock(command) => {
+                    let ExecuteBlockCommand {
+                        state_view,
+                        accepted_transactions,
+                        accepted_transaction_indices: _,
+                        rejected_transaction_indices: _,
+                        concurrency_level_per_shard,
+                    } = command;
                     trace!(
                         "Shard {} received ExecuteBlock command of block size {} ",
                         self.shard_id,
-                        transactions.len()
+                        accepted_transactions.len()
                     );
                     let ret = BlockAptosVM::execute_block(
                         self.executor_thread_pool.clone(),
-                        transactions,
+                        accepted_transactions,
                         state_view.as_ref(),
                         concurrency_level_per_shard,
                         self.maybe_gas_limit,

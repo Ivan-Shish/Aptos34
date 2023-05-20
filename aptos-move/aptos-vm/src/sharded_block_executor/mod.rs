@@ -36,8 +36,34 @@ pub struct ShardedBlockExecutor<S: StateView + Sync + Send + 'static> {
     phantom: PhantomData<S>,
 }
 
+pub struct ExecuteBlockCommand<S: StateView + Sync + Send + 'static> {
+    state_view: Arc<S>,
+    accepted_transactions: Vec<Transaction>,
+    accepted_transaction_indices: Vec<usize>,
+    rejected_transaction_indices: Vec<usize>,
+    concurrency_level_per_shard: usize,
+}
+
+impl<S: StateView + Sync + Send + 'static> ExecuteBlockCommand<S> {
+    pub fn new(
+        state_view: Arc<S>,
+        accepted_transactions: Vec<Transaction>,
+        accepted_transaction_indices: Vec<usize>,
+        rejected_transaction_indices: Vec<usize>,
+        concurrency_level_per_shard: usize,
+    ) -> Self {
+        Self {
+            state_view,
+            accepted_transactions,
+            accepted_transaction_indices,
+            rejected_transaction_indices,
+            concurrency_level_per_shard,
+        }
+    }
+}
+
 pub enum ExecutorShardCommand<S: StateView + Sync + Send + 'static> {
-    ExecuteBlock(Arc<S>, Vec<Transaction>, usize),
+    ExecuteBlock(ExecuteBlockCommand<S>),
     Stop,
 }
 
@@ -89,17 +115,30 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
         block: Vec<AnalyzedTransaction>,
         concurrency_level_per_shard: usize,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
-        let (accepted_txns, _) = self.partitioner.partition(block, self.num_executor_shards);
-        // Number of partitions might be smaller than the number of executor shards in case of
-        // block size is smaller than number of executor shards.
-        let num_partitions = accepted_txns.len();
-        for (shard_index, txns) in accepted_txns.into_iter() {
+        let (shard_to_accepted_txns, mut shard_to_rejected_txns) =
+            self.partitioner.partition(block, self.num_executor_shards);
+        let num_partitions = shard_to_accepted_txns.len();
+        for (shard_index, accepted_txns) in shard_to_accepted_txns.into_iter() {
+            let (accepted_txn_indices, accepted_txns) = accepted_txns
+                .into_iter()
+                .map(|(i, t)| (i, t.into_inner()))
+                .unzip();
+
+            let (rejected_txn_indices, _): (Vec<usize>, Vec<AnalyzedTransaction>) =
+                shard_to_rejected_txns
+                    .remove(&shard_index)
+                    .unwrap()
+                    .into_iter()
+                    .unzip();
+            let execute_block_command = ExecuteBlockCommand::new(
+                state_view.clone(),
+                accepted_txns,
+                accepted_txn_indices,
+                rejected_txn_indices,
+                concurrency_level_per_shard,
+            );
             self.command_txs[shard_index]
-                .send(ExecutorShardCommand::ExecuteBlock(
-                    state_view.clone(),
-                    txns.into_iter().map(|t| t.into()).collect(),
-                    concurrency_level_per_shard,
-                ))
+                .send(ExecutorShardCommand::ExecuteBlock(execute_block_command))
                 .unwrap();
         }
         // wait for all remote executors to send the result back and append them in order by shard id

@@ -74,6 +74,21 @@ impl<'a> DependencyGraph<'a> {
             .map(|entry| entry.value().clone())
     }
 
+    /// Returns true if two transactions are dependent on each other. Detects only the first level
+    /// of cyclic dependency.
+    pub fn is_cyclic_dependency(&self, node1: Node<'a>, node2: Node<'a>) -> bool {
+        // If node2 exists in both adjacency lists and reverse adjacency lists of node1, then there is a cycle
+        self.adjacency_list
+            .get(&node1)
+            .map(|entry| entry.value().contains(&node2))
+            .unwrap_or(false)
+            && self
+                .reverse_adjacency_list
+                .get(&node1)
+                .map(|entry| entry.value().contains(&node2))
+                .unwrap_or(false)
+    }
+
     pub fn create(analyzed_transactions: &[AnalyzedTransaction]) -> DependencyGraph {
         let dependency_graph = DependencyGraph::new();
 

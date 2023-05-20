@@ -62,6 +62,10 @@ impl AnalyzedTransaction {
         }
     }
 
+    pub fn into_inner(self) -> Transaction {
+        self.transaction
+    }
+
     pub fn transaction(&self) -> &Transaction {
         &self.transaction
     }
