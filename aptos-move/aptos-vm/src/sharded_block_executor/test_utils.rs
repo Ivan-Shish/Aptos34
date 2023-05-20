@@ -18,12 +18,14 @@ use move_core_types::{
 pub struct TestAccount {
     pub account_address: AccountAddress,
     pub private_key: Ed25519PrivateKey,
+    pub sequence_number: u64,
 }
 
 pub fn generate_test_account() -> TestAccount {
     TestAccount {
         account_address: AccountAddress::random(),
         private_key: Ed25519PrivateKey::generate_for_testing(),
+        sequence_number: 0,
     }
 }
 
@@ -57,17 +59,17 @@ pub fn create_no_dependency_transaction(num_transactions: usize) -> Vec<Analyzed
 
 pub fn create_non_conflicting_p2p_transaction() -> AnalyzedTransaction {
     // create unique sender and receiver accounts so that there is no conflict
-    let sender = generate_test_account();
+    let mut sender = generate_test_account();
     let receiver = generate_test_account();
-    create_signed_p2p_transaction(sender, vec![receiver]).remove(0)
+    create_signed_p2p_transaction(&mut sender, vec![receiver]).remove(0)
 }
 
 pub fn create_signed_p2p_transaction(
-    sender: TestAccount,
+    sender: &mut TestAccount,
     receivers: Vec<TestAccount>,
 ) -> Vec<AnalyzedTransaction> {
     let mut transactions = Vec::new();
-    for (i, receiver) in receivers.iter().enumerate() {
+    for (_, receiver) in receivers.iter().enumerate() {
         let transaction_payload = TransactionPayload::EntryFunction(EntryFunction::new(
             ModuleId::new(AccountAddress::ONE, Identifier::new("coin").unwrap()),
             Identifier::new("transfer").unwrap(),
@@ -80,13 +82,14 @@ pub fn create_signed_p2p_transaction(
 
         let raw_transaction = RawTransaction::new(
             sender.account_address,
-            i as u64,
+            sender.sequence_number,
             transaction_payload,
             0,
             0,
             0,
             ChainId::new(10),
         );
+        sender.sequence_number += 1;
         let txn = Transaction::UserTransaction(SignedTransaction::new(
             raw_transaction.clone(),
             sender.private_key.public_key().clone(),

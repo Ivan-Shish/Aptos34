@@ -7,7 +7,9 @@ use crate::sharded_block_executor::{
     transaction_dependency_graph::{DependencyGraph, Node},
 };
 use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
+use dashmap::DashMap;
 use std::collections::{HashMap, HashSet};
+use move_core_types::account_address::AccountAddress;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 enum PartitioningStatus {
@@ -22,7 +24,6 @@ pub struct DependencyAwareUniformPartitioner {}
 struct PartitionerState<'a> {
     transactions: &'a [AnalyzedTransaction],
     // HashMap of transaction index to its status after partitioning.
-    txn_statuses: HashMap<usize, PartitioningStatus>,
     // Dependency graph
     graph: DependencyGraph<'a>,
     txns_per_shard: usize,
@@ -35,13 +36,15 @@ impl<'a> PartitionerState<'a> {
         let txns_per_shard = (transactions.len() as f64 / num_shards as f64).ceil() as usize;
         Self {
             transactions,
-            txn_statuses: HashMap::new(),
             graph,
             txns_per_shard,
         }
     }
 
-    pub fn discard_conflicting_cross_shard_txns(&mut self) {
+    pub fn discard_conflicting_cross_shard_txns(&'a self) -> DashMap<usize, PartitioningStatus> {
+        let txn_statuses = DashMap::new();
+        // Discarded senders to the minimum index of the transaction that was discarded.
+        let discarded_senders: DashMap<AccountAddress, usize> = DashMap::new();
         // We traverse the transactions in reverse order because we want to prioritize the transactions
         // at the beginning of the block.
         for (index, txn) in self.transactions.iter().enumerate().rev() {
@@ -53,8 +56,8 @@ impl<'a> PartitionerState<'a> {
             // shard. If not, we discard this transaction.
             let dependent_nodes = self.graph.get_dependent_nodes(Node::new(txn, index));
             if let Some(dependent_nodes) = dependent_nodes {
-                for node in dependent_nodes {
-                    if let Some(txn_status) = self.txn_statuses.get(&node.index()) {
+                for node in dependent_nodes.iter() {
+                    if let Some(txn_status) = txn_statuses.get(&node.index()) {
                         if *txn_status == PartitioningStatus::Discarded {
                             continue;
                         }
@@ -68,16 +71,23 @@ impl<'a> PartitionerState<'a> {
                 }
             }
             if !is_discarded {
-                self.txn_statuses
-                    .insert(index, PartitioningStatus::Accepted);
+                txn_statuses.insert(index, PartitioningStatus::Accepted);
             } else {
-                self.txn_statuses
-                    .insert(index, PartitioningStatus::Discarded);
+                discarded_senders.entry(txn.get_sender().unwrap()).and_modify(|entry| {
+                    if *entry > index {
+                        *entry = index;
+                    }
+                }).or_insert(index);
+                txn_statuses.insert(index, PartitioningStatus::Discarded);
             }
         }
+        txn_statuses
     }
 
-    pub fn discard_txns_from_discarded_senders(&mut self) {
+    pub fn discard_txn_from_discarded_senders(
+        &self,
+        txn_statuses: &DashMap<usize, PartitioningStatus>,
+    ) {
         // Discard transactions based on the sender.
         let mut discarded_senders = HashSet::new();
         for (index, txn) in self.transactions.iter().enumerate() {
@@ -85,22 +95,17 @@ impl<'a> PartitionerState<'a> {
             // If yes, discard this transaction as well.
             if let Some(sender) = txn.get_sender() {
                 if discarded_senders.contains(&sender) {
-                    self.txn_statuses
-                        .insert(index, PartitioningStatus::Discarded);
+                    txn_statuses.insert(index, PartitioningStatus::Discarded);
                     continue;
                 }
             }
-            let status = self.txn_statuses.get(&index).unwrap();
-            if status == &PartitioningStatus::Discarded {
+            let entry = txn_statuses.get(&index).unwrap();
+            if entry.value() == &PartitioningStatus::Discarded {
                 if let Some(sender) = txn.get_sender() {
                     discarded_senders.insert(sender);
                 }
             }
         }
-    }
-
-    pub fn into_txn_statuses(self) -> HashMap<usize, PartitioningStatus> {
-        self.txn_statuses
     }
 }
 
@@ -119,17 +124,16 @@ impl BlockPartitioner for DependencyAwareUniformPartitioner {
         }
         let txns_per_shard = (transactions.len() as f64 / num_shards as f64).ceil() as usize;
 
-        let mut partitioner_state = PartitionerState::new(&transactions, num_shards);
-        partitioner_state.discard_conflicting_cross_shard_txns();
-        partitioner_state.discard_txns_from_discarded_senders();
-        let txn_statuses = partitioner_state.into_txn_statuses();
+        let partitioner_state = PartitionerState::new(&transactions, num_shards);
+        let txn_statuses = partitioner_state.discard_conflicting_cross_shard_txns();
+        partitioner_state.discard_txn_from_discarded_senders(&txn_statuses);
 
         let mut accepted_txns = HashMap::new();
         let mut discarded_txns = HashMap::new();
         for (index, txn) in transactions.into_iter().enumerate() {
-            let status = txn_statuses.get(&index).unwrap();
+            let entry = txn_statuses.get(&index).unwrap();
             let shard_index = block_partitioner::get_shard_for_index(txns_per_shard, index);
-            if status == &PartitioningStatus::Accepted {
+            if entry.value() == &PartitioningStatus::Accepted {
                 accepted_txns
                     .entry(shard_index)
                     .or_insert_with(Vec::new)
@@ -246,13 +250,13 @@ mod tests {
     // In this case the expectation is that only the first shard will contain transactions and all
     // other shards will be empty.
     fn test_single_sender_txns() {
-        let sender = generate_test_account();
+        let mut sender = generate_test_account();
         let mut receivers = Vec::new();
         let num_txns = 10;
         for _ in 0..num_txns {
             receivers.push(generate_test_account());
         }
-        let transactions = create_signed_p2p_transaction(sender, receivers);
+        let transactions = create_signed_p2p_transaction(&mut sender, receivers);
         let partitioner = DependencyAwareUniformPartitioner {};
         let (accepted_txns, rejected_txns) = partitioner.partition(transactions.clone(), 4);
         // Create a map of transaction index to its expected status, first 3 transactions are expected to be accepted
@@ -307,11 +311,11 @@ mod tests {
     // All transactions from sender A except A1, A2 are rejected.
     fn test_conflicting_sender_ordering() {
         let num_shards = 3;
-        let conflicting_sender = generate_test_account();
+        let mut conflicting_sender = generate_test_account();
         let mut conflicting_transactions = Vec::new();
         for _ in 0..5 {
             conflicting_transactions.push(
-                create_signed_p2p_transaction(conflicting_sender.clone(), vec![
+                create_signed_p2p_transaction(&mut conflicting_sender, vec![
                     generate_test_account(),
                 ])
                 .remove(0),
@@ -383,8 +387,8 @@ mod tests {
             // randomly select a sender and receiver from accounts
             let sender_index = rng.gen_range(0, num_accounts);
             let receiver_index = rng.gen_range(0, num_accounts);
-            let sender = accounts[sender_index].clone();
             let receiver = accounts[receiver_index].clone();
+            let sender = &mut accounts[sender_index];
             transactions.push(create_signed_p2p_transaction(sender, vec![receiver]).remove(0));
         }
         let partitioner = DependencyAwareUniformPartitioner {};
@@ -424,9 +428,9 @@ mod tests {
     // Test that the partitioner works correctly when the number of transactions is less than the number of shards.
     // In this case, all transactions should be accepted, and the rejected transactions map should be empty.
     fn test_less_transactions_than_shards() {
-        let sender = generate_test_account();
+        let mut sender = generate_test_account();
         let receivers = vec![generate_test_account(), generate_test_account()];
-        let transactions = create_signed_p2p_transaction(sender, receivers);
+        let transactions = create_signed_p2p_transaction(&mut sender, receivers);
         let partitioner = DependencyAwareUniformPartitioner {};
         let (accepted_txns, rejected_txns) = partitioner.partition(transactions, 4);
         assert_eq!(accepted_txns.len(), 1);
