@@ -9,6 +9,7 @@ use crate::sharded_block_executor::{
 use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
 use dashmap::DashMap;
 use std::collections::{HashMap, HashSet};
+use rayon::iter::IntoParallelRefIterator;
 use move_core_types::account_address::AccountAddress;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
@@ -41,17 +42,18 @@ impl<'a> PartitionerState<'a> {
         }
     }
 
-    pub fn discard_conflicting_cross_shard_txns(&'a self) -> DashMap<usize, PartitioningStatus> {
+    pub fn discard_conflicting_cross_shard_txns(&'a self) -> (DashMap<usize, PartitioningStatus>, DashMap<AccountAddress, usize>) {
         let txn_statuses = DashMap::new();
         // Discarded senders to the minimum index of the transaction that was discarded.
         let discarded_senders: DashMap<AccountAddress, usize> = DashMap::new();
         // We traverse the transactions in reverse order because we want to prioritize the transactions
         // at the beginning of the block.
-        for (index, txn) in self.transactions.iter().enumerate().rev() {
+        for (index, txn) in self.transactions.iter().enumerate().rev()
+
+        {
             let current_shard_index =
                 block_partitioner::get_shard_for_index(self.txns_per_shard, index);
             let mut is_discarded = false;
-
             // For each transaction that is dependent on this transaction, check if that is in the same
             // shard. If not, we discard this transaction.
             let dependent_nodes = self.graph.get_dependent_nodes(Node::new(txn, index));
@@ -81,31 +83,7 @@ impl<'a> PartitionerState<'a> {
                 txn_statuses.insert(index, PartitioningStatus::Discarded);
             }
         }
-        txn_statuses
-    }
-
-    pub fn discard_txn_from_discarded_senders(
-        &self,
-        txn_statuses: &DashMap<usize, PartitioningStatus>,
-    ) {
-        // Discard transactions based on the sender.
-        let mut discarded_senders = HashSet::new();
-        for (index, txn) in self.transactions.iter().enumerate() {
-            // check if the sender of the transaction is already discarded.
-            // If yes, discard this transaction as well.
-            if let Some(sender) = txn.get_sender() {
-                if discarded_senders.contains(&sender) {
-                    txn_statuses.insert(index, PartitioningStatus::Discarded);
-                    continue;
-                }
-            }
-            let entry = txn_statuses.get(&index).unwrap();
-            if entry.value() == &PartitioningStatus::Discarded {
-                if let Some(sender) = txn.get_sender() {
-                    discarded_senders.insert(sender);
-                }
-            }
-        }
+        (txn_statuses, discarded_senders)
     }
 }
 
@@ -125,15 +103,26 @@ impl BlockPartitioner for DependencyAwareUniformPartitioner {
         let txns_per_shard = (transactions.len() as f64 / num_shards as f64).ceil() as usize;
 
         let partitioner_state = PartitionerState::new(&transactions, num_shards);
-        let txn_statuses = partitioner_state.discard_conflicting_cross_shard_txns();
-        partitioner_state.discard_txn_from_discarded_senders(&txn_statuses);
+        let (txn_statuses, discarded_senders) = partitioner_state.discard_conflicting_cross_shard_txns();
 
         let mut accepted_txns = HashMap::new();
         let mut discarded_txns = HashMap::new();
         for (index, txn) in transactions.into_iter().enumerate() {
-            let entry = txn_statuses.get(&index).unwrap();
+            // A transaction can be discarded under two conditions:
+            // 1. It is discarded due to creating cross-shard dependency.
+            // 2. It is discarded because the sender of the transaction is already discarded and the index
+            // of the discarded sender is less than the current transaction.
+            if let Some(sender) = txn.get_sender() {
+                if let Some(discarded_sender_index) = discarded_senders.get(&sender) {
+                    if *discarded_sender_index < index {
+                        txn_statuses.entry(index).and_modify(|entry| {
+                            *entry = PartitioningStatus::Discarded;
+                        });
+                    }
+                }
+            }
             let shard_index = block_partitioner::get_shard_for_index(txns_per_shard, index);
-            if entry.value() == &PartitioningStatus::Accepted {
+            if txn_statuses.get(&index).unwrap().value() == &PartitioningStatus::Accepted {
                 accepted_txns
                     .entry(shard_index)
                     .or_insert_with(Vec::new)
