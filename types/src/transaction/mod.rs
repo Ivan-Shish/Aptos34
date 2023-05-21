@@ -934,6 +934,10 @@ impl TransactionOutput {
         }
     }
 
+    pub fn retried() -> Self {
+        Self::new(WriteSet::default(), vec![], 0, TransactionStatus::Retry)
+    }
+
     pub fn into(self) -> (WriteSet, Vec<ContractEvent>) {
         (self.write_set, self.events)
     }

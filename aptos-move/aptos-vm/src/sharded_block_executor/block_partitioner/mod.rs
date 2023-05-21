@@ -1,7 +1,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-mod dependency_aware_partitioner;
+pub mod dependency_aware_partitioner;
 
 use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
 use std::collections::HashMap;

@@ -19,6 +19,8 @@ use std::{
     },
     thread,
 };
+use anyhow::ensure;
+use crate::sharded_block_executor::block_partitioner::dependency_aware_partitioner::DependencyAwareUniformPartitioner;
 
 mod block_partitioner;
 mod executor_shard;
@@ -99,7 +101,7 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
         );
         Self {
             num_executor_shards,
-            partitioner: Arc::new(UniformPartitioner {}),
+            partitioner: Arc::new(DependencyAwareUniformPartitioner {}),
             command_txs,
             shard_threads: shard_join_handles,
             result_rxs,
@@ -115,6 +117,7 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
         block: Vec<AnalyzedTransaction>,
         concurrency_level_per_shard: usize,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
+        let block_size = block.len();
         let (shard_to_accepted_txns, mut shard_to_rejected_txns) =
             self.partitioner.partition(block, self.num_executor_shards);
         let num_partitions = shard_to_accepted_txns.len();
@@ -148,6 +151,7 @@ impl<S: StateView + Sync + Send + 'static> ShardedBlockExecutor<S> {
             let result = self.result_rxs[i].recv().unwrap();
             aggregated_results.extend(result?);
         }
+        assert!(aggregated_results.len() ==  block_size, "ShardedBlockExecutor: expected {} outputs but got {}", block_size, aggregated_results.len());
         Ok(aggregated_results)
     }
 }

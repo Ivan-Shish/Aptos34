@@ -116,8 +116,6 @@ impl BlockPartitioner for DependencyAwareUniformPartitioner {
         HashMap<usize, Vec<(usize, AnalyzedTransaction)>>,
         HashMap<usize, Vec<(usize, AnalyzedTransaction)>>,
     ) {
-
-
         let total_txns = transactions.len();
         if total_txns == 0 {
             return (HashMap::new(), HashMap::new());
@@ -187,6 +185,8 @@ mod tests {
     use aptos_types::transaction::analyzed_transaction::AnalyzedTransaction;
     use rand::{rngs::OsRng, Rng};
     use std::collections::HashMap;
+    use std::time::Instant;
+    use aptos_logger::log;
 
     fn verify_txn_statuses(
         txn_statuses: &HashMap<usize, PartitioningStatus>,
@@ -435,6 +435,40 @@ mod tests {
     }
 
     #[test]
+    // Generates a bunch of random transactions and ensures that after the partitioning, there is
+    // no conflict across shards.
+    #[ignore]
+    fn test_benchmark() {
+        let mut rng = OsRng;
+        let num_accounts = 1000000;
+        let mut accounts = Vec::new();
+        for _ in 0..num_accounts {
+            accounts.push(generate_test_account());
+        }
+        let num_txns = 100000;
+        let mut transactions = Vec::new();
+        let num_shards = 112;
+
+        for _ in 0..num_txns {
+            // randomly select a sender and receiver from accounts
+            let sender_index = rng.gen_range(0, num_accounts);
+            let receiver_index = rng.gen_range(0, num_accounts);
+            let receiver = accounts[receiver_index].clone();
+            let sender = &mut accounts[sender_index];
+            transactions.push(create_signed_p2p_transaction(sender, vec![receiver]).remove(0));
+        }
+        // profile the time taken
+        println!("Starting to partition");
+        let now = Instant::now();
+        let partitioner = DependencyAwareUniformPartitioner {};
+        let (accepted_txns, _) = partitioner.partition(transactions.clone(), num_shards);
+        let elapsed = now.elapsed();
+        println!("Time taken to partition: {:?}", elapsed);
+        println!("Number of accepted transactions: {}", accepted_txns.len());
+
+    }
+
+    #[test]
     // Test that the partitioner works correctly when there are no transactions.
     // The expectation is that both the accepted and rejected transactions maps will be empty.
     fn test_no_transactions() {
@@ -456,7 +490,6 @@ mod tests {
         let (accepted_txns, rejected_txns) = partitioner.partition(transactions, 4);
         assert_eq!(accepted_txns.len(), 4);
         assert_eq!(accepted_txns.get(&0).unwrap().len(), 1);
-        assert_eq!(rejected_txns.len(), 4
-        );
+        assert_eq!(rejected_txns.len(), 4);
     }
 }

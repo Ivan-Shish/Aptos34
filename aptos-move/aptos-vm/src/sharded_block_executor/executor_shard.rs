@@ -4,7 +4,7 @@ use crate::{
     block_executor::BlockAptosVM,
     sharded_block_executor::{ExecuteBlockCommand, ExecutorShardCommand},
 };
-use aptos_logger::trace;
+use aptos_logger::{error, trace};
 use aptos_state_view::StateView;
 use aptos_types::transaction::TransactionOutput;
 use move_core_types::vm_status::VMStatus;
@@ -46,32 +46,80 @@ impl<S: StateView + Sync + Send + 'static> ExecutorShard<S> {
         }
     }
 
+    fn execute_block(
+        &self,
+        command: ExecuteBlockCommand<S>,
+    ) -> Result<Vec<TransactionOutput>, VMStatus> {
+        let ExecuteBlockCommand {
+            state_view,
+            accepted_transactions,
+            accepted_transaction_indices,
+            rejected_transaction_indices,
+            concurrency_level_per_shard,
+        } = command;
+        let ret = BlockAptosVM::execute_block(
+            self.executor_thread_pool.clone(),
+            accepted_transactions,
+            state_view.as_ref(),
+            concurrency_level_per_shard,
+            self.maybe_gas_limit,
+        );
+        let
+
+            outputs = match ret {
+            Ok(outputs) => outputs,
+            Err(err) => {
+                error!("Error executing block: {:?}", err);
+                return Err(err);
+            },
+        };
+        println!("accepted_transaction_indices length is : {:?}", accepted_transaction_indices.len());
+        println!("rejected_transaction_indices length is : {:?}", rejected_transaction_indices.len());
+
+        let mut ordered_outputs = vec![
+            TransactionOutput::retried();
+            accepted_transaction_indices.len()
+                + rejected_transaction_indices.len()
+        ];
+
+        let mut index = 0;
+        let mut accepted_index = 0;
+        let mut rejected_index = 0;
+        let mut outout_iter = outputs.into_iter();
+
+        while index < ordered_outputs.len() {
+            if accepted_index < accepted_transaction_indices.len()
+                && rejected_index < rejected_transaction_indices.len() {
+                if accepted_transaction_indices[accepted_index] < rejected_transaction_indices[rejected_index] {
+                    ordered_outputs[index] = outout_iter.next().unwrap();
+                    accepted_index += 1;
+                } else {
+                    ordered_outputs[index] = TransactionOutput::retried();
+                    rejected_index += 1;
+                }
+            }
+            else if accepted_index >= accepted_transaction_indices.len() {
+                ordered_outputs[index] = TransactionOutput::retried();
+                rejected_index += 1;
+            }
+            else if rejected_index >= rejected_transaction_indices.len() {
+                ordered_outputs[index] = outout_iter.next().unwrap();
+                accepted_index += 1;
+            }
+            index += 1;
+        }
+
+        drop(state_view);
+        Ok(ordered_outputs)
+    }
+
     pub fn start(&self) {
         loop {
             let command = self.command_rx.recv().unwrap();
             match command {
                 ExecutorShardCommand::ExecuteBlock(command) => {
-                    let ExecuteBlockCommand {
-                        state_view,
-                        accepted_transactions,
-                        accepted_transaction_indices: _,
-                        rejected_transaction_indices: _,
-                        concurrency_level_per_shard,
-                    } = command;
-                    trace!(
-                        "Shard {} received ExecuteBlock command of block size {} ",
-                        self.shard_id,
-                        accepted_transactions.len()
-                    );
-                    let ret = BlockAptosVM::execute_block(
-                        self.executor_thread_pool.clone(),
-                        accepted_transactions,
-                        state_view.as_ref(),
-                        concurrency_level_per_shard,
-                        self.maybe_gas_limit,
-                    );
-                    drop(state_view);
-                    self.result_tx.send(ret).unwrap();
+                    let result = self.execute_block(command);
+                    self.result_tx.send(result).unwrap();
                 },
                 ExecutorShardCommand::Stop => {
                     break;
