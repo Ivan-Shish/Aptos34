@@ -5,6 +5,7 @@
 
 
 
+-  [Function `get_transaction_has`](#0x1_transaction_context_get_transaction_has)
 -  [Function `get_script_hash`](#0x1_transaction_context_get_script_hash)
 -  [Specification](#@Specification_0)
     -  [Function `get_script_hash`](#@Specification_0_get_script_hash)
@@ -13,6 +14,29 @@
 <pre><code></code></pre>
 
 
+
+<a name="0x1_transaction_context_get_transaction_has"></a>
+
+## Function `get_transaction_has`
+
+Return transaction has of the current transaction.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="transaction_context.md#0x1_transaction_context_get_transaction_has">get_transaction_has</a>(): <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>native</b> <b>fun</b> <a href="transaction_context.md#0x1_transaction_context_get_transaction_has">get_transaction_has</a>(): <a href="../../aptos-stdlib/../move-stdlib/doc/vector.md#0x1_vector">vector</a>&lt;u8&gt;;
+</code></pre>
+
+
+
+</details>
 
 <a name="0x1_transaction_context_get_script_hash"></a>
 

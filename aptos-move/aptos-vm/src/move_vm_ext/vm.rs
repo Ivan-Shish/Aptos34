@@ -93,6 +93,7 @@ impl MoveVmExt {
             .try_into()
             .expect("HashValue should convert to [u8; 32]");
 
+        //here
         extensions.add(NativeTableContext::new(txn_hash, remote));
         extensions.add(NativeRistrettoPointContext::new());
         extensions.add(AlgebraContext::new());
@@ -112,7 +113,7 @@ impl MoveVmExt {
             _ => vec![],
         };
 
-        extensions.add(NativeTransactionContext::new(script_hash, self.chain_id));
+        extensions.add(NativeTransactionContext::new(txn_hash, script_hash, self.chain_id));
         extensions.add(NativeCodeContext::default());
         extensions.add(NativeStateStorageContext::new(remote));
 

@@ -565,6 +565,15 @@ derivation to produce an object address.
 
 
 
+<a name="0x1_object_OBJECT_FROM_TRANSACTION_GUID_ADDRESS_SCHEME"></a>
+
+
+
+<pre><code><b>const</b> <a href="object.md#0x1_object_OBJECT_FROM_TRANSACTION_GUID_ADDRESS_SCHEME">OBJECT_FROM_TRANSACTION_GUID_ADDRESS_SCHEME</a>: u8 = 251;
+</code></pre>
+
+
+
 <a name="0x1_object_address_to_object"></a>
 
 ## Function `address_to_object`

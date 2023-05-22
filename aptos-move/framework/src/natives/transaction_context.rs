@@ -10,11 +10,15 @@ use move_vm_types::{loaded_data::runtime_types::Type, values::Value};
 use smallvec::{smallvec, SmallVec};
 use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
+const OBJECT_FROM_TRANSACTION_GUID_ADDRESS_SCHEME: u8 = 0xFB;
+
+
 /// The native transaction context extension. This needs to be attached to the
 /// NativeContextExtensions value which is passed into session functions, so its accessible from
 /// natives of this extension.
 #[derive(Tid)]
 pub struct NativeTransactionContext {
+    txn_hash: Vec<u8>,
     script_hash: Vec<u8>,
     chain_id: u8,
 }
@@ -22,8 +26,9 @@ pub struct NativeTransactionContext {
 impl NativeTransactionContext {
     /// Create a new instance of a native transaction context. This must be passed in via an
     /// extension into VM session functions.
-    pub fn new(script_hash: Vec<u8>, chain_id: u8) -> Self {
+    pub fn new(txn_hash: Vec<u8>, script_hash: Vec<u8>, chain_id: u8) -> Self {
         Self {
+            txn_hash,
             script_hash,
             chain_id,
         }
@@ -33,6 +38,9 @@ impl NativeTransactionContext {
         self.chain_id
     }
 }
+
+///
+/// TODO Implement create_guid, similar to NativeTableContet.native_new_table_handle
 
 /***************************************************************************************************
  * native fun get_script_hash

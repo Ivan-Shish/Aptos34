@@ -51,6 +51,9 @@ module aptos_framework::object {
     /// nesting, but any checks such as transfer will only be evaluated this deep.
     const MAXIMUM_OBJECT_NESTING: u8 = 8;
 
+    /// Value used in native, but mentioned here to not conflict with other values that might be added.
+    //// const OBJECT_FROM_TRANSACTION_GUID_ADDRESS_SCHEME: u8 = 0xFB;
+
     /// Scheme identifier used to generate an object's address `obj_addr` as derived from another object.
     /// The object's address is generated as:
     /// ```
@@ -226,6 +229,12 @@ module aptos_framework::object {
         let bytes = bcs::to_bytes(&guid);
         vector::push_back(&mut bytes, OBJECT_FROM_GUID_ADDRESS_SCHEME);
         let obj_addr = from_bcs::to_address(hash::sha3_256(bytes));
+        create_object_internal(creator_address, obj_addr, true)
+    }
+
+    // change token v2 (collection.move and token.move) to use this function exclusively
+    public fun create_object(creator_address: address): ConstructorRef {
+        let obj_addr = transaction_context::create_guid();
         create_object_internal(creator_address, obj_addr, true)
     }
 
