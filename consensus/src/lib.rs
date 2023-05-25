@@ -34,6 +34,7 @@ mod recovery_manager;
 mod round_manager;
 mod state_computer;
 mod state_replication;
+mod dkg;
 #[cfg(any(test, feature = "fuzzing"))]
 mod test_utils;
 #[cfg(test)]

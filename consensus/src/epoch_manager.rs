@@ -5,7 +5,7 @@
 use crate::{
     block_storage::{
         tracing::{observe_block, BlockStage},
-        BlockStore,
+        BlockStore, BlockReader,
     },
     counters,
     error::{error_kind, DbError},
@@ -47,7 +47,7 @@ use crate::{
     round_manager::{RoundManager, UnverifiedEvent, VerifiedEvent},
     state_replication::StateComputer,
     transaction_shuffler::create_transaction_shuffler,
-    util::time_service::TimeService,
+    util::time_service::TimeService, dkg::dkg_manager::{DKGManager, DKGManagerCommand},
 };
 use anyhow::{bail, ensure, Context};
 use aptos_bounded_executor::BoundedExecutor;
@@ -115,6 +115,7 @@ pub struct EpochManager {
     network_sender: ConsensusNetworkClient<NetworkClient<ConsensusMsg>>,
     timeout_sender: aptos_channels::Sender<Round>,
     quorum_store_enabled: bool,
+    dkg_enabled: bool,
     quorum_store_to_mempool_sender: Sender<QuorumStoreRequest>,
     commit_state_computer: Arc<dyn StateComputer>,
     storage: Arc<dyn PersistentLivenessStorage>,
@@ -128,6 +129,7 @@ pub struct EpochManager {
         aptos_channel::Sender<(Author, Discriminant<VerifiedEvent>), (Author, VerifiedEvent)>,
     >,
     round_manager_close_tx: Option<oneshot::Sender<oneshot::Sender<()>>>,
+    dkg_manager_cmd_tx: Option<tokio::sync::mpsc::Sender<DKGManagerCommand>>,
     epoch_state: Option<Arc<EpochState>>,
     block_retrieval_tx:
         Option<aptos_channel::Sender<AccountAddress, IncomingBlockRetrievalRequest>>,
@@ -168,6 +170,7 @@ impl EpochManager {
             timeout_sender,
             // This default value is updated at epoch start
             quorum_store_enabled: false,
+            dkg_enabled: false,
             quorum_store_to_mempool_sender,
             commit_state_computer,
             storage,
@@ -177,6 +180,7 @@ impl EpochManager {
             buffer_manager_reset_tx: None,
             round_manager_tx: None,
             round_manager_close_tx: None,
+            dkg_manager_cmd_tx: None,
             epoch_state: None,
             block_retrieval_tx: None,
             quorum_store_msg_tx: None,
@@ -526,6 +530,15 @@ impl EpochManager {
     }
 
     async fn shutdown_current_processor(&mut self) {
+        if let Some(dkg_manager_cmd_tx) = self.dkg_manager_cmd_tx.take() {
+            let (ack_tx, ack_rx) = oneshot::channel();
+            dkg_manager_cmd_tx
+                .send(DKGManagerCommand::Shutdown(ack_tx))
+                .await
+                .expect("Could not send shutdown indicator to QuorumStore");
+            ack_rx.await.expect("Failed to stop QuorumStore");
+        }
+
         if let Some(close_tx) = self.round_manager_close_tx.take() {
             // Release the previous RoundManager, especially the SafetyRule client
             let (ack_tx, ack_rx) = oneshot::channel();
@@ -652,8 +665,12 @@ impl EpochManager {
         let (consensus_to_quorum_store_tx, consensus_to_quorum_store_rx) =
             mpsc::channel(self.config.intra_consensus_channel_buffer_size);
 
+        let (batch_generator_cmd_tx, batch_generator_cmd_rx) =
+            tokio::sync::mpsc::channel(self.config.channel_size);
+
         let mut quorum_store_builder = if self.quorum_store_enabled {
             info!("Building QuorumStore");
+
             QuorumStoreBuilder::QuorumStore(InnerBuilder::new(
                 self.epoch(),
                 self.author,
@@ -667,6 +684,8 @@ impl EpochManager {
                 epoch_state.verifier.clone(),
                 self.config.safety_rules.backend.clone(),
                 self.quorum_store_storage.clone(),
+                batch_generator_cmd_tx.clone(),
+                batch_generator_cmd_rx
             ))
         } else {
             info!("Building DirectMempool");
@@ -720,6 +739,20 @@ impl EpochManager {
         {
             self.quorum_store_coordinator_tx = Some(quorum_store_coordinator_tx);
             self.batch_retrieval_tx = Some(batch_retrieval_rx);
+        }
+
+        if self.dkg_enabled {
+            // start dkg_manager
+            let epoch_start_time_usecs = block_store.commit_root().timestamp_usecs();
+            let dkg_manager = DKGManager::new(self.epoch(), epoch_start_time_usecs, block_store.clone(), batch_generator_cmd_tx);
+            let (dkg_manager_cmd_tx, dkg_manager_cmd_rx) =
+                tokio::sync::mpsc::channel(self.config.channel_size);
+            // let (close_tx, close_rx) = oneshot::channel();
+            self.dkg_manager_cmd_tx = Some(dkg_manager_cmd_tx);
+            let interval = tokio::time::interval(Duration::from_millis(
+                self.config.dkg_manager_interval_ms as u64,
+            ));
+            dkg_manager.start(dkg_manager_cmd_rx, interval);
         }
 
         info!(epoch = epoch, "Create ProposalGenerator");

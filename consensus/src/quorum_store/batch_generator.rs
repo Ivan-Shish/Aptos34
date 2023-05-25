@@ -30,6 +30,7 @@ use tokio::time::Interval;
 pub enum BatchGeneratorCommand {
     CommitNotification(u64),
     ProofExpiration(Vec<BatchId>),
+    SendPVSSBatch(SignedTransaction),
     Shutdown(tokio::sync::oneshot::Sender<()>),
 }
 
@@ -383,6 +384,10 @@ impl BatchGenerator {
                                 .send(())
                                 .expect("Failed to send shutdown ack");
                             break;
+                        },
+                        BatchGeneratorCommand::SendPVSSBatch(pvss_txn) => {
+                            let pvss_batch = self.create_new_batch(vec![pvss_txn], u64::MAX, u64::MAX, true);
+                            network_sender.broadcast_batch_msg(vec![pvss_batch]).await;
                         },
                     }
                 })

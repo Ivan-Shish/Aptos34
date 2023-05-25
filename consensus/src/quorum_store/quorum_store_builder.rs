@@ -154,10 +154,10 @@ impl InnerBuilder {
         verifier: ValidatorVerifier,
         backend: SecureBackend,
         quorum_store_storage: Arc<dyn QuorumStoreStorage>,
+        batch_generator_cmd_tx: tokio::sync::mpsc::Sender<BatchGeneratorCommand>,
+        batch_generator_cmd_rx: tokio::sync::mpsc::Receiver<BatchGeneratorCommand>,
     ) -> Self {
         let (coordinator_tx, coordinator_rx) = futures_channel::mpsc::channel(config.channel_size);
-        let (batch_generator_cmd_tx, batch_generator_cmd_rx) =
-            tokio::sync::mpsc::channel(config.channel_size);
         let (proof_coordinator_cmd_tx, proof_coordinator_cmd_rx) =
             tokio::sync::mpsc::channel(config.channel_size);
         let (proof_manager_cmd_tx, proof_manager_cmd_rx) =
