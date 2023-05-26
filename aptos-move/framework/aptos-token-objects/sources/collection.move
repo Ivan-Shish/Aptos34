@@ -178,7 +178,7 @@ module aptos_token_objects::collection {
     /// Creates an untracked collection, or a collection that supports an arbitrary amount of
     /// tokens. This is useful for mass airdrops that fully leverage Aptos parallelization.
     /// TODO: Hide this until we bring back meaningful way to enforce burns
-    fun create_untracked_collection(
+    public fun create_untracked_collection(
         creator: &signer,
         description: String,
         name: String,
