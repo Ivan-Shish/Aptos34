@@ -25,6 +25,18 @@ on: # build on main branch OR when a PR is labeled with `CICD:build-images`
   workflow_dispatch:
   pull_request_target:
     types: [labeled, opened, synchronize, reopened, auto_merge_enabled]
+    branches:
+        - main
+        # release branches
+        - devnet
+        - testnet
+        - mainnet
+        - aptos-node-v*
+        - aptos-release-v*
+        # experimental branches
+        - performance_benchmark
+        - quorum-store
+        - preview
   push:
     branches:
       - main
