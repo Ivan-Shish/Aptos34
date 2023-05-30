@@ -51,9 +51,10 @@ flexibility in this way.
 * Soul bound tokens can be easily supported
 
 ### Royalties
-Royalties are simply [another module](https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-token-objects/sources/royalty.move)
-that is attached to a collection. They're allowed to be updated as long as a `MutatorRef` is generated at creation time.
-The royalty can also be set directly on a token if it has a different royalty config than the collection's.
+Royalties are simply [a resource with associated functionality](https://github.com/aptos-labs/aptos-core/blob/main/aptos-move/framework/aptos-token-objects/sources/royalty.move)
+that is attached to a collection object. Royalty can be updated as long as a `MutatorRef` is generated at creation time and stored.
+See [Aptos Token](#aptos-token) for examples on how Royalty's MutatorRef can be stored and used.
+Royalty can also be set directly on a token if it has a different royalty config than the collection's.
 
 ## Token lifecycle
 

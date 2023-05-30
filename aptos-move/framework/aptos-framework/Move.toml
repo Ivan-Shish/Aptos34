@@ -1,6 +1,7 @@
 [package]
 name = "AptosFramework"
 version = "1.0.0"
+commit_hash = "abc123"
 
 [addresses]
 std = "0x1"
