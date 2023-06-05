@@ -8,11 +8,8 @@ use crate::{
     scheduler::{DependencyResult, Scheduler, SchedulerTask},
 };
 use aptos_aggregator::delta_change_set::{delta_add, delta_sub, DeltaOp, DeltaUpdate};
-use aptos_mvhashmap::types::TxnIndex;
-use aptos_types::{
-    executable::{ExecutableTestType, ModulePath},
-    write_set::TransactionWrite,
-};
+use aptos_mvhashmap::types::{TXN_IDX_NONE, TxnIndex};
+use aptos_types::{executable::ModulePath, write_set::TransactionWrite};
 use claims::{assert_matches, assert_some_eq};
 use rand::{prelude::*, random};
 use std::{
@@ -23,6 +20,7 @@ use std::{
     marker::PhantomData,
     sync::{atomic::AtomicUsize, Arc},
 };
+use aptos_types::executable::ExecutableTestType;
 
 fn run_and_assert<K, V>(transactions: Vec<Transaction<K, V>>)
 where
@@ -263,7 +261,9 @@ fn early_skips() {
 
 #[test]
 fn scheduler_tasks() {
-    let s = Scheduler::new(5);
+    let mut s = Scheduler::new();
+    s.add_txns((0..5).collect());
+    s.end_of_txn_stream();
 
     for i in 0..5 {
         // No validation tasks.
@@ -354,7 +354,9 @@ fn scheduler_tasks() {
 
 #[test]
 fn scheduler_first_wave() {
-    let s = Scheduler::new(6);
+    let mut s = Scheduler::new();
+    s.add_txns((0..6).collect());
+    s.end_of_txn_stream();
 
     for i in 0..5 {
         // Nothing to validate.
@@ -409,7 +411,9 @@ fn scheduler_first_wave() {
 
 #[test]
 fn scheduler_dependency() {
-    let s = Scheduler::new(10);
+    let mut s = Scheduler::new();
+    s.add_txns((0..10).collect());
+    s.end_of_txn_stream();
 
     for i in 0..5 {
         // Nothing to validate.
@@ -456,7 +460,9 @@ fn scheduler_dependency() {
 // Will return a scheduler in a state where all transactions are scheduled for
 // for execution, validation index = num_txns, and wave = 0.
 fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler {
-    let s = Scheduler::new(num_txns);
+    let mut s = Scheduler::new();
+    s.add_txns((0..num_txns).collect());
+    s.end_of_txn_stream();
 
     for i in 0..num_txns {
         // Get the first executions out of the way.
@@ -570,7 +576,9 @@ fn scheduler_incarnation() {
 
 #[test]
 fn scheduler_basic() {
-    let s = Scheduler::new(3);
+    let mut s = Scheduler::new();
+    s.add_txns((0..3).collect());
+    s.end_of_txn_stream();
 
     for i in 0..3 {
         // Nothing to validate.
@@ -620,7 +628,9 @@ fn scheduler_basic() {
 
 #[test]
 fn scheduler_drain_idx() {
-    let s = Scheduler::new(3);
+    let mut s = Scheduler::new();
+    s.add_txns((0..3).collect());
+    s.end_of_txn_stream();
 
     for i in 0..3 {
         // Nothing to validate.
@@ -740,7 +750,7 @@ fn rolling_commit_wave() {
     // Finish validation with appropriate wave.
     s.finish_validation(2, 1);
     assert_some_eq!(s.try_commit(), 2);
-    assert_eq!(s.commit_state(), (3, 1));
+    assert_eq!(s.commit_state(), (TXN_IDX_NONE, 1));
 
     // All txns have been committed.
     assert!(matches!(s.next_task(false), SchedulerTask::Done));
@@ -763,7 +773,9 @@ fn no_conflict_task_count() {
 
     let num_txns: TxnIndex = 1000;
     for num_concurrent_tasks in [1, 5, 10, 20] {
-        let s = Scheduler::new(num_txns);
+        let mut s = Scheduler::new();
+        s.add_txns((0..num_txns).collect());
+        s.end_of_txn_stream();
 
         let mut tasks = BTreeMap::new();
 
@@ -826,7 +838,12 @@ fn no_conflict_task_count() {
 
         for i in 0..num_txns {
             assert_some_eq!(s.try_commit(), i);
-            assert_eq!(s.commit_state(), (i + 1, 0));
+            let expected_txn_idx = if i == num_txns - 1 {
+                TXN_IDX_NONE
+            } else {
+                i + 1
+            };
+            assert_eq!(s.commit_state(), (expected_txn_idx, 0));
         }
         assert!(matches!(s.next_task(false), SchedulerTask::Done));
     }
