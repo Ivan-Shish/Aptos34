@@ -1,15 +1,16 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::smoke_test_environment::SwarmBuilder;
+use crate::{
+    smoke_test_environment::SwarmBuilder,
+    test_utils::{MAX_CONNECTIVITY_WAIT_SECS, MAX_HEALTHY_WAIT_SECS},
+};
 use aptos_config::config::NodeConfig;
 use aptos_forge::{NodeExt, Swarm};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-
-const MAX_WAIT_SECS: u64 = 60;
 
 /// Bring up a swarm normally, then run get_bin, and bring up a VFN.
 /// Previously get_bin triggered a rebuild of aptos-node, which caused issues that were only seen
@@ -32,20 +33,16 @@ async fn test_aptos_node_after_get_bin() {
 
     let validator = validator_peer_ids[0];
     let _vfn = swarm
-        .add_validator_fullnode(
-            &version,
-            NodeConfig::default_for_validator_full_node(),
-            validator,
-        )
+        .add_validator_fullnode(&version, NodeConfig::get_default_vfn_config(), validator)
         .unwrap();
 
     for fullnode in swarm.full_nodes_mut() {
         fullnode
-            .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_WAIT_SECS))
+            .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_HEALTHY_WAIT_SECS))
             .await
             .unwrap();
         fullnode
-            .wait_for_connectivity(Instant::now() + Duration::from_secs(MAX_WAIT_SECS))
+            .wait_for_connectivity(Instant::now() + Duration::from_secs(MAX_CONNECTIVITY_WAIT_SECS))
             .await
             .unwrap();
     }

@@ -5,38 +5,126 @@ slug: "staking-pool-operations"
 
 # Staking Pool Operations
 
-This document describes how to perform staking pool operations. Note that you can stake only when you meet the minimal staking requirement. 
+This document describes how to perform [staking](../../../concepts/staking.md) pool operations. Note that a staking pool can only accept stake from the stake pool owner. You can stake only when you meet the minimum staking requirement. See also the related [Delegation Pool Operations](./delegation-pool-operations.md) instructions to accept stake from multiple delegators in order to reach the minimum. 
 
 :::tip Minimum staking requirement
-The current required minimum for staking is 1M APT tokens.
+The current required minimum for staking is 1 million APT.
+:::
+
+:::danger
+Important There is no upgrade mechanism for the staking contract from staking pool to delegation pool. A new delegation pool would have to be created.
 :::
 
 ## Connect to Aptos network
 
-[Connect to the Aptos](./connect-to-aptos-network.md) and start your node has with `validator-identity` and `validator-fullnode-identity` addresses using your staking pool address.
+[Connect to the Aptos network](./connect-to-aptos-network.md) and start your node with `validator-identity` and `validator-fullnode-identity` addresses using your staking pool address.
 
 ## Initializing the stake pool
 
-Make sure that this initializing the stake pool step was performed by the owner. See [Initialize staking pool](/nodes/validator-node/owner/index#initialize-staking-pool) in the owner documentation section.
+Make sure that this step is performed by the owner. See [Initialize staking pool](#initialize-staking-pool) section.
 
 ## Joining validator set
-
-:::danger Errors? 
-**The validator node cannot sync until the stake pool becomes active.** If you see errors, see the [Issues and Workarounds](/docs/issues-and-workarounds.md).
-:::
 
 Follow the below steps to set up the validator node using the operator account and join the validator set.
 
 :::tip Mainnet vs Testnet
-The below CLI command examples use mainnet. See the `--rest-url` value for testnet or devnet in [Aptos Blockchain Deployments](/docs/nodes/aptos-deployments.md).
+The below CLI command examples use mainnet. Change the `--network` value for testnet and devnet. View the values in [Aptos Blockchain Deployments](../../deployments.md) to see how profiles can be configured based on the network.
 :::
+
+## Perform pool owner operations
+
+This document describes how to [use the Aptos CLI](../../../tools/aptos-cli-tool/use-aptos-cli.md) to perform owner operations during validation.
+
+### Owner operations with CLI
+
+:::tip Testnet vs Mainnet
+The below CLI command examples use mainnet. Change the `--network` value for testnet and devnet. View the values in [Aptos Blockchain Deployments](../../deployments.md) to see how profiles can be configured based on the network.
+:::
+
+### Initialize CLI
+
+Initialize CLI with a private key from an existing account, such as a wallet, or create a new account.
+
+```bash
+aptos init --profile mainnet-owner \
+  --network mainnet
+```
+
+You can either enter the private key from an existing wallet, or create new wallet address.
+
+### Initialize staking pool
+
+```bash
+aptos stake initialize-stake-owner \
+  --initial-stake-amount 100000000000000 \
+  --operator-address <operator-address> \
+  --voter-address <voter-address> \
+  --profile mainnet-owner
+```
+
+### Transfer coin between accounts
+
+```bash
+aptos account transfer \
+  --account <operator-address> \
+  --amount <amount> \
+  --profile mainnet-owner
+```
+
+### Switch operator
+
+```bash
+aptos stake set-operator \
+  --operator-address <new-operator-address> \ 
+  --profile mainnet-owner
+```
+
+### Switch voter
+
+```bash
+aptos stake set-delegated-voter \
+  --voter-address <new-voter-address> \ 
+  --profile mainnet-owner
+```
+
+### Add stake
+
+```bash
+aptos stake add-stake \
+  --amount <amount> \
+  --profile mainnet-owner
+```
+
+### Increase stake lockup
+
+```bash
+aptos stake increase-lockup --profile mainnet-owner
+```
+
+### Unlock stake
+
+```bash
+aptos stake unlock-stake \
+  --amount <amount> \
+  --profile mainnet-owner
+```
+
+### Withdraw stake
+
+```bash
+aptos stake withdraw-stake \
+  --amount <amount> \
+  --profile mainnet-owner
+```
+
+## Perform operator operations
 
 ### 1. Initialize Aptos CLI
 
   ```bash
   aptos init --profile mainnet-operator \
+  --network mainnet \
   --private-key <operator_account_private_key> \
-  --rest-url https://fullnode.mainnet.aptoslabs.com/v1 \
   --skip-faucet
   ```
   
@@ -46,7 +134,7 @@ The `account_private_key` for the operator can be found in the `private-keys.yam
 
 ### 2. Check your validator account balance 
 
-Make sure you have enough APT coins to pay for gas. You can check for this either on the Aptos Explorer or using the CLI:
+Make sure you have enough APT to pay for gas. You can check for this either on the Aptos Explorer or using the CLI:
 
 - On the Aptos Explorer `https://explorer.aptoslabs.com/account/<account-address>?network=Mainnet`, or 
 - Use the CLI:
@@ -100,7 +188,7 @@ aptos node join-validator-set \
 The validator set is updated at every epoch change. You will see your validator node joining the validator set only in the next epoch. Both validator and validator fullnode will start syncing once your validator is in the validator set.
 
 :::tip When is next epoch?
-Run the command `aptos node get-stake-pool` as shown in [Checking your stake pool information](#checking-your-stake-pool-information). You can also follow these steps: [How to find out when the next epoch starts](/issues-and-workarounds#how-to-find-out-when-the-next-epoch-starts).
+You can see it on the [Aptos Explorer](https://explorer.aptoslabs.com/validators/all?network=mainnet) or by running the command `aptos node get-stake-pool` as shown in [Checking your stake pool information](#checking-your-stake-pool-information).
 :::
 
 ### 6. Check the validator set
@@ -120,7 +208,7 @@ aptos node show-validator-set --profile mainnet-operator | jq -r '.Result.active
 ## Checking your stake pool information
 
 :::tip How validation works
-Before you proceed, see [Validation on the Aptos blockchain](/concepts/staking#validation-on-the-aptos-blockchain) for a brief overview.
+Before you proceed, see [Validation on the Aptos blockchain](../../../concepts/staking.md#validation-on-the-aptos-blockchain) for a brief overview.
 :::
 
 To check the details of your stake pool, run the below CLI command with the `get-stake-pool` option by providing the `--owner-address` and `--url` fields. 
@@ -128,7 +216,7 @@ To check the details of your stake pool, run the below CLI command with the `get
 The below command is for an example owner address `e7be097a90c18f6bdd53efe0e74bf34393cac2f0ae941523ea196a47b6859edb`. 
 
 :::tip
-For testnet or devnet `--url` field values, see [Aptos Blockchain Deployments](/nodes/aptos-deployments).
+For testnet or devnet `--url` field values, see [Aptos Blockchain Deployments](../../deployments.md).
 :::
 
 ```bash
@@ -225,9 +313,11 @@ Month 3, Day 29, if you call the commission again, 30 days of commission would b
 
 You can call the command multiple times, and the amount you receive depends on the day when you requested commission unlock previously.
 
-## Frequently used staking operations commands
 
-### Checking your validator performance
+Commission is unlocked when `request-commission` is called, the staker unlocks stake, or the staker switches operator. The commission will not be withdrawable until the end of the lockup period. Unlocked commission will continue to earn rewards until the lockup period expires.
+
+
+## Checking your validator performance
 
 To see your validator performance in the current and past epochs and the rewards earned, run the below command. The output will show the validator's performance in block proposals, and in governance voting and governance proposals. Default values are used in the below command. Type `aptos node get-performance --help` to see default values used.
 
@@ -277,7 +367,7 @@ Example output:
 #### Description of fields
 
 **current_epoch_successful_proposals**
-- Successful leader-validator proposals during the current epoch. Also see [Validation on the Aptos blockchain](/concepts/staking#validation-on-the-aptos-blockchain) for the distinction between leader-validator and the voter-validator.
+- Successful leader-validator proposals during the current epoch. Also see [Validation on the Aptos blockchain](../../../concepts/staking.md#validation-on-the-aptos-blockchain) for the distinction between leader-validator and the voter-validator.
 
 **previous_epoch_rewards**
 - An ordered list of rewards earned (APT amounts) for the previous 10 epochs, starting with the 10 epoch in the past. In the above example, a reward of 12312716242 APT was earned 10 epochs past and a reward of 12313600288 APT was earned in the most recent epoch. If a reward is 0 for any epoch, then:
@@ -294,3 +384,7 @@ aptos node analyze-validator-performance \
   --profile mainnet-operator \
   --start-epoch 0 | grep <pool address>
 ```
+
+## Tracking rewards
+
+`DistributeEvent` is emitted when there is a transfer from staking_contract to the operator or staker (owner). Rewards can be tracked either by listening to `DistributeEvent` or by using the [View functon](../../../integration/aptos-apis.md#reading-state-with-the-view-function) to call `staking_contract_amounts`. This will return `accumulated_rewards` and `commission_amount`.

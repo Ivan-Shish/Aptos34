@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 pub(crate) mod vm_wrapper;
@@ -6,29 +7,35 @@ pub(crate) mod vm_wrapper;
 use crate::{
     adapter_common::{preprocess_transaction, PreprocessedTransaction},
     block_executor::vm_wrapper::AptosExecutorTask,
+    counters::{
+        BLOCK_EXECUTOR_CONCURRENCY, BLOCK_EXECUTOR_EXECUTE_BLOCK_SECONDS,
+        BLOCK_EXECUTOR_SIGNATURE_VERIFICATION_SECONDS,
+    },
     AptosVM,
 };
-use aptos_aggregator::{delta_change_set::DeltaOp, transaction::TransactionOutputExt};
+use aptos_aggregator::delta_change_set::DeltaOp;
 use aptos_block_executor::{
     errors::Error,
-    executor::{BlockExecutor, RAYON_EXEC_POOL},
-    output_delta_resolver::OutputDeltaResolver,
+    executor::BlockExecutor,
     task::{
         Transaction as BlockExecutorTransaction,
         TransactionOutput as BlockExecutorTransactionOutput,
     },
-    view::ResolvedData,
 };
-use aptos_logger::debug;
-use aptos_state_view::StateView;
+use aptos_infallible::Mutex;
+use aptos_state_view::{StateView, StateViewId};
 use aptos_types::{
+    executable::ExecutableTestType,
     state_store::state_key::StateKey,
     transaction::{Transaction, TransactionOutput, TransactionStatus},
-    write_set::{WriteOp, WriteSet, WriteSetMut},
+    write_set::WriteOp,
 };
+use aptos_vm_logging::{flush_speculative_logs, init_speculative_logs};
+use aptos_vm_types::output::VMOutput;
 use move_core_types::vm_status::VMStatus;
-use rayon::prelude::*;
-use std::collections::HashMap;
+use once_cell::sync::OnceCell;
+use rayon::{prelude::*, ThreadPool};
+use std::sync::Arc;
 
 impl BlockExecutorTransaction for PreprocessedTransaction {
     type Key = StateKey;
@@ -36,148 +43,158 @@ impl BlockExecutorTransaction for PreprocessedTransaction {
 }
 
 // Wrapper to avoid orphan rule
-pub(crate) struct AptosTransactionOutput(TransactionOutputExt);
+#[derive(Debug)]
+pub(crate) struct AptosTransactionOutput {
+    vm_output: Mutex<Option<VMOutput>>,
+    committed_output: OnceCell<TransactionOutput>,
+}
 
 impl AptosTransactionOutput {
-    pub fn new(output: TransactionOutputExt) -> Self {
-        Self(output)
+    pub(crate) fn new(output: VMOutput) -> Self {
+        Self {
+            vm_output: Mutex::new(Some(output)),
+            committed_output: OnceCell::new(),
+        }
     }
 
-    pub fn into(self) -> TransactionOutputExt {
-        self.0
-    }
-
-    pub fn as_ref(&self) -> &TransactionOutputExt {
-        &self.0
+    fn take_output(mut self) -> TransactionOutput {
+        match self.committed_output.take() {
+            Some(output) => output,
+            None => self
+                .vm_output
+                .lock()
+                .take()
+                .expect("Output must be set")
+                .output_with_delta_writes(vec![]),
+        }
     }
 }
 
 impl BlockExecutorTransactionOutput for AptosTransactionOutput {
     type Txn = PreprocessedTransaction;
 
+    /// Execution output for transactions that comes after SkipRest signal.
+    fn skip_output() -> Self {
+        Self::new(VMOutput::empty_with_status(TransactionStatus::Retry))
+    }
+
+    /// Should never be called after incorporate_delta_writes, as it
+    /// will consume vm_output to prepare an output with deltas.
     fn get_writes(&self) -> Vec<(StateKey, WriteOp)> {
-        self.0
-            .txn_output()
+        self.vm_output
+            .lock()
+            .as_ref()
+            .expect("Output to be set to get writes")
             .write_set()
             .iter()
             .map(|(key, op)| (key.clone(), op.clone()))
             .collect()
     }
 
+    /// Should never be called after incorporate_delta_writes, as it
+    /// will consume vm_output to prepare an output with deltas.
     fn get_deltas(&self) -> Vec<(StateKey, DeltaOp)> {
-        self.0
+        self.vm_output
+            .lock()
+            .as_ref()
+            .expect("Output to be set to get deltas")
             .delta_change_set()
             .iter()
             .map(|(key, op)| (key.clone(), *op))
             .collect()
     }
 
-    /// Execution output for transactions that comes after SkipRest signal.
-    fn skip_output() -> Self {
-        Self(TransactionOutputExt::from(TransactionOutput::new(
-            WriteSet::default(),
-            vec![],
-            0,
-            TransactionStatus::Retry,
-        )))
+    /// Can be called (at most) once after transaction is committed to internally
+    /// include the delta outputs with the transaction outputs.
+    fn incorporate_delta_writes(&self, delta_writes: Vec<(StateKey, WriteOp)>) {
+        assert!(
+            self.committed_output
+                .set(
+                    self.vm_output
+                        .lock()
+                        .take()
+                        .expect("Output must be set to combine with deltas")
+                        .output_with_delta_writes(delta_writes),
+                )
+                .is_ok(),
+            "Could not combine VMOutput with deltas"
+        );
+    }
+
+    /// Return the amount of gas consumed by the transaction.
+    fn gas_used(&self) -> u64 {
+        self.committed_output
+            .get()
+            .map_or(0, |output| output.gas_used())
     }
 }
 
 pub struct BlockAptosVM();
 
 impl BlockAptosVM {
-    fn process_parallel_block_output<S: StateView>(
-        results: Vec<AptosTransactionOutput>,
-        delta_resolver: OutputDeltaResolver<StateKey, WriteOp>,
-        state_view: &S,
-    ) -> Vec<TransactionOutput> {
-        // TODO: MVHashmap, and then delta resolver should track aggregator base values.
-        let mut aggregator_base_values: HashMap<StateKey, anyhow::Result<ResolvedData>> =
-            HashMap::new();
-        for res in results.iter() {
-            for (key, _) in res.as_ref().delta_change_set().iter() {
-                if !aggregator_base_values.contains_key(key) {
-                    aggregator_base_values.insert(key.clone(), state_view.get_state_value(key));
-                }
-            }
-        }
-
-        let materialized_deltas =
-            delta_resolver.resolve(aggregator_base_values.into_iter().collect(), results.len());
-
-        results
-            .into_iter()
-            .zip(materialized_deltas.into_iter())
-            .map(|(res, delta_writes)| {
-                res.into()
-                    .output_with_delta_writes(WriteSetMut::new(delta_writes))
-            })
-            .collect()
-    }
-
-    fn process_sequential_block_output(
-        results: Vec<AptosTransactionOutput>,
-    ) -> Vec<TransactionOutput> {
-        results
-            .into_iter()
-            .map(|res| {
-                let (deltas, output) = res.into().into();
-                debug_assert!(deltas.is_empty(), "[Execution] Deltas must be materialized");
-                output
-            })
-            .collect()
-    }
-
     pub fn execute_block<S: StateView + Sync>(
+        executor_thread_pool: Arc<ThreadPool>,
         transactions: Vec<Transaction>,
         state_view: &S,
         concurrency_level: usize,
+        maybe_block_gas_limit: Option<u64>,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
+        let _timer = BLOCK_EXECUTOR_EXECUTE_BLOCK_SECONDS.start_timer();
         // Verify the signatures of all the transactions in parallel.
         // This is time consuming so don't wait and do the checking
         // sequentially while executing the transactions.
+        // TODO: state sync runs this code but doesn't need to verify signatures
+        let signature_verification_timer =
+            BLOCK_EXECUTOR_SIGNATURE_VERIFICATION_SECONDS.start_timer();
         let signature_verified_block: Vec<PreprocessedTransaction> =
-            RAYON_EXEC_POOL.install(|| {
+            executor_thread_pool.install(|| {
                 transactions
                     .into_par_iter()
+                    .with_min_len(25)
                     .map(preprocess_transaction::<AptosVM>)
                     .collect()
             });
+        drop(signature_verification_timer);
 
-        let executor = BlockExecutor::<PreprocessedTransaction, AptosExecutorTask<S>, S>::new(
-            concurrency_level,
-        );
-
-        let mut ret = if concurrency_level > 1 {
-            executor
-                .execute_transactions_parallel(state_view, &signature_verified_block, state_view)
-                .map(|(results, delta_resolver)| {
-                    Self::process_parallel_block_output(results, delta_resolver, state_view)
-                })
-        } else {
-            executor
-                .execute_transactions_sequential(state_view, &signature_verified_block, state_view)
-                .map(Self::process_sequential_block_output)
-        };
-
-        if ret == Err(Error::ModulePathReadWrite) {
-            debug!("[Execution]: Module read & written, sequential fallback");
-
-            ret = executor
-                .execute_transactions_sequential(state_view, &signature_verified_block, state_view)
-                .map(Self::process_sequential_block_output);
+        let num_txns = signature_verified_block.len();
+        if state_view.id() != StateViewId::Miscellaneous {
+            // Speculation is disabled in Miscellaneous context, which is used by testing and
+            // can even lead to concurrent execute_block invocations, leading to errors on flush.
+            init_speculative_logs(num_txns);
         }
 
-        // Explicit async drop. Happens here because we can't currently move to
-        // BlockExecutor due to the Module publishing fallback. TODO: fix after
-        // module publishing fallback is removed.
-        RAYON_EXEC_POOL.spawn(move || {
-            // Explicit async drops.
-            drop(signature_verified_block);
-        });
+        BLOCK_EXECUTOR_CONCURRENCY.set(concurrency_level as i64);
+        let executor = BlockExecutor::<
+            PreprocessedTransaction,
+            AptosExecutorTask<S>,
+            S,
+            ExecutableTestType,
+        >::new(
+            concurrency_level,
+            executor_thread_pool,
+            maybe_block_gas_limit,
+        );
+
+        let ret = executor.execute_block(state_view, signature_verified_block, state_view);
 
         match ret {
-            Ok(outputs) => Ok(outputs),
+            Ok(outputs) => {
+                let output_vec: Vec<TransactionOutput> = outputs
+                    .into_iter()
+                    .map(|output| output.take_output())
+                    .collect();
+
+                // Flush the speculative logs of the committed transactions.
+                let pos = output_vec.partition_point(|o| !o.status().is_retry());
+
+                if state_view.id() != StateViewId::Miscellaneous {
+                    // Speculation is disabled in Miscellaneous context, which is used by testing and
+                    // can even lead to concurrent execute_block invocations, leading to errors on flush.
+                    flush_speculative_logs(pos);
+                }
+
+                Ok(output_vec)
+            },
             Err(Error::ModulePathReadWrite) => {
                 unreachable!("[Execution]: Must be handled by sequential fallback")
             },

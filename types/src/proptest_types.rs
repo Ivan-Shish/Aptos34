@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -18,8 +19,8 @@ use crate::{
     proof::TransactionInfoListWithProof,
     state_store::{state_key::StateKey, state_value::StateValue},
     transaction::{
-        ChangeSet, ExecutionStatus, Module, ModuleBundle, NoOpChangeSetChecker, RawTransaction,
-        Script, SignatureCheckedTransaction, SignedTransaction, Transaction, TransactionArgument,
+        ChangeSet, ExecutionStatus, Module, ModuleBundle, RawTransaction, Script,
+        SignatureCheckedTransaction, SignedTransaction, Transaction, TransactionArgument,
         TransactionInfo, TransactionListWithProof, TransactionPayload, TransactionStatus,
         TransactionToCommit, Version, WriteSetPayload,
     },
@@ -36,6 +37,7 @@ use aptos_crypto::{
     traits::*,
     HashValue,
 };
+use arr_macro::arr;
 use move_core_types::language_storage::TypeTag;
 use proptest::{
     collection::{vec, SizeRange},
@@ -90,7 +92,7 @@ impl Arbitrary for WriteSet {
             .prop_map(|write_set| {
                 let write_set_mut =
                     WriteSetMut::new(write_set.iter().map(|(access_path, write_op)| {
-                        (StateKey::AccessPath(access_path.clone()), write_op.clone())
+                        (StateKey::access_path(access_path.clone()), write_op.clone())
                     }));
                 write_set_mut
                     .freeze()
@@ -106,7 +108,7 @@ impl Arbitrary for ChangeSet {
 
     fn arbitrary_with(_args: ()) -> Self::Strategy {
         (any::<WriteSet>(), vec(any::<ContractEvent>(), 0..10))
-            .prop_map(|(ws, events)| ChangeSet::new(ws, events, &NoOpChangeSetChecker).unwrap())
+            .prop_map(|(ws, events)| ChangeSet::new(ws, events))
             .boxed()
     }
 }
@@ -381,6 +383,15 @@ fn new_raw_transaction(
             sender,
             sequence_number,
             script_fn,
+            max_gas_amount,
+            gas_unit_price,
+            expiration_time_secs,
+            chain_id,
+        ),
+        TransactionPayload::Multisig(multisig) => RawTransaction::new_multisig(
+            sender,
+            sequence_number,
+            multisig,
             max_gas_amount,
             gas_unit_price,
             expiration_time_secs,
@@ -786,18 +797,26 @@ impl TransactionToCommitGen {
                     .materialize(index, universe)
                     .into_resource_iter()
                     .map(move |(key, value)| {
-                        let state_key = StateKey::AccessPath(AccessPath::new(address, key));
+                        let state_key = StateKey::access_path(AccessPath::new(address, key));
                         (
-                            (state_key.clone(), Some(StateValue::from(value.clone()))),
+                            (
+                                state_key.clone(),
+                                Some(StateValue::new_legacy(value.clone())),
+                            ),
                             (state_key, WriteOp::Modification(value)),
                         )
                     })
             })
             .unzip();
+        let mut sharded_state_updates = arr![HashMap::new(); 16];
+        state_updates.into_iter().for_each(|(k, v)| {
+            sharded_state_updates[k.get_shard_id() as usize].insert(k, v);
+        });
+
         TransactionToCommit::new(
             Transaction::UserTransaction(transaction),
             TransactionInfo::new_placeholder(self.gas_used, None, self.status),
-            state_updates,
+            sharded_state_updates,
             WriteSetMut::new(write_set).freeze().expect("Cannot fail"),
             events,
             false, /* event_gen never generates reconfig events */
@@ -1111,7 +1130,7 @@ impl BlockGen {
                 Some(HashValue::random()),
                 ExecutionStatus::Success,
             ),
-            HashMap::new(),
+            arr_macro::arr![HashMap::new(); 16],
             WriteSet::default(),
             Vec::new(),
             false,

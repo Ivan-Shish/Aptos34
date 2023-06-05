@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! Aptos Rosetta API
@@ -69,8 +69,8 @@ impl RosettaContext {
                     let store = store.into_inner();
                     let pool_addresses: Vec<_> = store
                         .staking_contracts
-                        .values()
-                        .map(|pool| pool.pool_address)
+                        .iter()
+                        .map(|(_, pool)| pool.pool_address)
                         .collect();
                     for pool_address in pool_addresses {
                         pool_address_to_owner.insert(pool_address, *owner_address);

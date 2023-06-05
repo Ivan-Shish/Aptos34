@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_forge::{
@@ -29,5 +30,5 @@ fn main() -> Result<()> {
         ));
 
     let options = Options::from_args();
-    forge_main(tests, LocalFactory::from_workspace()?, &options)
+    forge_main(tests, LocalFactory::from_workspace(None)?, &options)
 }

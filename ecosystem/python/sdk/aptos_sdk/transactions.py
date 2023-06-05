@@ -1,4 +1,4 @@
-# Copyright (c) Aptos
+# Copyright © Aptos Foundation
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -14,8 +14,7 @@ from typing import List
 
 from . import ed25519
 from .account_address import AccountAddress
-from .authenticator import (Authenticator, Ed25519Authenticator,
-                            MultiAgentAuthenticator)
+from .authenticator import Authenticator, Ed25519Authenticator, MultiAgentAuthenticator
 from .bcs import Deserializer, Serializer
 from .type_tag import StructTag, TypeTag
 
@@ -69,7 +68,7 @@ class RawTransaction:
         )
 
     def __str__(self):
-        return f"""RawTranasction:
+        return f"""RawTransaction:
     sender: {self.sender}
     sequence_number: {self.sequence_number}
     payload: {self.payload}

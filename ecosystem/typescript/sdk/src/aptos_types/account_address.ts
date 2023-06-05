@@ -1,7 +1,7 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-import { HexString, MaybeHexString } from "../hex_string";
+import { HexString, MaybeHexString } from "../utils";
 import { Serializer, Deserializer, Bytes } from "../bcs";
 
 export class AccountAddress {
@@ -84,5 +84,20 @@ export class AccountAddress {
 
   static deserialize(deserializer: Deserializer): AccountAddress {
     return new AccountAddress(deserializer.deserializeFixedBytes(AccountAddress.LENGTH));
+  }
+
+  /**
+   * Standardizes an address to the format "0x" followed by 64 lowercase hexadecimal digits.
+   */
+  static standardizeAddress(address: string): string {
+    // Convert the address to lowercase
+    const lowercaseAddress = address.toLowerCase();
+    // Remove the "0x" prefix if present
+    const addressWithoutPrefix = lowercaseAddress.startsWith("0x") ? lowercaseAddress.slice(2) : lowercaseAddress;
+    // Pad the address with leading zeros if necessary
+    // to ensure it has exactly 64 characters (excluding the "0x" prefix)
+    const addressWithPadding = addressWithoutPrefix.padStart(64, "0");
+    // Return the standardized address with the "0x" prefix
+    return `0x${addressWithPadding}`;
   }
 }

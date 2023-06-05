@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 //! Forge is a framework for writing and running end-to-end tests in Aptos
@@ -13,6 +14,7 @@ pub use runner::*;
 
 mod backend;
 pub use aptos_transaction_emitter_lib::*;
+pub use aptos_transaction_generator_lib::*;
 pub use backend::*;
 
 mod report;

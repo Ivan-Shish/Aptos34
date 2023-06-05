@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{
@@ -25,6 +26,7 @@ impl TreeReader<StateKey> for DummyReader {
     fn get_node_option(
         &self,
         _node_key: &NodeKey,
+        _tag: &str,
     ) -> anyhow::Result<Option<crate::Node<StateKey>>> {
         unimplemented!()
     }

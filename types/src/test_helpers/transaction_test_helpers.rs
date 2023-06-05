@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -13,6 +14,10 @@ use aptos_crypto::{ed25519::*, traits::*, HashValue};
 
 const MAX_GAS_AMOUNT: u64 = 1_000_000;
 const TEST_GAS_PRICE: u64 = 100;
+
+// The block gas limit parameter for executor tests
+pub const BLOCK_GAS_LIMIT: Option<u64> = Some(1000);
+// pub const BLOCK_GAS_LIMIT: Option<u64> = None;
 
 static EMPTY_SCRIPT: &[u8] = include_bytes!("empty_script.mv");
 
@@ -238,7 +243,12 @@ pub fn get_test_txn_with_chain_id(
     SignedTransaction::new(raw_txn, public_key, signature)
 }
 
-pub fn block(mut user_txns: Vec<Transaction>) -> Vec<Transaction> {
-    user_txns.push(Transaction::StateCheckpoint(HashValue::random()));
+pub fn block(
+    mut user_txns: Vec<Transaction>,
+    maybe_block_gas_limit: Option<u64>,
+) -> Vec<Transaction> {
+    if maybe_block_gas_limit.is_none() {
+        user_txns.push(Transaction::StateCheckpoint(HashValue::random()));
+    }
     user_txns
 }

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -38,7 +39,6 @@ pub enum AuthenticationError {
 /// the transaction hash is well-formed and whether the sha3 hash of the
 /// `AccountAuthenticator`'s `AuthenticationKeyPreimage` matches the `AuthenticationKey` stored
 /// under the participating signer's account address.
-
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum TransactionAuthenticator {
     /// Single signature
@@ -242,12 +242,13 @@ pub enum Scheme {
     Ed25519 = 0,
     MultiEd25519 = 1,
     // ... add more schemes here
-    /// Scheme identifier used when hashing an account's address together with a seed to derive the
-    /// address (not the authentication key) of a resource account. This is an abuse of the notion
-    /// of a scheme identifier which, for now, serves to domain separate hashes used to derive
-    /// resource account addresses from hashes used to derive authentication keys. Without such
-    /// separation, an adversary could create (and get a signer for) a resource account whose
-    /// address matches an existing address of a MultiEd25519 wallet.
+    /// Scheme identifier used to derive addresses (not the authentication key) of objects and
+    /// resources accounts. This application serves to domain separate hashes. Without such
+    /// separation, an adversary could create (and get a signer for) a these accounts
+    /// when a their address matches matches an existing address of a MultiEd25519 wallet.
+    DeriveObjectAddressFromObject = 252,
+    DeriveObjectAddressFromGuid = 253,
+    DeriveObjectAddressFromSeed = 254,
     DeriveResourceAccountAddress = 255,
 }
 
@@ -256,6 +257,9 @@ impl fmt::Display for Scheme {
         let display = match self {
             Scheme::Ed25519 => "Ed25519",
             Scheme::MultiEd25519 => "MultiEd25519",
+            Scheme::DeriveObjectAddressFromObject => "DeriveObjectAddressFromObject",
+            Scheme::DeriveObjectAddressFromGuid => "DeriveObjectAddressFromGuid",
+            Scheme::DeriveObjectAddressFromSeed => "DeriveObjectAddressFromSeed",
             Scheme::DeriveResourceAccountAddress => "DeriveResourceAccountAddress",
         };
         write!(f, "Scheme::{}", display)

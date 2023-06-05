@@ -1,12 +1,12 @@
 ---
-title: "Start Fullnode with Source or Docker"
+title: "Run a Fullnode with Source or Docker"
 slug: "fullnode-source-code-or-docker"
 sidebar_position: 10
 ---
 
-# Start Public Fullnode with Aptos Source or Docker
+# Run a Public Fullnode with the Aptos Source Code or Docker
 
-You can run your own [public fullnode](/concepts/fullnodes) to synchronize with the state of the Aptos blockchain and stay up-to-date. Public fullnodes replicate the entire state of the blockchain by querying other Aptos fullnodes (public fullnodes or validator fullnodes) or validators.
+You can run your own [public fullnode](../../concepts/fullnodes.md) to synchronize with the state of the Aptos blockchain and stay up-to-date. Public fullnodes replicate the entire state of the blockchain by querying other Aptos fullnodes (public fullnodes or validator fullnodes) or validators.
 
 Alternatively, you can use the public fullnodes provided by Aptos Labs. However, such Aptos Labs-provided public fullnodes have rate limits, which can impede your development. By running your own public fullnode you can directly synchronize with the Aptos blockchain and avoid such rate limits.
 
@@ -32,7 +32,7 @@ We recommend the following hardware resources:
 
 ## Storage requirements
 
-The amount of data stored by Aptos depends on the ledger history (length) of the blockchain and the number of on-chain states (e.g., accounts). These values depend on several factors, including: the age of the blockchain, the average transaction rate and the configuration of the ledger pruner. Follow the storage requirements described in [Validator Hardware Requirements](/nodes/validator-node/operator/node-requirements#hardware-requirements). 
+The amount of data stored by Aptos depends on the ledger history (length) of the blockchain and the number of on-chain states (e.g., accounts). These values depend on several factors, including: the age of the blockchain, the average transaction rate and the configuration of the ledger pruner. Follow the storage requirements described in [Validator Hardware Requirements](../validator-node/operator/node-requirements.md#hardware-requirements). 
 
 :::tip Devnet blockchain storage
 The Aptos devnet is currently reset on a weekly basis. Hence we estimate that if you are connecting to the devnet, then the Aptos blockchain will not require more than several GBs of storage. See the `#devnet-release` channel on Aptos Discord.
@@ -49,35 +49,11 @@ This document describes how to configure your public fullnode using both methods
 
 ### Method 1: Building and running from source
 
-1. Clone the Aptos repo.
+See [Building Aptos From Source](../../guides/building-from-source.md)
 
-    ```bash
-    git clone https://github.com/aptos-labs/aptos-core.git
-    ```
+1. Check out the `mainnet` branch using `git checkout --track origin/mainnet`; remember, you may instead use `devnet` or `testnet`.
 
-2. `cd` into `aptos-core` directory.
-
-    ```bash
-    cd aptos-core
-    ```
-
-3. Run the `scripts/dev_setup.sh` Bash script as shown below. This will prepare your developer environment.
-
-    ```bash
-    ./scripts/dev_setup.sh
-    ```
-
-4. Update your current shell environment.
-
-    ```bash
-    source ~/.cargo/env
-    ```
-
-With your development environment ready, now you can start to setup your fullnode.
-
-5. Check out the `mainnet` branch using `git checkout --track origin/mainnet`; remember, you may instead use `devnet` or `testnet`.
-
-6. Make sure your current working directory is `aptos-core`.
+1. Make sure your current working directory is `aptos-core`.
 
    Run:
    ```bash
@@ -89,7 +65,7 @@ With your development environment ready, now you can start to setup your fullnod
     - Synchronizes correctly with the mainnet, by using the checkpoint file `waypoint.txt` published by the mainnet. 
     - Stores the mainnet database at a location of your choice on your local machine.
 
-7. Make sure your current working directory is `aptos-core`. The Aptos mainnet publishes the `genesis.blob` and `waypoint.txt` files. Download them:
+1. Make sure your current working directory is `aptos-core`. The Aptos mainnet publishes the `genesis.blob` and `waypoint.txt` files. Download them:
 
     - Run the below command on your terminal to download the file:
       ```bash
@@ -107,7 +83,7 @@ With your development environment ready, now you can start to setup your fullnod
     and waypoint pointed to by the `curl` commands above.
     :::
 
-8. Edit the `fullnode.yaml` file in your current working directory as follows.
+1. Edit the `fullnode.yaml` file in your current working directory as follows.
 
     - Specify the correct path to the `waypoint.txt` you just downloaded by editing the `base.waypoint.from_file` in the `fullnode.yaml`. By default it points to `waypoint.txt` in the current working directory.
 
@@ -130,7 +106,7 @@ With your development environment ready, now you can start to setup your fullnod
       data_dir: "</path/to/my/homedir/my-full-node/data>"
       ```
 
-9. Start your local public fullnode by running the below command:
+1. Start your local public fullnode by running the below command:
 
   ```bash
   cargo run -p aptos-node --release -- -f ./fullnode.yaml
@@ -253,8 +229,8 @@ aptos_connections{direction="outbound",network_id="Public",peer_id="aabd651f",ro
 
 If the number of outbound connections returned is `0`, then it means your node cannot connect to the Aptos blockchain. If this happens to you, follow these steps to resolve the issue:
 
-1. Update your node to the latest release by following the [Update Fullnode With New Devnet Releases](/nodes/full-node/update-fullnode-with-new-devnet-releases).
-2. Remove any `seed` peers you may have added to your `public_full_node.yaml` configuration file. The seeds may be preventing you from connecting to the network. Seed peers are discussed in the [Connecting your fullnode to seed peers](/nodes/full-node/fullnode-network-connections#connecting-your-fullnode-to-seed-peers) section.
+1. Update your node to the latest release by following the [Update Fullnode With New Devnet Releases](./update-fullnode-with-new-releases.md).
+2. Remove any `seed` peers you may have added to your `public_full_node.yaml` configuration file. The seeds may be preventing you from connecting to the network. Seed peers are discussed in the [Connecting your fullnode to seed peers](./fullnode-network-connections.md#connecting-your-fullnode-to-seed-peers section.
 
 ### (Optional) Examine Docker ledger size
 

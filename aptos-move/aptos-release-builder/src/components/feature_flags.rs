@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::utils::*;
@@ -7,23 +7,38 @@ use aptos_types::on_chain_config::{FeatureFlag as AptosFeatureFlag, Features as 
 use move_model::{code_writer::CodeWriter, emit, emitln, model::Loc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Deserialize, PartialEq, Eq, Serialize, Debug)]
 pub struct Features {
+    #[serde(default)]
     pub enabled: Vec<FeatureFlag>,
+    #[serde(default)]
     pub disabled: Vec<FeatureFlag>,
 }
 
-#[derive(Clone, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize, Hash)]
 #[allow(non_camel_case_types)]
 #[serde(rename_all = "snake_case")]
 pub enum FeatureFlag {
     CodeDependencyCheck,
+    CollectAndDistributeGasFees,
     TreatFriendAsPrivate,
     Sha512AndRipeMd160Natives,
     AptosStdChainIdNatives,
     VMBinaryFormatV6,
     MultiEd25519PkValidateV2Natives,
     Blake2b256Native,
+    ResourceGroups,
+    MultisigAccounts,
+    DelegationPools,
+    CryptographyAlgebraNatives,
+    Bls12381Structures,
+    Ed25519PubkeyValidateReturnFalseWrongLength,
+    StructConstructors,
+    PeriodicalRewardRateReduction,
+    PartialGovernanceVoting,
+    SignatureCheckerV2,
+    StorageSlotMetadata,
+    ChargeInvariantViolation,
 }
 
 fn generate_features_blob(writer: &CodeWriter, data: &[u64]) {
@@ -67,11 +82,16 @@ pub fn generate_feature_upgrade_proposal(
 
     let writer = CodeWriter::new(Loc::default());
 
+    emitln!(writer, "// Modifying on-chain feature flags: ");
+    emitln!(writer, "// Enabled Features: {:?}", features.enabled);
+    emitln!(writer, "// Disabled Features: {:?}", features.disabled);
+    emitln!(writer, "//");
+
     let proposal = generate_governance_proposal(
         &writer,
         is_testnet,
-        next_execution_hash,
-        "std::features",
+        next_execution_hash.clone(),
+        &["std::features", "aptos_framework::reconfiguration"],
         |writer| {
             emit!(writer, "let enabled_blob: vector<u64> = ");
             generate_features_blob(writer, &enabled);
@@ -81,10 +101,25 @@ pub fn generate_feature_upgrade_proposal(
             generate_features_blob(writer, &disabled);
             emitln!(writer, ";\n");
 
-            emitln!(
-                writer,
-                "features::change_feature_flags(framework_signer, enabled_blob, disabled_blob);"
-            );
+            if is_testnet && next_execution_hash.is_empty() {
+                emitln!(
+                    writer,
+                    "features::change_feature_flags(framework_signer, enabled_blob, disabled_blob);"
+                );
+                emitln!(
+                    writer,
+                    "reconfiguration::reconfigure_with_signer(framework_signer);"
+                );
+            } else {
+                emitln!(
+                    writer,
+                    "features::change_feature_flags(&framework_signer, enabled_blob, disabled_blob);"
+                );
+                emitln!(
+                    writer,
+                    "reconfiguration::reconfigure_with_signer(&framework_signer);"
+                );
+            }
         },
     );
 
@@ -96,6 +131,9 @@ impl From<FeatureFlag> for AptosFeatureFlag {
     fn from(f: FeatureFlag) -> Self {
         match f {
             FeatureFlag::CodeDependencyCheck => AptosFeatureFlag::CODE_DEPENDENCY_CHECK,
+            FeatureFlag::CollectAndDistributeGasFees => {
+                AptosFeatureFlag::COLLECT_AND_DISTRIBUTE_GAS_FEES
+            },
             FeatureFlag::TreatFriendAsPrivate => AptosFeatureFlag::TREAT_FRIEND_AS_PRIVATE,
             FeatureFlag::Sha512AndRipeMd160Natives => {
                 AptosFeatureFlag::SHA_512_AND_RIPEMD_160_NATIVES
@@ -106,6 +144,24 @@ impl From<FeatureFlag> for AptosFeatureFlag {
                 AptosFeatureFlag::MULTI_ED25519_PK_VALIDATE_V2_NATIVES
             },
             FeatureFlag::Blake2b256Native => AptosFeatureFlag::BLAKE2B_256_NATIVE,
+            FeatureFlag::ResourceGroups => AptosFeatureFlag::RESOURCE_GROUPS,
+            FeatureFlag::MultisigAccounts => AptosFeatureFlag::MULTISIG_ACCOUNTS,
+            FeatureFlag::DelegationPools => AptosFeatureFlag::DELEGATION_POOLS,
+            FeatureFlag::CryptographyAlgebraNatives => {
+                AptosFeatureFlag::CRYPTOGRAPHY_ALGEBRA_NATIVES
+            },
+            FeatureFlag::Bls12381Structures => AptosFeatureFlag::BLS12_381_STRUCTURES,
+            FeatureFlag::Ed25519PubkeyValidateReturnFalseWrongLength => {
+                AptosFeatureFlag::ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH
+            },
+            FeatureFlag::StructConstructors => AptosFeatureFlag::STRUCT_CONSTRUCTORS,
+            FeatureFlag::PeriodicalRewardRateReduction => {
+                AptosFeatureFlag::PERIODICAL_REWARD_RATE_DECREASE
+            },
+            FeatureFlag::PartialGovernanceVoting => AptosFeatureFlag::PARTIAL_GOVERNANCE_VOTING,
+            FeatureFlag::SignatureCheckerV2 => AptosFeatureFlag::SIGNATURE_CHECKER_V2,
+            FeatureFlag::StorageSlotMetadata => AptosFeatureFlag::STORAGE_SLOT_METADATA,
+            FeatureFlag::ChargeInvariantViolation => AptosFeatureFlag::CHARGE_INVARIANT_VIOLATION,
         }
     }
 }
@@ -115,6 +171,9 @@ impl From<AptosFeatureFlag> for FeatureFlag {
     fn from(f: AptosFeatureFlag) -> Self {
         match f {
             AptosFeatureFlag::CODE_DEPENDENCY_CHECK => FeatureFlag::CodeDependencyCheck,
+            AptosFeatureFlag::COLLECT_AND_DISTRIBUTE_GAS_FEES => {
+                FeatureFlag::CollectAndDistributeGasFees
+            },
             AptosFeatureFlag::TREAT_FRIEND_AS_PRIVATE => FeatureFlag::TreatFriendAsPrivate,
             AptosFeatureFlag::SHA_512_AND_RIPEMD_160_NATIVES => {
                 FeatureFlag::Sha512AndRipeMd160Natives
@@ -125,6 +184,24 @@ impl From<AptosFeatureFlag> for FeatureFlag {
                 FeatureFlag::MultiEd25519PkValidateV2Natives
             },
             AptosFeatureFlag::BLAKE2B_256_NATIVE => FeatureFlag::Blake2b256Native,
+            AptosFeatureFlag::RESOURCE_GROUPS => FeatureFlag::ResourceGroups,
+            AptosFeatureFlag::MULTISIG_ACCOUNTS => FeatureFlag::MultisigAccounts,
+            AptosFeatureFlag::DELEGATION_POOLS => FeatureFlag::DelegationPools,
+            AptosFeatureFlag::CRYPTOGRAPHY_ALGEBRA_NATIVES => {
+                FeatureFlag::CryptographyAlgebraNatives
+            },
+            AptosFeatureFlag::BLS12_381_STRUCTURES => FeatureFlag::Bls12381Structures,
+            AptosFeatureFlag::ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH => {
+                FeatureFlag::Ed25519PubkeyValidateReturnFalseWrongLength
+            },
+            AptosFeatureFlag::STRUCT_CONSTRUCTORS => FeatureFlag::StructConstructors,
+            AptosFeatureFlag::PERIODICAL_REWARD_RATE_DECREASE => {
+                FeatureFlag::PeriodicalRewardRateReduction
+            },
+            AptosFeatureFlag::PARTIAL_GOVERNANCE_VOTING => FeatureFlag::PartialGovernanceVoting,
+            AptosFeatureFlag::SIGNATURE_CHECKER_V2 => FeatureFlag::SignatureCheckerV2,
+            AptosFeatureFlag::STORAGE_SLOT_METADATA => FeatureFlag::StorageSlotMetadata,
+            AptosFeatureFlag::CHARGE_INVARIANT_VIOLATION => FeatureFlag::ChargeInvariantViolation,
         }
     }
 }

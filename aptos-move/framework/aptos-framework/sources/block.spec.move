@@ -9,6 +9,11 @@ spec aptos_framework::block {
         use aptos_framework::chain_status;
         use aptos_framework::coin::CoinInfo;
         use aptos_framework::aptos_coin::AptosCoin;
+        use aptos_framework::transaction_fee;
+        use aptos_framework::staking_config;
+
+        pragma verify_duration_estimate = 120; // TODO: set because of timeout (property proved)
+
         requires chain_status::is_operating();
         requires system_addresses::is_vm(vm);
         requires proposer == @vm_reserved || stake::spec_is_current_epoch_validator(proposer);
@@ -17,6 +22,8 @@ spec aptos_framework::block {
         requires (proposer != @vm_reserved) ==> (timestamp::spec_now_microseconds() < timestamp);
         requires exists<stake::ValidatorFees>(@aptos_framework);
         requires exists<CoinInfo<AptosCoin>>(@aptos_framework);
+        include transaction_fee::RequiresCollectedFeesPerValueLeqBlockAptosSupply;
+        include staking_config::StakingRewardsConfigRequirement;
 
         aborts_if false;
     }
@@ -53,8 +60,13 @@ spec aptos_framework::block {
     /// Make sure The BlockResource under the caller existed after initializing.
     /// The number of new events created does not exceed MAX_U64.
     spec initialize(aptos_framework: &signer, epoch_interval_microsecs: u64) {
+        use std::signer;
         include Initialize;
         include NewEventHandle;
+
+        let addr = signer::address_of(aptos_framework);
+        let account = global<account::Account>(addr);
+        aborts_if account.guid_creation_num + 2 >= account::MAX_GUID_CREATION_NUM;
     }
 
     spec schema Initialize {

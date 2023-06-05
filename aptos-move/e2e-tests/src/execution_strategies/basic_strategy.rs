@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -9,7 +10,7 @@ use crate::{
 };
 use aptos_types::{transaction::SignedTransaction, vm_status::VMStatus};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct BasicStrategy;
 
 impl PartitionStrategy for BasicStrategy {
@@ -20,7 +21,6 @@ impl PartitionStrategy for BasicStrategy {
     }
 }
 
-#[derive(Debug)]
 pub struct BasicExecutor {
     executor: FakeExecutor,
     strategy: BasicStrategy,

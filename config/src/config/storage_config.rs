@@ -1,7 +1,12 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::utils;
+use crate::{
+    config::{config_sanitizer::ConfigSanitizer, node_config_loader::NodeType, Error, NodeConfig},
+    utils,
+};
+use aptos_types::chain_id::ChainId;
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -16,14 +21,20 @@ pub const BUFFERED_STATE_TARGET_ITEMS: usize = 100_000;
 /// Port selected RocksDB options for tuning underlying rocksdb instance of AptosDB.
 /// see <https://github.com/facebook/rocksdb/blob/master/include/rocksdb/options.h>
 /// for detailed explanations.
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RocksdbConfig {
+    /// Maximum number of files open by RocksDB at one time
     pub max_open_files: i32,
+    /// Maximum size of the RocksDB write ahead log (WAL)
     pub max_total_wal_size: u64,
+    /// Maximum number of background threads for Rocks DB
     pub max_background_jobs: i32,
+    /// Block cache size for Rocks DB
     pub block_cache_size: u64,
+    /// Block size for Rocks DB
     pub block_size: u64,
+    /// Whether cache index and filter blocks into block cache.
     pub cache_index_and_filter_blocks: bool,
 }
 
@@ -48,11 +59,20 @@ impl Default for RocksdbConfig {
     }
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RocksdbConfigs {
     pub ledger_db_config: RocksdbConfig,
     pub state_merkle_db_config: RocksdbConfig,
+    // Note: Not ready for production use yet.
+    // TODO(grao): Deprecate this flag and use the split_ledger_db_to_individual_dbs below.
+    pub use_state_kv_db: bool,
+    // Note: Not ready for production use yet.
+    pub use_sharded_state_merkle_db: bool,
+    // Note: Not ready for production use yet.
+    // TODO(grao): Add RocksdbConfig for individual DBs when necessary.
+    pub split_ledger_db: bool,
+    pub state_kv_db_config: RocksdbConfig,
     pub index_db_config: RocksdbConfig,
 }
 
@@ -61,6 +81,10 @@ impl Default for RocksdbConfigs {
         Self {
             ledger_db_config: RocksdbConfig::default(),
             state_merkle_db_config: RocksdbConfig::default(),
+            use_state_kv_db: false,
+            use_sharded_state_merkle_db: false,
+            split_ledger_db: false,
+            state_kv_db_config: RocksdbConfig::default(),
             index_db_config: RocksdbConfig {
                 max_open_files: 1000,
                 ..Default::default()
@@ -73,8 +97,11 @@ impl Default for RocksdbConfigs {
 #[serde(default, deny_unknown_fields)]
 pub struct StorageConfig {
     pub backup_service_address: SocketAddr,
+    /// Top level directory to store the RocksDB
     pub dir: PathBuf,
+    /// Storage pruning configuration
     pub storage_pruner_config: PrunerConfig,
+    /// Subdirectory for storage in tests only
     #[serde(skip)]
     data_dir: PathBuf,
     /// AptosDB persists the state authentication structure off the critical path
@@ -134,13 +161,12 @@ pub struct LedgerPrunerConfig {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct StateMerklePrunerConfig {
-    /// Boolean to enable/disable the state store pruner. The state pruner is responsible for
-    /// pruning state tree nodes.
+    /// Boolean to enable/disable the state merkle pruner. The state merkle pruner is responsible
+    /// for pruning state tree nodes.
     pub enable: bool,
-    /// The size of the window should be calculated based on disk space availability and system TPS.
+    /// Window size in versions.
     pub prune_window: u64,
-    /// Similar to the variable above but for state store pruner. It means the number of stale
-    /// nodes to prune a time.
+    /// Number of stale nodes to prune a time.
     pub batch_size: usize,
 }
 
@@ -261,6 +287,16 @@ impl StorageConfig {
     pub fn randomize_ports(&mut self) {
         self.backup_service_address
             .set_port(utils::get_available_port());
+    }
+}
+
+impl ConfigSanitizer for StorageConfig {
+    fn sanitize(
+        _node_config: &mut NodeConfig,
+        _node_type: NodeType,
+        _chain_id: ChainId,
+    ) -> Result<(), Error> {
+        Ok(()) // TODO: add validation of higher-level properties once we have variable configs
     }
 }
 

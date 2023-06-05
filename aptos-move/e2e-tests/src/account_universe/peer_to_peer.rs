@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -45,6 +46,7 @@ impl AUTransactionGen for P2PTransferGen {
             receiver.account(),
             sender.sequence_number,
             self.amount,
+            1, // sets unit gas price, ensures an aggregator is used for total supply.
         );
 
         // Now figure out whether the transaction will actually work.

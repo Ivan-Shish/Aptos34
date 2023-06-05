@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 extern crate core;
@@ -19,6 +20,8 @@ mod fullnode;
 mod genesis;
 #[cfg(test)]
 mod indexer;
+#[cfg(test)]
+mod inspection_service;
 #[cfg(test)]
 mod network;
 #[cfg(test)]

@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -15,11 +15,12 @@ use aptos_logger::{
     LoggerFilterUpdater,
 };
 use aptos_telemetry_service::types::telemetry::{TelemetryDump, TelemetryEvent};
-use aptos_types::chain_id::{ChainId, NamedChain};
+use aptos_types::chain_id::ChainId;
 use futures::channel::mpsc::{self, Receiver};
 use once_cell::sync::Lazy;
 use rand::Rng;
 use rand_core::OsRng;
+use reqwest::Url;
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
@@ -134,14 +135,24 @@ async fn spawn_telemetry_service(
     logger_filter_update_job: Option<LoggerFilterUpdater>,
 ) {
     let telemetry_svc_url = env::var(ENV_TELEMETRY_SERVICE_URL).unwrap_or_else(|_| {
-        if chain_id == ChainId::mainnet() || chain_id == ChainId::new(NamedChain::PREMAINNET.id()) {
+        if chain_id == ChainId::mainnet() {
             MAINNET_TELEMETRY_SERVICE_URL.into()
         } else {
             TELEMETRY_SERVICE_URL.into()
         }
     });
 
-    let telemetry_sender = TelemetrySender::new(telemetry_svc_url, chain_id, &node_config);
+    let base_url = Url::parse(&telemetry_svc_url).unwrap_or_else(|err| {
+        warn!(
+            "Unable to parse telemetry service URL {}. Make sure {} is unset or is set properly: {}. Defaulting to {}.",
+            telemetry_svc_url,
+            ENV_TELEMETRY_SERVICE_URL, err, TELEMETRY_SERVICE_URL
+        );
+            Url::parse(TELEMETRY_SERVICE_URL)
+                .expect("unable to parse telemetry service default URL")
+    });
+
+    let telemetry_sender = TelemetrySender::new(base_url, chain_id, &node_config);
 
     if !force_enable_telemetry() && !telemetry_sender.check_chain_access(chain_id).await {
         warn!(
@@ -258,7 +269,7 @@ fn try_spawn_log_sender(
 /// Returns the peer id given the node config.
 /// Returns UNKNOWN otherwise.
 fn fetch_peer_id(node_config: &NodeConfig) -> String {
-    match node_config.peer_id() {
+    match node_config.get_peer_id() {
         Some(peer_id) => peer_id.to_string(),
         None => UNKNOWN_METRIC_VALUE.into(),
     }
@@ -456,23 +467,27 @@ async fn send_telemetry_event(
         timestamp_micros,
         events: vec![telemetry_event],
     };
-    let _handle = spawn_telemetry_service_event_sender(
-        event_name.clone(),
-        telemetry_sender,
-        telemetry_dump.clone(),
-    );
-    spawn_telemetry_event_sender(api_secret, measurement_id, event_name, telemetry_dump)
+    if telemetry_sender.is_none() {
+        // telemetry_sender is None for Aptos CLI.
+        spawn_event_sender_to_google_analytics(
+            api_secret,
+            measurement_id,
+            event_name,
+            telemetry_dump,
+        )
+    } else {
+        // Aptos nodes send their metrics to aptos-telemetry-service crate.
+        spawn_event_sender_to_telemetry_service(event_name, telemetry_sender, telemetry_dump)
+    }
 }
 
-fn spawn_telemetry_service_event_sender(
+/// Spawns the telemetry event sender on a new thread to avoid blocking
+fn spawn_event_sender_to_telemetry_service(
     event_name: String,
     telemetry_sender: Option<TelemetrySender>,
     telemetry_dump: TelemetryDump,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
-        if telemetry_sender.is_none() {
-            return;
-        }
         telemetry_sender
             .unwrap()
             .try_send_custom_metrics(event_name, telemetry_dump)
@@ -481,7 +496,7 @@ fn spawn_telemetry_service_event_sender(
 }
 
 /// Spawns the telemetry event sender on a new thread to avoid blocking
-fn spawn_telemetry_event_sender(
+fn spawn_event_sender_to_google_analytics(
     api_secret: String,
     measurement_id: String,
     event_name: String,

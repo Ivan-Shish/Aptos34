@@ -1,22 +1,26 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! This module provides common utilities for the DB pruner.
 
 use crate::{
+    ledger_db::LedgerDb,
     pruner::{
         ledger_store::ledger_store_pruner::LedgerPruner,
+        state_kv_pruner::StateKvPruner,
         state_store::{generics::StaleNodeIndexSchemaTrait, StateMerklePruner},
     },
-    EventStore, StateStore, TransactionStore,
+    state_kv_db::StateKvDb,
+    state_merkle_db::StateMerkleDb,
+    EventStore, TransactionStore,
 };
 use aptos_jellyfish_merkle::StaleNodeIndex;
-use aptos_schemadb::{schema::KeyCodec, DB};
+use aptos_schemadb::schema::KeyCodec;
 use std::sync::Arc;
 
 /// A utility function to instantiate the state pruner
-pub fn create_state_pruner<S: StaleNodeIndexSchemaTrait>(
-    state_merkle_db: Arc<DB>,
+pub fn create_state_merkle_pruner<S: StaleNodeIndexSchemaTrait>(
+    state_merkle_db: Arc<StateMerkleDb>,
 ) -> Arc<StateMerklePruner<S>>
 where
     StaleNodeIndex: KeyCodec<S>,
@@ -25,14 +29,15 @@ where
 }
 
 /// A utility function to instantiate the ledger pruner
-pub(crate) fn create_ledger_pruner(
-    ledger_db: Arc<DB>,
-    state_store: Arc<StateStore>,
-) -> Arc<LedgerPruner> {
+pub(crate) fn create_ledger_pruner(ledger_db: Arc<LedgerDb>) -> Arc<LedgerPruner> {
     Arc::new(LedgerPruner::new(
-        Arc::clone(&ledger_db),
+        ledger_db.metadata_db_arc(),
         Arc::new(TransactionStore::new(Arc::clone(&ledger_db))),
-        Arc::new(EventStore::new(Arc::clone(&ledger_db))),
-        state_store,
+        Arc::new(EventStore::new(ledger_db.event_db_arc())),
     ))
+}
+
+/// A utility function to instantiate the state kv pruner.
+pub(crate) fn create_state_kv_pruner(state_kv_db: Arc<StateKvDb>) -> Arc<StateKvPruner> {
+    Arc::new(StateKvPruner::new(state_kv_db))
 }

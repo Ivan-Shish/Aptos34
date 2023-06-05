@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_cached_packages::aptos_stdlib;
@@ -580,7 +581,7 @@ pub fn test_open_publishing() {
     executor.set_golden_file(current_function_name!());
 
     // create a transaction trying to publish a new module.
-    let sender = executor.create_raw_account_data(1_000_000, 10);
+    let sender = executor.create_raw_account_data(10_0000_0000, 10);
     executor.add_account_data(&sender);
 
     let program = format!(
@@ -613,7 +614,7 @@ pub fn test_open_publishing() {
         .module(random_module)
         .sequence_number(10)
         .max_gas_amount(100_000)
-        .gas_unit_price(1)
+        .gas_unit_price(100)
         .sign();
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     assert_eq!(
@@ -725,8 +726,8 @@ fn test_script_dependency_fails_verification() {
     // invariant violation as we try to load `Test`
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     match executor.execute_transaction(txn).status() {
-        TransactionStatus::Discard(status) => {
-            assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
+        TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(status)) => {
+            assert_eq!(status, &Some(StatusCode::UNEXPECTED_VERIFIER_ERROR));
         },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
@@ -761,8 +762,8 @@ fn test_module_dependency_fails_verification() {
     // invariant violation as we try to load `Test`
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     match executor.execute_transaction(txn).status() {
-        TransactionStatus::Discard(status) => {
-            assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
+        TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(status)) => {
+            assert_eq!(status, &Some(StatusCode::UNEXPECTED_VERIFIER_ERROR));
         },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
@@ -813,8 +814,8 @@ fn test_type_tag_dependency_fails_verification() {
     // invariant violation as we try to load `Test`
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     match executor.execute_transaction(txn).status() {
-        TransactionStatus::Discard(status) => {
-            assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
+        TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(status)) => {
+            assert_eq!(status, &Some(StatusCode::UNEXPECTED_VERIFIER_ERROR));
         },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
@@ -864,8 +865,8 @@ fn test_script_transitive_dependency_fails_verification() {
     // invariant violation as we try to load `Test`
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     match executor.execute_transaction(txn).status() {
-        TransactionStatus::Discard(status) => {
-            assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
+        TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(status)) => {
+            assert_eq!(status, &Some(StatusCode::UNEXPECTED_VERIFIER_ERROR));
         },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
@@ -925,8 +926,8 @@ fn test_module_transitive_dependency_fails_verification() {
     // invariant violation as we try to load `Test`
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     match executor.execute_transaction(txn).status() {
-        TransactionStatus::Discard(status) => {
-            assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
+        TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(status)) => {
+            assert_eq!(status, &Some(StatusCode::UNEXPECTED_VERIFIER_ERROR));
         },
         _ => panic!("Kept transaction with an invariant violation!"),
     }
@@ -982,8 +983,8 @@ fn test_type_tag_transitive_dependency_fails_verification() {
     // invariant violation as we try to load `Test`
     assert_eq!(executor.verify_transaction(txn.clone()).status(), None);
     match executor.execute_transaction(txn).status() {
-        TransactionStatus::Discard(status) => {
-            assert_eq!(status, &StatusCode::UNEXPECTED_VERIFIER_ERROR);
+        TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(status)) => {
+            assert_eq!(status, &Some(StatusCode::UNEXPECTED_VERIFIER_ERROR));
         },
         _ => panic!("Kept transaction with an invariant violation!"),
     }

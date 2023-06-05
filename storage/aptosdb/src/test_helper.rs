@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 ///! This module provides reusable helpers in tests.
@@ -51,7 +52,9 @@ pub(crate) fn update_store(
     use aptos_storage_interface::{jmt_update_refs, jmt_updates};
     let mut root_hash = *aptos_crypto::hash::SPARSE_MERKLE_PLACEHOLDER_HASH;
     for (i, (key, value)) in input.enumerate() {
-        let value_state_set = vec![(key, value)].into_iter().collect();
+        let value_state_set = vec![(&key, value.as_ref())].into_iter().collect();
+        let mut sharded_value_state_set = arr![HashMap::new(); 16];
+        sharded_value_state_set[key.get_shard_id() as usize].insert(key.clone(), value.clone());
         let jmt_updates = jmt_updates(&value_state_set);
         let version = first_version + i as Version;
         root_hash = store
@@ -62,16 +65,27 @@ pub(crate) fn update_store(
                 version.checked_sub(1),
             )
             .unwrap();
-        let batch = SchemaBatch::new();
+        let ledger_batch = SchemaBatch::new();
+        let sharded_state_kv_batches = new_sharded_kv_schema_batch();
         store
             .put_value_sets(
-                vec![&value_state_set],
+                vec![&sharded_value_state_set],
                 version,
                 StateStorageUsage::new_untracked(),
-                &batch,
+                None,
+                &ledger_batch,
+                &sharded_state_kv_batches,
             )
             .unwrap();
-        store.ledger_db.write_schemas(batch).unwrap();
+        store
+            .ledger_db
+            .metadata_db()
+            .write_schemas(ledger_batch)
+            .unwrap();
+        store
+            .state_kv_db
+            .commit(version, sharded_state_kv_batches)
+            .unwrap();
     }
     root_hash
 }
@@ -82,8 +96,10 @@ pub fn update_in_memory_state(state: &mut StateDelta, txns_to_commit: &[Transact
         txn_to_commit
             .state_updates()
             .iter()
+            .flatten()
             .for_each(|(key, value)| {
-                state.updates_since_base.insert(key.clone(), value.clone());
+                state.updates_since_base[key.get_shard_id() as usize]
+                    .insert(key.clone(), value.clone());
             });
         next_version += 1;
         if txn_to_commit.is_state_checkpoint() {
@@ -95,6 +111,7 @@ pub fn update_in_memory_state(state: &mut StateDelta, txns_to_commit: &[Transact
                     state
                         .updates_since_base
                         .iter()
+                        .flatten()
                         .map(|(k, v)| (k.hash(), v.as_ref()))
                         .collect(),
                     StateStorageUsage::new_untracked(),
@@ -105,7 +122,9 @@ pub fn update_in_memory_state(state: &mut StateDelta, txns_to_commit: &[Transact
             state.current_version = next_version.checked_sub(1);
             state.base = state.current.clone();
             state.base_version = state.current_version;
-            state.updates_since_base.clear();
+            state.updates_since_base.iter_mut().for_each(|shard| {
+                shard.clear();
+            });
         }
     }
 
@@ -118,6 +137,7 @@ pub fn update_in_memory_state(state: &mut StateDelta, txns_to_commit: &[Transact
                 state
                     .updates_since_base
                     .iter()
+                    .flatten()
                     .map(|(k, v)| (k.hash(), v.as_ref()))
                     .collect(),
                 StateStorageUsage::new_untracked(),
@@ -139,10 +159,11 @@ prop_compose! {
     fn arb_blocks_to_commit_impl(
         num_accounts: usize,
         max_user_txns_per_block: usize,
+        min_blocks: usize,
         max_blocks: usize,
     )(
         mut universe in any_with::<AccountInfoUniverse>(num_accounts).no_shrink(),
-        block_gens in vec(any_with::<BlockGen>(max_user_txns_per_block), 1..=max_blocks),
+        block_gens in vec(any_with::<BlockGen>(max_user_txns_per_block), min_blocks..=max_blocks),
     ) -> Vec<(Vec<TransactionToCommit>, LedgerInfoWithSignatures)> {
         type EventAccumulator = InMemoryAccumulator<EventAccumulatorHasher>;
         type TxnAccumulator = InMemoryAccumulator<TransactionAccumulatorHasher>;
@@ -201,7 +222,19 @@ pub fn arb_blocks_to_commit(
     arb_blocks_to_commit_impl(
         5,  /* num_accounts */
         2,  /* max_user_txn_per_block */
+        1,  /* min_blocks */
         10, /* max_blocks */
+    )
+}
+
+pub fn arb_blocks_to_commit_with_block_nums(
+    min_blocks: usize,
+    max_blocks: usize,
+) -> impl Strategy<Value = Vec<(Vec<TransactionToCommit>, LedgerInfoWithSignatures)>> {
+    arb_blocks_to_commit_impl(
+        5, /* num_accounts */
+        2, /* max_user_txn_per_block */
+        min_blocks, max_blocks,
     )
 }
 
@@ -276,6 +309,7 @@ fn gen_snapshot_version(
             txns_to_commit[0..=idx]
                 .iter()
                 .flat_map(|x| x.state_updates().clone())
+                .flatten()
                 .collect::<HashMap<_, _>>(),
         );
         if updates.len() >= threshold {
@@ -286,6 +320,7 @@ fn gen_snapshot_version(
             txns_to_commit[idx + 1..]
                 .iter()
                 .flat_map(|x| x.state_updates().clone())
+                .flatten()
                 .collect::<HashMap<_, _>>(),
         );
     } else {
@@ -293,6 +328,7 @@ fn gen_snapshot_version(
             txns_to_commit
                 .iter()
                 .flat_map(|x| x.state_updates().clone())
+                .flatten()
                 .collect::<HashMap<_, _>>(),
         );
     }
@@ -419,6 +455,7 @@ fn verify_snapshots(
                 .flat_map(|x| {
                     x.state_updates()
                         .iter()
+                        .flatten()
                         .map(|(k, v_opt)| (k, v_opt.as_ref()))
                 })
                 .collect::<HashMap<&StateKey, Option<&StateValue>>>(),
@@ -595,13 +632,13 @@ fn verify_account_txns(
         .map(|(account, txns_and_events)| {
             let account = *account;
             let first_seq_num = if let Some((txn, _)) = txns_and_events.first() {
-                txn.as_signed_user_txn().unwrap().sequence_number()
+                txn.try_as_signed_user_txn().unwrap().sequence_number()
             } else {
                 return (account, Vec::new());
             };
 
             let last_txn = &txns_and_events.last().unwrap().0;
-            let last_seq_num = last_txn.as_signed_user_txn().unwrap().sequence_number();
+            let last_seq_num = last_txn.try_as_signed_user_txn().unwrap().sequence_number();
             let limit = last_seq_num + 1;
 
             let acct_txns_with_proof = db
@@ -642,7 +679,7 @@ fn group_txns_by_account(
 ) -> HashMap<AccountAddress, Vec<(Transaction, Vec<ContractEvent>)>> {
     let mut account_to_txns = HashMap::new();
     for txn in txns_to_commit {
-        if let Ok(signed_txn) = txn.transaction().as_signed_user_txn() {
+        if let Some(signed_txn) = txn.transaction().try_as_signed_user_txn() {
             let account = signed_txn.sender();
             account_to_txns
                 .entry(account)
@@ -738,7 +775,7 @@ pub fn verify_committed_transactions(
         );
 
         // Fetch and verify account states.
-        for (state_key, state_value) in txn_to_commit.state_updates() {
+        for (state_key, state_value) in txn_to_commit.state_updates().iter().flatten() {
             updates.insert(state_key, state_value);
             let state_value_in_db = db.get_state_value_by_version(state_key, cur_ver).unwrap();
             assert_eq!(state_value_in_db, *state_value);
@@ -746,7 +783,10 @@ pub fn verify_committed_transactions(
 
         if !txn_to_commit.is_state_checkpoint() {
             // Fetch and verify transaction itself.
-            let txn = txn_to_commit.transaction().as_signed_user_txn().unwrap();
+            let txn = txn_to_commit
+                .transaction()
+                .try_as_signed_user_txn()
+                .unwrap();
             let txn_with_proof = db
                 .get_transaction_by_hash(txn_to_commit.transaction().hash(), ledger_version, true)
                 .unwrap()
@@ -830,18 +870,20 @@ pub fn put_transaction_info(db: &AptosDB, version: Version, txn_info: &Transacti
     db.ledger_store
         .put_transaction_infos(version, &[txn_info.clone()], &batch)
         .unwrap();
-    db.ledger_db.write_schemas(batch).unwrap();
+    db.ledger_db.transaction_db().write_schemas(batch).unwrap();
 }
 
 pub fn put_as_state_root(db: &AptosDB, version: Version, key: StateKey, value: StateValue) {
     let leaf_node = Node::new_leaf(key.hash(), value.hash(), (key.clone(), version));
     db.state_merkle_db
+        .metadata_db()
         .put::<JellyfishMerkleNodeSchema>(&NodeKey::new_empty_path(version), &leaf_node)
         .unwrap();
     let smt = SparseMerkleTree::<StateValue>::default()
         .batch_update(vec![(key.hash(), Some(&value))], &ProofReader::new_empty())
         .unwrap();
-    db.ledger_db
+    db.state_kv_db
+        .metadata_db()
         .put::<StateValueSchema>(&(key.clone(), version), &Some(value.clone()))
         .unwrap();
     let mut in_memory_state = db
@@ -852,7 +894,7 @@ pub fn put_as_state_root(db: &AptosDB, version: Version, key: StateKey, value: S
         .clone();
     in_memory_state.current = smt;
     in_memory_state.current_version = Some(version);
-    in_memory_state.updates_since_base.insert(key, Some(value));
+    in_memory_state.updates_since_base[key.get_shard_id() as usize].insert(key, Some(value));
     db.state_store
         .buffered_state()
         .lock()

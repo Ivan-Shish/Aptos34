@@ -1,5 +1,7 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
+
 use crate::AptosDB;
 use anyhow::Result;
 use aptos_schemadb::SchemaBatch;
@@ -66,7 +68,7 @@ pub fn set_up(
         .map(|info| store.put_ledger_info(info, &batch))
         .collect::<Result<Vec<_>>>()
         .unwrap();
-    store.db.write_schemas(batch).unwrap();
+    store.ledger_db.metadata_db().write_schemas(batch).unwrap();
     store.set_latest_ledger_info(ledger_infos_with_sigs.last().unwrap().clone());
     db
 }

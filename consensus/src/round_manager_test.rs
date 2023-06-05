@@ -1,11 +1,14 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
     block_storage::{BlockReader, BlockStore},
     experimental::buffer_manager::OrderedBlocks,
     liveness::{
-        proposal_generator::{ChainHealthBackoffConfig, ProposalGenerator},
+        proposal_generator::{
+            ChainHealthBackoffConfig, PipelineBackpressureConfig, ProposalGenerator,
+        },
         proposer_election::ProposerElection,
         rotating_proposer_election::RotatingProposer,
         round_state::{ExponentialTimeInterval, RoundState},
@@ -24,7 +27,10 @@ use crate::{
     util::time_service::{ClockTimeService, TimeService},
 };
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
-use aptos_config::{config::ConsensusConfig, network_id::NetworkId};
+use aptos_config::{
+    config::ConsensusConfig,
+    network_id::{NetworkId, PeerNetworkId},
+};
 use aptos_consensus_types::{
     block::{
         block_test_utils::{certificate_for_genesis, gen_test_certificate},
@@ -130,15 +136,19 @@ impl NodeSetup {
 
         let mut nodes = vec![];
         // pre-initialize the mapping to avoid race conditions (peer try to broadcast to someone not added yet)
-        let peer_metadata_storage = playground.peer_protocols();
+        let peers_and_metadata = playground.peer_protocols();
         for signer in signers.iter().take(num_nodes) {
-            let mut conn_meta = ConnectionMetadata::mock(signer.author());
+            let peer_id = signer.author();
+            let mut conn_meta = ConnectionMetadata::mock(peer_id);
             conn_meta.application_protocols = ProtocolIdSet::from_iter([
                 ProtocolId::ConsensusDirectSendJson,
                 ProtocolId::ConsensusDirectSendBcs,
                 ProtocolId::ConsensusRpcBcs,
             ]);
-            peer_metadata_storage.insert_connection(NetworkId::Validator, conn_meta);
+            let peer_network_id = PeerNetworkId::new(NetworkId::Validator, peer_id);
+            peers_and_metadata
+                .insert_connection_metadata(peer_network_id, conn_meta)
+                .unwrap();
         }
         for (id, signer) in signers.iter().take(num_nodes).enumerate() {
             let (initial_data, storage) = MockStorage::start_for_testing((&validators).into());
@@ -235,9 +245,11 @@ impl NodeSetup {
             block_store.clone(),
             Arc::new(MockPayloadManager::new(None)),
             time_service.clone(),
+            Duration::ZERO,
             10,
             1000,
             10,
+            PipelineBackpressureConfig::new_no_backoff(),
             ChainHealthBackoffConfig::new_no_backoff(),
             false,
         );

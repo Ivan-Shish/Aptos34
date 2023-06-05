@@ -193,8 +193,7 @@ Returns a new aggregator.
 
 
 
-<pre><code><b>pragma</b> verify = <b>true</b>;
-<b>pragma</b> aborts_if_is_strict;
+<pre><code><b>pragma</b> aborts_if_is_strict;
 </code></pre>
 
 
@@ -231,7 +230,20 @@ AggregatorFactory is not under the caller before creating the resource.
 
 
 
-<pre><code><b>aborts_if</b> !<b>exists</b>&lt;<a href="aggregator_factory.md#0x1_aggregator_factory_AggregatorFactory">AggregatorFactory</a>&gt;(@aptos_framework);
+<pre><code><b>include</b> <a href="aggregator_factory.md#0x1_aggregator_factory_CreateAggregatorInternalAbortsIf">CreateAggregatorInternalAbortsIf</a>;
+<b>ensures</b> <a href="aggregator.md#0x1_aggregator_spec_get_limit">aggregator::spec_get_limit</a>(result) == limit;
+<b>ensures</b> <a href="aggregator.md#0x1_aggregator_spec_aggregator_get_val">aggregator::spec_aggregator_get_val</a>(result) == 0;
+</code></pre>
+
+
+
+
+<a name="0x1_aggregator_factory_CreateAggregatorInternalAbortsIf"></a>
+
+
+<pre><code><b>schema</b> <a href="aggregator_factory.md#0x1_aggregator_factory_CreateAggregatorInternalAbortsIf">CreateAggregatorInternalAbortsIf</a> {
+    <b>aborts_if</b> !<b>exists</b>&lt;<a href="aggregator_factory.md#0x1_aggregator_factory_AggregatorFactory">AggregatorFactory</a>&gt;(@aptos_framework);
+}
 </code></pre>
 
 
@@ -256,6 +268,15 @@ AggregatorFactory existed under the @aptos_framework when Creating a new aggrega
 
 
 
+
+<a name="0x1_aggregator_factory_spec_new_aggregator"></a>
+
+
+<pre><code><b>native</b> <b>fun</b> <a href="aggregator_factory.md#0x1_aggregator_factory_spec_new_aggregator">spec_new_aggregator</a>(limit: u128): Aggregator;
+</code></pre>
+
+
+
 <a name="@Specification_1_new_aggregator"></a>
 
 ### Function `new_aggregator`
@@ -269,8 +290,9 @@ AggregatorFactory existed under the @aptos_framework when Creating a new aggrega
 
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
-<b>ensures</b> result.limit == limit;
+<b>ensures</b> result == <a href="aggregator_factory.md#0x1_aggregator_factory_spec_new_aggregator">spec_new_aggregator</a>(limit);
+<b>ensures</b> <a href="aggregator.md#0x1_aggregator_spec_get_limit">aggregator::spec_get_limit</a>(result) == limit;
 </code></pre>
 
 
-[move-book]: https://move-language.github.io/move/introduction.html
+[move-book]: https://aptos.dev/guides/move-guides/book/SUMMARY

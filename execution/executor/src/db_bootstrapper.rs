@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -10,7 +11,7 @@ use aptos_executor_types::ExecutedChunk;
 use aptos_logger::prelude::*;
 use aptos_state_view::{StateViewId, TStateView};
 use aptos_storage_interface::{
-    cached_state_view::CachedStateView, sync_proof_fetcher::SyncProofFetcher, DbReaderWriter,
+    async_proof_fetcher::AsyncProofFetcher, cached_state_view::CachedStateView, DbReaderWriter,
     DbWriter, ExecutedTrees,
 };
 use aptos_types::{
@@ -126,7 +127,7 @@ pub fn calculate_genesis<V: VMExecutor>(
     let base_state_view = executed_trees.verified_state_view(
         StateViewId::Miscellaneous,
         Arc::clone(&db.reader),
-        Arc::new(SyncProofFetcher::new(db.reader.clone())),
+        Arc::new(AsyncProofFetcher::new(db.reader.clone())),
     )?;
 
     let epoch = if genesis_version == 0 {
@@ -135,9 +136,12 @@ pub fn calculate_genesis<V: VMExecutor>(
         get_state_epoch(&base_state_view)?
     };
 
-    let (mut output, _, _) =
-        ChunkOutput::by_transaction_execution::<V>(vec![genesis_txn.clone()], base_state_view)?
-            .apply_to_ledger(&executed_trees)?;
+    let (mut output, _, _) = ChunkOutput::by_transaction_execution::<V>(
+        vec![genesis_txn.clone()],
+        base_state_view,
+        None,
+    )?
+    .apply_to_ledger(&executed_trees, None)?;
     ensure!(
         !output.to_commit.is_empty(),
         "Genesis txn execution failed."
@@ -150,7 +154,7 @@ pub fn calculate_genesis<V: VMExecutor>(
         let state_view = output.result_view.verified_state_view(
             StateViewId::Miscellaneous,
             Arc::clone(&db.reader),
-            Arc::new(SyncProofFetcher::new(db.reader.clone())),
+            Arc::new(AsyncProofFetcher::new(db.reader.clone())),
         )?;
         let next_epoch = epoch
             .checked_add(1)
@@ -197,7 +201,7 @@ pub fn calculate_genesis<V: VMExecutor>(
 
 fn get_state_timestamp(state_view: &CachedStateView) -> Result<u64> {
     let rsrc_bytes = &state_view
-        .get_state_value(&StateKey::AccessPath(AccessPath::new(
+        .get_state_value_bytes(&StateKey::access_path(AccessPath::new(
             CORE_CODE_ADDRESS,
             TimestampResource::resource_path(),
         )))?
@@ -208,7 +212,7 @@ fn get_state_timestamp(state_view: &CachedStateView) -> Result<u64> {
 
 fn get_state_epoch(state_view: &CachedStateView) -> Result<u64> {
     let rsrc_bytes = &state_view
-        .get_state_value(&StateKey::AccessPath(AccessPath::new(
+        .get_state_value_bytes(&StateKey::access_path(AccessPath::new(
             CORE_CODE_ADDRESS,
             ConfigurationResource::resource_path(),
         )))?

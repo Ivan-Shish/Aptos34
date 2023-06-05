@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! This module defines all the gas parameters and formulae for instructions, along with their
@@ -217,10 +217,6 @@ impl InstructionGasParameters {
 
             Abort => self.abort,
             Ret => self.ret,
-
-            BrTrue => self.br_true,
-            BrFalse => self.br_false,
-            Branch => self.branch,
 
             LdU8 => self.ld_u8,
             LdU16 => self.ld_u16,

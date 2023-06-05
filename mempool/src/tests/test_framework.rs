@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -19,7 +20,7 @@ use aptos_mempool_notifications::MempoolNotifier;
 use aptos_network::{
     application::{
         interface::{NetworkClient, NetworkServiceEvents},
-        storage::PeerMetadataStorage,
+        storage::PeersAndMetadata,
     },
     peer_manager::{
         conn_notifs_channel, ConnectionRequestSender, PeerManagerNotification, PeerManagerRequest,
@@ -47,11 +48,7 @@ use aptos_types::{
 };
 use aptos_vm_validator::mocks::mock_vm_validator::MockVMValidator;
 use futures::{channel::oneshot, SinkExt};
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-    sync::Arc,
-};
+use std::{collections::HashMap, hash::Hash, sync::Arc};
 use tokio::{runtime::Handle, time::Duration};
 use tokio_stream::StreamExt;
 
@@ -76,7 +73,7 @@ pub struct MempoolNode {
     // Networking specifics
     node_id: NodeId,
     peer_network_ids: HashMap<NetworkId, PeerNetworkId>,
-    peer_metadata_storage: Arc<PeerMetadataStorage>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
 
     inbound_handles: HashMap<NetworkId, InboundNetworkHandle>,
     outbound_handles: HashMap<NetworkId, OutboundMessageReceiver>,
@@ -133,8 +130,8 @@ impl ApplicationNode for MempoolNode {
         self.outbound_handles.get_mut(&network_id).unwrap()
     }
 
-    fn get_peer_metadata_storage(&self) -> &PeerMetadataStorage {
-        &self.peer_metadata_storage
+    fn get_peers_and_metadata(&self) -> &PeersAndMetadata {
+        &self.peers_and_metadata
     }
 
     fn peer_network_ids(&self) -> &HashMap<NetworkId, PeerNetworkId> {
@@ -168,7 +165,10 @@ impl MempoolNode {
     /// Asynchronously waits for up to 1 second for txns to appear in mempool
     pub async fn wait_on_txns_in_mempool(&self, txns: &[TestTransaction]) {
         for _ in 0..10 {
-            let block = self.mempool.lock().get_batch(100, 102400, HashSet::new());
+            let block = self
+                .mempool
+                .lock()
+                .get_batch(100, 102400, true, false, vec![]);
 
             if block_contains_all_transactions(&block, txns) {
                 break;
@@ -218,7 +218,10 @@ impl MempoolNode {
         txns: &[TestTransaction],
         condition: Condition,
     ) -> Result<(), (Vec<(AccountAddress, u64)>, Vec<(AccountAddress, u64)>)> {
-        let block = self.mempool.lock().get_batch(100, 102400, HashSet::new());
+        let block = self
+            .mempool
+            .lock()
+            .get_batch(100, 102400, true, false, vec![]);
         if !condition(&block, txns) {
             let actual: Vec<_> = block
                 .iter()
@@ -447,7 +450,7 @@ impl TestFramework<MempoolNode> for MempoolTestFramework {
             network_service_events,
             inbound_handles,
             outbound_handles,
-            peer_metadata_storage,
+            peers_and_metadata,
         ) = setup_node_networks(&network_ids);
         let (mempool_client_sender, consensus_to_mempool_sender, mempool_notifications, mempool) =
             setup_mempool(config, network_client, network_service_events);
@@ -462,7 +465,7 @@ impl TestFramework<MempoolNode> for MempoolTestFramework {
             inbound_handles,
             outbound_handles,
             other_inbound_handles: HashMap::new(),
-            peer_metadata_storage,
+            peers_and_metadata,
             request_id_generator: U32IdGenerator::new(),
         }
     }
@@ -480,9 +483,9 @@ pub fn setup_node_networks(
     NetworkServiceEvents<MempoolSyncMsg>,
     HashMap<NetworkId, InboundNetworkHandle>,
     HashMap<NetworkId, OutboundMessageReceiver>,
-    Arc<PeerMetadataStorage>,
+    Arc<PeersAndMetadata>,
 ) {
-    let peer_metadata_storage = PeerMetadataStorage::new(network_ids);
+    let peers_and_metadata = PeersAndMetadata::new(network_ids);
 
     // Build each individual network
     let mut network_senders = HashMap::new();
@@ -491,7 +494,7 @@ pub fn setup_node_networks(
     let mut outbound_handles = HashMap::new();
     for network_id in network_ids {
         let (network_sender, network_events, inbound_handle, outbound_handle) =
-            setup_network(peer_metadata_storage.clone());
+            setup_network(peers_and_metadata.clone());
 
         network_senders.insert(*network_id, network_sender);
         network_and_events.insert(*network_id, network_events);
@@ -504,7 +507,7 @@ pub fn setup_node_networks(
         vec![MempoolDirectSend],
         vec![],
         network_senders,
-        peer_metadata_storage.clone(),
+        peers_and_metadata.clone(),
     );
     let network_service_events = NetworkServiceEvents::new(network_and_events);
 
@@ -513,13 +516,13 @@ pub fn setup_node_networks(
         network_service_events,
         inbound_handles,
         outbound_handles,
-        peer_metadata_storage,
+        peers_and_metadata,
     )
 }
 
 /// Builds all the channels used for networking
 fn setup_network(
-    peer_metadata_storage: Arc<PeerMetadataStorage>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
 ) -> (
     NetworkSender<MempoolSyncMsg>,
     NetworkEvents<MempoolSyncMsg>,
@@ -544,7 +547,7 @@ fn setup_network(
         InboundNetworkHandle {
             inbound_message_sender: reqs_inbound_sender,
             connection_update_sender: connection_inbound_sender,
-            peer_metadata_storage,
+            peers_and_metadata,
         },
         reqs_outbound_receiver,
     )

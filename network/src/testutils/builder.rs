@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::testutils::{
@@ -48,9 +49,8 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
 
     /// Adds a [`TestNode`] of [`NodeType::Validator`]
     pub fn add_validator(mut self, owner: u32) -> Self {
-        let config = NodeConfig::random_with_template(
-            owner,
-            &NodeConfig::default_for_validator(),
+        let config = NodeConfig::generate_random_config_with_template(
+            &NodeConfig::get_default_validator_config(),
             &mut self.rng,
         );
         let peer_id = config
@@ -67,9 +67,8 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
 
     /// Adds a [`TestNode`] of [`NodeType::ValidatorFullNode`]
     pub fn add_vfn(mut self, owner: u32) -> Self {
-        let config = NodeConfig::random_with_template(
-            owner,
-            &NodeConfig::default_for_validator_full_node(),
+        let config = NodeConfig::generate_random_config_with_template(
+            &NodeConfig::get_default_vfn_config(),
             &mut self.rng,
         );
         let peer_id = config
@@ -87,9 +86,8 @@ impl<Framework: TestFramework<Node>, Node: TestNode> TestFrameworkBuilder<Framew
 
     /// Adds a [`TestNode`] of [`NodeType::PublicFullNode`]
     pub fn add_pfn(mut self, owner: u32) -> Self {
-        let config = NodeConfig::random_with_template(
-            owner,
-            &NodeConfig::default_for_public_full_node(),
+        let config = NodeConfig::generate_random_config_with_template(
+            &NodeConfig::get_default_pfn_config(),
             &mut self.rng,
         );
         let peer_id = config

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 extern crate core;
@@ -9,9 +10,11 @@ pub mod faucet;
 pub use faucet::FaucetClient;
 pub mod response;
 pub use response::Response;
+pub mod client_builder;
 pub mod state;
 pub mod types;
 
+pub use crate::client_builder::{AptosBaseUrl, ClientBuilder};
 use crate::{
     aptos::{AptosVersion, Balance},
     error::RestError,
@@ -22,10 +25,10 @@ pub use aptos_api_types::{
 };
 use aptos_api_types::{
     deserialize_from_string,
-    mime_types::{BCS, BCS_SIGNED_TRANSACTION as BCS_CONTENT_TYPE},
+    mime_types::{BCS, BCS_SIGNED_TRANSACTION as BCS_CONTENT_TYPE, JSON},
     AptosError, BcsBlock, Block, GasEstimation, HexEncodedBytes, IndexResponse, MoveModuleId,
     TransactionData, TransactionOnChainData, TransactionsBatchSubmissionResult, UserTransaction,
-    VersionedEvent,
+    VersionedEvent, ViewRequest,
 };
 use aptos_crypto::HashValue;
 use aptos_logger::{debug, info, sample, sample::SampleRate};
@@ -33,6 +36,7 @@ use aptos_types::{
     account_address::AccountAddress,
     account_config::{AccountResource, CoinStoreResource, NewBlockEvent, CORE_CODE_ADDRESS},
     contract_event::EventWithVersion,
+    state_store::state_key::StateKey,
     transaction::SignedTransaction,
 };
 use move_core_types::language_storage::StructTag;
@@ -48,7 +52,6 @@ use tokio::time::Instant;
 pub use types::{deserialize_from_prefixed_hex_string, Account, Resource};
 use url::Url;
 
-pub const USER_AGENT: &str = concat!("aptos-client-sdk-rust / ", env!("CARGO_PKG_VERSION"));
 pub const DEFAULT_VERSION_PATH_BASE: &str = "v1/";
 const DEFAULT_MAX_WAIT_MS: u64 = 60000;
 const DEFAULT_INTERVAL_MS: u64 = 1000;
@@ -57,6 +60,7 @@ static DEFAULT_INTERVAL_DURATION: Duration = Duration::from_millis(DEFAULT_INTER
 const DEFAULT_MAX_SERVER_LAG_WAIT_DURATION: Duration = Duration::from_secs(60);
 const RESOURCES_PER_CALL_PAGINATION: u64 = 9999;
 const MODULES_PER_CALL_PAGINATION: u64 = 1000;
+const X_APTOS_SDK_HEADER_VALUE: &str = concat!("aptos-rust-sdk/", env!("CARGO_PKG_VERSION"));
 
 type AptosResult<T> = Result<T, RestError>;
 
@@ -68,37 +72,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new_with_timeout(base_url: Url, timeout: Duration) -> Self {
-        let inner = ReqwestClient::builder()
-            .timeout(timeout)
-            .user_agent(USER_AGENT)
-            .cookie_store(true)
-            .build()
-            .unwrap();
-
-        // If the user provided no version in the path, use the default. If the
-        // provided version has no trailing slash, add it, otherwise url.join
-        // will ignore the version path base.
-        let version_path_base = match base_url.path() {
-            "/" => DEFAULT_VERSION_PATH_BASE.to_string(),
-            path => {
-                if !path.ends_with('/') {
-                    format!("{}/", path)
-                } else {
-                    path.to_string()
-                }
-            },
-        };
-
-        Self {
-            inner,
-            base_url,
-            version_path_base,
-        }
+    pub fn builder(aptos_base_url: AptosBaseUrl) -> ClientBuilder {
+        ClientBuilder::new(aptos_base_url)
     }
 
     pub fn new(base_url: Url) -> Self {
-        Self::new_with_timeout(base_url, Duration::from_secs(10))
+        Self::builder(AptosBaseUrl::Custom(base_url)).build()
     }
 
     pub fn path_prefix_string(&self) -> String {
@@ -304,6 +283,28 @@ impl Client {
         assert_eq!(response.inner().block_height, response.state().block_height);
 
         Ok(response)
+    }
+
+    pub async fn view(
+        &self,
+        request: &ViewRequest,
+        version: Option<u64>,
+    ) -> AptosResult<Response<Vec<serde_json::Value>>> {
+        let request = serde_json::to_string(request)?;
+        let mut url = self.build_path("view")?;
+        if let Some(version) = version {
+            url.set_query(Some(format!("ledger_version={}", version).as_str()));
+        }
+
+        let response = self
+            .inner
+            .post(url)
+            .header(CONTENT_TYPE, JSON)
+            .body(request)
+            .send()
+            .await?;
+
+        self.json(response).await
     }
 
     pub async fn simulate(
@@ -1099,6 +1100,19 @@ impl Client {
         self.get_bcs(url).await
     }
 
+    pub async fn get_account_module_bcs_at_version(
+        &self,
+        address: AccountAddress,
+        module_name: &str,
+        version: u64,
+    ) -> AptosResult<Response<bytes::Bytes>> {
+        let url = self.build_path(&format!(
+            "accounts/{}/module/{}?ledger_version={}",
+            address, module_name, version
+        ))?;
+        self.get_bcs(url).await
+    }
+
     pub async fn get_account_events(
         &self,
         address: AccountAddress,
@@ -1243,6 +1257,23 @@ impl Client {
         ))?;
         let data = json!({
             "key": hex::encode(key),
+        });
+
+        let response = self.post_bcs(url, data).await?;
+        Ok(response.map(|inner| inner.to_vec()))
+    }
+
+    pub async fn get_raw_state_value(
+        &self,
+        state_key: &StateKey,
+        version: u64,
+    ) -> AptosResult<Response<Vec<u8>>> {
+        let url = self.build_path(&format!(
+            "experimental/state_values/raw?ledger_version={}",
+            version
+        ))?;
+        let data = json!({
+            "key": hex::encode(bcs::to_bytes(state_key)?),
         });
 
         let response = self.post_bcs(url, data).await?;
@@ -1518,6 +1549,22 @@ impl Client {
                 result.extend(response.into_inner());
             }
         }
+    }
+}
+
+// If the user provided no version in the path, use the default. If the
+// provided version has no trailing slash, add it, otherwise url.join
+// will ignore the version path base.
+pub fn get_version_path_with_base(base_url: Url) -> String {
+    match base_url.path() {
+        "/" => DEFAULT_VERSION_PATH_BASE.to_string(),
+        path => {
+            if !path.ends_with('/') {
+                format!("{}/", path)
+            } else {
+                path.to_string()
+            }
+        },
     }
 }
 

@@ -12,7 +12,7 @@ However, a resource can also be used to represent other on-chain capabilities, i
 
 Each account on the Aptos blockchain is identified by a 32-byte account address. An account can store data, and the account stores
 this data in resources. The initial resource is the account data itself (authentication key and sequence number).
-Additional resources like currency or NFTs are added after creating the account. And you may employ the [Aptos Name Service](https://www.aptosnames.com/) to secure .apt domains key accounts and make them memorable.
+Additional resources like currency or NFTs are added after creating the account. And you can employ the [Aptos Name Service](../integration/aptos-name-service-connector.md) at [www.aptosnames.com](https://www.aptosnames.com/) to secure .apt domains for key accounts to make them memorable and unique.
 
 Different from other blockchains where accounts and addresses are implicit, accounts on Aptos are explicit and need to be
 created before they can hold resources and modules. The account can be created explicitly or implicitly by transferring Aptos tokens (APT) there.
@@ -106,7 +106,7 @@ An account can send transactions. The Aptos blockchain supports the following si
 The Aptos blockchain defaults to single signature transactions.
 :::
 
-## Signature scheme identifiers
+### Signature scheme identifiers
 
 Generating the authentication key for an account requires that you provide one of the below 1-byte signature scheme
 identifiers for this account, i.e., whether the account is a single signature or a multisig account:
@@ -114,20 +114,19 @@ identifiers for this account, i.e., whether the account is a single signature or
 - **1-byte single-signature scheme identifier**: `0x00`.
 - **1-byte multisig scheme identifier**: `0x01`. Make sure to also provide the value of `K` to generate the K-of-N multisig authentication key.
 
-## Single signer authentication
+### Single-signer authentication
 
 To generate an authentication key and the account address for a single signature account:
 
-1. **Generate a key-pair**: Generate a fresh key-pair (`privkey_A`, `pubkey_A`). The Aptos blockchain uses the PureEdDSA
-2. scheme over the Ed25519 curve, as defined in RFC 8032.
-3. **Derive a 32-byte authentication key**: Derive a 32-byte authentication key from the `pubkey_A`:
+1. **Generate a key-pair**: Generate a fresh key-pair (`privkey_A`, `pubkey_A`). The Aptos blockchain uses the PureEdDSA scheme over the Ed25519 curve, as defined in RFC 8032.
+2. **Derive a 32-byte authentication key**: Derive a 32-byte authentication key from the `pubkey_A`:
      ```
      auth_key = sha3-256(pubkey_A | 0x00)
      ```
      where `|` denotes concatenation. The `0x00` is the 1-byte single-signature scheme identifier. 
-4. Use this initial authentication key as the permanent account address.
+3. Use this initial authentication key as the permanent account address.
 
-## Multisigner authentication
+### Multi-signer authentication
 
 With K-of-N multisig authentication, there are a total of N signers for the account, and at least K of those N signatures
 must be used to authenticate a transaction.
@@ -159,7 +158,7 @@ The on-chain data maps an effective account address as defined by the current mn
 
 For more information, see [`account.move`](https://github.com/aptos-labs/aptos-core/blob/d4a859bb0987f8e35e7471469c3bcd4ae4b49855/aptos-move/framework/aptos-framework/sources/account.move#L251).
 
-## Access control with signer
+## Access control with signers
 
 The sender of a transaction is represented by a signer. When a function in a Move module takes `signer` as an argument,
 then the Aptos Move VM translates the identity of the account that signed the transaction into a signer in a Move module entry point.
@@ -188,7 +187,7 @@ module Test::Coin {
 }
 ```
 
-## State of the account
+## State of an account
 
 The state of each account comprises both the code (Move modules) and the data (Move resources). An account may contain an
 arbitrary number of Move modules and Move resources:
@@ -217,4 +216,4 @@ Typically, a resource account is used for two main purposes:
 - Store and isolate resources; a module creates a resource account just to host specific resources.
 - Publish module as a standalone (resource) account, a building block in a decentralized design where no private keys can control the resource account. The ownership (SignerCap) can be kept in another module, such as governance.
 
-Find more details on creating and using these at [using resource accounts in your app](../guides/resource-accounts.md).
+Find more details on creating and using these at [using resource accounts in your app](../move/move-on-aptos/resource-accounts.md).

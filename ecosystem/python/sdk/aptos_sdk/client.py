@@ -1,4 +1,4 @@
-# Copyright (c) Aptos
+# Copyright © Aptos Foundation
 # SPDX-License-Identifier: Apache-2.0
 
 import time
@@ -9,12 +9,17 @@ import httpx
 from . import ed25519
 from .account import Account
 from .account_address import AccountAddress
-from .authenticator import (Authenticator, Ed25519Authenticator,
-                            MultiAgentAuthenticator)
+from .authenticator import Authenticator, Ed25519Authenticator, MultiAgentAuthenticator
 from .bcs import Serializer
-from .transactions import (EntryFunction, MultiAgentRawTransaction,
-                           RawTransaction, SignedTransaction,
-                           TransactionArgument, TransactionPayload)
+from .metadata import Metadata
+from .transactions import (
+    EntryFunction,
+    MultiAgentRawTransaction,
+    RawTransaction,
+    SignedTransaction,
+    TransactionArgument,
+    TransactionPayload,
+)
 from .type_tag import StructTag, TypeTag
 
 U64_MAX = 18446744073709551615
@@ -40,6 +45,7 @@ class RestClient:
     def __init__(self, base_url: str, client_config: ClientConfig = ClientConfig()):
         self.base_url = base_url
         self.client = httpx.Client()
+        self.client.headers[Metadata.APTOS_HEADER] = Metadata.get_aptos_header_val()
         self.client_config = client_config
         self.chain_id = int(self.info()["chain_id"])
 
@@ -363,7 +369,7 @@ class RestClient:
 
         payload = {
             "type": "entry_function_payload",
-            "function": "0x1::coin::transfer",
+            "function": "0x1::aptos_account::transfer_coins",
             "type_arguments": ["0x1::aptos_coin::AptosCoin"],
             "arguments": [
                 f"{recipient}",
@@ -382,8 +388,8 @@ class RestClient:
         ]
 
         payload = EntryFunction.natural(
-            "0x1::coin",
-            "transfer",
+            "0x1::aptos_account",
+            "transfer_coins",
             [TypeTag(StructTag.from_str("0x1::aptos_coin::AptosCoin"))],
             transaction_arguments,
         )

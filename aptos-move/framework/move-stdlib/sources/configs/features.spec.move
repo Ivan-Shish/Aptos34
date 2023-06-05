@@ -8,15 +8,19 @@ spec std::features {
         pragma bv=b"0";
         aborts_if false;
         ensures feature / 8 < len(features);
-        ensures include == (((int2bv(((1 as u8) << ((feature % (8 as u64)) as u64) as u8)) as u8)
-            & features[feature/8] as u8) > (0 as u8));
+        ensures include == spec_contains(features, feature);
     }
 
     spec contains(features: &vector<u8>, feature: u64): bool {
         pragma bv=b"0";
         aborts_if false;
-        ensures result == ((feature / 8) < len(features) && ((int2bv((((1 as u8) << ((feature % (8 as u64)) as u64)) as u8)) as u8)
-            & features[feature/8] as u8) > (0 as u8));
+        ensures result == spec_contains(features, feature);
+    }
+
+
+    spec fun spec_contains(features: vector<u8>, feature: u64): bool {
+        ((int2bv((((1 as u8) << ((feature % (8 as u64)) as u64)) as u8)) as u8) & features[feature/8] as u8) > (0 as u8)
+            && (feature / 8) < len(features)
     }
 
     spec change_feature_flags(framework: &signer, enable: vector<u64>, disable: vector<u64>) {
@@ -32,4 +36,24 @@ spec std::features {
     }
 
     spec fun spec_is_enabled(feature: u64): bool;
+
+    spec fun spec_periodical_reward_rate_decrease_enabled(): bool {
+        spec_is_enabled(PERIODICAL_REWARD_RATE_DECREASE)
+    }
+
+    spec periodical_reward_rate_decrease_enabled {
+        pragma opaque;
+        aborts_if [abstract] false;
+        ensures [abstract] result == spec_periodical_reward_rate_decrease_enabled();
+    }
+
+    spec fun spec_partial_governance_voting_enabled(): bool {
+        spec_is_enabled(PARTIAL_GOVERNANCE_VOTING)
+    }
+
+    spec partial_governance_voting_enabled {
+        pragma opaque;
+        aborts_if [abstract] false;
+        ensures [abstract] result == spec_partial_governance_voting_enabled();
+    }
 }

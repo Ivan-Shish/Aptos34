@@ -41,6 +41,7 @@ sources={{
 
 - To vote, you must stake, though you are not required to run a validator node. Your voting power is derived from the backing stake pool. 
 - Voting power is calculated based on the current epoch's active stake of the proposer or voter's backing stake pool. In addition, the stake pool's lockup must be at least as long as the proposal's duration.
+- Verify proposals before voting. Ensure each proposal is linked to its source code, and if there is a corresponding AIP, the AIP is in the title and description.
 
 :::tip
 Each stake pool can be used to vote on each proposal exactly only one time.
@@ -53,7 +54,7 @@ Each stake pool can be used to vote on each proposal exactly only one time.
 
 AIPs are proposals created by the Aptos community or the Aptos Labs team to improve the operations and development of the Aptos chain. 
 To submit an AIP, create an issue in [`Aptos Foundation's GitHub repository`](https://github.com/aptos-foundation/AIPs/issues) using the [template](https://github.com/aptos-foundation/AIPs/blob/main/TEMPLATE.md)
-To keep up with new AIPs, check the `#aip-announcements` channel on [Aptos' discord channel](https://discord.gg/aptoslabs). 
+To keep up with new AIPs, check the `#aip-announcements` channel on [Aptos' discord channel](https://discord.gg/aptosnetwork). 
 To view and vote on on-chain proposals, go to [`Aptos' Governance website`](https://governance.aptosfoundation.org/). 
 
 ## Technical Implementation of Aptos Governance

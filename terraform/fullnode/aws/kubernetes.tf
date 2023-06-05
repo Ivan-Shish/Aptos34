@@ -51,7 +51,8 @@ resource "helm_release" "fullnode" {
 
   values = [
     jsonencode({
-      imageTag = var.image_tag
+      imageTag     = var.image_tag
+      manageImages = var.manage_via_tf # if we're managing the entire deployment via terraform, override the images as well
       chain = {
         era  = var.era
         name = var.chain_name
@@ -103,10 +104,13 @@ resource "helm_release" "fullnode" {
     jsonencode(var.fullnode_helm_values_list == {} ? {} : var.fullnode_helm_values_list[count.index]),
   ]
 
-  # inspired by https://stackoverflow.com/a/66501021 to trigger redeployment whenever any of the charts file contents change.
-  set {
-    name  = "chart_sha1"
-    value = sha1(join("", [for f in fileset(local.fullnode_helm_chart_path, "**") : filesha1("${local.fullnode_helm_chart_path}/${f}")]))
+  dynamic "set" {
+    for_each = var.manage_via_tf ? toset([""]) : toset([])
+    content {
+      # inspired by https://stackoverflow.com/a/66501021 to trigger redeployment whenever any of the charts file contents change.
+      name  = "chart_sha1"
+      value = sha1(join("", [for f in fileset(local.fullnode_helm_chart_path, "**") : filesha1("${local.fullnode_helm_chart_path}/${f}")]))
+    }
   }
 }
 

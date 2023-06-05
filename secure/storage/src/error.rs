@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use serde::{Deserialize, Serialize};
@@ -58,16 +59,6 @@ impl From<aptos_vault_client::Error> for Error {
         match error {
             aptos_vault_client::Error::NotFound(_, key) => Self::KeyNotSet(key),
             aptos_vault_client::Error::HttpError(403, _, _) => Self::PermissionDenied,
-            _ => Self::InternalError(format!("{}", error)),
-        }
-    }
-}
-
-impl From<aptos_github_client::Error> for Error {
-    fn from(error: aptos_github_client::Error) -> Self {
-        match error {
-            aptos_github_client::Error::NotFound(key) => Self::KeyNotSet(key),
-            aptos_github_client::Error::HttpError(403, _, _) => Self::PermissionDenied,
             _ => Self::InternalError(format!("{}", error)),
         }
     }

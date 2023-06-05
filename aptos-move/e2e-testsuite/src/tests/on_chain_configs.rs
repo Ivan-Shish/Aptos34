@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_cached_packages::aptos_stdlib;
@@ -49,7 +50,7 @@ fn drop_txn_after_reconfiguration() {
 
     let sender = executor.create_raw_account_data(1_000_000, 10);
     let receiver = executor.create_raw_account_data(100_000, 10);
-    let txn2 = peer_to_peer_txn(sender.account(), receiver.account(), 11, 1000);
+    let txn2 = peer_to_peer_txn(sender.account(), receiver.account(), 11, 1000, 0);
 
     let mut output = executor.execute_block(vec![txn, txn2]).unwrap();
     assert_eq!(output.pop().unwrap().status(), &TransactionStatus::Retry)

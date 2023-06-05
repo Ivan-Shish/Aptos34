@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{driver_factory::DriverFactory, metadata_storage::PersistentMetadataStorage};
@@ -10,7 +10,7 @@ use aptos_config::{
     utils::get_genesis_txn,
 };
 use aptos_consensus_notifications::new_consensus_notifier_listener_pair;
-use aptos_data_client::aptosnet::AptosNetDataClient;
+use aptos_data_client::client::AptosDataClient;
 use aptos_data_streaming_service::streaming_client::new_streaming_service_client_listener_pair;
 use aptos_db::AptosDB;
 use aptos_event_notifications::EventSubscriptionService;
@@ -19,7 +19,7 @@ use aptos_executor_test_helpers::bootstrap_genesis;
 use aptos_genesis::test_utils::test_config;
 use aptos_infallible::RwLock;
 use aptos_mempool_notifications::new_mempool_notifier_listener_pair;
-use aptos_network::application::{interface::NetworkClient, storage::PeerMetadataStorage};
+use aptos_network::application::{interface::NetworkClient, storage::PeersAndMetadata};
 use aptos_storage_interface::DbReaderWriter;
 use aptos_storage_service_client::StorageServiceClient;
 use aptos_temppath::TempPath;
@@ -70,13 +70,13 @@ fn test_new_initialized_configs() {
         vec![],
         vec![],
         HashMap::new(),
-        PeerMetadataStorage::new(&[]),
+        PeersAndMetadata::new(&[]),
     ));
-    let (aptos_data_client, _) = AptosNetDataClient::new(
+    let (aptos_data_client, _) = AptosDataClient::new(
         node_config.state_sync.aptos_data_client,
         node_config.base.clone(),
-        node_config.state_sync.storage_service,
         TimeService::mock(),
+        db_rw.reader.clone(),
         network_client,
         None,
     );

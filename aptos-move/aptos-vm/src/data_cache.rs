@@ -1,61 +1,174 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 //! Scratchpad for on chain values during the execution.
 
+use crate::{
+    aptos_vm_impl::gas_config,
+    move_vm_ext::{get_max_binary_format_version, MoveResolverExt},
+};
 #[allow(unused_imports)]
 use anyhow::Error;
 use aptos_framework::natives::state_storage::StateStorageUsageResolver;
 use aptos_state_view::StateView;
 use aptos_types::{
     access_path::AccessPath,
-    on_chain_config::ConfigStorage,
+    on_chain_config::{ConfigStorage, Features, OnChainConfig},
     state_store::{state_key::StateKey, state_storage_usage::StateStorageUsage},
-    vm_status::StatusCode,
 };
-use move_binary_format::errors::*;
+use move_binary_format::{errors::*, CompiledModule};
 use move_core_types::{
     account_address::AccountAddress,
     language_storage::{ModuleId, StructTag},
-    resolver::{ModuleResolver, ResourceResolver},
+    metadata::Metadata,
+    resolver::{resource_add_cost, ModuleResolver, ResourceResolver},
+    vm_status::StatusCode,
 };
 use move_table_extension::{TableHandle, TableResolver};
-use std::ops::{Deref, DerefMut};
+use std::{cell::RefCell, collections::BTreeMap, ops::Deref};
 
-// Adapter to convert a `StateView` into a `RemoteCache`.
-pub struct StorageAdapter<'a, S>(&'a S);
+pub(crate) fn get_resource_group_from_metadata(
+    struct_tag: &StructTag,
+    metadata: &[Metadata],
+) -> Option<StructTag> {
+    let metadata = aptos_framework::get_metadata(metadata)?;
+    metadata
+        .struct_attributes
+        .get(struct_tag.name.as_ident_str().as_str())?
+        .iter()
+        .find_map(|attr| attr.get_resource_group_member())
+}
+
+/// Adapter to convert a `StateView` into a `MoveResolverExt`.
+pub struct StorageAdapter<'a, S> {
+    state_store: &'a S,
+    accurate_byte_count: bool,
+    resource_group_cache:
+        RefCell<BTreeMap<AccountAddress, BTreeMap<StructTag, BTreeMap<StructTag, Vec<u8>>>>>,
+}
 
 impl<'a, S: StateView> StorageAdapter<'a, S> {
     pub fn new(state_store: &'a S) -> Self {
-        Self(state_store)
+        let mut s = Self {
+            state_store,
+            accurate_byte_count: false,
+            resource_group_cache: RefCell::new(BTreeMap::new()),
+        };
+        s.accurate_byte_count = true;
+        s
     }
 
-    pub fn get(&self, access_path: &AccessPath) -> PartialVMResult<Option<Vec<u8>>> {
-        self.0
-            .get_state_value(&StateKey::AccessPath(access_path.clone()))
+    pub fn get(&self, access_path: AccessPath) -> PartialVMResult<Option<Vec<u8>>> {
+        self.state_store
+            .get_state_value_bytes(&StateKey::access_path(access_path))
             .map_err(|_| PartialVMError::new(StatusCode::STORAGE_ERROR))
+    }
+
+    fn get_any_resource(
+        &self,
+        address: &AccountAddress,
+        struct_tag: &StructTag,
+        metadata: &[Metadata],
+    ) -> Result<Option<(Vec<u8>, u64)>, VMError> {
+        let resource_group = get_resource_group_from_metadata(struct_tag, metadata);
+        if let Some(resource_group) = resource_group {
+            let mut cache = self.resource_group_cache.borrow_mut();
+            let cache = cache.entry(*address).or_insert_with(BTreeMap::new);
+            if let Some(group_data) = cache.get_mut(&resource_group) {
+                // This resource group is already cached for this address. So just return the
+                // cached value.
+                let buf = group_data.get(struct_tag).cloned();
+                return Ok(resource_add_cost(buf, 0));
+            }
+            let group_data = self.get_resource_group_data(address, &resource_group)?;
+            if let Some(group_data) = group_data {
+                let len = if self.accurate_byte_count {
+                    group_data.len() as u64
+                } else {
+                    0
+                };
+                let group_data: BTreeMap<StructTag, Vec<u8>> = bcs::from_bytes(&group_data)
+                    .map_err(|_| {
+                        PartialVMError::new(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
+                            .finish(Location::Undefined)
+                    })?;
+                let res = group_data.get(struct_tag).cloned();
+                cache.insert(resource_group, group_data);
+                Ok(resource_add_cost(res, len))
+            } else {
+                cache.insert(resource_group, BTreeMap::new());
+                Ok(None)
+            }
+        } else {
+            let buf = self.get_standard_resource(address, struct_tag)?;
+            Ok(resource_add_cost(buf, 0))
+        }
     }
 }
 
-impl<'a, S: StateView> ModuleResolver for StorageAdapter<'a, S> {
-    type Error = VMError;
+impl<'a, S: StateView> MoveResolverExt for StorageAdapter<'a, S> {
+    fn get_resource_group_data(
+        &self,
+        address: &AccountAddress,
+        resource_group: &StructTag,
+    ) -> Result<Option<Vec<u8>>, VMError> {
+        let ap = AccessPath::resource_group_access_path(*address, resource_group.clone());
+        self.get(ap).map_err(|e| e.finish(Location::Undefined))
+    }
 
-    fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {
-        // REVIEW: cache this?
-        let ap = AccessPath::from(module_id);
-        self.get(&ap).map_err(|e| e.finish(Location::Undefined))
+    fn get_standard_resource(
+        &self,
+        address: &AccountAddress,
+        struct_tag: &StructTag,
+    ) -> Result<Option<Vec<u8>>, VMError> {
+        let ap = AccessPath::resource_access_path(*address, struct_tag.clone()).map_err(|_| {
+            PartialVMError::new(StatusCode::TOO_MANY_TYPE_NODES).finish(Location::Undefined)
+        })?;
+        self.get(ap).map_err(|e| e.finish(Location::Undefined))
+    }
+
+    fn release_resource_group_cache(
+        &self,
+    ) -> BTreeMap<AccountAddress, BTreeMap<StructTag, BTreeMap<StructTag, Vec<u8>>>> {
+        self.resource_group_cache.take()
     }
 }
 
 impl<'a, S: StateView> ResourceResolver for StorageAdapter<'a, S> {
-    type Error = VMError;
-
-    fn get_resource(
+    fn get_resource_with_metadata(
         &self,
         address: &AccountAddress,
         struct_tag: &StructTag,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
-        let ap = AccessPath::resource_access_path(*address, struct_tag.clone());
-        self.get(&ap).map_err(|e| e.finish(Location::Undefined))
+        metadata: &[Metadata],
+    ) -> anyhow::Result<Option<(Vec<u8>, u64)>> {
+        Ok(self.get_any_resource(address, struct_tag, metadata)?)
+    }
+}
+
+impl<'a, S: StateView> ModuleResolver for StorageAdapter<'a, S> {
+    fn get_module_metadata(&self, module_id: &ModuleId) -> Vec<Metadata> {
+        let module_bytes = match self.get_module(module_id) {
+            Ok(Some(bytes)) => bytes,
+            _ => return vec![],
+        };
+        let (_, gas_feature_version) = gas_config(self);
+        let features = Features::fetch_config(self).unwrap_or_default();
+        let max_binary_format_version =
+            get_max_binary_format_version(&features, gas_feature_version);
+        let module = match CompiledModule::deserialize_with_max_version(
+            &module_bytes,
+            max_binary_format_version,
+        ) {
+            Ok(module) => module,
+            _ => return vec![],
+        };
+        module.metadata
+    }
+
+    fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>, Error> {
+        // REVIEW: cache this?
+        let ap = AccessPath::from(module_id);
+        Ok(self.get(ap).map_err(|e| e.finish(Location::Undefined))?)
     }
 }
 
@@ -65,13 +178,13 @@ impl<'a, S: StateView> TableResolver for StorageAdapter<'a, S> {
         handle: &TableHandle,
         key: &[u8],
     ) -> Result<Option<Vec<u8>>, Error> {
-        self.get_state_value(&StateKey::table_item((*handle).into(), key.to_vec()))
+        self.get_state_value_bytes(&StateKey::table_item((*handle).into(), key.to_vec()))
     }
 }
 
 impl<'a, S: StateView> ConfigStorage for StorageAdapter<'a, S> {
     fn fetch_config(&self, access_path: AccessPath) -> Option<Vec<u8>> {
-        self.get(&access_path).ok()?
+        self.get(access_path).ok()?
     }
 }
 
@@ -85,7 +198,7 @@ impl<'a, S> Deref for StorageAdapter<'a, S> {
     type Target = S;
 
     fn deref(&self) -> &Self::Target {
-        self.0
+        self.state_store
     }
 }
 
@@ -96,75 +209,5 @@ pub trait AsMoveResolver<S> {
 impl<S: StateView> AsMoveResolver<S> for S {
     fn as_move_resolver(&self) -> StorageAdapter<S> {
         StorageAdapter::new(self)
-    }
-}
-
-pub struct StorageAdapterOwned<S> {
-    state_view: S,
-}
-
-impl<S> Deref for StorageAdapterOwned<S> {
-    type Target = S;
-
-    fn deref(&self) -> &Self::Target {
-        &self.state_view
-    }
-}
-
-impl<S> DerefMut for StorageAdapterOwned<S> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.state_view
-    }
-}
-
-impl<S: StateView> ModuleResolver for StorageAdapterOwned<S> {
-    type Error = VMError;
-
-    fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {
-        self.as_move_resolver().get_module(module_id)
-    }
-}
-
-impl<S: StateView> ResourceResolver for StorageAdapterOwned<S> {
-    type Error = VMError;
-
-    fn get_resource(
-        &self,
-        address: &AccountAddress,
-        struct_tag: &StructTag,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
-        self.as_move_resolver().get_resource(address, struct_tag)
-    }
-}
-
-impl<S: StateView> TableResolver for StorageAdapterOwned<S> {
-    fn resolve_table_entry(
-        &self,
-        handle: &TableHandle,
-        key: &[u8],
-    ) -> Result<Option<Vec<u8>>, Error> {
-        self.as_move_resolver().resolve_table_entry(handle, key)
-    }
-}
-
-impl<S: StateView> ConfigStorage for StorageAdapterOwned<S> {
-    fn fetch_config(&self, access_path: AccessPath) -> Option<Vec<u8>> {
-        self.as_move_resolver().fetch_config(access_path)
-    }
-}
-
-impl<S: StateView> StateStorageUsageResolver for StorageAdapterOwned<S> {
-    fn get_state_storage_usage(&self) -> Result<StateStorageUsage, anyhow::Error> {
-        self.as_move_resolver().get_usage()
-    }
-}
-
-pub trait IntoMoveResolver<S> {
-    fn into_move_resolver(self) -> StorageAdapterOwned<S>;
-}
-
-impl<S: StateView> IntoMoveResolver<S> for S {
-    fn into_move_resolver(self) -> StorageAdapterOwned<S> {
-        StorageAdapterOwned { state_view: self }
     }
 }

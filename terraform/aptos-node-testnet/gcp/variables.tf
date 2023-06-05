@@ -1,5 +1,11 @@
 ### Project config
 
+variable "cluster_bootstrap" {
+  description = "Set when bootstrapping a new cluster"
+  type        = bool
+  default     = false
+}
+
 variable "project" {
   description = "GCP project"
   type        = string
@@ -16,7 +22,7 @@ variable "zone" {
 }
 
 variable "manage_via_tf" {
-  description = "Whether to manage the aptos-node k8s workload via Terraform"
+  description = "Whether to manage the aptos-node k8s workload via Terraform. If set to false, the helm_release resource will still be created and updated when values change, but it may not be updated on every apply"
   default     = true
 }
 
@@ -126,10 +132,20 @@ variable "enable_forge" {
   default     = false
 }
 
+variable "enable_monitoring" {
+  description = "Enable monitoring helm chart"
+  default     = true
+}
+
 variable "monitoring_helm_values" {
   description = "Map of values to pass to monitoring Helm"
   type        = any
   default     = {}
+}
+
+variable "enable_prometheus_node_exporter" {
+  description = "Enable prometheus-node-exporter within monitoring helm chart"
+  default     = true
 }
 
 ### Autoscaling

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -16,7 +17,7 @@ use futures::stream::poll_fn;
 use once_cell::sync::Lazy;
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
     time::Instant,
 };
@@ -33,7 +34,7 @@ static TEMP_METADATA_CACHE_DIR: Lazy<TempPath> = Lazy::new(|| {
     dir
 });
 
-#[derive(Parser)]
+#[derive(Clone, Parser)]
 pub struct MetadataCacheOpt {
     #[clap(
         long = "metadata-cache-dir",
@@ -47,10 +48,16 @@ pub struct MetadataCacheOpt {
 }
 
 impl MetadataCacheOpt {
-    // in cache we save things other than the cached files.
+    // in case we save things other than the cached files.
     const SUB_DIR: &'static str = "cache";
 
-    fn cache_dir(&self) -> PathBuf {
+    pub fn new(dir: Option<impl AsRef<Path>>) -> Self {
+        Self {
+            dir: dir.map(|dir| dir.as_ref().to_path_buf()),
+        }
+    }
+
+    pub(crate) fn cache_dir(&self) -> PathBuf {
         self.dir
             .clone()
             .unwrap_or_else(|| TEMP_METADATA_CACHE_DIR.path().to_path_buf())
@@ -63,7 +70,30 @@ pub async fn initialize_identity(storage: &Arc<dyn BackupStorage>) -> Result<()>
     let metadata = Metadata::new_random_identity();
     storage
         .save_metadata_line(&metadata.name(), &metadata.to_text_line()?)
-        .await
+        .await?;
+    Ok(())
+}
+
+async fn download_file(
+    storage_ref: &dyn BackupStorage,
+    file_handle: &FileHandle,
+    local_tmp_file: &Path,
+) -> Result<()> {
+    tokio::io::copy(
+        &mut storage_ref
+            .open_for_read(file_handle)
+            .await
+            .err_notes(file_handle)?,
+        &mut OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(local_tmp_file)
+            .await
+            .err_notes(local_tmp_file)?,
+    )
+    .await
+    .map_err(|e| anyhow!("Failed to download file: {}", e))?;
+    Ok(())
 }
 
 /// Sync local cache folder with remote storage, and load all metadata entries from the cache.
@@ -108,7 +138,7 @@ pub async fn sync_and_load(
         remote_file_handles = storage.list_metadata_files().await?;
     }
     let remote_file_handle_by_hash: HashMap<_, _> = remote_file_handles
-        .into_iter()
+        .iter()
         .map(|file_handle| (file_handle.file_handle_hash(), file_handle))
         .collect();
     let remote_hashes: HashSet<_> = remote_file_handle_by_hash.keys().cloned().collect();
@@ -123,7 +153,7 @@ pub async fn sync_and_load(
     for h in stale_local_hashes {
         let file = cache_dir.join(h);
         remove_file(&file).await.err_notes(&file)?;
-        info!("Deleted stale metadata files in cache.");
+        info!(file_name = h, "Deleted stale metadata file in cache.");
     }
 
     let num_new_files = new_remote_hashes.len();
@@ -131,27 +161,15 @@ pub async fn sync_and_load(
     NUM_META_DOWNLOAD.set(0);
     let futs = new_remote_hashes.iter().enumerate().map(|(i, h)| {
         let fh_by_h_ref = &remote_file_handle_by_hash;
-        let storage_ref = &storage;
+        let storage_ref = storage.as_ref();
         let cache_dir_ref = &cache_dir;
 
         async move {
             let file_handle = fh_by_h_ref.get(*h).expect("In map.");
             let local_file = cache_dir_ref.join(*h);
             let local_tmp_file = cache_dir_ref.join(format!(".{}", *h));
-            // download to tmp file ".xxxxxx"
-            tokio::io::copy(
-                &mut storage_ref
-                    .open_for_read(file_handle)
-                    .await
-                    .err_notes(file_handle)?,
-                &mut OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(&local_tmp_file)
-                    .await
-                    .err_notes(&local_file)?,
-            )
-            .await?;
+
+            download_file(storage_ref, file_handle, &local_tmp_file).await?;
             // rename to target file only if successful; stale tmp file caused by failure will be
             // reclaimed on next run
             tokio::fs::rename(local_tmp_file, local_file).await?;
@@ -194,7 +212,8 @@ pub async fn sync_and_load(
         total_time = timer.elapsed().as_secs(),
         "Metadata cache loaded.",
     );
-    Ok(metadata_vec.into())
+
+    Ok(MetadataView::new(metadata_vec, remote_file_handles))
 }
 
 trait FileHandleHash {

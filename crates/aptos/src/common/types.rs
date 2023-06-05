@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -6,30 +6,43 @@ use crate::{
         init::Network,
         utils::{
             check_if_file_exists, create_dir_if_not_exist, dir_default_to_current,
-            get_account_with_state, get_auth_key, get_sequence_number, prompt_yes_with_override,
-            read_from_file, start_logger, to_common_result, to_common_success_result,
-            write_to_file, write_to_file_with_opts, write_to_user_only_file,
+            get_account_with_state, get_auth_key, get_sequence_number, parse_json_file,
+            prompt_yes_with_override, read_from_file, start_logger, to_common_result,
+            to_common_success_result, write_to_file, write_to_file_with_opts,
+            write_to_user_only_file,
         },
     },
     config::GlobalConfig,
     genesis::git::from_yaml,
+    move_tool::{ArgWithType, FunctionArgType, MemberId},
 };
+use anyhow::Context;
 use aptos_crypto::{
     ed25519::{Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature},
     x25519, PrivateKey, ValidCryptoMaterial, ValidCryptoMaterialStringExt,
 };
+use aptos_debugger::AptosDebugger;
+use aptos_gas_profiling::FrameName;
 use aptos_global_constants::adjust_gas_headroom;
 use aptos_keygen::KeyGen;
-use aptos_rest_client::{aptos_api_types::HashValue, error::RestError, Client, Transaction};
+use aptos_logger::Level;
+use aptos_rest_client::{
+    aptos_api_types::{EntryFunctionId, HashValue, MoveType, ViewRequest},
+    error::RestError,
+    AptosBaseUrl, Client, Transaction,
+};
 use aptos_sdk::{transaction_builder::TransactionFactory, types::LocalAccount};
 use aptos_types::{
     chain_id::ChainId,
-    transaction::{authenticator::AuthenticationKey, SignedTransaction, TransactionPayload},
+    transaction::{
+        authenticator::AuthenticationKey, EntryFunction, MultisigTransactionPayload, Script,
+        SignedTransaction, TransactionArgument, TransactionPayload, TransactionStatus,
+    },
 };
 use async_trait::async_trait;
 use clap::{ArgEnum, Parser};
 use hex::FromHexError;
-use move_core_types::account_address::AccountAddress;
+use move_core_types::{account_address::AccountAddress, language_storage::TypeTag};
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
@@ -44,10 +57,14 @@ use std::{
 };
 use thiserror::Error;
 
+pub const USER_AGENT: &str = concat!("aptos-cli/", env!("CARGO_PKG_VERSION"));
 const US_IN_SECS: u64 = 1_000_000;
 const ACCEPTED_CLOCK_SKEW_US: u64 = 5 * US_IN_SECS;
 pub const DEFAULT_EXPIRATION_SECS: u64 = 30;
 pub const DEFAULT_PROFILE: &str = "default";
+
+// Custom header value to identify the client
+const X_APTOS_CLIENT_VALUE: &str = concat!("aptos-cli/", env!("CARGO_PKG_VERSION"));
 
 /// A common result to be returned to users
 pub type CliResult = Result<String, String>;
@@ -86,6 +103,8 @@ pub enum CliError {
     UnexpectedError(String),
     #[error("Simulation failed with status: {0}")]
     SimulationError(String),
+    #[error("Coverage failed with status: {0}")]
+    CoverageError(String),
 }
 
 impl CliError {
@@ -105,6 +124,7 @@ impl CliError {
             CliError::UnableToReadFile(_, _) => "UnableToReadFile",
             CliError::UnexpectedError(_) => "UnexpectedError",
             CliError::SimulationError(_) => "SimulationError",
+            CliError::CoverageError(_) => "CoverageError",
         }
     }
 }
@@ -829,7 +849,7 @@ pub struct SaveFile {
 }
 
 impl SaveFile {
-    /// Check if the key file exists already
+    /// Check if the `output_file` exists already
     pub fn check_file(&self) -> CliTypedResult<()> {
         check_if_file_exists(self.output_file.as_path(), self.prompt_options)
     }
@@ -888,15 +908,15 @@ impl RestOptions {
     }
 
     pub fn client(&self, profile: &ProfileOptions) -> CliTypedResult<Client> {
-        Ok(Client::new_with_timeout(
-            self.url(profile)?,
-            Duration::from_secs(self.connection_timeout_secs),
-        ))
+        Ok(Client::builder(AptosBaseUrl::Custom(self.url(profile)?))
+            .timeout(Duration::from_secs(self.connection_timeout_secs))
+            .header(aptos_api_types::X_APTOS_CLIENT, X_APTOS_CLIENT_VALUE)?
+            .build())
     }
 }
 
 /// Options for compiling a move package dir
-#[derive(Debug, Parser)]
+#[derive(Debug, Clone, Parser)]
 pub struct MovePackageDir {
     /// Path to a move package (the folder with a Move.toml file)
     #[clap(long, parse(from_os_str))]
@@ -951,10 +971,6 @@ impl MovePackageDir {
             .collect()
     }
 
-    pub fn bytecode_version_or_detault(&self) -> u32 {
-        self.bytecode_version.unwrap_or(5)
-    }
-
     pub fn add_named_address(&mut self, key: String, value: String) {
         self.named_addresses
             .insert(key, AccountAddressWrapper::from_str(&value).unwrap());
@@ -984,6 +1000,11 @@ pub fn load_account_arg(str: &str) -> Result<AccountAddress, CliError> {
             CliError::CommandArgumentError(format!("Failed to parse AccountAddress {}", err))
         })
     } else if let Ok(account_address) = AccountAddress::from_str(str) {
+        Ok(account_address)
+    } else if let Some(Some(account_address)) =
+        CliConfig::load_profile(Some(str), ConfigSearchMode::CurrentDirAndParents)?
+            .map(|p| p.account)
+    {
         Ok(account_address)
     } else if let Some(Some(private_key)) =
         CliConfig::load_profile(Some(str), ConfigSearchMode::CurrentDirAndParents)?
@@ -1050,8 +1071,14 @@ pub trait CliCommand<T: Serialize + Send>: Sized + Send {
 
     /// Executes the command, and serializes it to the common JSON output type
     async fn execute_serialized(self) -> CliResult {
+        self.execute_serialized_with_logging_level(Level::Warn)
+            .await
+    }
+
+    /// Execute the command with customized logging level
+    async fn execute_serialized_with_logging_level(self, level: Level) -> CliResult {
         let command_name = self.command_name();
-        start_logger();
+        start_logger(level);
         let start_time = Instant::now();
         to_common_result(command_name, start_time, self.execute().await).await
     }
@@ -1065,7 +1092,7 @@ pub trait CliCommand<T: Serialize + Send>: Sized + Send {
 
     /// Executes the command, and throws away Ok(result) for the string Success
     async fn execute_serialized_success(self) -> CliResult {
-        start_logger();
+        start_logger(Level::Warn);
         let command_name = self.command_name();
         let start_time = Instant::now();
         to_common_success_result(command_name, start_time, self.execute().await).await
@@ -1168,7 +1195,7 @@ impl From<&Transaction> for TransactionSummary {
     }
 }
 
-/// A summary of a [`WriteSetChange`] for easy printing
+/// A summary of a `WriteSetChange` for easy printing
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct ChangeSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1190,7 +1217,7 @@ pub struct ChangeSummary {
 
 #[derive(Debug, Default, Parser)]
 pub struct FaucetOptions {
-    /// URL for the faucet endpoint e.g. https://faucet.devnet.aptoslabs.com
+    /// URL for the faucet endpoint e.g. `https://faucet.devnet.aptoslabs.com`
     #[clap(long)]
     faucet_url: Option<reqwest::Url>,
 }
@@ -1283,6 +1310,11 @@ pub struct TransactionOptions {
     pub(crate) gas_options: GasOptions,
     #[clap(flatten)]
     pub(crate) prompt_options: PromptOptions,
+
+    /// If this option is set, simulate the transaction locally using the debugger and generate
+    /// flamegraphs that reflect the gas usage.
+    #[clap(long)]
+    pub(crate) profile_gas: bool,
 }
 
 impl TransactionOptions {
@@ -1318,6 +1350,11 @@ impl TransactionOptions {
     pub async fn sequence_number(&self, sender_address: AccountAddress) -> CliTypedResult<u64> {
         let client = self.rest_client()?;
         get_sequence_number(&client, sender_address).await
+    }
+
+    pub async fn view(&self, payload: ViewRequest) -> CliTypedResult<Vec<serde_json::Value>> {
+        let client = self.rest_client()?;
+        Ok(client.view(&payload, None).await?.into_inner())
     }
 
     /// Submit a transaction
@@ -1432,6 +1469,170 @@ impl TransactionOptions {
         Ok(response.into_inner())
     }
 
+    /// Simulate the transaction locally using the debugger, with the gas profiler enabled.
+    pub async fn profile_gas(
+        &self,
+        payload: TransactionPayload,
+    ) -> CliTypedResult<TransactionSummary> {
+        println!();
+        println!("Simulating transaction locally with the gas profiler...");
+        println!("This is still experimental so results may be inaccurate.");
+
+        let client = self.rest_client()?;
+
+        // Fetch the chain states required for the simulation
+        // TODO(Gas): get the following from the chain
+        const DEFAULT_GAS_UNIT_PRICE: u64 = 100;
+        const DEFAULT_MAX_GAS: u64 = 2_000_000;
+
+        let (sender_key, sender_address) = self.get_key_and_address()?;
+        let gas_unit_price = self
+            .gas_options
+            .gas_unit_price
+            .unwrap_or(DEFAULT_GAS_UNIT_PRICE);
+        let (account, state) = get_account_with_state(&client, sender_address).await?;
+        let version = state.version;
+        let chain_id = ChainId::new(state.chain_id);
+        let sequence_number = account.sequence_number;
+
+        let balance = client
+            .get_account_balance_at_version(sender_address, version)
+            .await
+            .map_err(|err| CliError::ApiError(err.to_string()))?
+            .into_inner();
+
+        let max_gas = self.gas_options.max_gas.unwrap_or_else(|| {
+            if gas_unit_price == 0 {
+                DEFAULT_MAX_GAS
+            } else {
+                std::cmp::min(balance.coin.value.0 / gas_unit_price, DEFAULT_MAX_GAS)
+            }
+        });
+
+        // Create and sign the transaction
+        let transaction_factory = TransactionFactory::new(chain_id)
+            .with_gas_unit_price(gas_unit_price)
+            .with_max_gas_amount(max_gas)
+            .with_transaction_expiration_time(self.gas_options.expiration_secs);
+        let sender_account = &mut LocalAccount::new(sender_address, sender_key, sequence_number);
+        let transaction =
+            sender_account.sign_with_transaction_builder(transaction_factory.payload(payload));
+        let hash = transaction.clone().committed_hash();
+
+        // Execute the transaction using the debugger
+        let debugger = AptosDebugger::rest_client(client).unwrap();
+        let res = debugger.execute_transaction_at_version_with_gas_profiler(version, transaction);
+        let (vm_status, output, gas_log) = res.map_err(|err| {
+            CliError::UnexpectedError(format!("failed to simulate txn with gas profiler: {}", err))
+        })?;
+
+        // Generate the file name for the flamegraphs
+        let entry_point = gas_log.entry_point();
+
+        let human_readable_name = match entry_point {
+            FrameName::Script => "script".to_string(),
+            FrameName::Function {
+                module_id, name, ..
+            } => {
+                let addr_short = module_id.address().short_str_lossless();
+                let addr_truncated = if addr_short.len() > 4 {
+                    &addr_short[..4]
+                } else {
+                    addr_short.as_str()
+                };
+                format!("0x{}-{}-{}", addr_truncated, module_id.name(), name)
+            },
+        };
+        let raw_file_name = format!("txn-{}-{}", hash, human_readable_name);
+
+        // Create the directory if it does not exist yet.
+        let dir: &Path = Path::new("gas-profiling");
+
+        macro_rules! create_dir {
+            () => {
+                if let Err(err) = std::fs::create_dir(dir) {
+                    if err.kind() != std::io::ErrorKind::AlreadyExists {
+                        return Err(CliError::UnexpectedError(format!(
+                            "failed to create directory {}",
+                            dir.display()
+                        )));
+                    }
+                }
+            };
+        }
+
+        // Generate the execution & IO flamegraph.
+        println!();
+        match gas_log.to_flamegraph(format!("Transaction {} -- Execution & IO", hash))? {
+            Some(graph_bytes) => {
+                create_dir!();
+                let graph_file_path = Path::join(dir, format!("{}.exec_io.svg", raw_file_name));
+                std::fs::write(&graph_file_path, graph_bytes).map_err(|err| {
+                    CliError::UnexpectedError(format!(
+                        "Failed to write flamegraph to file {} : {:?}",
+                        graph_file_path.display(),
+                        err
+                    ))
+                })?;
+                println!(
+                    "Execution & IO Gas flamegraph saved to {}",
+                    graph_file_path.display()
+                );
+            },
+            None => {
+                println!("Skipped generating execution & IO flamegraph");
+            },
+        }
+
+        // Generate the storage fee flamegraph.
+        match gas_log
+            .storage
+            .to_flamegraph(format!("Transaction {} -- Storage Fee", hash))?
+        {
+            Some(graph_bytes) => {
+                create_dir!();
+                let graph_file_path = Path::join(dir, format!("{}.storage.svg", raw_file_name));
+                std::fs::write(&graph_file_path, graph_bytes).map_err(|err| {
+                    CliError::UnexpectedError(format!(
+                        "Failed to write flamegraph to file {} : {:?}",
+                        graph_file_path.display(),
+                        err
+                    ))
+                })?;
+                println!(
+                    "Storage fee flamegraph saved to {}",
+                    graph_file_path.display()
+                );
+            },
+            None => {
+                println!("Skipped generating storage fee flamegraph");
+            },
+        }
+
+        println!();
+
+        // Generate the transaction summary
+
+        // TODO(Gas): double check if this is correct.
+        let success = match output.status() {
+            TransactionStatus::Keep(exec_status) => Some(exec_status.is_success()),
+            TransactionStatus::Discard(_) | TransactionStatus::Retry => None,
+        };
+
+        Ok(TransactionSummary {
+            transaction_hash: hash.into(),
+            gas_used: Some(output.gas_used()),
+            gas_unit_price: Some(gas_unit_price),
+            pending: None,
+            sender: Some(sender_address),
+            sequence_number: None, // The transaction is not comitted so there is no new sequence number.
+            success,
+            timestamp_us: None,
+            version: Some(version), // The transaction is not comitted so there is no new version.
+            vm_status: Some(vm_status.to_string()),
+        })
+    }
+
     pub async fn estimate_gas_price(&self) -> CliTypedResult<u64> {
         let client = self.rest_client()?;
         client
@@ -1480,4 +1681,291 @@ pub struct RotationProofChallenge {
     pub originator: AccountAddress,
     pub current_auth_key: AccountAddress,
     pub new_public_key: Vec<u8>,
+}
+
+/// Common options for interactions with a multisig account.
+#[derive(Clone, Debug, Parser, Serialize)]
+pub struct MultisigAccount {
+    /// The address of the multisig account to interact with
+    #[clap(long, parse(try_from_str=crate::common::types::load_account_arg))]
+    pub(crate) multisig_address: AccountAddress,
+}
+
+#[derive(Clone, Debug, Parser, Serialize)]
+pub struct MultisigAccountWithSequenceNumber {
+    #[clap(flatten)]
+    pub(crate) multisig_account: MultisigAccount,
+    /// Multisig account sequence number to interact with
+    #[clap(long)]
+    pub(crate) sequence_number: u64,
+}
+
+#[derive(Debug, Parser)]
+pub struct TypeArgVec {
+    /// TypeTag arguments separated by spaces.
+    ///
+    /// Example: `u8 u16 u32 u64 u128 u256 bool address vector signer`
+    #[clap(long, multiple_values = true)]
+    pub(crate) type_args: Vec<MoveType>,
+}
+
+impl TryFrom<&Vec<String>> for TypeArgVec {
+    type Error = CliError;
+
+    fn try_from(value: &Vec<String>) -> Result<Self, Self::Error> {
+        let mut type_args = vec![];
+        for string_ref in value {
+            type_args.push(
+                MoveType::from_str(string_ref)
+                    .map_err(|err| CliError::UnableToParse("type argument", err.to_string()))?,
+            );
+        }
+        Ok(TypeArgVec { type_args })
+    }
+}
+
+impl TryInto<Vec<TypeTag>> for TypeArgVec {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<Vec<TypeTag>, Self::Error> {
+        let mut type_tags: Vec<TypeTag> = vec![];
+        for type_arg in self.type_args {
+            type_tags.push(
+                TypeTag::try_from(type_arg)
+                    .map_err(|err| CliError::UnableToParse("type argument", err.to_string()))?,
+            );
+        }
+        Ok(type_tags)
+    }
+}
+
+#[derive(Debug, Parser)]
+pub struct ArgWithTypeVec {
+    /// Arguments combined with their type separated by spaces.
+    ///
+    /// Supported types [address, bool, hex, string, u8, u16, u32, u64, u128, u256, raw]
+    ///
+    /// Vectors may be specified using JSON array literal syntax (you may need to escape this with
+    /// quotes based on your shell interpreter)
+    ///
+    /// Example: `address:0x1 bool:true u8:0 u256:1234 "bool:[true, false]" 'address:[["0xace", "0xbee"], []]'`
+    #[clap(long, multiple_values = true)]
+    pub(crate) args: Vec<ArgWithType>,
+}
+
+impl TryFrom<&Vec<ArgWithTypeJSON>> for ArgWithTypeVec {
+    type Error = CliError;
+
+    fn try_from(value: &Vec<ArgWithTypeJSON>) -> Result<Self, Self::Error> {
+        let mut args = vec![];
+        for arg_json_ref in value {
+            let function_arg_type = FunctionArgType::from_str(&arg_json_ref.arg_type)?;
+            args.push(function_arg_type.parse_arg_json(&arg_json_ref.value)?);
+        }
+        Ok(ArgWithTypeVec { args })
+    }
+}
+
+impl TryInto<Vec<TransactionArgument>> for ArgWithTypeVec {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<Vec<TransactionArgument>, Self::Error> {
+        let mut args = vec![];
+        for arg in self.args {
+            args.push(
+                (&arg)
+                    .try_into()
+                    .context(format!("Failed to parse arg {:?}", arg))
+                    .map_err(|err| CliError::CommandArgumentError(err.to_string()))?,
+            );
+        }
+        Ok(args)
+    }
+}
+
+impl TryInto<Vec<Vec<u8>>> for ArgWithTypeVec {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<Vec<Vec<u8>>, Self::Error> {
+        Ok(self
+            .args
+            .into_iter()
+            .map(|arg_with_type| arg_with_type.arg)
+            .collect())
+    }
+}
+
+impl TryInto<Vec<serde_json::Value>> for ArgWithTypeVec {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<Vec<serde_json::Value>, Self::Error> {
+        let mut args = vec![];
+        for arg in self.args {
+            args.push(arg.to_json()?);
+        }
+        Ok(args)
+    }
+}
+
+/// Common options for constructing an entry function transaction payload.
+#[derive(Debug, Parser)]
+pub struct EntryFunctionArguments {
+    /// Function name as `<ADDRESS>::<MODULE_ID>::<FUNCTION_NAME>`
+    ///
+    /// Example: `0x842ed41fad9640a2ad08fdd7d3e4f7f505319aac7d67e1c0dd6a7cce8732c7e3::message::set_message`
+    #[clap(long, required_unless_present = "json-file")]
+    pub function_id: Option<MemberId>,
+
+    #[clap(flatten)]
+    pub(crate) type_arg_vec: TypeArgVec,
+    #[clap(flatten)]
+    pub(crate) arg_vec: ArgWithTypeVec,
+
+    /// JSON file specifying public entry function ID, type arguments, and arguments.
+    #[clap(long, parse(from_os_str), conflicts_with_all = &["function-id", "args", "type-args"])]
+    pub(crate) json_file: Option<PathBuf>,
+}
+
+impl EntryFunctionArguments {
+    /// Get instance as if all fields passed from command line, parsing JSON input file if needed.
+    fn check_input_style(self) -> CliTypedResult<EntryFunctionArguments> {
+        if let Some(json_path) = self.json_file {
+            Ok(parse_json_file::<EntryFunctionArgumentsJSON>(&json_path)?.try_into()?)
+        } else {
+            Ok(self)
+        }
+    }
+}
+
+impl TryInto<EntryFunction> for EntryFunctionArguments {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<EntryFunction, Self::Error> {
+        let entry_function_args = self.check_input_style()?;
+        let function_id: MemberId = (&entry_function_args).try_into()?;
+        Ok(EntryFunction::new(
+            function_id.module_id,
+            function_id.member_id,
+            entry_function_args.type_arg_vec.try_into()?,
+            entry_function_args.arg_vec.try_into()?,
+        ))
+    }
+}
+
+impl TryInto<MultisigTransactionPayload> for EntryFunctionArguments {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<MultisigTransactionPayload, Self::Error> {
+        Ok(MultisigTransactionPayload::EntryFunction(self.try_into()?))
+    }
+}
+
+impl TryInto<MemberId> for &EntryFunctionArguments {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<MemberId, Self::Error> {
+        self.function_id
+            .clone()
+            .ok_or(CliError::CommandArgumentError(
+                "No function ID provided".to_string(),
+            ))
+    }
+}
+
+impl TryInto<ViewRequest> for EntryFunctionArguments {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<ViewRequest, Self::Error> {
+        let entry_function_args = self.check_input_style()?;
+        let function_id: MemberId = (&entry_function_args).try_into()?;
+        Ok(ViewRequest {
+            function: EntryFunctionId {
+                module: function_id.module_id.into(),
+                name: function_id.member_id.into(),
+            },
+            type_arguments: entry_function_args.type_arg_vec.type_args,
+            arguments: entry_function_args.arg_vec.try_into()?,
+        })
+    }
+}
+
+/// Common options for constructing a script payload
+#[derive(Debug, Parser)]
+pub struct ScriptFunctionArguments {
+    #[clap(flatten)]
+    pub(crate) type_arg_vec: TypeArgVec,
+    #[clap(flatten)]
+    pub(crate) arg_vec: ArgWithTypeVec,
+
+    /// JSON file specifying type arguments and arguments.
+    #[clap(long, parse(from_os_str), conflicts_with_all = &["args", "type-args"])]
+    pub(crate) json_file: Option<PathBuf>,
+}
+
+impl ScriptFunctionArguments {
+    /// Get instance as if all fields passed from command line, parsing JSON input file if needed.
+    fn check_input_style(self) -> CliTypedResult<ScriptFunctionArguments> {
+        if let Some(json_path) = self.json_file {
+            Ok(parse_json_file::<ScriptFunctionArgumentsJSON>(&json_path)?.try_into()?)
+        } else {
+            Ok(self)
+        }
+    }
+
+    pub fn create_script_payload(self, bytecode: Vec<u8>) -> CliTypedResult<TransactionPayload> {
+        let script_function_args = self.check_input_style()?;
+        Ok(TransactionPayload::Script(Script::new(
+            bytecode,
+            script_function_args.type_arg_vec.try_into()?,
+            script_function_args.arg_vec.try_into()?,
+        )))
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+/// JSON file format for function arguments.
+pub struct ArgWithTypeJSON {
+    #[serde(rename = "type")]
+    pub(crate) arg_type: String,
+    pub(crate) value: serde_json::Value,
+}
+
+#[derive(Deserialize, Serialize)]
+/// JSON file format for entry function arguments.
+pub struct EntryFunctionArgumentsJSON {
+    pub(crate) function_id: String,
+    pub(crate) type_args: Vec<String>,
+    pub(crate) args: Vec<ArgWithTypeJSON>,
+}
+
+impl TryInto<EntryFunctionArguments> for EntryFunctionArgumentsJSON {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<EntryFunctionArguments, Self::Error> {
+        Ok(EntryFunctionArguments {
+            function_id: Some(MemberId::from_str(&self.function_id)?),
+            type_arg_vec: TypeArgVec::try_from(&self.type_args)?,
+            arg_vec: ArgWithTypeVec::try_from(&self.args)?,
+            json_file: None,
+        })
+    }
+}
+
+#[derive(Deserialize)]
+/// JSON file format for script function arguments.
+struct ScriptFunctionArgumentsJSON {
+    type_args: Vec<String>,
+    args: Vec<ArgWithTypeJSON>,
+}
+
+impl TryInto<ScriptFunctionArguments> for ScriptFunctionArgumentsJSON {
+    type Error = CliError;
+
+    fn try_into(self) -> Result<ScriptFunctionArguments, Self::Error> {
+        Ok(ScriptFunctionArguments {
+            type_arg_vec: TypeArgVec::try_from(&self.type_args)?,
+            arg_vec: ArgWithTypeVec::try_from(&self.args)?,
+            json_file: None,
+        })
+    }
 }

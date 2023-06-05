@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::extra_unused_lifetimes)]
 use crate::{models::transactions::Transaction, schema::move_resources, util::standardize_address};
@@ -23,6 +23,7 @@ pub struct MoveResource {
     pub generic_type_params: Option<serde_json::Value>,
     pub data: Option<serde_json::Value>,
     pub is_deleted: bool,
+    pub state_key_hash: String,
 }
 
 pub struct MoveStructTag {
@@ -50,6 +51,7 @@ impl MoveResource {
             generic_type_params: parsed_data.generic_type_params,
             data: Some(serde_json::to_value(&write_resource.data.data).unwrap()),
             is_deleted: false,
+            state_key_hash: standardize_address(write_resource.state_key_hash.as_str()),
         }
     }
 
@@ -71,6 +73,7 @@ impl MoveResource {
             generic_type_params: parsed_data.generic_type_params,
             data: None,
             is_deleted: true,
+            state_key_hash: standardize_address(delete_resource.state_key_hash.as_str()),
         }
     }
 

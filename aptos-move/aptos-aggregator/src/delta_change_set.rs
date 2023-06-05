@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! Parallel data aggregation uses a `Delta` op. Every delta is is a state key
@@ -10,10 +10,10 @@ use aptos_state_view::StateView;
 use aptos_types::{
     state_store::state_key::StateKey,
     vm_status::{StatusCode, VMStatus},
-    write_set::{WriteOp, WriteSetMut},
+    write_set::{WriteOp, WriteSet, WriteSetMut},
 };
 use move_binary_format::errors::{Location, PartialVMError, PartialVMResult};
-use std::collections::BTreeMap;
+use std::collections::{btree_map::Entry, BTreeMap};
 
 /// When `Addition` operation overflows the `limit`.
 const EADD_OVERFLOW: u64 = 0x02_0001;
@@ -68,7 +68,7 @@ impl DeltaOp {
         addition(base, self.max_positive, self.limit)?;
         subtraction(base, self.min_negative)?;
 
-        // If delta has been sucessfully validated, apply the update.
+        // If delta has been successfully validated, apply the update.
         match self.update {
             DeltaUpdate::Plus(value) => addition(base, value, self.limit),
             DeltaUpdate::Minus(value) => subtraction(base, value),
@@ -78,10 +78,10 @@ impl DeltaOp {
     /// Shifts by a `delta` the maximum positive value seen by `self`.
     fn shifted_max_positive_by(&self, delta: &DeltaOp) -> PartialVMResult<u128> {
         match delta.update {
-            // Suppose that maximim value seen is +M and we shift by +V. Then the
+            // Suppose that maximum value seen is +M and we shift by +V. Then the
             // new maximum value is M+V provided addition do no overflow.
             DeltaUpdate::Plus(value) => addition(value, self.max_positive, self.limit),
-            // Suppose that maximim value seen is +M and we shift by -V this time.
+            // Suppose that maximum value seen is +M and we shift by -V this time.
             // If M >= V, the result is +(M-V). Otherwise, `self` should have never
             // reached any positive value. By convention, we use 0 for the latter
             // case. Also, we can reuse `subtraction` which throws an error when M < V,
@@ -108,8 +108,13 @@ impl DeltaOp {
     /// Applies self on top of previous delta, merging them together. Note
     /// that the strict ordering here is crucial for catching overflows
     /// correctly.
-    pub fn merge_onto(&mut self, previous_delta: DeltaOp) -> PartialVMResult<()> {
+    pub fn merge_with_previous_delta(&mut self, previous_delta: DeltaOp) -> PartialVMResult<()> {
         use DeltaUpdate::*;
+
+        assert_eq!(
+            self.limit, previous_delta.limit,
+            "Cannot merge deltas with different limits",
+        );
 
         // First, update the history values of this delta given that it starts from
         // +value or -value instead of 0. We should do this check to avoid cases like this:
@@ -161,36 +166,52 @@ impl DeltaOp {
         Ok(())
     }
 
+    /// Applies next delta on top of self, merging two deltas together. This is a reverse
+    /// of `merge_with_previous_delta`.
+    pub fn merge_with_next_delta(&mut self, next_delta: DeltaOp) -> PartialVMResult<()> {
+        // Now self follows the other delta.
+        let mut previous_delta = next_delta;
+        std::mem::swap(self, &mut previous_delta);
+
+        // Perform the merge.
+        self.merge_with_previous_delta(previous_delta)?;
+        Ok(())
+    }
+
     /// Consumes a single delta and tries to materialize it with a given state
     /// key. If materialization succeeds, a write op is produced. Otherwise, an
     /// error VM status is returned.
     pub fn try_into_write_op(
         self,
-        state_view: &impl StateView,
+        state_view: &dyn StateView,
         state_key: &StateKey,
     ) -> anyhow::Result<WriteOp, VMStatus> {
-        state_view
-            .get_state_value(state_key)
-            .map_err(|_| VMStatus::Error(StatusCode::STORAGE_ERROR))
-            .and_then(|maybe_bytes| {
-                match maybe_bytes {
-                    Some(bytes) => {
-                        let base = deserialize(&bytes);
-                        self.apply_to(base)
-                            .map_err(|partial_error| {
-                                // If delta application fails, transform partial VM
-                                // error into an appropriate VM status.
-                                partial_error
-                                    .finish(Location::Module(AGGREGATOR_MODULE.clone()))
-                                    .into_vm_status()
-                            })
-                            .map(|result| WriteOp::Modification(serialize(&result)))
-                    },
-                    // Something is wrong, the value to which we apply delta should
-                    // always exist. Guard anyway.
-                    None => Err(VMStatus::Error(StatusCode::STORAGE_ERROR)),
-                }
-            })
+        // In case storage fails to fetch the value, return immediately.
+        let maybe_value = state_view
+            .get_state_value_bytes(state_key)
+            .map_err(|e| VMStatus::Error(StatusCode::STORAGE_ERROR, Some(e.to_string())))?;
+
+        // Otherwise we have to apply delta to the storage value.
+        match maybe_value {
+            Some(bytes) => {
+                let base = deserialize(&bytes);
+                self.apply_to(base)
+                    .map_err(|partial_error| {
+                        // If delta application fails, transform partial VM
+                        // error into an appropriate VM status.
+                        partial_error
+                            .finish(Location::Module(AGGREGATOR_MODULE.clone()))
+                            .into_vm_status()
+                    })
+                    .map(|result| WriteOp::Modification(serialize(&result)))
+            },
+            // Something is wrong, the value to which we apply delta should
+            // always exist. Guard anyway.
+            None => Err(VMStatus::Error(
+                StatusCode::STORAGE_ERROR,
+                Some("Aggregator value does not exist in storage.".to_string()),
+            )),
+        }
     }
 }
 
@@ -218,7 +239,7 @@ pub fn subtraction(base: u128, value: u128) -> PartialVMResult<u128> {
     }
 }
 
-/// Returns partial VM error on abort. Can be used by delta partial functions
+/// Error for delta application. Can be used by delta partial functions
 /// to return descriptive error messages and an appropriate error code.
 fn abort_error(message: impl ToString, code: u64) -> PartialVMError {
     PartialVMError::new(StatusCode::ABORTED)
@@ -290,6 +311,10 @@ impl DeltaChangeSet {
         }
     }
 
+    pub fn get(&self, key: &StateKey) -> Option<&DeltaOp> {
+        self.delta_change_set.get(key)
+    }
+
     pub fn insert(&mut self, delta: (StateKey, DeltaOp)) {
         self.delta_change_set.insert(delta.0, delta.1);
     }
@@ -304,6 +329,11 @@ impl DeltaChangeSet {
     }
 
     #[inline]
+    pub fn entry(&mut self, key: StateKey) -> Entry<StateKey, DeltaOp> {
+        self.delta_change_set.entry(key)
+    }
+
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.delta_change_set.is_empty()
     }
@@ -312,21 +342,40 @@ impl DeltaChangeSet {
         &mut self.delta_change_set
     }
 
-    /// Consumes the delta change set and tries to materialize it. Returns a
-    /// mutable write set if materialization succeeds (mutability since we want
-    /// to merge these writes with transaction outputs).
-    pub fn try_into_write_set_mut(
+    /// Converts deltas to a vector of write ops. In case conversion to a write op
+    /// failed, the error is propagated to the caller.
+    pub fn try_materialize(
         self,
-        state_view: &impl StateView,
-    ) -> anyhow::Result<WriteSetMut, VMStatus> {
-        let mut materialized_write_set = vec![];
-        for (state_key, delta_op) in self.delta_change_set {
-            let write_op = delta_op.try_into_write_op(state_view, &state_key)?;
-            materialized_write_set.push((state_key, write_op));
-        }
+        state_view: &dyn StateView,
+    ) -> anyhow::Result<Vec<(StateKey, WriteOp)>, VMStatus> {
+        // Converts every item of DeltaChangeSet into an item of a WriteSet. If
+        // conversion fails, error is returned.
+        let into_write_set_item =
+            |item: (StateKey, DeltaOp)| -> anyhow::Result<(StateKey, WriteOp), VMStatus> {
+                let write_op = item.1.try_into_write_op(state_view, &item.0)?;
+                Ok((item.0, write_op))
+            };
 
-        // All deltas are applied successfully.
-        Ok(WriteSetMut::new(materialized_write_set))
+        self.delta_change_set
+            .into_iter()
+            .map(into_write_set_item)
+            .collect()
+    }
+
+    /// Consumes the delta change set and tries to materialize it into a write set.
+    pub fn try_into_write_set(
+        self,
+        state_view: &dyn StateView,
+    ) -> anyhow::Result<WriteSet, VMStatus> {
+        let materialized_write_set = self.try_materialize(state_view)?;
+        WriteSetMut::new(materialized_write_set)
+            .freeze()
+            .map_err(|_err| {
+                VMStatus::Error(
+                    StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR,
+                    Some("Error when freezing materialized deltas.".to_string()),
+                )
+            })
     }
 }
 
@@ -349,13 +398,15 @@ impl ::std::iter::IntoIterator for DeltaChangeSet {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
+    use aptos_language_e2e_tests::data_store::FakeDataStore;
     use aptos_state_view::TStateView;
-    use aptos_types::state_store::state_storage_usage::StateStorageUsage;
+    use aptos_types::state_store::{
+        state_storage_usage::StateStorageUsage, state_value::StateValue,
+    };
     use claims::{assert_err, assert_matches, assert_ok, assert_ok_eq};
     use once_cell::sync::Lazy;
-    use std::collections::HashMap;
 
     fn delta_add_with_history(v: u128, limit: u128, max: u128, min: u128) -> DeltaOp {
         let mut delta = delta_add(v, limit);
@@ -413,61 +464,94 @@ mod tests {
         // Explanation: value becomes +2+1 = +3, history remains unchanged
         // because +4 > +2+1 and -3 < 0.
         let a = delta_add_with_history(2, 100, 4, 3);
-        let mut d = delta_add(1, 100);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Plus(3));
-        assert_eq!(d.max_positive, 4);
-        assert_eq!(d.min_negative, 3);
+        let mut b = delta_add(1, 100);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Plus(3));
+        assert_eq!(b.max_positive, 4);
+        assert_eq!(b.min_negative, 3);
 
         // Case 2: updating history upper bound.
         // Explanation: again, value is clearly +3, but this time the upper bound
         // in history is updated with +3+4 > +4, but lower bound is preserved
         // with -3 < +3-4.
         let a = delta_add_with_history(2, 100, 4, 3);
-        let mut d = delta_add_with_history(3, 100, 4, 4);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Plus(5));
-        assert_eq!(d.max_positive, 6);
-        assert_eq!(d.min_negative, 3);
+        let mut b = delta_add_with_history(3, 100, 4, 4);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Plus(5));
+        assert_eq!(b.max_positive, 6);
+        assert_eq!(b.min_negative, 3);
 
         // Case 3: updating history lower bound.
         // Explanation: clearly, upper bound remains at +90, but lower bound
         // has to be updated with +5-10 < -3.
         let a = delta_add_with_history(5, 100, 90, 3);
-        let mut d = delta_add_with_history(10, 100, 4, 10);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Plus(15));
-        assert_eq!(d.max_positive, 90);
-        assert_eq!(d.min_negative, 5);
+        let mut b = delta_add_with_history(10, 100, 4, 10);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Plus(15));
+        assert_eq!(b.max_positive, 90);
+        assert_eq!(b.min_negative, 5);
 
         // Case 4: overflow on value.
         // Explanation: value overflows because +51+50 > 100.
         let a = delta_add(51, 100);
-        let mut d = delta_add(50, 100);
-        assert_err!(d.merge_onto(a));
+        let mut b = delta_add(50, 100);
+        let mut c = a;
+        let d = b;
+
+        assert_err!(c.merge_with_next_delta(d));
+        assert_err!(b.merge_with_previous_delta(a));
 
         // Case 5: overflow on upper bound in the history.
         // Explanation: the new upper bound would be +5+96 > 100 and should not
         // have happened.
         let a = delta_add_with_history(5, 100, 90, 3);
-        let mut d = delta_add_with_history(10, 100, 96, 0);
-        assert_err!(d.merge_onto(a));
+        let mut b = delta_add_with_history(10, 100, 96, 0);
+        let mut c = a;
+        let d = b;
+
+        assert_err!(c.merge_with_next_delta(d));
+        assert_err!(b.merge_with_previous_delta(a));
 
         // Case 6: updating value with changing the sign. Note that we do not
         // test history here and onwards, because that code is shared by
         // plus-plus and plus-minus cases.
         // Explanation: +24-23 = +1
         let a = delta_add(24, 100);
-        let mut d = delta_sub(23, 100);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Plus(1));
+        let mut b = delta_sub(23, 100);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Plus(1));
 
         // Case 7: updating value with changing the sign.
         // Explanation: +23-24 = -1
         let a = delta_add(23, 100);
-        let mut d = delta_sub_with_history(24, 100, 20, 20);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Minus(1));
+        let mut b = delta_sub_with_history(24, 100, 20, 20);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Minus(1));
     }
 
     #[test]
@@ -478,97 +562,172 @@ mod tests {
         // Explanation: value becomes -20-20 = -40, history remains unchanged
         // because +1 > 0 and -40 <= -20-0.
         let a = delta_sub_with_history(20, 100, 1, 40);
-        let mut d = delta_sub(20, 100);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Minus(40));
-        assert_eq!(d.max_positive, 1);
-        assert_eq!(d.min_negative, 40);
+        let mut b = delta_sub(20, 100);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Minus(40));
+        assert_eq!(b.max_positive, 1);
+        assert_eq!(b.min_negative, 40);
 
         // Case 2: updating history upper bound.
         // Explanation: upper bound is changed because -2+7 > 4. Lower bound
         // remains unchanged because -2-7 > -10.
         let a = delta_sub_with_history(2, 100, 4, 10);
-        let mut d = delta_sub_with_history(3, 100, 7, 7);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Minus(5));
-        assert_eq!(d.max_positive, 5);
-        assert_eq!(d.min_negative, 10);
+        let mut b = delta_sub_with_history(3, 100, 7, 7);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Minus(5));
+        assert_eq!(b.max_positive, 5);
+        assert_eq!(b.min_negative, 10);
 
         // Case 3: updating history lower bound.
         // Explanation: +90 > -5+95 and therefore upper bound remains the same.
         // For lower bound, we have to update it because -5-4 < -5.
         let a = delta_sub_with_history(5, 100, 90, 5);
-        let mut d = delta_sub_with_history(10, 100, 95, 4);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Minus(15));
-        assert_eq!(d.max_positive, 90);
-        assert_eq!(d.min_negative, 9);
+        let mut b = delta_sub_with_history(10, 100, 95, 4);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Minus(15));
+        assert_eq!(b.max_positive, 90);
+        assert_eq!(b.min_negative, 9);
 
         // Case 4: underflow on value.
         // Explanation: value underflows because -50-51 clearly should have
         // never happened.
         let a = delta_sub(50, 100);
-        let mut d = delta_sub(51, 100);
-        assert_err!(d.merge_onto(a));
+        let mut b = delta_sub(51, 100);
+        let mut c = a;
+        let d = b;
+
+        assert_err!(c.merge_with_next_delta(d));
+        assert_err!(b.merge_with_previous_delta(a));
 
         // Case 5: underflow on lower bound in the history.
         // Explanation: the new lower bound would be -5-96 which clearly underflows.
         let a = delta_sub_with_history(5, 100, 0, 3);
-        let mut d = delta_sub_with_history(10, 100, 0, 96);
-        assert_err!(d.merge_onto(a));
+        let mut b = delta_sub_with_history(10, 100, 0, 96);
+        let mut c = a;
+        let d = b;
+
+        assert_err!(c.merge_with_next_delta(d));
+        assert_err!(b.merge_with_previous_delta(a));
 
         // Case 6: updating value with changing the sign.
         // Explanation: -24+23 = -1.
         let a = delta_sub(24, 100);
-        let mut d = delta_add(23, 100);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Minus(1));
+        let mut b = delta_add(23, 100);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Minus(1));
 
         // Case 7: updating value with changing the sign.
-        // Explanation: -23+24 = +1.
-        let mut d = delta_sub_with_history(23, 100, 20, 20);
-        let a = delta_add(24, 100);
-        assert_ok!(d.merge_onto(a));
-        assert_eq!(d.update, Plus(1));
+        // Explanation: +23-24 = +1.
+        let a = delta_add(23, 100);
+        let mut b = delta_sub_with_history(24, 100, 20, 20);
+        let mut c = a;
+        let d = b;
+
+        assert_ok!(b.merge_with_previous_delta(a));
+        assert_ok!(c.merge_with_next_delta(d));
+        assert_eq!(b, c);
+        assert_eq!(b.update, Minus(1));
     }
 
-    #[derive(Default)]
-    pub struct FakeView {
-        data: HashMap<StateKey, Vec<u8>>,
-    }
-
-    impl TStateView for FakeView {
-        type Key = StateKey;
-
-        fn get_state_value(&self, state_key: &StateKey) -> anyhow::Result<Option<Vec<u8>>> {
-            Ok(self.data.get(state_key).cloned())
-        }
-
-        fn is_genesis(&self) -> bool {
-            self.data.is_empty()
-        }
-
-        fn get_usage(&self) -> anyhow::Result<StateStorageUsage> {
-            Ok(StateStorageUsage::new_untracked())
-        }
-    }
-
-    static KEY: Lazy<StateKey> = Lazy::new(|| StateKey::Raw(String::from("test-key").into_bytes()));
+    static KEY: Lazy<StateKey> = Lazy::new(|| StateKey::raw(String::from("test-key").into_bytes()));
 
     #[test]
-    fn test_failed_delta_application() {
-        let state_view = FakeView::default();
+    fn test_failed_write_op_conversion_because_of_empty_storage() {
+        let state_view = FakeDataStore::default();
         let delta_op = delta_add(10, 1000);
         assert_matches!(
             delta_op.try_into_write_op(&state_view, &KEY),
-            Err(VMStatus::Error(StatusCode::STORAGE_ERROR))
+            Err(VMStatus::Error(StatusCode::STORAGE_ERROR, Some(_)))
         );
     }
 
     #[test]
-    fn test_successful_delta_application() {
-        let mut state_view = FakeView::default();
-        state_view.data.insert(KEY.clone(), serialize(&100));
+    fn test_empty_storage_error_propagated() {
+        let state_view = FakeDataStore::default();
+        let deltas = vec![(KEY.clone(), delta_add(10, 100))];
+        let delta_change_set = DeltaChangeSet::new(deltas);
+        assert_err!(delta_change_set.try_into_write_set(&state_view));
+    }
+
+    struct BadStorage;
+
+    impl TStateView for BadStorage {
+        type Key = StateKey;
+
+        fn get_state_value(&self, _state_key: &Self::Key) -> anyhow::Result<Option<StateValue>> {
+            Err(anyhow::Error::new(VMStatus::Error(
+                StatusCode::STORAGE_ERROR,
+                Some("Error message from BadStorage.".to_string()),
+            )))
+        }
+
+        fn is_genesis(&self) -> bool {
+            unreachable!()
+        }
+
+        fn get_usage(&self) -> anyhow::Result<StateStorageUsage> {
+            unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_failed_write_op_conversion_because_of_storage_error() {
+        let state_view = BadStorage;
+        let delta_op = delta_add(10, 1000);
+        assert_matches!(
+            delta_op.try_into_write_op(&state_view, &KEY),
+            Err(VMStatus::Error(StatusCode::STORAGE_ERROR, Some(_)))
+        );
+    }
+
+    #[test]
+    fn test_storage_error_propagated() {
+        let state_view = BadStorage;
+        let deltas = vec![(KEY.clone(), delta_add(10, 100))];
+        let delta_change_set = DeltaChangeSet::new(deltas);
+        assert_matches!(
+            delta_change_set.try_into_write_set(&state_view),
+            Err(VMStatus::Error(StatusCode::STORAGE_ERROR, Some(_)))
+        );
+    }
+
+    #[test]
+    fn test_delta_materialization_failure() {
+        let mut state_view = FakeDataStore::default();
+        state_view.set_legacy(KEY.clone(), serialize(&99));
+
+        let deltas = vec![(KEY.clone(), delta_add(10, 100))];
+        let delta_change_set = DeltaChangeSet::new(deltas);
+        assert_matches!(
+            delta_change_set.try_into_write_set(&state_view),
+            Err(VMStatus::MoveAbort(_, EADD_OVERFLOW))
+        );
+    }
+
+    #[test]
+    fn test_successful_write_op_conversion() {
+        let mut state_view = FakeDataStore::default();
+        state_view.set_legacy(KEY.clone(), serialize(&100));
 
         // Both addition and subtraction should succeed!
         let add_op = delta_add(100, 200);
@@ -582,9 +741,9 @@ mod tests {
     }
 
     #[test]
-    fn test_unsuccessful_delta_application() {
-        let mut state_view = FakeView::default();
-        state_view.data.insert(KEY.clone(), serialize(&100));
+    fn test_unsuccessful_write_op_conversion() {
+        let mut state_view = FakeDataStore::default();
+        state_view.set_legacy(KEY.clone(), serialize(&100));
 
         // Both addition and subtraction should fail!
         let add_op = delta_add(15, 100);

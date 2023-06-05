@@ -1,6 +1,8 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::cached_state_view::ShardedStateCache;
 use anyhow::{anyhow, format_err, Result};
 use aptos_crypto::{hash::CryptoHash, HashValue};
 use aptos_types::{
@@ -25,6 +27,7 @@ use aptos_types::{
         state_storage_usage::StateStorageUsage,
         state_value::{StateValue, StateValueChunkWithProof},
         table::{TableHandle, TableInfo},
+        ShardedStateUpdates,
     },
     transaction::{
         AccountTransactionsWithProof, Transaction, TransactionInfo, TransactionListWithProof,
@@ -42,10 +45,8 @@ mod executed_trees;
 mod metrics;
 #[cfg(any(test, feature = "fuzzing"))]
 pub mod mock;
-pub mod proof_fetcher;
 pub mod state_delta;
 pub mod state_view;
-pub mod sync_proof_fetcher;
 
 use crate::state_delta::StateDelta;
 pub use executed_trees::ExecutedTrees;
@@ -125,15 +126,6 @@ pub trait DbReader: Send + Sync {
         ledger_version: Version,
         fetch_events: bool,
     ) -> Result<TransactionListWithProof> {
-        unimplemented!()
-    }
-
-    fn get_gas_prices(
-        &self,
-        start_version: Version,
-        limit: u64,
-        ledger_version: Version,
-    ) -> Result<Vec<u64>> {
         unimplemented!()
     }
 
@@ -380,7 +372,7 @@ pub trait DbReader: Send + Sync {
         unimplemented!()
     }
 
-    /// Gets an account state by account address.
+    /// Gets the state value by state key at version.
     /// See [AptosDB::get_state_value_by_version].
     ///
     /// [AptosDB::get_state_value_by_version]:
@@ -390,6 +382,20 @@ pub trait DbReader: Send + Sync {
         state_key: &StateKey,
         version: Version,
     ) -> Result<Option<StateValue>> {
+        unimplemented!()
+    }
+
+    /// Get the latest state value and its corresponding version when it's of the given key up
+    /// to the given version.
+    /// See [AptosDB::get_state_value_with_version_by_version].
+    ///
+    /// [AptosDB::get_state_value_with_version_by_version]:
+    /// ../aptosdb/struct.AptosDB.html#method.get_state_value_with_version_by_version
+    fn get_state_value_with_version_by_version(
+        &self,
+        state_key: &StateKey,
+        version: Version,
+    ) -> Result<Option<(Version, StateValue)>> {
         unimplemented!()
     }
 
@@ -440,7 +446,7 @@ pub trait DbReader: Send + Sync {
 
     /// Gets the latest transaction info.
     /// N.B. Unlike get_startup_info(), even if the db is not bootstrapped, this can return `Some`
-    /// -- those from a db-restore run.
+    /// -- those from a aptos db-tool restore run.
     fn get_latest_transaction_info_option(&self) -> Result<Option<(Version, TransactionInfo)>> {
         unimplemented!()
     }
@@ -500,7 +506,7 @@ pub trait DbReader: Send + Sync {
     }
 
     /// Returns if the state store pruner is enabled.
-    fn is_state_pruner_enabled(&self) -> Result<bool> {
+    fn is_state_merkle_pruner_enabled(&self) -> Result<bool> {
         unimplemented!()
     }
 
@@ -542,7 +548,7 @@ impl MoveStorage for &dyn DbReader {
         version: Version,
     ) -> Result<Vec<u8>> {
         let state_value =
-            self.get_state_value_by_version(&StateKey::AccessPath(access_path), version)?;
+            self.get_state_value_by_version(&StateKey::access_path(access_path), version)?;
 
         state_value
             .ok_or_else(|| format_err!("no value found in DB"))
@@ -551,9 +557,9 @@ impl MoveStorage for &dyn DbReader {
 
     fn fetch_config_by_version(&self, config_id: ConfigID, version: Version) -> Result<Vec<u8>> {
         let config_value_option = self.get_state_value_by_version(
-            &StateKey::AccessPath(AccessPath::new(
+            &StateKey::access_path(AccessPath::new(
                 CORE_CODE_ADDRESS,
-                access_path_for_config(config_id).path,
+                access_path_for_config(config_id)?.path,
             )),
             version,
         )?;
@@ -624,6 +630,25 @@ pub trait DbWriter: Send + Sync {
         ledger_info_with_sigs: Option<&LedgerInfoWithSignatures>,
         sync_commit: bool,
         latest_in_memory_state: StateDelta,
+    ) -> Result<()> {
+        unimplemented!()
+    }
+
+    /// Persist transactions for block.
+    /// See [`AptosDB::save_transaction_block`].
+    ///
+    /// [`AptosDB::save_transaction_block`]:
+    /// ../aptosdb/struct.AptosDB.html#method.save_transaction_block
+    fn save_transaction_block(
+        &self,
+        txns_to_commit: &[Arc<TransactionToCommit>],
+        first_version: Version,
+        base_state_version: Option<Version>,
+        ledger_info_with_sigs: Option<&LedgerInfoWithSignatures>,
+        sync_commit: bool,
+        latest_in_memory_state: StateDelta,
+        block_state_updates: ShardedStateUpdates,
+        sharded_state_cache: &ShardedStateCache,
     ) -> Result<()> {
         unimplemented!()
     }
@@ -703,11 +728,11 @@ impl SaveTransactionsRequest {
 }
 
 pub fn jmt_updates(
-    state_updates: &HashMap<StateKey, Option<StateValue>>,
+    state_updates: &HashMap<&StateKey, Option<&StateValue>>,
 ) -> Vec<(HashValue, Option<(HashValue, StateKey)>)> {
     state_updates
         .iter()
-        .map(|(k, v_opt)| (k.hash(), v_opt.as_ref().map(|v| (v.hash(), k.clone()))))
+        .map(|(k, v_opt)| (k.hash(), v_opt.as_ref().map(|v| (v.hash(), (*k).clone()))))
         .collect()
 }
 

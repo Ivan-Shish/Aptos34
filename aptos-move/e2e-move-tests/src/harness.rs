@@ -1,12 +1,15 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{assert_success, AptosPackageHooks};
+use anyhow::Error;
 use aptos::move_tool::MemberId;
 use aptos_cached_packages::aptos_stdlib;
 use aptos_crypto::{ed25519::Ed25519PrivateKey, PrivateKey, Uniform};
 use aptos_framework::{natives::code::PackageMetadata, BuildOptions, BuiltPackage};
-use aptos_gas::{AptosGasParameters, InitialGasSchedule, ToOnChainGasSchedule};
+use aptos_gas::{
+    AptosGasParameters, FromOnChainGasSchedule, InitialGasSchedule, ToOnChainGasSchedule,
+};
 use aptos_language_e2e_tests::{
     account::{Account, AccountData},
     executor::FakeExecutor,
@@ -14,12 +17,16 @@ use aptos_language_e2e_tests::{
 use aptos_types::{
     access_path::AccessPath,
     account_address::AccountAddress,
-    account_config::AccountResource,
+    account_config::{AccountResource, CORE_CODE_ADDRESS},
     contract_event::ContractEvent,
-    on_chain_config::{FeatureFlag, GasScheduleV2},
-    state_store::state_key::StateKey,
+    on_chain_config::{FeatureFlag, GasScheduleV2, OnChainConfig},
+    state_store::{
+        state_key::StateKey,
+        state_value::{StateValue, StateValueMetadata},
+    },
     transaction::{
-        EntryFunction, SignedTransaction, TransactionOutput, TransactionPayload, TransactionStatus,
+        EntryFunction, Script, SignedTransaction, TransactionArgument, TransactionOutput,
+        TransactionPayload, TransactionStatus,
     },
 };
 use move_core_types::{
@@ -35,6 +42,8 @@ use rand::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::{collections::BTreeMap, path::Path};
+
+const DEFAULT_GAS_UNIT_PRICE: u64 = 100;
 
 /// A simple test harness for defining Move e2e tests.
 ///
@@ -56,6 +65,8 @@ pub struct MoveHarness {
     pub executor: FakeExecutor,
     /// The last counted transaction sequence number, by account address.
     txn_seq_no: BTreeMap<AccountAddress, u64>,
+
+    default_gas_unit_price: u64,
 }
 
 impl MoveHarness {
@@ -65,6 +76,7 @@ impl MoveHarness {
         Self {
             executor: FakeExecutor::from_head_genesis(),
             txn_seq_no: BTreeMap::default(),
+            default_gas_unit_price: DEFAULT_GAS_UNIT_PRICE,
         }
     }
 
@@ -73,6 +85,7 @@ impl MoveHarness {
         Self {
             executor: FakeExecutor::from_head_genesis_with_count(count),
             txn_seq_no: BTreeMap::default(),
+            default_gas_unit_price: DEFAULT_GAS_UNIT_PRICE,
         }
     }
 
@@ -81,6 +94,7 @@ impl MoveHarness {
         Self {
             executor: FakeExecutor::from_testnet_genesis(),
             txn_seq_no: BTreeMap::default(),
+            default_gas_unit_price: DEFAULT_GAS_UNIT_PRICE,
         }
     }
 
@@ -98,6 +112,7 @@ impl MoveHarness {
         Self {
             executor: FakeExecutor::from_mainnet_genesis(),
             txn_seq_no: BTreeMap::default(),
+            default_gas_unit_price: DEFAULT_GAS_UNIT_PRICE,
         }
     }
 
@@ -199,7 +214,7 @@ impl MoveHarness {
             .transaction()
             .sequence_number(seq_no)
             .max_gas_amount(2_000_000)
-            .gas_unit_price(1)
+            .gas_unit_price(self.default_gas_unit_price)
             .payload(payload)
             .sign()
     }
@@ -247,6 +262,19 @@ impl MoveHarness {
         )
     }
 
+    pub fn create_script(
+        &mut self,
+        account: &Account,
+        code: Vec<u8>,
+        ty_args: Vec<TypeTag>,
+        args: Vec<TransactionArgument>,
+    ) -> SignedTransaction {
+        self.create_transaction_payload(
+            account,
+            TransactionPayload::Script(Script::new(code, ty_args, args)),
+        )
+    }
+
     /// Run the specified entry point `fun`. Arguments need to be provided in bcs-serialized form.
     pub fn run_entry_function(
         &mut self,
@@ -257,6 +285,20 @@ impl MoveHarness {
     ) -> TransactionStatus {
         let txn = self.create_entry_function(account, fun, ty_args, args);
         self.run(txn)
+    }
+
+    /// Run the specified entry point `fun` and return the gas used.
+    pub fn evaluate_entry_function_gas(
+        &mut self,
+        account: &Account,
+        fun: MemberId,
+        ty_args: Vec<TypeTag>,
+        args: Vec<Vec<u8>>,
+    ) -> u64 {
+        let txn = self.create_entry_function(account, fun, ty_args, args);
+        let output = self.run_raw(txn);
+        assert_success!(output.status().to_owned());
+        output.gas_used()
     }
 
     /// Creates a transaction which publishes the Move Package found at the given path on behalf
@@ -342,14 +384,25 @@ impl MoveHarness {
             .new_block_with_metadata(proposer, failed_proposer_indices);
     }
 
-    pub fn read_state_value(&self, state_key: &StateKey) -> Option<Vec<u8>> {
-        self.executor.read_state_value(state_key).and_then(|bytes| {
-            if bytes.is_empty() {
-                None
-            } else {
-                Some(bytes)
-            }
-        })
+    // Executes the block of transactions inserting metadata at the start of the
+    // block. Returns a vector of transaction statuses and the gas they used.
+    pub fn run_block_with_metadata(
+        &mut self,
+        proposer: AccountAddress,
+        failed_proposer_indices: Vec<u32>,
+        txns: Vec<SignedTransaction>,
+    ) -> Vec<(TransactionStatus, u64)> {
+        self.fast_forward(1);
+        self.executor
+            .run_block_with_metadata(proposer, failed_proposer_indices, txns)
+    }
+
+    pub fn read_state_value(&self, state_key: &StateKey) -> Option<StateValue> {
+        self.executor.read_state_value(state_key)
+    }
+
+    pub fn read_state_value_bytes(&self, state_key: &StateKey) -> Option<Vec<u8>> {
+        self.read_state_value(state_key).map(StateValue::into_bytes)
     }
 
     /// Reads the raw, serialized data of a resource.
@@ -358,8 +411,9 @@ impl MoveHarness {
         addr: &AccountAddress,
         struct_tag: StructTag,
     ) -> Option<Vec<u8>> {
-        let path = AccessPath::resource_access_path(*addr, struct_tag);
-        self.read_state_value(&StateKey::AccessPath(path))
+        let path =
+            AccessPath::resource_access_path(*addr, struct_tag).expect("access path in test");
+        self.read_state_value_bytes(&StateKey::access_path(path))
     }
 
     /// Reads the resource data `T`.
@@ -375,6 +429,41 @@ impl MoveHarness {
         )
     }
 
+    pub fn read_resource_metadata(
+        &self,
+        addr: &AccountAddress,
+        struct_tag: StructTag,
+    ) -> Option<Option<StateValueMetadata>> {
+        self.read_state_value(&StateKey::access_path(
+            AccessPath::resource_access_path(*addr, struct_tag).expect("access path in test"),
+        ))
+        .map(StateValue::into_metadata)
+    }
+
+    pub fn read_resource_group(
+        &self,
+        addr: &AccountAddress,
+        struct_tag: StructTag,
+    ) -> Option<BTreeMap<StructTag, Vec<u8>>> {
+        let path = AccessPath::resource_group_access_path(*addr, struct_tag);
+        self.read_state_value_bytes(&StateKey::access_path(path))
+            .map(|data| bcs::from_bytes(&data).unwrap())
+    }
+
+    pub fn read_resource_from_resource_group<T: DeserializeOwned>(
+        &self,
+        addr: &AccountAddress,
+        resource_group: StructTag,
+        struct_tag: StructTag,
+    ) -> Option<T> {
+        if let Some(group) = self.read_resource_group(addr, resource_group) {
+            if let Some(data) = group.get(&struct_tag) {
+                return Some(bcs::from_bytes::<T>(data).unwrap());
+            }
+        }
+        None
+    }
+
     /// Checks whether resource exists.
     pub fn exists_resource(&self, addr: &AccountAddress, struct_tag: StructTag) -> bool {
         self.read_resource_raw(addr, struct_tag).is_some()
@@ -387,8 +476,8 @@ impl MoveHarness {
         struct_tag: StructTag,
         data: &T,
     ) {
-        let path = AccessPath::resource_access_path(addr, struct_tag);
-        let state_key = StateKey::AccessPath(path);
+        let path = AccessPath::resource_access_path(addr, struct_tag).expect("access path in test");
+        let state_key = StateKey::access_path(path);
         self.executor
             .write_state_value(state_key, bcs::to_bytes(data).unwrap());
     }
@@ -445,6 +534,41 @@ impl MoveHarness {
         self.read_resource::<AccountResource>(addr, AccountResource::struct_tag())
             .unwrap()
             .sequence_number()
+    }
+
+    pub fn modify_gas_schedule(&mut self, modify: impl FnOnce(&mut AptosGasParameters)) {
+        let gas_schedule: GasScheduleV2 = self
+            .read_resource(&CORE_CODE_ADDRESS, GasScheduleV2::struct_tag())
+            .unwrap();
+        let feature_version = gas_schedule.feature_version;
+        let mut gas_params = AptosGasParameters::from_on_chain_gas_schedule(
+            &gas_schedule.to_btree_map(),
+            feature_version,
+        )
+        .unwrap();
+        modify(&mut gas_params);
+        self.set_resource(
+            CORE_CODE_ADDRESS,
+            GasScheduleV2::struct_tag(),
+            &GasScheduleV2 {
+                feature_version,
+                entries: gas_params.to_on_chain_gas_schedule(feature_version),
+            },
+        );
+    }
+
+    pub fn set_default_gas_unit_price(&mut self, gas_unit_price: u64) {
+        self.default_gas_unit_price = gas_unit_price;
+    }
+
+    pub fn execute_view_function(
+        &mut self,
+        fun: MemberId,
+        type_args: Vec<TypeTag>,
+        arguments: Vec<Vec<u8>>,
+    ) -> Result<Vec<Vec<u8>>, Error> {
+        self.executor
+            .execute_view_function(fun.module_id, fun.member_id, type_args, arguments)
     }
 }
 
@@ -506,11 +630,26 @@ macro_rules! assert_abort {
 /// Helper to assert vm status code.
 #[macro_export]
 macro_rules! assert_vm_status {
-    ($s:expr, $c:pat) => {{
+    ($s:expr, $c:expr) => {{
         use aptos_types::transaction::*;
-        assert!(matches!(
+        assert_eq!(
             $s,
             TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some($c)))
-        ));
+        );
+    }};
+}
+
+#[macro_export]
+macro_rules! assert_move_abort {
+    ($s:expr, $c:ident) => {{
+        use aptos_types::transaction::*;
+        assert!(match $s {
+            TransactionStatus::Keep(ExecutionStatus::MoveAbort {
+                location: _,
+                code: _,
+                info,
+            }) => info == $c,
+            _ => false,
+        });
     }};
 }

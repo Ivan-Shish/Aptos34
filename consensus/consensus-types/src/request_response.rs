@@ -1,56 +1,48 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    common::{Payload, PayloadFilter, Round},
-    proof_of_store::LogicalTime,
-};
+use crate::common::{Payload, PayloadFilter};
 use anyhow::Result;
-use aptos_crypto::HashValue;
 use futures::channel::oneshot;
 use std::{fmt, fmt::Formatter};
 
-/// Message sent from Consensus to QuorumStore.
-pub enum PayloadRequest {
+pub enum GetPayloadCommand {
     /// Request to pull block to submit to consensus.
-    GetBlockRequest(
-        Round,
+    GetPayloadRequest(
         // max block size
         u64,
         // max byte size
         u64,
+        // return non full
+        bool,
         // block payloads to exclude from the requested block
         PayloadFilter,
         // callback to respond to
-        oneshot::Sender<Result<ConsensusResponse>>,
+        oneshot::Sender<Result<GetPayloadResponse>>,
     ),
-    /// Request to clean quorum store at commit logical time
-    CleanRequest(LogicalTime, Vec<HashValue>),
 }
 
-impl fmt::Display for PayloadRequest {
+impl fmt::Display for GetPayloadCommand {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            PayloadRequest::GetBlockRequest(round, max_txns, max_bytes, excluded, _) => {
+            GetPayloadCommand::GetPayloadRequest(
+                max_txns,
+                max_bytes,
+                return_non_full,
+                excluded,
+                _,
+            ) => {
                 write!(
                     f,
-                    "GetBlockRequest [round: {}, max_txns: {}, max_bytes: {} excluded: {}]",
-                    round, max_txns, max_bytes, excluded
-                )
-            },
-            PayloadRequest::CleanRequest(logical_time, digests) => {
-                write!(
-                    f,
-                    "CleanRequest [epoch: {}, round: {}, digests: {:?}]",
-                    logical_time.epoch(),
-                    logical_time.round(),
-                    digests
+                    "GetPayloadRequest [max_txns: {}, max_bytes: {}, return_non_full: {},  excluded: {}]",
+                    max_txns, max_bytes, return_non_full, excluded
                 )
             },
         }
     }
 }
 
-pub enum ConsensusResponse {
-    GetBlockResponse(Payload),
+#[derive(Debug)]
+pub enum GetPayloadResponse {
+    GetPayloadResponse(Payload),
 }

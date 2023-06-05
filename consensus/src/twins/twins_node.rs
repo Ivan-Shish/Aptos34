@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -9,14 +10,16 @@ use crate::{
     network_interface::{ConsensusNetworkClient, DIRECT_SEND, RPC},
     network_tests::{NetworkPlayground, TwinId},
     payload_manager::PayloadManager,
+    quorum_store::quorum_store_db::MockQuorumStoreDB,
     test_utils::{MockStateComputer, MockStorage},
     util::time_service::ClockTimeService,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{NodeConfig, WaypointConfig},
     generator::{self, ValidatorSwarm},
-    network_id::NetworkId,
+    network_id::{NetworkId, PeerNetworkId},
 };
 use aptos_consensus_types::common::{Author, Round};
 use aptos_event_notifications::{ReconfigNotification, ReconfigNotificationListener};
@@ -135,6 +138,9 @@ impl SMRNode {
         let (self_sender, self_receiver) =
             aptos_channels::new(1_024, &counters::PENDING_SELF_MESSAGES);
 
+        let quorum_store_storage = Arc::new(MockQuorumStoreDB::new());
+        let bounded_executor = BoundedExecutor::new(2, playground.handle());
+
         let epoch_mgr = EpochManager::new(
             &config,
             time_service,
@@ -144,7 +150,9 @@ impl SMRNode {
             quorum_store_to_mempool_sender,
             state_computer.clone(),
             storage.clone(),
+            quorum_store_storage,
             reconfig_listener,
+            bounded_executor,
         );
         let (network_task, network_receiver) =
             NetworkTask::new(network_service_events, self_receiver);
@@ -188,15 +196,19 @@ impl SMRNode {
         let ValidatorSwarm {
             nodes: mut node_configs,
         } = generator::validator_swarm_for_testing(num_nodes);
-        let peer_metadata_storage = playground.peer_protocols();
+        let peers_and_metadata = playground.peer_protocols();
         node_configs.iter().for_each(|config| {
-            let mut conn_meta = ConnectionMetadata::mock(author_from_config(config));
+            let peer_id = author_from_config(config);
+            let mut conn_meta = ConnectionMetadata::mock(peer_id);
             conn_meta.application_protocols = ProtocolIdSet::from_iter([
                 ProtocolId::ConsensusDirectSendJson,
                 ProtocolId::ConsensusDirectSendBcs,
                 ProtocolId::ConsensusRpcBcs,
             ]);
-            peer_metadata_storage.insert_connection(NetworkId::Validator, conn_meta);
+            let peer_network_id = PeerNetworkId::new(NetworkId::Validator, peer_id);
+            peers_and_metadata
+                .insert_connection_metadata(peer_network_id, conn_meta)
+                .unwrap();
         });
 
         node_configs.sort_by_key(author_from_config);

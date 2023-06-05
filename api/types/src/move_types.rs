@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{Address, Bytecode, IdentifierWrapper, VerifyInput, VerifyInputWithRecursion};
@@ -28,6 +29,8 @@ use std::{
     result::Result,
     str::FromStr,
 };
+
+pub type ResourceGroup = BTreeMap<StructTag, Vec<u8>>;
 
 /// A parsed Move resource
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Object)]
@@ -705,12 +708,16 @@ impl TryFrom<MoveType> for TypeTag {
         let ret = match tag {
             MoveType::Bool => TypeTag::Bool,
             MoveType::U8 => TypeTag::U8,
+            MoveType::U16 => TypeTag::U16,
+            MoveType::U32 => TypeTag::U32,
             MoveType::U64 => TypeTag::U64,
             MoveType::U128 => TypeTag::U128,
+            MoveType::U256 => TypeTag::U256,
             MoveType::Address => TypeTag::Address,
             MoveType::Signer => TypeTag::Signer,
             MoveType::Vector { items } => TypeTag::Vector(Box::new((*items).try_into()?)),
             MoveType::Struct(v) => TypeTag::Struct(Box::new(v.try_into()?)),
+            MoveType::GenericTypeParam { index: _ } => TypeTag::Address, // Dummy type, allows for Object<T>
             _ => {
                 return Err(anyhow::anyhow!(
                     "Invalid move type for converting into `TypeTag`: {:?}",
@@ -749,9 +756,15 @@ impl From<CompiledModule> for MoveModule {
             exposed_functions: m
                 .function_defs
                 .iter()
-                .filter(|def| match def.visibility {
-                    Visibility::Public | Visibility::Friend => true,
-                    Visibility::Private => false,
+                // Return all entry or public functions.
+                // Private entry functions are still callable by entry function transactions so
+                // they should be included.
+                .filter(|def| {
+                    def.is_entry
+                        || match def.visibility {
+                            Visibility::Public | Visibility::Friend => true,
+                            Visibility::Private => false,
+                        }
                 })
                 .map(|def| m.new_move_function(def))
                 .collect(),
@@ -948,6 +961,8 @@ pub struct MoveFunction {
     pub visibility: MoveFunctionVisibility,
     /// Whether the function can be called as an entry function directly in a transaction
     pub is_entry: bool,
+    /// Whether the function is a view function or not
+    pub is_view: bool,
     /// Generic type params associated with the Move function
     pub generic_type_params: Vec<MoveFunctionGenericTypeParam>,
     /// Parameters associated with the move function
@@ -964,6 +979,7 @@ impl From<&CompiledScript> for MoveFunction {
             name: Identifier::new("main").unwrap().into(),
             visibility: MoveFunctionVisibility::Public,
             is_entry: true,
+            is_view: false,
             generic_type_params: script
                 .type_parameters
                 .iter()

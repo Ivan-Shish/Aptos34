@@ -17,6 +17,7 @@ module aptos_framework::reconfiguration {
     friend aptos_framework::aptos_governance;
     friend aptos_framework::block;
     friend aptos_framework::consensus_config;
+    friend aptos_framework::execution_config;
     friend aptos_framework::gas_schedule;
     friend aptos_framework::genesis;
     friend aptos_framework::version;
@@ -89,6 +90,12 @@ module aptos_framework::reconfiguration {
 
     fun reconfiguration_enabled(): bool {
         !exists<DisableReconfiguration>(@aptos_framework)
+    }
+
+    /// Signal validators to start using new configuration. Must be called from aptos_framework signer.
+    public fun reconfigure_with_signer(aptos_framework: &signer) acquires Configuration {
+        system_addresses::assert_aptos_framework(aptos_framework);
+        reconfigure();
     }
 
     /// Signal validators to start using new configuration. Must be called from friend config modules.

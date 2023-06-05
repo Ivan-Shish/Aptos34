@@ -1,6 +1,5 @@
 ---
 title: "Aptos White Paper"
-slug: "aptos-white-paper-index"
 ---
 
 # The Aptos Blockchain
@@ -51,6 +50,6 @@ throughput scalability without adding additional complexity for node operators.
 
 :::tip Full PDF versions
 
-- **English**: Click [here for the full PDF of the Aptos White Paper](/papers/Aptos-Whitepaper.pdf).
-- **Korean**: Click [here for the Korean version full PDF of the Aptos White Paper](/papers/whitepaper-korean.pdf).
+- **English**: Get the [full PDF of the Aptos White Paper](/papers/Aptos-Whitepaper.pdf).
+- **Korean**: Get the [Korean version full PDF of the Aptos White Paper](/papers/whitepaper-korean.pdf).
 :::

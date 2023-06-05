@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -12,7 +13,7 @@ use rand::{
     Rng, SeedableRng,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RandomizedStrategy {
     gen: StdRng,
 }
@@ -45,7 +46,6 @@ impl PartitionStrategy for RandomizedStrategy {
     }
 }
 
-#[derive(Debug)]
 pub struct RandomExecutor {
     strategy: RandomizedStrategy,
     executor: FakeExecutor,

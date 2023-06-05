@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::on_chain_config::OnChainConfig;
@@ -13,9 +13,21 @@ pub enum FeatureFlag {
     SHA_512_AND_RIPEMD_160_NATIVES = 3,
     APTOS_STD_CHAIN_ID_NATIVES = 4,
     VM_BINARY_FORMAT_V6 = 5,
-    //COLLECT_AND_DISTRIBUTE_GAS_FEES = 6,
+    COLLECT_AND_DISTRIBUTE_GAS_FEES = 6,
     MULTI_ED25519_PK_VALIDATE_V2_NATIVES = 7,
     BLAKE2B_256_NATIVE = 8,
+    RESOURCE_GROUPS = 9,
+    MULTISIG_ACCOUNTS = 10,
+    DELEGATION_POOLS = 11,
+    CRYPTOGRAPHY_ALGEBRA_NATIVES = 12,
+    BLS12_381_STRUCTURES = 13,
+    ED25519_PUBKEY_VALIDATE_RETURN_FALSE_WRONG_LENGTH = 14,
+    STRUCT_CONSTRUCTORS = 15,
+    PERIODICAL_REWARD_RATE_DECREASE = 16,
+    PARTIAL_GOVERNANCE_VOTING = 17,
+    SIGNATURE_CHECKER_V2 = 18,
+    STORAGE_SLOT_METADATA = 19,
+    CHARGE_INVARIANT_VIOLATION = 20,
 }
 
 /// Representation of features on chain as a bitset.
@@ -28,7 +40,7 @@ pub struct Features {
 impl Default for Features {
     fn default() -> Self {
         Features {
-            features: vec![0b00100000],
+            features: vec![0b00100000, 0b00100000, 0b00001100],
         }
     }
 }
@@ -44,6 +56,14 @@ impl Features {
         let byte_index = (val / 8) as usize;
         let bit_mask = 1 << (val % 8);
         byte_index < self.features.len() && (self.features[byte_index] & bit_mask != 0)
+    }
+
+    pub fn are_resource_groups_enabled(&self) -> bool {
+        self.is_enabled(FeatureFlag::RESOURCE_GROUPS)
+    }
+
+    pub fn is_storage_slot_metadata_enabled(&self) -> bool {
+        self.is_enabled(FeatureFlag::STORAGE_SLOT_METADATA)
     }
 }
 

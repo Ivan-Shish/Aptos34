@@ -7,7 +7,13 @@
    - [Build static html files](#build-static-html-files)
    - [Debug/Format files](#debugging)
 
-This Aptos Developer Documenatation is built using [Docusaurus 2](https://docusaurus.io/). Follow the below steps to build the docs locally to test your contribution.
+This Aptos Developer Documentation is built using [Docusaurus 2](https://docusaurus.io/) and displayed on https://aptos.dev/. Follow the below steps to build the docs locally and test your contribution.
+
+We now use [lychee-broken-link-checker](https://github.com/marketplace/actions/lychee-broken-link-checker) to check for broken links in the GitHub Markdown. We are a corresponding link checker for pages on Aptos.dev.
+
+With results visible at:
+https://github.com//aptos-labs/aptos-core/actions/workflows/links.yml
+
 
 ## Installation
 
@@ -58,6 +64,10 @@ This step will configure the Docusaurus static site generator.
   pnpm start
   ```
 
+  4. See your changes staged at: http://localhost:3000/
+
+  5. Create a pull request with your changes as described in our [Contributing](https://github.com/aptos-labs/aptos-core/blob/main/CONTRIBUTING.md) README.
+
 ## (Optional) Build static html files
 
 Execute the below steps if you want to generate static html documentation files. A `build` directory will be created with the static html files and assets contained in it.
@@ -89,12 +99,15 @@ Fix formatting issues by running:
 pnpm fmt
 ```
 
-## Re-generate contributors
+## Regenerating contributors
+The src/contributors.json file (which powers the list of Authors at the bottom of doc pages) needs to be manually generated.
 
-The src/contributors.json file (which powers the list of Authors at the bottom of doc pages) needs to be manually generated. Run the following command:
+In order to generate the contributor map you must authenticate with GitHub. The best way to do that is using GitHub CLI ([installation guide(https://github.com/cli/cli#installation)]). Once you have the GitHub CLI installed, you can run the following command to authenticate:
+```
+gh auth login --scopes read:user,user:email
+```
 
+Once that is done, you can generate the map with this command:
 ```
 pnpm contributors
 ```
-
-And then create a PR with the updated src/contributors.json.

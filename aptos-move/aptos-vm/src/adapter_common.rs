@@ -1,36 +1,32 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    counters::*,
-    data_cache::AsMoveResolver,
-    logging::AdapterLogSchema,
-    move_vm_ext::{MoveResolverExt, SessionExt, SessionId},
-};
+use crate::move_vm_ext::{MoveResolverExt, SessionExt, SessionId};
 use anyhow::Result;
-use aptos_aggregator::transaction::TransactionOutputExt;
-use aptos_state_view::StateView;
 use aptos_types::{
     block_metadata::BlockMetadata,
     transaction::{
-        SignatureCheckedTransaction, SignedTransaction, Transaction, TransactionOutput,
-        TransactionStatus, VMValidatorResult, WriteSetPayload,
+        SignatureCheckedTransaction, SignedTransaction, Transaction, TransactionStatus,
+        WriteSetPayload,
     },
     vm_status::{StatusCode, VMStatus},
-    write_set::WriteSet,
 };
+use aptos_vm_logging::log_schema::AdapterLogSchema;
+use aptos_vm_types::output::VMOutput;
 
 /// This trait describes the VM adapter's interface.
 /// TODO: bring more of the execution logic in aptos_vm into this file.
-pub trait VMAdapter {
+pub(crate) trait VMAdapter {
     /// Creates a new Session backed by the given storage.
     /// TODO: this doesn't belong in this trait. We should be able to remove
     /// this after redesigning cache ownership model.
-    fn new_session<'r, R: MoveResolverExt>(
+    fn new_session<'r>(
         &self,
-        remote: &'r R,
+        remote: &'r impl MoveResolverExt,
         session_id: SessionId,
-    ) -> SessionExt<'r, '_, R>;
+        aggregator_enabled: bool,
+    ) -> SessionExt<'r, '_>;
 
     /// Checks the signature of the given signed transaction and returns
     /// `Ok(SignatureCheckedTransaction)` if the signature is valid.
@@ -40,92 +36,44 @@ pub trait VMAdapter {
     fn check_transaction_format(&self, txn: &SignedTransaction) -> Result<(), VMStatus>;
 
     /// Runs the prologue for the given transaction.
-    fn run_prologue<S: MoveResolverExt>(
+    fn run_prologue(
         &self,
-        session: &mut SessionExt<S>,
-        storage: &S,
+        session: &mut SessionExt,
+        storage: &impl MoveResolverExt,
         transaction: &SignatureCheckedTransaction,
         log_context: &AdapterLogSchema,
     ) -> Result<(), VMStatus>;
 
     /// TODO: maybe remove this after more refactoring of execution logic.
-    fn should_restart_execution(output: &TransactionOutput) -> bool;
+    fn should_restart_execution(output: &VMOutput) -> bool;
 
     /// Execute a single transaction.
-    fn execute_single_transaction<S: MoveResolverExt + StateView>(
+    fn execute_single_transaction(
         &self,
         txn: &PreprocessedTransaction,
-        data_cache: &S,
+        data_cache: &impl MoveResolverExt,
         log_context: &AdapterLogSchema,
-    ) -> Result<(VMStatus, TransactionOutputExt, Option<String>), VMStatus>;
-}
+    ) -> Result<(VMStatus, VMOutput, Option<String>), VMStatus>;
 
-/// Validate a signed transaction by performing the following:
-/// 1. Check the signature(s) included in the signed transaction
-/// 2. Check that the transaction is allowed in the context provided by the `adapter`
-/// 3. Run the prologue to perform additional on-chain checks
-/// The returned `VMValidatorResult` will have status `None` and if all checks succeeded
-/// and `Some(DiscardedVMStatus)` otherwise.
-pub fn validate_signed_transaction<A: VMAdapter>(
-    adapter: &A,
-    transaction: SignedTransaction,
-    state_view: &impl StateView,
-) -> VMValidatorResult {
-    let _timer = TXN_VALIDATION_SECONDS.start_timer();
-    let log_context = AdapterLogSchema::new(state_view.id(), 0);
-    let txn = match A::check_signature(transaction) {
-        Ok(t) => t,
-        _ => {
-            return VMValidatorResult::error(StatusCode::INVALID_SIGNATURE);
-        },
-    };
+    fn validate_signature_checked_transaction(
+        &self,
+        session: &mut SessionExt,
+        storage: &impl MoveResolverExt,
+        transaction: &SignatureCheckedTransaction,
+        allow_too_new: bool,
+        log_context: &AdapterLogSchema,
+    ) -> Result<(), VMStatus> {
+        self.check_transaction_format(transaction)?;
 
-    let resolver = state_view.as_move_resolver();
-    let mut session = adapter.new_session(&resolver, SessionId::txn(&txn));
-
-    let validation_result = validate_signature_checked_transaction(
-        adapter,
-        &mut session,
-        &resolver,
-        &txn,
-        true,
-        &log_context,
-    );
-
-    // Increment the counter for transactions verified.
-    let (counter_label, result) = match validation_result {
-        Ok(_) => (
-            "success",
-            VMValidatorResult::new(None, txn.gas_unit_price()),
-        ),
-        Err(err) => (
-            "failure",
-            VMValidatorResult::new(Some(err.status_code()), 0),
-        ),
-    };
-    TRANSACTIONS_VALIDATED
-        .with_label_values(&[counter_label])
-        .inc();
-
-    result
-}
-
-pub(crate) fn validate_signature_checked_transaction<S: MoveResolverExt, A: VMAdapter>(
-    adapter: &A,
-    session: &mut SessionExt<S>,
-    storage: &S,
-    transaction: &SignatureCheckedTransaction,
-    allow_too_new: bool,
-    log_context: &AdapterLogSchema,
-) -> Result<(), VMStatus> {
-    adapter.check_transaction_format(transaction)?;
-
-    let prologue_status = adapter.run_prologue(session, storage, transaction, log_context);
-    match prologue_status {
-        Err(err) if !allow_too_new || err.status_code() != StatusCode::SEQUENCE_NUMBER_TOO_NEW => {
+        let prologue_status = self.run_prologue(session, storage, transaction, log_context);
+        match prologue_status {
             Err(err)
-        },
-        _ => Ok(()),
+                if !allow_too_new || err.status_code() != StatusCode::SEQUENCE_NUMBER_TOO_NEW =>
+            {
+                Err(err)
+            },
+            _ => Ok(()),
+        }
     }
 }
 
@@ -162,24 +110,12 @@ pub(crate) fn preprocess_transaction<A: VMAdapter>(txn: Transaction) -> Preproce
     }
 }
 
-pub(crate) fn discard_error_vm_status(err: VMStatus) -> (VMStatus, TransactionOutputExt) {
+pub(crate) fn discard_error_vm_status(err: VMStatus) -> (VMStatus, VMOutput) {
     let vm_status = err.clone();
-    let error_code = match err.keep_or_discard() {
-        Ok(_) => {
-            debug_assert!(false, "discarding non-discardable error: {:?}", vm_status);
-            vm_status.status_code()
-        },
-        Err(code) => code,
-    };
-    (vm_status, discard_error_output(error_code))
+    (vm_status, discard_error_output(err.status_code()))
 }
 
-pub(crate) fn discard_error_output(err: StatusCode) -> TransactionOutputExt {
+pub(crate) fn discard_error_output(err: StatusCode) -> VMOutput {
     // Since this transaction will be discarded, no writeset will be included.
-    TransactionOutputExt::from(TransactionOutput::new(
-        WriteSet::default(),
-        vec![],
-        0,
-        TransactionStatus::Discard(err),
-    ))
+    VMOutput::empty_with_status(TransactionStatus::Discard(err))
 }

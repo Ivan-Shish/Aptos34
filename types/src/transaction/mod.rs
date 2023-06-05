@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -10,11 +11,12 @@ use crate::{
     proof::{
         accumulator::InMemoryAccumulator, TransactionInfoListWithProof, TransactionInfoWithProof,
     },
+    state_store::ShardedStateUpdates,
     transaction::authenticator::{AccountAuthenticator, TransactionAuthenticator},
     vm_status::{DiscardedVMStatus, KeptVMStatus, StatusCode, StatusType, VMStatus},
     write_set::WriteSet,
 };
-use anyhow::{ensure, format_err, Error, Result};
+use anyhow::{ensure, format_err, Context, Error, Result};
 use aptos_crypto::{
     ed25519::*,
     hash::{CryptoHash, EventAccumulatorHasher},
@@ -28,7 +30,6 @@ use move_core_types::transaction_argument::convert_txn_args;
 use proptest_derive::Arbitrary;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     convert::TryFrom,
     fmt,
     fmt::{Debug, Display, Formatter},
@@ -37,15 +38,14 @@ use std::{
 pub mod authenticator;
 mod change_set;
 mod module;
+mod multisig;
 mod script;
 mod transaction_argument;
 
-use crate::state_store::{state_key::StateKey, state_value::StateValue};
-#[cfg(any(test, feature = "fuzzing"))]
-pub use change_set::NoOpChangeSetChecker;
-pub use change_set::{ChangeSet, CheckChangeSet};
+pub use change_set::ChangeSet;
 pub use module::{Module, ModuleBundle};
 use move_core_types::vm_status::AbortLocation;
+pub use multisig::{ExecutionError, Multisig, MultisigTransactionPayload};
 use once_cell::sync::OnceCell;
 pub use script::{
     ArgumentABI, EntryABI, EntryFunction, EntryFunctionABI, Script, TransactionScriptABI,
@@ -137,9 +137,7 @@ impl RawTransaction {
         }
     }
 
-    /// Create a new `RawTransaction` with a entry function.
-    ///
-    /// A script transaction contains only code to execute. No publishing is allowed in scripts.
+    /// Create a new `RawTransaction` with an entry function.
     pub fn new_entry_function(
         sender: AccountAddress,
         sequence_number: u64,
@@ -160,10 +158,28 @@ impl RawTransaction {
         }
     }
 
+    /// Create a new `RawTransaction` of multisig type.
+    pub fn new_multisig(
+        sender: AccountAddress,
+        sequence_number: u64,
+        multisig: Multisig,
+        max_gas_amount: u64,
+        gas_unit_price: u64,
+        expiration_timestamp_secs: u64,
+        chain_id: ChainId,
+    ) -> Self {
+        RawTransaction {
+            sender,
+            sequence_number,
+            payload: TransactionPayload::Multisig(multisig),
+            max_gas_amount,
+            gas_unit_price,
+            expiration_timestamp_secs,
+            chain_id,
+        }
+    }
+
     /// Create a new `RawTransaction` with a module to publish.
-    ///
-    /// A module transaction is the only way to publish code. Only one module per transaction
-    /// can be published.
     pub fn new_module(
         sender: AccountAddress,
         sequence_number: u64,
@@ -186,8 +202,7 @@ impl RawTransaction {
 
     /// Create a new `RawTransaction` with a list of modules to publish.
     ///
-    /// A module transaction is the only way to publish code. Multiple modules per transaction
-    /// can be published.
+    /// Multiple modules per transaction can be published.
     pub fn new_module_bundle(
         sender: AccountAddress,
         sequence_number: u64,
@@ -293,6 +308,13 @@ impl RawTransaction {
                 format!("{}::{}", script_fn.module(), script_fn.function()),
                 script_fn.args().to_vec(),
             ),
+            TransactionPayload::Multisig(multisig) => (
+                format!(
+                    "Executing next transaction for multisig account {}",
+                    multisig.multisig_address,
+                ),
+                vec![],
+            ),
             TransactionPayload::ModuleBundle(_) => ("module publishing".to_string(), vec![]),
         };
         let mut f_args: String = "".to_string();
@@ -362,10 +384,13 @@ impl RawTransactionWithData {
 pub enum TransactionPayload {
     /// A transaction that executes code.
     Script(Script),
-    /// A transaction that publishes multiple modules at the same time.
+    /// Deprecated.
     ModuleBundle(ModuleBundle),
     /// A transaction that executes an existing entry function published on-chain.
     EntryFunction(EntryFunction),
+    /// A multisig transaction that allows an owner of a multisig account to execute a pre-approved
+    /// transaction as the multisig account.
+    Multisig(Multisig),
 }
 
 impl TransactionPayload {
@@ -528,12 +553,20 @@ impl SignedTransaction {
         self.authenticator.clone()
     }
 
+    pub fn authenticator_ref(&self) -> &TransactionAuthenticator {
+        &self.authenticator
+    }
+
     pub fn sender(&self) -> AccountAddress {
         self.raw_txn.sender
     }
 
     pub fn into_raw_transaction(self) -> RawTransaction {
         self.raw_txn
+    }
+
+    pub fn raw_transaction_ref(&self) -> &RawTransaction {
+        &self.raw_txn
     }
 
     pub fn sequence_number(&self) -> u64 {
@@ -652,7 +685,10 @@ impl TransactionWithProof {
         sender: AccountAddress,
         sequence_number: u64,
     ) -> Result<()> {
-        let signed_transaction = self.transaction.as_signed_user_txn()?;
+        let signed_transaction = self
+            .transaction
+            .try_as_signed_user_txn()
+            .context("not user transaction")?;
 
         ensure!(
             self.version == version,
@@ -788,17 +824,24 @@ impl TransactionStatus {
         }
     }
 
+    pub fn is_retry(&self) -> bool {
+        match self {
+            TransactionStatus::Discard(_) => false,
+            TransactionStatus::Keep(_) => false,
+            TransactionStatus::Retry => true,
+        }
+    }
+
     pub fn as_kept_status(&self) -> Result<ExecutionStatus> {
         match self {
             TransactionStatus::Keep(s) => Ok(s.clone()),
             _ => Err(format_err!("Not Keep.")),
         }
     }
-}
 
-impl From<VMStatus> for TransactionStatus {
-    fn from(vm_status: VMStatus) -> Self {
+    pub fn from_vm_status(vm_status: VMStatus, charge_invariant_violation: bool) -> Self {
         let status_code = vm_status.status_code();
+        // TODO: keep_or_discard logic should be deprecated from Move repo and refactored into here.
         match vm_status.keep_or_discard() {
             Ok(recorded) => match recorded {
                 KeptVMStatus::MiscellaneousError => {
@@ -806,8 +849,22 @@ impl From<VMStatus> for TransactionStatus {
                 },
                 _ => TransactionStatus::Keep(recorded.into()),
             },
-            Err(code) => TransactionStatus::Discard(code),
+            Err(code) => {
+                if code.status_type() == StatusType::InvariantViolation
+                    && charge_invariant_violation
+                {
+                    TransactionStatus::Keep(ExecutionStatus::MiscellaneousError(Some(code)))
+                } else {
+                    TransactionStatus::Discard(code)
+                }
+            },
         }
+    }
+}
+
+impl From<VMStatus> for TransactionStatus {
+    fn from(vm_status: VMStatus) -> Self {
+        TransactionStatus::from_vm_status(vm_status, true)
     }
 }
 
@@ -923,6 +980,67 @@ impl TransactionOutput {
             status,
         } = self;
         (write_set, events, gas_used, status)
+    }
+
+    pub fn ensure_match_transaction_info(
+        &self,
+        version: Version,
+        txn_info: &TransactionInfo,
+        expected_write_set: Option<&WriteSet>,
+        expected_events: Option<&[ContractEvent]>,
+    ) -> Result<()> {
+        const ERR_MSG: &str = "TransactionOutput does not match TransactionInfo";
+
+        let expected_txn_status: TransactionStatus = txn_info.status().clone().into();
+        ensure!(
+            self.status() == &expected_txn_status,
+            "{}: version:{}, status:{:?}, expected:{:?}",
+            ERR_MSG,
+            version,
+            self.status(),
+            expected_txn_status,
+        );
+
+        ensure!(
+            self.gas_used() == txn_info.gas_used(),
+            "{}: version:{}, gas_used:{:?}, expected:{:?}",
+            ERR_MSG,
+            version,
+            self.gas_used(),
+            txn_info.gas_used(),
+        );
+
+        let write_set_hash = CryptoHash::hash(self.write_set());
+        ensure!(
+            write_set_hash == txn_info.state_change_hash(),
+            "{}: version:{}, write_set_hash:{:?}, expected:{:?}, write_set: {:?}, expected(if known): {:?}",
+            ERR_MSG,
+            version,
+            write_set_hash,
+            txn_info.state_change_hash(),
+            self.write_set,
+            expected_write_set,
+        );
+
+        let event_hashes = self
+            .events()
+            .iter()
+            .map(CryptoHash::hash)
+            .collect::<Vec<_>>();
+        let event_root_hash =
+            InMemoryAccumulator::<EventAccumulatorHasher>::from_leaves(&event_hashes).root_hash;
+        ensure!(
+            event_root_hash == txn_info.event_root_hash(),
+            "{}: version:{}, event_root_hash:{:?}, expected:{:?}, events: {:?}, expected(if known): {:?}",
+            ERR_MSG,
+            version,
+            event_root_hash,
+            txn_info.event_root_hash(),
+            self.events(),
+            expected_events,
+        );
+
+        Ok(())
     }
 }
 
@@ -1078,7 +1196,7 @@ impl Display for TransactionInfo {
 pub struct TransactionToCommit {
     transaction: Transaction,
     transaction_info: TransactionInfo,
-    state_updates: HashMap<StateKey, Option<StateValue>>,
+    state_updates: ShardedStateUpdates,
     write_set: WriteSet,
     events: Vec<ContractEvent>,
     is_reconfig: bool,
@@ -1088,7 +1206,7 @@ impl TransactionToCommit {
     pub fn new(
         transaction: Transaction,
         transaction_info: TransactionInfo,
-        state_updates: HashMap<StateKey, Option<StateValue>>,
+        state_updates: ShardedStateUpdates,
         write_set: WriteSet,
         events: Vec<ContractEvent>,
         is_reconfig: bool,
@@ -1120,7 +1238,7 @@ impl TransactionToCommit {
         self.transaction_info = txn_info
     }
 
-    pub fn state_updates(&self) -> &HashMap<StateKey, Option<StateValue>> {
+    pub fn state_updates(&self) -> &ShardedStateUpdates {
         &self.state_updates
     }
 
@@ -1490,10 +1608,17 @@ pub enum Transaction {
 }
 
 impl Transaction {
-    pub fn as_signed_user_txn(&self) -> Result<&SignedTransaction> {
+    pub fn try_as_signed_user_txn(&self) -> Option<&SignedTransaction> {
         match self {
-            Transaction::UserTransaction(txn) => Ok(txn),
-            _ => Err(format_err!("Not a user transaction.")),
+            Transaction::UserTransaction(txn) => Some(txn),
+            _ => None,
+        }
+    }
+
+    pub fn try_as_block_metadata(&self) -> Option<&BlockMetadata> {
+        match self {
+            Transaction::BlockMetadata(v1) => Some(v1),
+            _ => None,
         }
     }
 

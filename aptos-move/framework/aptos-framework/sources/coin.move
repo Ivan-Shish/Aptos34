@@ -179,12 +179,17 @@ module aptos_framework::coin {
     public(friend) fun drain_aggregatable_coin<CoinType>(coin: &mut AggregatableCoin<CoinType>): Coin<CoinType> {
         spec {
             // TODO: The data invariant is not properly assumed from CollectedFeesPerBlock.
-            assume coin.value.limit == MAX_U64;
+            assume aggregator::spec_get_limit(coin.value) == MAX_U64;
         };
         let amount = aggregator::read(&coin.value);
         assert!(amount <= MAX_U64, error::out_of_range(EAGGREGATABLE_COIN_VALUE_TOO_LARGE));
-
+        spec {
+            update aggregate_supply<CoinType> = aggregate_supply<CoinType> - amount;
+        };
         aggregator::sub(&mut coin.value, amount);
+        spec {
+            update supply<CoinType> = supply<CoinType> + amount;
+        };
         Coin<CoinType> {
             value: (amount as u64),
         }
@@ -192,8 +197,14 @@ module aptos_framework::coin {
 
     /// Merges `coin` into aggregatable coin (`dst_coin`).
     public(friend) fun merge_aggregatable_coin<CoinType>(dst_coin: &mut AggregatableCoin<CoinType>, coin: Coin<CoinType>) {
+        spec {
+            update supply<CoinType> = supply<CoinType> - coin.value;
+        };
         let Coin { value } = coin;
         let amount = (value as u128);
+        spec {
+            update aggregate_supply<CoinType> = aggregate_supply<CoinType> + amount;
+        };
         aggregator::add(&mut dst_coin.value, amount);
     }
 
@@ -233,26 +244,31 @@ module aptos_framework::coin {
         borrow_global<CoinStore<CoinType>>(owner).coin.value
     }
 
+    #[view]
     /// Returns `true` if the type `CoinType` is an initialized coin.
     public fun is_coin_initialized<CoinType>(): bool {
         exists<CoinInfo<CoinType>>(coin_address<CoinType>())
     }
 
+    #[view]
     /// Returns `true` if `account_addr` is registered to receive `CoinType`.
     public fun is_account_registered<CoinType>(account_addr: address): bool {
         exists<CoinStore<CoinType>>(account_addr)
     }
 
+    #[view]
     /// Returns the name of the coin.
     public fun name<CoinType>(): string::String acquires CoinInfo {
         borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).name
     }
 
+    #[view]
     /// Returns the symbol of the coin, usually a shorter version of the name.
     public fun symbol<CoinType>(): string::String acquires CoinInfo {
         borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).symbol
     }
 
+    #[view]
     /// Returns the number of decimals used to get its user representation.
     /// For example, if `decimals` equals `2`, a balance of `505` coins should
     /// be displayed to a user as `5.05` (`505 / 10 ** 2`).
@@ -260,6 +276,7 @@ module aptos_framework::coin {
         borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).decimals
     }
 
+    #[view]
     /// Returns the amount of coin in existence.
     public fun supply<CoinType>(): Option<u128> acquires CoinInfo {
         let maybe_supply = &borrow_global<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
@@ -280,6 +297,9 @@ module aptos_framework::coin {
         coin: Coin<CoinType>,
         _cap: &BurnCapability<CoinType>,
     ) acquires CoinInfo {
+        spec {
+            update supply<CoinType> = supply<CoinType> - coin.value;
+        };
         let Coin { value: amount } = coin;
         assert!(amount > 0, error::invalid_argument(EZERO_COIN_AMOUNT));
 
@@ -335,6 +355,9 @@ module aptos_framework::coin {
     /// so it is impossible to "burn" any non-zero amount of `Coin` without having
     /// a `BurnCapability` for the specific `CoinType`.
     public fun destroy_zero<CoinType>(zero_coin: Coin<CoinType>) {
+        spec {
+            update supply<CoinType> = supply<CoinType> - zero_coin.value;
+        };
         let Coin { value } = zero_coin;
         assert!(value == 0, error::invalid_argument(EDESTRUCTION_OF_NONZERO_TOKEN))
     }
@@ -342,14 +365,26 @@ module aptos_framework::coin {
     /// Extracts `amount` from the passed-in `coin`, where the original token is modified in place.
     public fun extract<CoinType>(coin: &mut Coin<CoinType>, amount: u64): Coin<CoinType> {
         assert!(coin.value >= amount, error::invalid_argument(EINSUFFICIENT_BALANCE));
+        spec {
+            update supply<CoinType> = supply<CoinType> - amount;
+        };
         coin.value = coin.value - amount;
+        spec {
+            update supply<CoinType> = supply<CoinType> + amount;
+        };
         Coin { value: amount }
     }
 
     /// Extracts the entire amount from the passed-in `coin`, where the original token is modified in place.
     public fun extract_all<CoinType>(coin: &mut Coin<CoinType>): Coin<CoinType> {
         let total_value = coin.value;
+        spec {
+            update supply<CoinType> = supply<CoinType> - coin.value;
+        };
         coin.value = 0;
+        spec {
+            update supply<CoinType> = supply<CoinType> + total_value;
+        };
         Coin { value: total_value }
     }
 
@@ -466,8 +501,14 @@ module aptos_framework::coin {
         spec {
             assume dst_coin.value + source_coin.value <= MAX_U64;
         };
-        dst_coin.value = dst_coin.value + source_coin.value;
-        let Coin { value: _ } = source_coin;
+        spec {
+            update supply<CoinType> = supply<CoinType> - source_coin.value;
+        };
+        let Coin { value } = source_coin;
+        spec {
+            update supply<CoinType> = supply<CoinType> + value;
+        };
+        dst_coin.value = dst_coin.value + value;
     }
 
     /// Mint new `Coin` with capability.
@@ -478,7 +519,9 @@ module aptos_framework::coin {
         _cap: &MintCapability<CoinType>,
     ): Coin<CoinType> acquires CoinInfo {
         if (amount == 0) {
-            return zero<CoinType>()
+            return Coin<CoinType> {
+                value: 0
+            }
         };
 
         let maybe_supply = &mut borrow_global_mut<CoinInfo<CoinType>>(coin_address<CoinType>()).supply;
@@ -486,7 +529,9 @@ module aptos_framework::coin {
             let supply = option::borrow_mut(maybe_supply);
             optional_aggregator::add(supply, (amount as u128));
         };
-
+        spec {
+            update supply<CoinType> = supply<CoinType> + amount;
+        };
         Coin<CoinType> { value: amount }
     }
 
@@ -549,6 +594,9 @@ module aptos_framework::coin {
 
     /// Create a new `Coin<CoinType>` with a value of `0`.
     public fun zero<CoinType>(): Coin<CoinType> {
+        spec {
+            update supply<CoinType> = supply<CoinType> + 0;
+        };
         Coin<CoinType> {
             value: 0
         }

@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
     utils::OutputFallbackHandler,
 };
 use aptos_config::config::BootstrappingMode;
-use aptos_data_client::GlobalDataSummary;
+use aptos_data_client::global_summary::GlobalDataSummary;
 use aptos_data_streaming_service::{
     data_notification::{DataNotification, DataPayload, NotificationId},
     streaming_client::{NotificationAndFeedback, NotificationFeedback},

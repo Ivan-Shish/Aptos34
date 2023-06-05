@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -65,6 +66,12 @@ impl<T> TSocket for T where T: AsyncRead + AsyncWrite + Send + fmt::Debug + Unpi
 /// Unique local identifier for a connection.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ConnectionId(u32);
+
+impl ConnectionId {
+    pub fn get_inner(&self) -> u32 {
+        self.0
+    }
+}
 
 impl From<u32> for ConnectionId {
     fn from(i: u32) -> ConnectionId {
@@ -159,8 +166,9 @@ impl fmt::Display for ConnectionMetadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[{},{},{},{},{:?},{:?}]",
+            "[{},{:?},{},{},{},{:?},{:?}]",
             self.remote_peer_id,
+            self.connection_id,
             self.addr,
             self.origin,
             self.messaging_protocol,
@@ -336,9 +344,14 @@ pub async fn upgrade_outbound<T: TSocket>(
     let socket = fut_socket.await?;
 
     // noise handshake
-    let mut socket = ctxt
+    let (mut socket, peer_role) = ctxt
         .noise
-        .upgrade_outbound(socket, remote_pubkey, AntiReplayTimestamps::now)
+        .upgrade_outbound(
+            socket,
+            remote_peer_id,
+            remote_pubkey,
+            AntiReplayTimestamps::now,
+        )
         .await
         .map_err(|err| {
             if err.should_security_log() {
@@ -388,7 +401,7 @@ pub async fn upgrade_outbound<T: TSocket>(
             origin,
             messaging_protocol,
             application_protocols,
-            PeerRole::Unknown,
+            peer_role,
         ),
     })
 }

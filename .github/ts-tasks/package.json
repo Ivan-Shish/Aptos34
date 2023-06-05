@@ -1,9 +1,11 @@
 {
   "name": "@aptos/ts-tasks",
+  "packageManager": "pnpm@8.3.1",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
-    "pruneGithubWorkflowRuns": "yarn install --frozen-lockfile --silent && ts-node ./prune-github-workflow-runs.ts"
+    "pruneGithubWorkflowRuns": "pnpm install --frozen-lockfile --silent && ts-node-esm ./prune-github-workflow-runs.ts"
   },
   "license": "Apache-2.0",
   "dependencies": {

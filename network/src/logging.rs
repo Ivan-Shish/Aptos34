@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 //!
@@ -36,6 +37,7 @@ pub struct NetworkSchema<'a> {
     connection_origin: Option<&'a ConnectionOrigin>,
     #[schema(display)]
     discovery_source: Option<&'a DiscoverySource>,
+    message: Option<String>,
     #[schema(display)]
     network_address: Option<&'a NetworkAddress>,
     network_context: &'a NetworkContext,
@@ -49,6 +51,7 @@ impl<'a> NetworkSchema<'a> {
             connection_id: None,
             connection_origin: None,
             discovery_source: None,
+            message: None,
             network_address: None,
             network_context,
             remote_peer: None,

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -219,8 +220,8 @@ mod tests {
         block_metadata::BlockMetadata,
         chain_id::ChainId,
         transaction::{
-            ChangeSet, NoOpChangeSetChecker, RawTransaction, Script, SignedTransaction,
-            Transaction, TransactionPayload, WriteSetPayload,
+            ChangeSet, RawTransaction, Script, SignedTransaction, Transaction, TransactionPayload,
+            WriteSetPayload,
         },
         write_set::WriteSetMut,
     };
@@ -381,16 +382,12 @@ mod tests {
     }
 
     fn create_genesis_transaction() -> Transaction {
-        Transaction::GenesisTransaction(WriteSetPayload::Direct(
-            ChangeSet::new(
-                WriteSetMut::new(vec![])
-                    .freeze()
-                    .expect("freeze cannot fail"),
-                vec![],
-                &NoOpChangeSetChecker,
-            )
-            .unwrap(),
-        ))
+        Transaction::GenesisTransaction(WriteSetPayload::Direct(ChangeSet::new(
+            WriteSetMut::new(vec![])
+                .freeze()
+                .expect("freeze cannot fail"),
+            vec![],
+        )))
     }
 
     fn create_runtime() -> Runtime {

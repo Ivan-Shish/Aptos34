@@ -1,10 +1,10 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! The Aptos API response / error handling philosophy.
 //!
 //! The return type for every endpoint should be a
-//! poem::Result<MyResponse<T>, MyError> where MyResponse is an instance of
+//! `poem::Result<MyResponse<T>, MyError>` where MyResponse is an instance of
 //! ApiResponse that contains only the status codes that it can actually
 //! return. This will manifest in the OpenAPI spec, making it clear to users
 //! what the API can actually return. The error should operate the same way,
@@ -126,7 +126,7 @@ macro_rules! generate_error_response {
         pub enum $enum_name {
             $(
             #[oai(status = $status)]
-            $name(poem_openapi::payload::Json<aptos_api_types::AptosError>,
+            $name(poem_openapi::payload::Json<Box<aptos_api_types::AptosError>>,
                 // We use just regular u64 here instead of U64 since all header
                 // values are implicitly strings anyway.
                 /// Chain ID of the current chain
@@ -159,7 +159,7 @@ macro_rules! generate_error_response {
                 ledger_info: &aptos_api_types::LedgerInfo
             )-> Self where Self: Sized {
                 let error = aptos_api_types::AptosError::new_with_error_code(err, error_code);
-                let payload = poem_openapi::payload::Json(error);
+                let payload = poem_openapi::payload::Json(Box::new(error));
 
                 Self::from($enum_name::$name(
                     payload,
@@ -178,7 +178,7 @@ macro_rules! generate_error_response {
                 error_code: aptos_api_types::AptosErrorCode,
             )-> Self where Self: Sized {
                 let error = aptos_api_types::AptosError::new_with_error_code(err, error_code);
-                let payload = poem_openapi::payload::Json(error);
+                let payload = poem_openapi::payload::Json(Box::new(error));
 
                 Self::from($enum_name::$name(
                     payload,
@@ -199,7 +199,7 @@ macro_rules! generate_error_response {
                 ledger_info: &aptos_api_types::LedgerInfo
             ) -> Self where Self: Sized {
                 let error = aptos_api_types::AptosError::new_with_vm_status(err, error_code, vm_status);
-                let payload = poem_openapi::payload::Json(error);
+                let payload = poem_openapi::payload::Json(Box::new(error));
                 Self::from($enum_name::$name(
                     payload,
                     Some(ledger_info.chain_id),
@@ -216,7 +216,7 @@ macro_rules! generate_error_response {
                 aptos_error: aptos_api_types::AptosError,
                 ledger_info: &aptos_api_types::LedgerInfo
             ) -> Self where Self: Sized {
-                let payload = poem_openapi::payload::Json(aptos_error);
+                let payload = poem_openapi::payload::Json(Box::new(aptos_error));
                 Self::from($enum_name::$name(
                     payload,
                     Some(ledger_info.chain_id),
@@ -245,7 +245,7 @@ macro_rules! generate_error_response {
                         _epoch,
                         _block_height,
                         _oldest_block_height,
-                    ) => inner,
+                    ) => &mut *inner,
                     )*
                 }
             }
@@ -560,6 +560,13 @@ pub fn bcs_api_disabled<S: Display, E: ForbiddenError>(identifier: S) -> E {
 pub fn api_disabled<S: Display, E: ForbiddenError>(identifier: S) -> E {
     E::forbidden_with_code_no_info(
         format!("{} is disabled on this endpoint", identifier),
+        AptosErrorCode::ApiDisabled,
+    )
+}
+
+pub fn api_forbidden<S: Display, E: ForbiddenError>(identifier: S, extra_help: S) -> E {
+    E::forbidden_with_code_no_info(
+        format!("{} is not allowed. {}", identifier, extra_help),
         AptosErrorCode::ApiDisabled,
     )
 }

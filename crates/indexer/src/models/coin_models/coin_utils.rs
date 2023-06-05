@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 // This is required because a diesel macro makes clippy sad
@@ -75,7 +75,7 @@ pub struct IntegerWrapperResource {
 
 impl IntegerWrapperResource {
     /// In case we do want to track supply
-    pub fn _get_supply(&self) -> Option<BigDecimal> {
+    pub fn get_supply(&self) -> Option<BigDecimal> {
         self.vec.get(0).map(|inner| inner.value.clone())
     }
 }

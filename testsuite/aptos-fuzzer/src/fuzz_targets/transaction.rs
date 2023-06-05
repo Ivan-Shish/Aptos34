@@ -1,10 +1,11 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{corpus_from_strategy, fuzz_data_to_value, FuzzTargetImpl};
 use aptos_language_e2e_tests::account_universe::{
     all_transactions_strategy, log_balance_strategy, run_and_assert_universe, AUTransactionGen,
-    AccountUniverseGen,
+    AccountPickStyle, AccountUniverseGen,
 };
 use aptos_proptest_helpers::ValueGenerator;
 use aptos_types::transaction::SignedTransaction;
@@ -36,7 +37,7 @@ impl FuzzTargetImpl for LanguageTransactionExecution {
 
 prop_compose! {
     fn run_and_assert_universe_input()(
-        universe in AccountUniverseGen::strategy(2..20, log_balance_strategy(10_000_000)),
+        universe in AccountUniverseGen::strategy(2..20, log_balance_strategy(10_000_000), AccountPickStyle::Unlimited),
         txns in vec(all_transactions_strategy(1, 1_000_000), 1..40)
     ) -> (AccountUniverseGen, Vec<impl AUTransactionGen + Clone>) {
         (universe, txns)

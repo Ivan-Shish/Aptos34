@@ -1,7 +1,9 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use aptos_metrics_core::{register_int_counter, IntCounter};
+use aptos_metrics_core::{
+    exponential_buckets, register_histogram, register_int_counter, Histogram, IntCounter,
+};
 use once_cell::sync::Lazy;
 
 /// Count of times the module publishing fallback was triggered in parallel execution.
@@ -22,12 +24,160 @@ pub static SPECULATIVE_ABORT_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Count of times a transaction got suspended due to an estimated r/w dependency.
-pub static DEPENDENCY_SUSPEND_COUNT: Lazy<IntCounter> = Lazy::new(|| {
+/// Count of times the BlockSTM is early halted due to exceeding the per-block gas limit.
+pub static PARALLEL_EXCEED_PER_BLOCK_GAS_LIMIT_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     register_int_counter!(
-        "aptos_execution_dependency_suspend_count",
-        "Count write estimates encountered when reading in parallel execution \
-        (typically leading to a suspension / waiting)"
+        "aptos_execution_par_gas_limit_count",
+        "Count of times the BlockSTM is early halted due to exceeding the per-block gas limit"
+    )
+    .unwrap()
+});
+
+/// Count of times the sequential execution is early halted due to exceeding the per-block gas limit.
+pub static SEQUENTIAL_EXCEED_PER_BLOCK_GAS_LIMIT_COUNT: Lazy<IntCounter> = Lazy::new(|| {
+    register_int_counter!(
+        "aptos_execution_seq_gas_limit_count",
+        "Count of times the sequential execution is early halted due to exceeding the per-block gas limit"
+    )
+    .unwrap()
+});
+
+pub static PARALLEL_EXECUTION_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_parallel_execution_seconds",
+        // metric description
+        "The time spent in seconds in parallel execution",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static RAYON_EXECUTION_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_rayon_execution_seconds",
+        // metric description
+        "The time spent in seconds in rayon thread pool in parallel execution",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static VM_INIT_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_vm_init_seconds",
+        // metric description
+        "The time spent in seconds in initializing the VM in the block executor",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static TASK_VALIDATE_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_task_validate_seconds",
+        // metric description
+        "The time spent in task validation in Block STM",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static WORK_WITH_TASK_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_work_with_task_seconds",
+        // metric description
+        "The time spent in work task with scope call in Block STM",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static TASK_EXECUTE_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_task_execute_seconds",
+        // metric description
+        "The time spent in seconds for task execution in Block STM",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static GET_NEXT_TASK_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_get_next_task_seconds",
+        // metric description
+        "The time spent in seconds for getting next task from the scheduler",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static DEPENDENCY_WAIT_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_dependency_wait",
+        "The time spent in waiting for dependency in Block STM",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static PARALLEL_PER_BLOCK_GAS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_par_per_block_gas",
+        "The per-block consumed gas in parallel execution (Block STM)",
+        exponential_buckets(/*start=*/ 1.0, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static SEQUENTIAL_PER_BLOCK_GAS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_seq_per_block_gas",
+        "The per-block consumed gas in sequential execution",
+        exponential_buckets(/*start=*/ 1.0, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static PARALLEL_PER_BLOCK_COMMITTED_TXNS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_par_per_block_committed_txns",
+        "The per-block committed txns in parallel execution (Block STM)",
+        exponential_buckets(/*start=*/ 1.0, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static SEQUENTIAL_PER_BLOCK_COMMITTED_TXNS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_seq_per_block_committed_txns",
+        "The per-block committed txns in sequential execution",
+        exponential_buckets(/*start=*/ 1.0, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static PARALLEL_PER_TXN_GAS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_par_per_txn_gas",
+        "The per-txn consumed gas in parallel execution (Block STM)",
+        exponential_buckets(/*start=*/ 1.0, /*factor=*/ 1.5, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+pub static SEQUENTIAL_PER_TXN_GAS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        "aptos_execution_seq_per_txn_gas",
+        "The per-txn consumed gas in sequential execution",
+        exponential_buckets(/*start=*/ 1.0, /*factor=*/ 1.5, /*count=*/ 30).unwrap(),
     )
     .unwrap()
 });

@@ -4,6 +4,23 @@ provider "kubernetes" {
   token                  = data.aws_eks_cluster_auth.aptos.token
 }
 
+provider "helm" {
+  kubernetes {
+    host                   = aws_eks_cluster.aptos.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.aptos.certificate_authority.0.data)
+    token                  = data.aws_eks_cluster_auth.aptos.token
+  }
+}
+
+locals {
+  kubeconfig = "/tmp/kube.config.${md5(timestamp())}"
+
+  # helm chart paths
+  monitoring_helm_chart_path = "${path.module}/../../helm/monitoring"
+  logger_helm_chart_path     = "${path.module}/../../helm/logger"
+  aptos_node_helm_chart_path = var.helm_chart != "" ? var.helm_chart : "${path.module}/../../helm/aptos-node"
+}
+
 resource "null_resource" "delete-gp2" {
   provisioner "local-exec" {
     command = <<-EOT
@@ -53,53 +70,6 @@ resource "kubernetes_storage_class" "io2" {
   }
 }
 
-resource "kubernetes_role_binding" "psp-kube-system" {
-  metadata {
-    name      = "eks:podsecuritypolicy:privileged"
-    namespace = "kube-system"
-  }
-
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "ClusterRole"
-    name      = "eks:podsecuritypolicy:privileged"
-  }
-
-  subject {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "Group"
-    name      = "system:serviceaccounts:kube-system"
-  }
-}
-
-locals {
-  kubeconfig = "/tmp/kube.config.${md5(timestamp())}"
-
-  # helm chart paths
-  monitoring_helm_chart_path = "${path.module}/../../helm/monitoring"
-  logger_helm_chart_path     = "${path.module}/../../helm/logger"
-  aptos_node_helm_chart_path = var.helm_chart != "" ? var.helm_chart : "${path.module}/../../helm/aptos-node"
-}
-
-resource "null_resource" "delete-psp-authenticated" {
-  provisioner "local-exec" {
-    command = <<-EOT
-      aws --region ${var.region} eks update-kubeconfig --name ${aws_eks_cluster.aptos.name} --kubeconfig ${local.kubeconfig} &&
-      kubectl --kubeconfig ${local.kubeconfig} delete --ignore-not-found clusterrolebinding eks:podsecuritypolicy:authenticated
-    EOT
-  }
-
-  depends_on = [kubernetes_role_binding.psp-kube-system]
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = aws_eks_cluster.aptos.endpoint
-    cluster_ca_certificate = base64decode(aws_eks_cluster.aptos.certificate_authority.0.data)
-    token                  = data.aws_eks_cluster_auth.aptos.token
-  }
-}
-
 resource "kubernetes_namespace" "tigera-operator" {
   metadata {
     annotations = {
@@ -124,6 +94,7 @@ locals {
     numValidators     = var.num_validators
     numFullnodeGroups = var.num_fullnode_groups
     imageTag          = var.image_tag
+    manageImages      = var.manage_via_tf # if we're managing the entire deployment via terraform, override the images as well
     chain = {
       era      = var.era
       chain_id = var.chain_id

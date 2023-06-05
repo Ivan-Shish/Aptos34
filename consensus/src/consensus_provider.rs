@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -7,10 +8,12 @@ use crate::{
     network::NetworkTask,
     network_interface::{ConsensusMsg, ConsensusNetworkClient},
     persistent_liveness_storage::StorageWriteProxy,
+    quorum_store::quorum_store_db::QuorumStoreDB,
     state_computer::ExecutionProxy,
     txn_notifier::MempoolNotifier,
     util::time_service::ClockTimeService,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_config::config::NodeConfig;
 use aptos_consensus_notifications::ConsensusNotificationSender;
 use aptos_event_notifications::ReconfigNotificationListener;
@@ -36,6 +39,8 @@ pub fn start_consensus(
 ) -> Runtime {
     let runtime = aptos_runtimes::spawn_named_runtime("consensus".into(), None);
     let storage = Arc::new(StorageWriteProxy::new(node_config, aptos_db.reader.clone()));
+    let quorum_store_db = Arc::new(QuorumStoreDB::new(node_config.storage.dir()));
+
     let txn_notifier = Arc::new(MempoolNotifier::new(
         consensus_to_mempool_sender.clone(),
         node_config.consensus.mempool_executed_txn_timeout_ms,
@@ -55,6 +60,7 @@ pub fn start_consensus(
     let (self_sender, self_receiver) = aptos_channels::new(1_024, &counters::PENDING_SELF_MESSAGES);
 
     let consensus_network_client = ConsensusNetworkClient::new(network_client);
+    let bounded_executor = BoundedExecutor::new(8, runtime.handle().clone());
     let epoch_mgr = EpochManager::new(
         node_config,
         time_service,
@@ -64,7 +70,9 @@ pub fn start_consensus(
         consensus_to_mempool_sender,
         state_computer,
         storage,
+        quorum_store_db,
         reconfig_events,
+        bounded_executor,
     );
 
     let (network_task, network_receiver) = NetworkTask::new(network_service_events, self_receiver);

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 //! Test module.
@@ -18,6 +19,7 @@ mod execution_strategies;
 mod failed_transaction_tests;
 mod genesis;
 mod genesis_initializations;
+mod invariant_violation;
 mod mint;
 mod module_publishing;
 mod on_chain_configs;

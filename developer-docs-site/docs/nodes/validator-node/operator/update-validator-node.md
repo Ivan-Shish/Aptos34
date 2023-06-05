@@ -18,9 +18,7 @@ First, understand the data is almost identical between the two nodes. The VFN is
 To failover from an outdated or erroneous validator node to an updated and reliable validator fullnode, follow these steps:
 
 1. Ensure your machine meets the [validator hardware requirements](node-requirements.md#hardware-requirements).
-1. Update your validator fullnode with the latest version of the:
-   * [required packages Aptos depends upon](../../../guides/getting-started#prepare-development-environment)
-   * [Aptos CLI](../../../cli-tools/aptos-cli-tool/install-aptos-cli.md)
+1. Update your validator fullnode with the latest version of the [Aptos CLI](../../../tools/install-cli/index.md)
 1. Copy the configuration files between the two nodes. See the files in the [validator setup](running-validator-node/index.md) documentation you used for the full list.
 1. Synchonize data on the validator fullnode:
    * For mainnet, use [state synchronization](../../../guides/state-sync.md).
@@ -44,7 +42,7 @@ After connecting your nodes to the Aptos network, [establish staking pool operat
 
 To replace the validator node:
 
-1. Update DNS to [swap the node network addresses on-chain](staking-pool-operations.md#3-update-validator-network-addresses-on-chain).
+1. Update DNS to [swap the node network addresses on-chain](./staking-pool-operations.md#3-update-validator-network-addresses-on-chain).
 1. Turn down the validator node and validator fullnode intended to replace the validator.
 1. Restart the former validator fullnode with the validator node configuration.
 1. Observe that before DNS changes take effect that only outbound connections will form.

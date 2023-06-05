@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use super::*;
@@ -40,7 +41,11 @@ fn save(store: &LedgerStore, first_version: Version, txn_infos: &[TransactionInf
     let root_hash = store
         .put_transaction_infos(first_version, txn_infos, &batch)
         .unwrap();
-    store.db.write_schemas(batch).unwrap();
+    store
+        .ledger_db
+        .transaction_info_db()
+        .write_schemas(batch)
+        .unwrap();
     root_hash
 }
 

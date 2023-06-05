@@ -1,8 +1,9 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_gas::{
-    AptosGasMeter, AptosGasParameters, StorageGasParameters, LATEST_GAS_FEATURE_VERSION,
+    AptosGasParameters, StandardGasMeter, StorageGasParameters, LATEST_GAS_FEATURE_VERSION,
 };
 use aptos_language_e2e_tests::{common_transactions::peer_to_peer_txn, executor::FakeExecutor};
 use aptos_state_view::TStateView;
@@ -10,10 +11,8 @@ use aptos_types::{
     transaction::ExecutionStatus,
     vm_status::{StatusCode, VMStatus},
 };
-use aptos_vm::{
-    data_cache::AsMoveResolver, logging::AdapterLogSchema,
-    transaction_metadata::TransactionMetadata, AptosVM,
-};
+use aptos_vm::{data_cache::AsMoveResolver, transaction_metadata::TransactionMetadata, AptosVM};
+use aptos_vm_logging::log_schema::AdapterLogSchema;
 use move_core_types::vm_status::StatusCode::TYPE_MISMATCH;
 
 #[test]
@@ -37,7 +36,10 @@ fn failed_transaction_cleanup_test() {
 
     let gas_params = AptosGasParameters::zeros();
     let storage_gas_params = StorageGasParameters::free_and_unlimited();
-    let mut gas_meter = AptosGasMeter::new(
+
+    let change_set_configs = storage_gas_params.change_set_configs.clone();
+
+    let mut gas_meter = StandardGasMeter::new(
         LATEST_GAS_FEATURE_VERSION,
         gas_params,
         storage_gas_params,
@@ -46,35 +48,38 @@ fn failed_transaction_cleanup_test() {
 
     // TYPE_MISMATCH should be kept and charged.
     let out1 = aptos_vm.failed_transaction_cleanup(
-        VMStatus::Error(StatusCode::TYPE_MISMATCH),
+        VMStatus::Error(StatusCode::TYPE_MISMATCH, None),
         &mut gas_meter,
         &txn_data,
         &data_cache,
         &log_context,
+        &change_set_configs,
     );
-    assert!(!out1.txn_output().write_set().is_empty());
-    assert_eq!(out1.txn_output().gas_used(), 90_000);
-    assert!(!out1.txn_output().status().is_discarded());
+    assert!(!out1.write_set().is_empty());
+    assert_eq!(out1.gas_used(), 90_000);
+    assert!(!out1.status().is_discarded());
     assert_eq!(
-        out1.txn_output().status().status(),
+        out1.status().status(),
         // StatusCode::TYPE_MISMATCH
         Ok(ExecutionStatus::MiscellaneousError(Some(TYPE_MISMATCH)))
     );
 
-    // Invariant violations should be discarded and not charged.
+    // Invariant violations should be charged.
     let out2 = aptos_vm.failed_transaction_cleanup(
-        VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR),
+        VMStatus::Error(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR, None),
         &mut gas_meter,
         &txn_data,
         &data_cache,
         &log_context,
+        &change_set_configs,
     );
-    assert!(out2.txn_output().write_set().is_empty());
-    assert!(out2.txn_output().gas_used() == 0);
-    assert!(out2.txn_output().status().is_discarded());
+    assert!(out2.gas_used() != 0);
+    assert!(!out2.status().is_discarded());
     assert_eq!(
-        out2.txn_output().status().status(),
-        Err(StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR)
+        out2.status().status(),
+        Ok(ExecutionStatus::MiscellaneousError(Some(
+            StatusCode::UNKNOWN_INVARIANT_VIOLATION_ERROR
+        )))
     );
 }
 
@@ -92,6 +97,7 @@ fn non_existent_sender() {
         receiver.account(),
         sequence_number,
         transfer_amount,
+        0,
     );
 
     let output = &executor.execute_transaction(txn);

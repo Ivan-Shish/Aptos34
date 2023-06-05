@@ -1,10 +1,13 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
     block_storage::BlockStore,
     liveness::{
-        proposal_generator::{ChainHealthBackoffConfig, ProposalGenerator},
+        proposal_generator::{
+            ChainHealthBackoffConfig, PipelineBackpressureConfig, ProposalGenerator,
+        },
         rotating_proposer_election::RotatingProposer,
         round_state::{ExponentialTimeInterval, NewRoundEvent, NewRoundReason, RoundState},
     },
@@ -22,7 +25,7 @@ use aptos_config::{config::ConsensusConfig, network_id::NetworkId};
 use aptos_consensus_types::proposal_msg::ProposalMsg;
 use aptos_infallible::Mutex;
 use aptos_network::{
-    application::{interface::NetworkClient, storage::PeerMetadataStorage},
+    application::{interface::NetworkClient, storage::PeersAndMetadata},
     peer_manager::{ConnectionRequestSender, PeerManagerRequestSender},
     protocols::{network, network::NewNetworkSender},
 };
@@ -130,7 +133,7 @@ fn create_node_for_fuzzing() -> RoundManager {
         DIRECT_SEND.into(),
         RPC.into(),
         hashmap! {NetworkId::Validator => network_sender},
-        PeerMetadataStorage::new(&[NetworkId::Validator]),
+        PeersAndMetadata::new(&[NetworkId::Validator]),
     );
     let consensus_network_client = ConsensusNetworkClient::new(network_client);
 
@@ -160,9 +163,11 @@ fn create_node_for_fuzzing() -> RoundManager {
         block_store.clone(),
         Arc::new(MockPayloadManager::new(None)),
         time_service,
+        Duration::ZERO,
         1,
         1024,
         10,
+        PipelineBackpressureConfig::new_no_backoff(),
         ChainHealthBackoffConfig::new_no_backoff(),
         false,
     );

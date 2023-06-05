@@ -36,7 +36,9 @@ tokio = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 aptos-bitvec = { workspace = true }
+aptos-config = { workspace = true, features = ["fuzzing"] }
 aptos-crypto = { workspace = true }
+aptos-netcore = { workspace = true }
 aptos-storage-interface = { workspace = true }
 aptos-time-service = { workspace = true, features = ["async", "testing"] }
 aptos-types = { workspace = true }

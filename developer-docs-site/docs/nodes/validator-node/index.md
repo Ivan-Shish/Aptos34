@@ -1,5 +1,5 @@
 ---
-title: "Install Validators"
+title: "Run a Validator"
 slug: "validators"
 ---
 
@@ -7,9 +7,13 @@ import ThemedImage from '@theme/ThemedImage';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 
-# Install Aptos Validators
+# Run a Validator
 
-To participate in the consensus process in the Aptos mainnet, you must deploy and run a validator node and a validator fullnode. Optionally you can also run a public fullnode. This document presents a high-level conceptual overview of the important steps involved in deploying the nodes for validation. 
+To participate in the consensus process in the Aptos mainnet, you must deploy and run a validator node and a validator fullnode. Optionally you can also run a public fullnode. This document presents a high-level conceptual overview of the important steps involved in deploying the nodes for validation.
+
+Before initializing a staking pool or delegation pool, read about [Staking](../../concepts/staking.md) and [Delegated Staking](../../concepts/delegated-staking.md) to learn the difference between the stake pool types. Note that once a stake pool has been created, it cannot be changed to a delegation pool or vice versa. 
+
+See also the [external resources](../../community/external-resources.md) for tools and services offered by your fellow node operators.
 
 <div class="docs-card-container">
 <div class="row row-cols-1 row-cols-md-5 g-4">

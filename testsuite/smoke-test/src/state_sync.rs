@@ -1,9 +1,13 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
     smoke_test_environment::{new_local_swarm_with_aptos, SwarmBuilder},
-    test_utils::{create_and_fund_account, transfer_and_maybe_reconfig, transfer_coins},
+    test_utils::{
+        create_and_fund_account, transfer_and_maybe_reconfig, transfer_coins,
+        MAX_CATCH_UP_WAIT_SECS, MAX_HEALTHY_WAIT_SECS,
+    },
 };
 use aptos_config::config::{BootstrappingMode, ContinuousSyncingMode, NodeConfig};
 use aptos_forge::{LocalSwarm, Node, NodeExt, Swarm, SwarmExt};
@@ -15,15 +19,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-const MAX_CATCH_UP_SECS: u64 = 180; // The max time we'll wait for nodes to catch up
-
 #[tokio::test]
 async fn test_full_node_bootstrap_state_snapshot() {
     // Create a validator swarm of 1 validator node
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses snapshot syncing
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::DownloadLatestStates;
 
@@ -35,10 +37,10 @@ async fn test_full_node_bootstrap_state_snapshot() {
     let validator = swarm.validators_mut().next().unwrap();
     let mut config = validator.config().clone();
     config.state_sync.storage_service.max_state_chunk_size = 2;
-    config.save(validator.config_path()).unwrap();
+    config.save_to_path(validator.config_path()).unwrap();
     validator.restart().await.unwrap();
     validator
-        .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_CATCH_UP_SECS))
+        .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_HEALTHY_WAIT_SECS))
         .await
         .unwrap();
 
@@ -49,6 +51,31 @@ async fn test_full_node_bootstrap_state_snapshot() {
     let vfn_client = swarm.fullnode_mut(vfn_peer_id).unwrap().rest_client();
     let ledger_information = vfn_client.get_ledger_information().await.unwrap();
     assert_ne!(ledger_information.inner().oldest_ledger_version, 0);
+
+    let inspection_client = swarm.fullnode(vfn_peer_id).unwrap().inspection_client();
+    let state_merkle_pruner_version = inspection_client
+        .get_node_metric_i64(
+            "aptos_pruner_versions{pruner_name=state_merkle_pruner,tag=min_readable}",
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let epoch_snapshot_pruner_version = inspection_client
+        .get_node_metric_i64(
+            "aptos_pruner_versions{pruner_name=epoch_snapshot_pruner,tag=min_readable}",
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    let ledger_pruner_version = inspection_client
+        .get_node_metric_i64("aptos_pruner_versions{pruner_name=ledger_pruner,tag=min_readable}")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert!(state_merkle_pruner_version > 0);
+    assert!(epoch_snapshot_pruner_version > 0);
+    assert!(ledger_pruner_version > 0);
 }
 
 #[tokio::test]
@@ -57,7 +84,7 @@ async fn test_full_node_bootstrap_outputs() {
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses transaction outputs to sync
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::ApplyTransactionOutputsFromGenesis;
     vfn_config
@@ -79,7 +106,7 @@ async fn test_full_node_bootstrap_outputs_no_compression() {
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses transaction outputs to sync (without compression)
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::ApplyTransactionOutputsFromGenesis;
     vfn_config
@@ -101,7 +128,7 @@ async fn test_full_node_bootstrap_outputs_exponential_backoff() {
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses transaction outputs to sync with a small timeout
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::ApplyTransactionOutputsFromGenesis;
     vfn_config
@@ -129,7 +156,7 @@ async fn test_full_node_bootstrap_transactions_or_outputs() {
         .await;
 
     // Create a fullnode config that uses transactions or outputs to sync
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::ExecuteOrApplyFromGenesis;
     vfn_config
@@ -161,7 +188,7 @@ async fn test_full_node_bootstrap_snapshot_transactions_or_outputs() {
         .await;
 
     // Create a fullnode config that uses snapshot syncing and transactions or outputs
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::DownloadLatestStates;
     vfn_config
@@ -187,7 +214,7 @@ async fn test_full_node_bootstrap_transactions() {
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses transactions to sync
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config.state_sync.state_sync_driver.bootstrapping_mode =
         BootstrappingMode::ExecuteTransactionsFromGenesis;
     vfn_config
@@ -209,7 +236,7 @@ async fn test_full_node_continuous_sync_outputs() {
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses transaction outputs to sync
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config
         .state_sync
         .state_sync_driver
@@ -228,7 +255,7 @@ async fn test_full_node_continuous_sync_transactions() {
     let mut swarm = new_local_swarm_with_aptos(1).await;
 
     // Create a fullnode config that uses transactions to sync
-    let mut vfn_config = NodeConfig::default_for_validator_full_node();
+    let mut vfn_config = NodeConfig::get_default_vfn_config();
     vfn_config
         .state_sync
         .state_sync_driver
@@ -253,7 +280,7 @@ async fn create_full_node(full_node_config: NodeConfig, swarm: &mut LocalSwarm) 
         .unwrap();
     for fullnode in swarm.full_nodes_mut() {
         fullnode
-            .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_CATCH_UP_SECS))
+            .wait_until_healthy(Instant::now() + Duration::from_secs(MAX_HEALTHY_WAIT_SECS))
             .await
             .unwrap();
     }
@@ -656,7 +683,7 @@ async fn test_validator_failure_bootstrap_execution() {
 
 /// A helper method that tests that all validators can sync after a failure and
 /// continue to stay up-to-date.
-async fn test_all_validator_failures(mut swarm: LocalSwarm) {
+pub async fn test_all_validator_failures(mut swarm: LocalSwarm) {
     // Execute multiple transactions through validator 0
     let validator_peer_ids = swarm.validators().map(|v| v.peer_id()).collect::<Vec<_>>();
     let validator_0 = validator_peer_ids[0];
@@ -792,7 +819,7 @@ async fn execute_transactions_and_wait(
 /// Waits for all nodes to catch up
 async fn wait_for_all_nodes(swarm: &mut LocalSwarm) {
     swarm
-        .wait_for_all_nodes_to_catchup(Duration::from_secs(MAX_CATCH_UP_SECS))
+        .wait_for_all_nodes_to_catchup(Duration::from_secs(MAX_CATCH_UP_WAIT_SECS))
         .await
         .unwrap();
 }

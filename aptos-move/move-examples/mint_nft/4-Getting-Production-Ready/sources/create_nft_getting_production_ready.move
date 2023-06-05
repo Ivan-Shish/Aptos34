@@ -24,7 +24,7 @@
 ///
 /// Move unit tests
 /// We added a few unit tests to make sure that our code is working as expected. For more information on how to write
-/// Move unit tests, see: https://move-language.github.io/move/unit-testing.html.
+/// Move unit tests, see: https://aptos.dev/guides/move-guides/book/unit-testing
 ///
 /// - How to interact with this module
 /// 1. Configure the admin account name address in Move.toml file.
@@ -62,9 +62,11 @@ yes
 }
 */
 /// - 3.c Generate a valid signature.
-///  Open up file `aptos-core/aptos/move-e2e-tests/src/tests/mint_nft.rs`.
+///  Open up file `aptos-core/aptos-move/e2e-move-tests/src/tests/mint_nft.rs`.
 ///  In function `generate_nft_tutorial_part4_signature`, change the `resource_address`, `nft_receiver`, `admin_private_key`, and `receiver_account_sequence_number` variables to the actual values.
 ///  You can find the `admin_private_key` by running `nano output.key`, and the `receiver_account_sequence_number` by looking up the receiver's address on the Aptos Explorer under tab `Info`.
+///  Make sure you're in the right directory.
+///  Run the following command in directory `aptos-core/aptos-move/e2e-move-tests`
 ///  Run `cargo test generate_nft_tutorial_part4_signature -- --nocapture` to generate a valid signature that we'll use in the next step.
 /// - 3.d Call mint_event_ticket() with the signature we generated in the last step.
 /// aptos move run --function-id [resource account's address]::create_nft_getting_production_ready::mint_event_ticket --args hex:[signature generated in last step] --profile nft-receiver

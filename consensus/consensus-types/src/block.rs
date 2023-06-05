@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -99,6 +100,16 @@ impl Block {
 
     pub fn payload(&self) -> Option<&Payload> {
         self.block_data.payload()
+    }
+
+    pub fn payload_size(&self) -> usize {
+        match self.block_data.payload() {
+            None => 0,
+            Some(payload) => match payload {
+                Payload::InQuorumStore(pos) => pos.proofs.len(),
+                Payload::DirectMempool(txns) => txns.len(),
+            },
+        }
     }
 
     pub fn quorum_cert(&self) -> &QuorumCert {
@@ -335,13 +346,26 @@ impl Block {
         &self,
         validators: &[AccountAddress],
         txns: Vec<SignedTransaction>,
+        block_gas_limit: Option<u64>,
     ) -> Vec<Transaction> {
-        once(Transaction::BlockMetadata(
-            self.new_block_metadata(validators),
-        ))
-        .chain(txns.into_iter().map(Transaction::UserTransaction))
-        .chain(once(Transaction::StateCheckpoint(self.id)))
-        .collect()
+        if block_gas_limit.is_some() {
+            // After the per-block gas limit change, StateCheckpoint txn
+            // is inserted after block execution
+            once(Transaction::BlockMetadata(
+                self.new_block_metadata(validators),
+            ))
+            .chain(txns.into_iter().map(Transaction::UserTransaction))
+            .collect()
+        } else {
+            // Before the per-block gas limit change, StateCheckpoint txn
+            // is inserted here for compatibility.
+            once(Transaction::BlockMetadata(
+                self.new_block_metadata(validators),
+            ))
+            .chain(txns.into_iter().map(Transaction::UserTransaction))
+            .chain(once(Transaction::StateCheckpoint(self.id)))
+            .collect()
+        }
     }
 
     fn new_block_metadata(&self, validators: &[AccountAddress]) -> BlockMetadata {

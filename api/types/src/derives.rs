@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! This file is where we apply a number of traits that allow us to use these
@@ -11,7 +11,7 @@
 //! serialize them as strings, e.g. EntryFunctionId.
 //!
 //! For potential future improvements here, see:
-//! https://github.com/aptos-labs/aptos-core/issues/2319.
+//! <https://github.com/aptos-labs/aptos-core/issues/2319>
 
 // READ ME: You'll see that some of the examples (specifically those for hex
 // strings) have a space at the end. This is necessary to make sure the UI

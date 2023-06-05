@@ -10,6 +10,7 @@ This module defines the Option type and its methods to represent and handle an o
 -  [Constants](#@Constants_0)
 -  [Function `none`](#0x1_option_none)
 -  [Function `some`](#0x1_option_some)
+-  [Function `from_vec`](#0x1_option_from_vec)
 -  [Function `is_none`](#0x1_option_is_none)
 -  [Function `is_some`](#0x1_option_is_some)
 -  [Function `contains`](#0x1_option_contains)
@@ -25,11 +26,21 @@ This module defines the Option type and its methods to represent and handle an o
 -  [Function `destroy_some`](#0x1_option_destroy_some)
 -  [Function `destroy_none`](#0x1_option_destroy_none)
 -  [Function `to_vec`](#0x1_option_to_vec)
+-  [Function `for_each`](#0x1_option_for_each)
+-  [Function `for_each_ref`](#0x1_option_for_each_ref)
+-  [Function `for_each_mut`](#0x1_option_for_each_mut)
+-  [Function `fold`](#0x1_option_fold)
+-  [Function `map`](#0x1_option_map)
+-  [Function `map_ref`](#0x1_option_map_ref)
+-  [Function `filter`](#0x1_option_filter)
+-  [Function `any`](#0x1_option_any)
+-  [Function `destroy`](#0x1_option_destroy)
 -  [Specification](#@Specification_1)
     -  [Helper Schema](#@Helper_Schema_2)
     -  [Struct `Option`](#@Specification_1_Option)
     -  [Function `none`](#@Specification_1_none)
     -  [Function `some`](#@Specification_1_some)
+    -  [Function `from_vec`](#@Specification_1_from_vec)
     -  [Function `is_none`](#@Specification_1_is_none)
     -  [Function `is_some`](#@Specification_1_is_some)
     -  [Function `contains`](#@Specification_1_contains)
@@ -108,6 +119,16 @@ The <code><a href="option.md#0x1_option_Option">Option</a></code> is <code>None<
 
 
 
+<a name="0x1_option_EOPTION_VEC_TOO_LONG"></a>
+
+Cannot construct an option from a vector with 2 or more elements.
+
+
+<pre><code><b>const</b> <a href="option.md#0x1_option_EOPTION_VEC_TOO_LONG">EOPTION_VEC_TOO_LONG</a>: u64 = 262146;
+</code></pre>
+
+
+
 <a name="0x1_option_none"></a>
 
 ## Function `none`
@@ -151,6 +172,31 @@ Return an <code><a href="option.md#0x1_option_Option">Option</a></code> containi
 
 <pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_some">some</a>&lt;Element&gt;(e: Element): <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt; {
     <a href="option.md#0x1_option_Option">Option</a> { vec: <a href="vector.md#0x1_vector_singleton">vector::singleton</a>(e) }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_from_vec"></a>
+
+## Function `from_vec`
+
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_from_vec">from_vec</a>&lt;Element&gt;(vec: <a href="vector.md#0x1_vector">vector</a>&lt;Element&gt;): <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_from_vec">from_vec</a>&lt;Element&gt;(vec: <a href="vector.md#0x1_vector">vector</a>&lt;Element&gt;): <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt; {
+    <b>assert</b>!(<a href="vector.md#0x1_vector_length">vector::length</a>(&vec) &lt;= 1, <a href="option.md#0x1_option_EOPTION_VEC_TOO_LONG">EOPTION_VEC_TOO_LONG</a>);
+    <a href="option.md#0x1_option_Option">Option</a> { vec }
 }
 </code></pre>
 
@@ -575,6 +621,263 @@ and an empty vector otherwise
 
 </details>
 
+<a name="0x1_option_for_each"></a>
+
+## Function `for_each`
+
+Apply the function to the optional element, consuming it. Does nothing if no value present.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_for_each">for_each</a>&lt;Element&gt;(o: <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, f: |Element|())
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_for_each">for_each</a>&lt;Element&gt;(o: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, f: |Element|) {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(&o)) {
+        f(<a href="option.md#0x1_option_destroy_some">destroy_some</a>(o))
+    } <b>else</b> {
+        <a href="option.md#0x1_option_destroy_none">destroy_none</a>(o)
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_for_each_ref"></a>
+
+## Function `for_each_ref`
+
+Apply the function to the optional element reference. Does nothing if no value present.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_for_each_ref">for_each_ref</a>&lt;Element&gt;(o: &<a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, f: |&Element|())
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_for_each_ref">for_each_ref</a>&lt;Element&gt;(o: &<a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, f: |&Element|) {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(o)) {
+        f(<a href="option.md#0x1_option_borrow">borrow</a>(o))
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_for_each_mut"></a>
+
+## Function `for_each_mut`
+
+Apply the function to the optional element reference. Does nothing if no value present.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_for_each_mut">for_each_mut</a>&lt;Element&gt;(o: &<b>mut</b> <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, f: |&<b>mut</b> Element|())
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_for_each_mut">for_each_mut</a>&lt;Element&gt;(o: &<b>mut</b> <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, f: |&<b>mut</b> Element|) {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(o)) {
+        f(<a href="option.md#0x1_option_borrow_mut">borrow_mut</a>(o))
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_fold"></a>
+
+## Function `fold`
+
+Folds the function over the optional element.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_fold">fold</a>&lt;Accumulator, Element&gt;(o: <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, init: Accumulator, f: |(Accumulator, Element)|Accumulator): Accumulator
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_fold">fold</a>&lt;Accumulator, Element&gt;(
+    o: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;,
+    init: Accumulator,
+    f: |Accumulator,Element|Accumulator
+): Accumulator {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(&o)) {
+        f(init, <a href="option.md#0x1_option_destroy_some">destroy_some</a>(o))
+    } <b>else</b> {
+        <a href="option.md#0x1_option_destroy_none">destroy_none</a>(o);
+        init
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_map"></a>
+
+## Function `map`
+
+Maps the content of an option.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_map">map</a>&lt;Element, OtherElement&gt;(o: <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, f: |Element|OtherElement): <a href="option.md#0x1_option_Option">option::Option</a>&lt;OtherElement&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_map">map</a>&lt;Element, OtherElement&gt;(o: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, f: |Element|OtherElement): <a href="option.md#0x1_option_Option">Option</a>&lt;OtherElement&gt; {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(&o)) {
+        <a href="option.md#0x1_option_some">some</a>(f(<a href="option.md#0x1_option_destroy_some">destroy_some</a>(o)))
+    } <b>else</b> {
+        <a href="option.md#0x1_option_destroy_none">destroy_none</a>(o);
+        <a href="option.md#0x1_option_none">none</a>()
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_map_ref"></a>
+
+## Function `map_ref`
+
+Maps the content of an option without destroying the original option.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_map_ref">map_ref</a>&lt;Element, OtherElement&gt;(o: &<a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, f: |&Element|OtherElement): <a href="option.md#0x1_option_Option">option::Option</a>&lt;OtherElement&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_map_ref">map_ref</a>&lt;Element, OtherElement&gt;(
+    o: &<a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, f: |&Element|OtherElement): <a href="option.md#0x1_option_Option">Option</a>&lt;OtherElement&gt; {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(o)) {
+        <a href="option.md#0x1_option_some">some</a>(f(<a href="option.md#0x1_option_borrow">borrow</a>(o)))
+    } <b>else</b> {
+        <a href="option.md#0x1_option_none">none</a>()
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_filter"></a>
+
+## Function `filter`
+
+Filters the content of an option
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_filter">filter</a>&lt;Element: drop&gt;(o: <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, f: |&Element|bool): <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_filter">filter</a>&lt;Element:drop&gt;(o: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, f: |&Element|bool): <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt; {
+    <b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(&o) && f(<a href="option.md#0x1_option_borrow">borrow</a>(&o))) {
+        o
+    } <b>else</b> {
+        <a href="option.md#0x1_option_none">none</a>()
+    }
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_any"></a>
+
+## Function `any`
+
+Returns true if the option contains an element which satisfies predicate.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_any">any</a>&lt;Element&gt;(o: &<a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, p: |&Element|bool): bool
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_any">any</a>&lt;Element&gt;(o: &<a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, p: |&Element|bool): bool {
+    <a href="option.md#0x1_option_is_some">is_some</a>(o) && p(<a href="option.md#0x1_option_borrow">borrow</a>(o))
+}
+</code></pre>
+
+
+
+</details>
+
+<a name="0x1_option_destroy"></a>
+
+## Function `destroy`
+
+Utility function to destroy an option that is not droppable.
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_destroy">destroy</a>&lt;Element&gt;(o: <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;, d: |Element|())
+</code></pre>
+
+
+
+<details>
+<summary>Implementation</summary>
+
+
+<pre><code><b>public</b> inline <b>fun</b> <a href="option.md#0x1_option_destroy">destroy</a>&lt;Element&gt;(o: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;, d: |Element|) {
+    <b>let</b> vec = <a href="option.md#0x1_option_to_vec">to_vec</a>(o);
+    <a href="vector.md#0x1_vector_destroy">vector::destroy</a>(vec, |e| d(e));
+}
+</code></pre>
+
+
+
+</details>
+
 <a name="@Specification_1"></a>
 
 ## Specification
@@ -598,7 +901,7 @@ and an empty vector otherwise
 
 <pre><code><b>schema</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt; {
     t: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;;
-    <b>aborts_if</b> <a href="option.md#0x1_option_is_none">is_none</a>(t) <b>with</b> <a href="option.md#0x1_option_EOPTION_NOT_SET">EOPTION_NOT_SET</a>;
+    <b>aborts_if</b> <a href="option.md#0x1_option_spec_is_none">spec_is_none</a>(t) <b>with</b> <a href="option.md#0x1_option_EOPTION_NOT_SET">EOPTION_NOT_SET</a>;
 }
 </code></pre>
 
@@ -691,6 +994,22 @@ because it's 0 for "none" or 1 for "some".
 
 
 
+<a name="@Specification_1_from_vec"></a>
+
+### Function `from_vec`
+
+
+<pre><code><b>public</b> <b>fun</b> <a href="option.md#0x1_option_from_vec">from_vec</a>&lt;Element&gt;(vec: <a href="vector.md#0x1_vector">vector</a>&lt;Element&gt;): <a href="option.md#0x1_option_Option">option::Option</a>&lt;Element&gt;
+</code></pre>
+
+
+
+
+<pre><code><b>aborts_if</b> <a href="vector.md#0x1_vector_length">vector::length</a>(vec) &gt; 1;
+</code></pre>
+
+
+
 <a name="@Specification_1_is_none"></a>
 
 ### Function `is_none`
@@ -704,7 +1023,18 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
-<b>ensures</b> result == <a href="option.md#0x1_option_is_none">is_none</a>(t);
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_is_none">spec_is_none</a>(t);
+</code></pre>
+
+
+
+
+<a name="0x1_option_spec_is_none"></a>
+
+
+<pre><code><b>fun</b> <a href="option.md#0x1_option_spec_is_none">spec_is_none</a>&lt;Element&gt;(t: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;): bool {
+   <a href="vector.md#0x1_vector_is_empty">vector::is_empty</a>(t.vec)
+}
 </code></pre>
 
 
@@ -722,7 +1052,18 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
-<b>ensures</b> result == <a href="option.md#0x1_option_is_some">is_some</a>(t);
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t);
+</code></pre>
+
+
+
+
+<a name="0x1_option_spec_is_some"></a>
+
+
+<pre><code><b>fun</b> <a href="option.md#0x1_option_spec_is_some">spec_is_some</a>&lt;Element&gt;(t: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;): bool {
+   !<a href="vector.md#0x1_vector_is_empty">vector::is_empty</a>(t.vec)
+}
 </code></pre>
 
 
@@ -769,7 +1110,18 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>include</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt;;
-<b>ensures</b> result == <a href="option.md#0x1_option_borrow">borrow</a>(t);
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t);
+</code></pre>
+
+
+
+
+<a name="0x1_option_spec_borrow"></a>
+
+
+<pre><code><b>fun</b> <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>&lt;Element&gt;(t: <a href="option.md#0x1_option_Option">Option</a>&lt;Element&gt;): Element {
+   t.vec[0]
+}
 </code></pre>
 
 
@@ -787,7 +1139,7 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
-<b>ensures</b> result == (<b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(t)) <a href="option.md#0x1_option_borrow">borrow</a>(t) <b>else</b> default_ref);
+<b>ensures</b> result == (<b>if</b> (<a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t)) <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t) <b>else</b> default_ref);
 </code></pre>
 
 
@@ -805,7 +1157,7 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
-<b>ensures</b> result == (<b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(t)) <a href="option.md#0x1_option_borrow">borrow</a>(t) <b>else</b> default);
+<b>ensures</b> result == (<b>if</b> (<a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t)) <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t) <b>else</b> default);
 </code></pre>
 
 
@@ -822,9 +1174,9 @@ because it's 0 for "none" or 1 for "some".
 
 
 <pre><code><b>pragma</b> opaque;
-<b>aborts_if</b> <a href="option.md#0x1_option_is_some">is_some</a>(t) <b>with</b> <a href="option.md#0x1_option_EOPTION_IS_SET">EOPTION_IS_SET</a>;
-<b>ensures</b> <a href="option.md#0x1_option_is_some">is_some</a>(t);
-<b>ensures</b> <a href="option.md#0x1_option_borrow">borrow</a>(t) == e;
+<b>aborts_if</b> <a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t) <b>with</b> <a href="option.md#0x1_option_EOPTION_IS_SET">EOPTION_IS_SET</a>;
+<b>ensures</b> <a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t);
+<b>ensures</b> <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t) == e;
 </code></pre>
 
 
@@ -842,8 +1194,8 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>include</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt;;
-<b>ensures</b> result == <a href="option.md#0x1_option_borrow">borrow</a>(<b>old</b>(t));
-<b>ensures</b> <a href="option.md#0x1_option_is_none">is_none</a>(t);
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(<b>old</b>(t));
+<b>ensures</b> <a href="option.md#0x1_option_spec_is_none">spec_is_none</a>(t);
 </code></pre>
 
 
@@ -859,9 +1211,9 @@ because it's 0 for "none" or 1 for "some".
 
 
 
-<pre><code><b>pragma</b> opaque;
-<b>include</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt;;
-<b>ensures</b> result == <a href="option.md#0x1_option_borrow">borrow</a>(t);
+<pre><code><b>include</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt;;
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t);
+<b>ensures</b> t == <b>old</b>(t);
 </code></pre>
 
 
@@ -879,9 +1231,9 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>include</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt;;
-<b>ensures</b> result == <a href="option.md#0x1_option_borrow">borrow</a>(<b>old</b>(t));
-<b>ensures</b> <a href="option.md#0x1_option_is_some">is_some</a>(t);
-<b>ensures</b> <a href="option.md#0x1_option_borrow">borrow</a>(t) == e;
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(<b>old</b>(t));
+<b>ensures</b> <a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t);
+<b>ensures</b> <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t) == e;
 </code></pre>
 
 
@@ -900,7 +1252,7 @@ because it's 0 for "none" or 1 for "some".
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
 <b>ensures</b> result == <b>old</b>(t);
-<b>ensures</b> <a href="option.md#0x1_option_borrow">borrow</a>(t) == e;
+<b>ensures</b> <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t) == e;
 </code></pre>
 
 
@@ -918,7 +1270,7 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>aborts_if</b> <b>false</b>;
-<b>ensures</b> result == (<b>if</b> (<a href="option.md#0x1_option_is_some">is_some</a>(t)) <a href="option.md#0x1_option_borrow">borrow</a>(t) <b>else</b> default);
+<b>ensures</b> result == (<b>if</b> (<a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t)) <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t) <b>else</b> default);
 </code></pre>
 
 
@@ -936,7 +1288,7 @@ because it's 0 for "none" or 1 for "some".
 
 <pre><code><b>pragma</b> opaque;
 <b>include</b> <a href="option.md#0x1_option_AbortsIfNone">AbortsIfNone</a>&lt;Element&gt;;
-<b>ensures</b> result == <a href="option.md#0x1_option_borrow">borrow</a>(t);
+<b>ensures</b> result == <a href="option.md#0x1_option_spec_borrow">spec_borrow</a>(t);
 </code></pre>
 
 
@@ -953,7 +1305,7 @@ because it's 0 for "none" or 1 for "some".
 
 
 <pre><code><b>pragma</b> opaque;
-<b>aborts_if</b> <a href="option.md#0x1_option_is_some">is_some</a>(t) <b>with</b> <a href="option.md#0x1_option_EOPTION_IS_SET">EOPTION_IS_SET</a>;
+<b>aborts_if</b> <a href="option.md#0x1_option_spec_is_some">spec_is_some</a>(t) <b>with</b> <a href="option.md#0x1_option_EOPTION_IS_SET">EOPTION_IS_SET</a>;
 </code></pre>
 
 
@@ -975,4 +1327,4 @@ because it's 0 for "none" or 1 for "some".
 </code></pre>
 
 
-[move-book]: https://move-language.github.io/move/introduction.html
+[move-book]: https://aptos.dev/guides/move-guides/book/SUMMARY

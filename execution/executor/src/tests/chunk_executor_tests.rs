@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 #![forbid(unsafe_code)]
@@ -16,7 +17,7 @@ use aptos_executor_types::{BlockExecutorTrait, ChunkExecutorTrait};
 use aptos_storage_interface::DbReaderWriter;
 use aptos_types::{
     ledger_info::LedgerInfoWithSignatures,
-    test_helpers::transaction_test_helpers::block,
+    test_helpers::transaction_test_helpers::{block, BLOCK_GAS_LIMIT},
     transaction::{TransactionListWithProof, TransactionOutputListWithProof},
 };
 use rand::Rng;
@@ -272,9 +273,13 @@ fn test_executor_execute_and_commit_chunk_local_result_mismatch() {
             .map(|_| encode_mint_transaction(tests::gen_address(rng.gen::<u64>()), 100))
             .collect::<Vec<_>>();
         let output = executor
-            .execute_block((block_id, block(txns)), parent_block_id)
+            .execute_block(
+                (block_id, block(txns, BLOCK_GAS_LIMIT)),
+                parent_block_id,
+                BLOCK_GAS_LIMIT,
+            )
             .unwrap();
-        let ledger_info = tests::gen_ledger_info(6, output.root_hash(), block_id, 1);
+        let ledger_info = tests::gen_ledger_info(5 + 1, output.root_hash(), block_id, 1);
         executor.commit_blocks(vec![block_id], ledger_info).unwrap();
     }
 

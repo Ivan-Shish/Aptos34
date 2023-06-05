@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_metrics_core::{
@@ -6,6 +7,19 @@ use aptos_metrics_core::{
     IntCounterVec,
 };
 use once_cell::sync::Lazy;
+
+pub static APTOS_SCHEMADB_SEEK_LATENCY_SECONDS: Lazy<HistogramVec> = Lazy::new(|| {
+    register_histogram_vec!(
+        // metric name
+        "aptos_schemadb_seek_latency_seconds",
+        // metric description
+        "Aptos schemadb seek latency in seconds",
+        // metric labels (dimensions)
+        &["cf_name", "tag"],
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 22).unwrap(),
+    )
+    .unwrap()
+});
 
 pub static APTOS_SCHEMADB_ITER_LATENCY_SECONDS: Lazy<HistogramVec> = Lazy::new(|| {
     register_histogram_vec!(

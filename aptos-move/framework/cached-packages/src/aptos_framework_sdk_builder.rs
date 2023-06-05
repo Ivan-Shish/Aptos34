@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 // This file was generated. Do not modify!
@@ -12,6 +12,7 @@
 
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(clippy::too_many_arguments)]
 use aptos_types::{
     account_address::AccountAddress,
     transaction::{EntryFunction, TransactionPayload},
@@ -97,25 +98,25 @@ pub enum EntryFunctionCall {
     /// demonstrating that the user intends to and has the capability to rotate the authentication key of this account;
     /// - the second signature `cap_update_table` refers to the signature by the new key (that the account owner wants to rotate to) on a
     /// valid `RotationProofChallenge`, demonstrating that the user owns the new private key, and has the authority to update the
-    /// `OriginatingAddress` map with the new address mapping <new_address, originating_address>.
+    /// `OriginatingAddress` map with the new address mapping `<new_address, originating_address>`.
     /// To verify these two signatures, we need their corresponding public key and public key scheme: we use `from_scheme` and `from_public_key_bytes`
     /// to verify `cap_rotate_key`, and `to_scheme` and `to_public_key_bytes` to verify `cap_update_table`.
     /// A scheme of 0 refers to an Ed25519 key and a scheme of 1 refers to Multi-Ed25519 keys.
     /// `originating address` refers to an account's original/first address.
     ///
     /// Here is an example attack if we don't ask for the second signature `cap_update_table`:
-    /// Alice has rotated her account addr_a to new_addr_a. As a result, the following entry is created, to help Alice when recovering her wallet:
-    /// OriginatingAddress[new_addr_a] -> addr_a
+    /// Alice has rotated her account `addr_a` to `new_addr_a`. As a result, the following entry is created, to help Alice when recovering her wallet:
+    /// `OriginatingAddress[new_addr_a]` -> `addr_a`
     /// Alice has had bad day: her laptop blew up and she needs to reset her account on a new one.
-    /// (Fortunately, she still has her secret key new_sk_a associated with her new address new_addr_a, so she can do this.)
+    /// (Fortunately, she still has her secret key `new_sk_a` associated with her new address `new_addr_a`, so she can do this.)
     ///
     /// But Bob likes to mess with Alice.
-    /// Bob creates an account addr_b and maliciously rotates it to Alice's new address new_addr_a. Since we are no longer checking a PoK,
+    /// Bob creates an account `addr_b` and maliciously rotates it to Alice's new address `new_addr_a`. Since we are no longer checking a PoK,
     /// Bob can easily do this.
     ///
-    /// Now, the table will be updated to make Alice's new address point to Bob's address: OriginatingAddress[new_addr_a] -> addr_b.
-    /// When Alice recovers her account, her wallet will display the attacker's address (Bob's) addr_b as her address.
-    /// Now Alice will give addr_b to everyone to pay her, but the money will go to Bob.
+    /// Now, the table will be updated to make Alice's new address point to Bob's address: `OriginatingAddress[new_addr_a]` -> `addr_b`.
+    /// When Alice recovers her account, her wallet will display the attacker's address (Bob's) `addr_b` as her address.
+    /// Now Alice will give `addr_b` to everyone to pay her, but the money will go to Bob.
     ///
     /// Because we ask for a valid `cap_update_table`, this kind of attack is not possible. Bob would not have the secret key of Alice's address
     /// to rotate his address to Alice's address in the first place.
@@ -242,6 +243,56 @@ pub enum EntryFunctionCall {
         coin_type: TypeTag,
     },
 
+    /// Add `amount` of coins to the delegation pool `pool_address`.
+    DelegationPoolAddStake {
+        pool_address: AccountAddress,
+        amount: u64,
+    },
+
+    /// Initialize a delegation pool of custom fixed `operator_commission_percentage`.
+    /// A resource account is created from `owner` signer and its supplied `delegation_pool_creation_seed`
+    /// to host the delegation pool resource and own the underlying stake pool.
+    /// Ownership over setting the operator/voter is granted to `owner` who has both roles initially.
+    DelegationPoolInitializeDelegationPool {
+        operator_commission_percentage: u64,
+        delegation_pool_creation_seed: Vec<u8>,
+    },
+
+    /// Move `amount` of coins from pending_inactive to active.
+    DelegationPoolReactivateStake {
+        pool_address: AccountAddress,
+        amount: u64,
+    },
+
+    /// Allows an owner to change the delegated voter of the underlying stake pool.
+    DelegationPoolSetDelegatedVoter {
+        new_voter: AccountAddress,
+    },
+
+    /// Allows an owner to change the operator of the underlying stake pool.
+    DelegationPoolSetOperator {
+        new_operator: AccountAddress,
+    },
+
+    /// Synchronize delegation and stake pools: distribute yet-undetected rewards to the corresponding internal
+    /// shares pools, assign commission to operator and eventually prepare delegation pool for a new lockup cycle.
+    DelegationPoolSynchronizeDelegationPool {
+        pool_address: AccountAddress,
+    },
+
+    /// Unlock `amount` from the active + pending_active stake of `delegator` or
+    /// at most how much active stake there is on the stake pool.
+    DelegationPoolUnlock {
+        pool_address: AccountAddress,
+        amount: u64,
+    },
+
+    /// Withdraw `amount` of owned inactive stake from the delegation pool at `pool_address`.
+    DelegationPoolWithdraw {
+        pool_address: AccountAddress,
+        amount: u64,
+    },
+
     /// Withdraw an `amount` of coin `CoinType` from `account` and burn it.
     ManagedCoinBurn {
         coin_type: TypeTag,
@@ -271,6 +322,151 @@ pub enum EntryFunctionCall {
         coin_type: TypeTag,
     },
 
+    /// Similar to add_owners, but only allow adding one owner.
+    MultisigAccountAddOwner {
+        new_owner: AccountAddress,
+    },
+
+    /// Add new owners to the multisig account. This can only be invoked by the multisig account itself, through the
+    /// proposal flow.
+    ///
+    /// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+    /// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+    /// maliciously alter the owners list.
+    MultisigAccountAddOwners {
+        new_owners: Vec<AccountAddress>,
+    },
+
+    /// Add owners then update number of signatures required, in a single operation.
+    MultisigAccountAddOwnersAndUpdateSignaturesRequired {
+        new_owners: Vec<AccountAddress>,
+        new_num_signatures_required: u64,
+    },
+
+    /// Approve a multisig transaction.
+    MultisigAccountApproveTransaction {
+        multisig_account: AccountAddress,
+        sequence_number: u64,
+    },
+
+    /// Creates a new multisig account and add the signer as a single owner.
+    MultisigAccountCreate {
+        num_signatures_required: u64,
+        metadata_keys: Vec<Vec<u8>>,
+        metadata_values: Vec<Vec<u8>>,
+    },
+
+    /// Create a multisig transaction, which will have one approval initially (from the creator).
+    MultisigAccountCreateTransaction {
+        multisig_account: AccountAddress,
+        payload: Vec<u8>,
+    },
+
+    /// Create a multisig transaction with a transaction hash instead of the full payload.
+    /// This means the payload will be stored off chain for gas saving. Later, during execution, the executor will need
+    /// to provide the full payload, which will be validated against the hash stored on-chain.
+    MultisigAccountCreateTransactionWithHash {
+        multisig_account: AccountAddress,
+        payload_hash: Vec<u8>,
+    },
+
+    /// Creates a new multisig account on top of an existing account.
+    ///
+    /// This offers a migration path for an existing account with a multi-ed25519 auth key (native multisig account).
+    /// In order to ensure a malicious module cannot obtain backdoor control over an existing account, a signed message
+    /// with a valid signature from the account's auth key is required.
+    MultisigAccountCreateWithExistingAccount {
+        multisig_address: AccountAddress,
+        owners: Vec<AccountAddress>,
+        num_signatures_required: u64,
+        account_scheme: u8,
+        account_public_key: Vec<u8>,
+        create_multisig_account_signed_message: Vec<u8>,
+        metadata_keys: Vec<Vec<u8>>,
+        metadata_values: Vec<Vec<u8>>,
+    },
+
+    /// Creates a new multisig account with the specified additional owner list and signatures required.
+    ///
+    /// @param additional_owners The owner account who calls this function cannot be in the additional_owners and there
+    /// cannot be any duplicate owners in the list.
+    /// @param num_signatures_required The number of signatures required to execute a transaction. Must be at least 1 and
+    /// at most the total number of owners.
+    MultisigAccountCreateWithOwners {
+        additional_owners: Vec<AccountAddress>,
+        num_signatures_required: u64,
+        metadata_keys: Vec<Vec<u8>>,
+        metadata_values: Vec<Vec<u8>>,
+    },
+
+    /// Remove the next transaction if it has sufficient owner rejections.
+    MultisigAccountExecuteRejectedTransaction {
+        multisig_account: AccountAddress,
+    },
+
+    /// Reject a multisig transaction.
+    MultisigAccountRejectTransaction {
+        multisig_account: AccountAddress,
+        sequence_number: u64,
+    },
+
+    /// Similar to remove_owners, but only allow removing one owner.
+    MultisigAccountRemoveOwner {
+        owner_to_remove: AccountAddress,
+    },
+
+    /// Remove owners from the multisig account. This can only be invoked by the multisig account itself, through the
+    /// proposal flow.
+    ///
+    /// This function skips any owners who are not in the multisig account's list of owners.
+    /// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+    /// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+    /// maliciously alter the owners list.
+    MultisigAccountRemoveOwners {
+        owners_to_remove: Vec<AccountAddress>,
+    },
+
+    /// Update the number of signatures required then remove owners, in a single operation.
+    MultisigAccountRemoveOwnersAndUpdateSignaturesRequired {
+        owners_to_remove: Vec<AccountAddress>,
+        new_num_signatures_required: u64,
+    },
+
+    /// Allow the multisig account to update its own metadata. Note that this overrides the entire existing metadata.
+    /// If any attributes are not specified in the metadata, they will be removed!
+    ///
+    /// This can only be invoked by the multisig account itself, through the proposal flow.
+    /// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+    /// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+    /// maliciously alter the number of signatures required.
+    MultisigAccountUpdateMetadata {
+        keys: Vec<Vec<u8>>,
+        values: Vec<Vec<u8>>,
+    },
+
+    /// Update the number of signatures required to execute transaction in the specified multisig account.
+    ///
+    /// This can only be invoked by the multisig account itself, through the proposal flow.
+    /// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+    /// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+    /// maliciously alter the number of signatures required.
+    MultisigAccountUpdateSignaturesRequired {
+        new_num_signatures_required: u64,
+    },
+
+    /// Generic function that can be used to either approve or reject a multisig transaction
+    MultisigAccountVoteTransanction {
+        multisig_account: AccountAddress,
+        sequence_number: u64,
+        approved: bool,
+    },
+
+    /// Entry function that can be used to transfer, if allow_ungated_transfer is set true.
+    ObjectTransferCall {
+        object: AccountAddress,
+        to: AccountAddress,
+    },
+
     /// Creates a new resource account and rotates the authentication key to either
     /// the optional auth key if it is non-empty (though auth keys are 32-bytes)
     /// or the source accounts current auth key.
@@ -283,7 +479,7 @@ pub enum EntryFunctionCall {
     /// account, and rotates the authentication key to either the optional auth key if it is
     /// non-empty (though auth keys are 32-bytes) or the source accounts current auth key. Note,
     /// this function adds additional resource ownership to the resource account and should only be
-    /// used for resource accounts that need access to Coin<AptosCoin>.
+    /// used for resource accounts that need access to `Coin<AptosCoin>`.
     ResourceAccountCreateResourceAccountAndFund {
         seed: Vec<u8>,
         optional_auth_key: Vec<u8>,
@@ -437,6 +633,13 @@ pub enum EntryFunctionCall {
     StakingContractUnlockStake {
         operator: AccountAddress,
         amount: u64,
+    },
+
+    /// Convenience function to allow a staker to update the commission percentage paid to the operator.
+    /// TODO: fix the typo in function name. commision -> commission
+    StakingContractUpdateCommision {
+        operator: AccountAddress,
+        new_commission_percentage: u64,
     },
 
     /// Convenient function to allow the staker to update the voter address in a staking contract they made.
@@ -700,6 +903,38 @@ impl EntryFunctionCall {
                 amount,
             } => coin_transfer(coin_type, to, amount),
             CoinUpgradeSupply { coin_type } => coin_upgrade_supply(coin_type),
+            DelegationPoolAddStake {
+                pool_address,
+                amount,
+            } => delegation_pool_add_stake(pool_address, amount),
+            DelegationPoolInitializeDelegationPool {
+                operator_commission_percentage,
+                delegation_pool_creation_seed,
+            } => delegation_pool_initialize_delegation_pool(
+                operator_commission_percentage,
+                delegation_pool_creation_seed,
+            ),
+            DelegationPoolReactivateStake {
+                pool_address,
+                amount,
+            } => delegation_pool_reactivate_stake(pool_address, amount),
+            DelegationPoolSetDelegatedVoter { new_voter } => {
+                delegation_pool_set_delegated_voter(new_voter)
+            },
+            DelegationPoolSetOperator { new_operator } => {
+                delegation_pool_set_operator(new_operator)
+            },
+            DelegationPoolSynchronizeDelegationPool { pool_address } => {
+                delegation_pool_synchronize_delegation_pool(pool_address)
+            },
+            DelegationPoolUnlock {
+                pool_address,
+                amount,
+            } => delegation_pool_unlock(pool_address, amount),
+            DelegationPoolWithdraw {
+                pool_address,
+                amount,
+            } => delegation_pool_withdraw(pool_address, amount),
             ManagedCoinBurn { coin_type, amount } => managed_coin_burn(coin_type, amount),
             ManagedCoinInitialize {
                 coin_type,
@@ -714,6 +949,94 @@ impl EntryFunctionCall {
                 amount,
             } => managed_coin_mint(coin_type, dst_addr, amount),
             ManagedCoinRegister { coin_type } => managed_coin_register(coin_type),
+            MultisigAccountAddOwner { new_owner } => multisig_account_add_owner(new_owner),
+            MultisigAccountAddOwners { new_owners } => multisig_account_add_owners(new_owners),
+            MultisigAccountAddOwnersAndUpdateSignaturesRequired {
+                new_owners,
+                new_num_signatures_required,
+            } => multisig_account_add_owners_and_update_signatures_required(
+                new_owners,
+                new_num_signatures_required,
+            ),
+            MultisigAccountApproveTransaction {
+                multisig_account,
+                sequence_number,
+            } => multisig_account_approve_transaction(multisig_account, sequence_number),
+            MultisigAccountCreate {
+                num_signatures_required,
+                metadata_keys,
+                metadata_values,
+            } => multisig_account_create(num_signatures_required, metadata_keys, metadata_values),
+            MultisigAccountCreateTransaction {
+                multisig_account,
+                payload,
+            } => multisig_account_create_transaction(multisig_account, payload),
+            MultisigAccountCreateTransactionWithHash {
+                multisig_account,
+                payload_hash,
+            } => multisig_account_create_transaction_with_hash(multisig_account, payload_hash),
+            MultisigAccountCreateWithExistingAccount {
+                multisig_address,
+                owners,
+                num_signatures_required,
+                account_scheme,
+                account_public_key,
+                create_multisig_account_signed_message,
+                metadata_keys,
+                metadata_values,
+            } => multisig_account_create_with_existing_account(
+                multisig_address,
+                owners,
+                num_signatures_required,
+                account_scheme,
+                account_public_key,
+                create_multisig_account_signed_message,
+                metadata_keys,
+                metadata_values,
+            ),
+            MultisigAccountCreateWithOwners {
+                additional_owners,
+                num_signatures_required,
+                metadata_keys,
+                metadata_values,
+            } => multisig_account_create_with_owners(
+                additional_owners,
+                num_signatures_required,
+                metadata_keys,
+                metadata_values,
+            ),
+            MultisigAccountExecuteRejectedTransaction { multisig_account } => {
+                multisig_account_execute_rejected_transaction(multisig_account)
+            },
+            MultisigAccountRejectTransaction {
+                multisig_account,
+                sequence_number,
+            } => multisig_account_reject_transaction(multisig_account, sequence_number),
+            MultisigAccountRemoveOwner { owner_to_remove } => {
+                multisig_account_remove_owner(owner_to_remove)
+            },
+            MultisigAccountRemoveOwners { owners_to_remove } => {
+                multisig_account_remove_owners(owners_to_remove)
+            },
+            MultisigAccountRemoveOwnersAndUpdateSignaturesRequired {
+                owners_to_remove,
+                new_num_signatures_required,
+            } => multisig_account_remove_owners_and_update_signatures_required(
+                owners_to_remove,
+                new_num_signatures_required,
+            ),
+            MultisigAccountUpdateMetadata { keys, values } => {
+                multisig_account_update_metadata(keys, values)
+            },
+            MultisigAccountUpdateSignaturesRequired {
+                new_num_signatures_required,
+            } => multisig_account_update_signatures_required(new_num_signatures_required),
+            MultisigAccountVoteTransanction {
+                multisig_account,
+                sequence_number,
+                approved,
+            } => multisig_account_vote_transanction(multisig_account, sequence_number, approved),
+            ObjectTransferCall { object, to } => object_transfer_call(object, to),
             ResourceAccountCreateResourceAccount {
                 seed,
                 optional_auth_key,
@@ -817,6 +1140,10 @@ impl EntryFunctionCall {
             StakingContractUnlockStake { operator, amount } => {
                 staking_contract_unlock_stake(operator, amount)
             },
+            StakingContractUpdateCommision {
+                operator,
+                new_commission_percentage,
+            } => staking_contract_update_commision(operator, new_commission_percentage),
             StakingContractUpdateVoter {
                 operator,
                 new_voter,
@@ -1069,25 +1396,25 @@ pub fn account_revoke_signer_capability(
 /// demonstrating that the user intends to and has the capability to rotate the authentication key of this account;
 /// - the second signature `cap_update_table` refers to the signature by the new key (that the account owner wants to rotate to) on a
 /// valid `RotationProofChallenge`, demonstrating that the user owns the new private key, and has the authority to update the
-/// `OriginatingAddress` map with the new address mapping <new_address, originating_address>.
+/// `OriginatingAddress` map with the new address mapping `<new_address, originating_address>`.
 /// To verify these two signatures, we need their corresponding public key and public key scheme: we use `from_scheme` and `from_public_key_bytes`
 /// to verify `cap_rotate_key`, and `to_scheme` and `to_public_key_bytes` to verify `cap_update_table`.
 /// A scheme of 0 refers to an Ed25519 key and a scheme of 1 refers to Multi-Ed25519 keys.
 /// `originating address` refers to an account's original/first address.
 ///
 /// Here is an example attack if we don't ask for the second signature `cap_update_table`:
-/// Alice has rotated her account addr_a to new_addr_a. As a result, the following entry is created, to help Alice when recovering her wallet:
-/// OriginatingAddress[new_addr_a] -> addr_a
+/// Alice has rotated her account `addr_a` to `new_addr_a`. As a result, the following entry is created, to help Alice when recovering her wallet:
+/// `OriginatingAddress[new_addr_a]` -> `addr_a`
 /// Alice has had bad day: her laptop blew up and she needs to reset her account on a new one.
-/// (Fortunately, she still has her secret key new_sk_a associated with her new address new_addr_a, so she can do this.)
+/// (Fortunately, she still has her secret key `new_sk_a` associated with her new address `new_addr_a`, so she can do this.)
 ///
 /// But Bob likes to mess with Alice.
-/// Bob creates an account addr_b and maliciously rotates it to Alice's new address new_addr_a. Since we are no longer checking a PoK,
+/// Bob creates an account `addr_b` and maliciously rotates it to Alice's new address `new_addr_a`. Since we are no longer checking a PoK,
 /// Bob can easily do this.
 ///
-/// Now, the table will be updated to make Alice's new address point to Bob's address: OriginatingAddress[new_addr_a] -> addr_b.
-/// When Alice recovers her account, her wallet will display the attacker's address (Bob's) addr_b as her address.
-/// Now Alice will give addr_b to everyone to pay her, but the money will go to Bob.
+/// Now, the table will be updated to make Alice's new address point to Bob's address: `OriginatingAddress[new_addr_a]` -> `addr_b`.
+/// When Alice recovers her account, her wallet will display the attacker's address (Bob's) `addr_b` as her address.
+/// Now Alice will give `addr_b` to everyone to pay her, but the money will go to Bob.
 ///
 /// Because we ask for a valid `cap_update_table`, this kind of attack is not possible. Bob would not have the secret key of Alice's address
 /// to rotate his address to Alice's address in the first place.
@@ -1467,6 +1794,162 @@ pub fn coin_upgrade_supply(coin_type: TypeTag) -> TransactionPayload {
     ))
 }
 
+/// Add `amount` of coins to the delegation pool `pool_address`.
+pub fn delegation_pool_add_stake(pool_address: AccountAddress, amount: u64) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("add_stake").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&pool_address).unwrap(),
+            bcs::to_bytes(&amount).unwrap(),
+        ],
+    ))
+}
+
+/// Initialize a delegation pool of custom fixed `operator_commission_percentage`.
+/// A resource account is created from `owner` signer and its supplied `delegation_pool_creation_seed`
+/// to host the delegation pool resource and own the underlying stake pool.
+/// Ownership over setting the operator/voter is granted to `owner` who has both roles initially.
+pub fn delegation_pool_initialize_delegation_pool(
+    operator_commission_percentage: u64,
+    delegation_pool_creation_seed: Vec<u8>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("initialize_delegation_pool").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&operator_commission_percentage).unwrap(),
+            bcs::to_bytes(&delegation_pool_creation_seed).unwrap(),
+        ],
+    ))
+}
+
+/// Move `amount` of coins from pending_inactive to active.
+pub fn delegation_pool_reactivate_stake(
+    pool_address: AccountAddress,
+    amount: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("reactivate_stake").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&pool_address).unwrap(),
+            bcs::to_bytes(&amount).unwrap(),
+        ],
+    ))
+}
+
+/// Allows an owner to change the delegated voter of the underlying stake pool.
+pub fn delegation_pool_set_delegated_voter(new_voter: AccountAddress) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("set_delegated_voter").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&new_voter).unwrap()],
+    ))
+}
+
+/// Allows an owner to change the operator of the underlying stake pool.
+pub fn delegation_pool_set_operator(new_operator: AccountAddress) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("set_operator").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&new_operator).unwrap()],
+    ))
+}
+
+/// Synchronize delegation and stake pools: distribute yet-undetected rewards to the corresponding internal
+/// shares pools, assign commission to operator and eventually prepare delegation pool for a new lockup cycle.
+pub fn delegation_pool_synchronize_delegation_pool(
+    pool_address: AccountAddress,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("synchronize_delegation_pool").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&pool_address).unwrap()],
+    ))
+}
+
+/// Unlock `amount` from the active + pending_active stake of `delegator` or
+/// at most how much active stake there is on the stake pool.
+pub fn delegation_pool_unlock(pool_address: AccountAddress, amount: u64) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("unlock").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&pool_address).unwrap(),
+            bcs::to_bytes(&amount).unwrap(),
+        ],
+    ))
+}
+
+/// Withdraw `amount` of owned inactive stake from the delegation pool at `pool_address`.
+pub fn delegation_pool_withdraw(pool_address: AccountAddress, amount: u64) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("delegation_pool").to_owned(),
+        ),
+        ident_str!("withdraw").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&pool_address).unwrap(),
+            bcs::to_bytes(&amount).unwrap(),
+        ],
+    ))
+}
+
 /// Withdraw an `amount` of coin `CoinType` from `account` and burn it.
 pub fn managed_coin_burn(coin_type: TypeTag, amount: u64) -> TransactionPayload {
     TransactionPayload::EntryFunction(EntryFunction::new(
@@ -1551,6 +2034,417 @@ pub fn managed_coin_register(coin_type: TypeTag) -> TransactionPayload {
     ))
 }
 
+/// Similar to add_owners, but only allow adding one owner.
+pub fn multisig_account_add_owner(new_owner: AccountAddress) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("add_owner").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&new_owner).unwrap()],
+    ))
+}
+
+/// Add new owners to the multisig account. This can only be invoked by the multisig account itself, through the
+/// proposal flow.
+///
+/// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+/// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+/// maliciously alter the owners list.
+pub fn multisig_account_add_owners(new_owners: Vec<AccountAddress>) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("add_owners").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&new_owners).unwrap()],
+    ))
+}
+
+/// Add owners then update number of signatures required, in a single operation.
+pub fn multisig_account_add_owners_and_update_signatures_required(
+    new_owners: Vec<AccountAddress>,
+    new_num_signatures_required: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("add_owners_and_update_signatures_required").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&new_owners).unwrap(),
+            bcs::to_bytes(&new_num_signatures_required).unwrap(),
+        ],
+    ))
+}
+
+/// Approve a multisig transaction.
+pub fn multisig_account_approve_transaction(
+    multisig_account: AccountAddress,
+    sequence_number: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("approve_transaction").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&multisig_account).unwrap(),
+            bcs::to_bytes(&sequence_number).unwrap(),
+        ],
+    ))
+}
+
+/// Creates a new multisig account and add the signer as a single owner.
+pub fn multisig_account_create(
+    num_signatures_required: u64,
+    metadata_keys: Vec<Vec<u8>>,
+    metadata_values: Vec<Vec<u8>>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("create").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&num_signatures_required).unwrap(),
+            bcs::to_bytes(&metadata_keys).unwrap(),
+            bcs::to_bytes(&metadata_values).unwrap(),
+        ],
+    ))
+}
+
+/// Create a multisig transaction, which will have one approval initially (from the creator).
+pub fn multisig_account_create_transaction(
+    multisig_account: AccountAddress,
+    payload: Vec<u8>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("create_transaction").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&multisig_account).unwrap(),
+            bcs::to_bytes(&payload).unwrap(),
+        ],
+    ))
+}
+
+/// Create a multisig transaction with a transaction hash instead of the full payload.
+/// This means the payload will be stored off chain for gas saving. Later, during execution, the executor will need
+/// to provide the full payload, which will be validated against the hash stored on-chain.
+pub fn multisig_account_create_transaction_with_hash(
+    multisig_account: AccountAddress,
+    payload_hash: Vec<u8>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("create_transaction_with_hash").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&multisig_account).unwrap(),
+            bcs::to_bytes(&payload_hash).unwrap(),
+        ],
+    ))
+}
+
+/// Creates a new multisig account on top of an existing account.
+///
+/// This offers a migration path for an existing account with a multi-ed25519 auth key (native multisig account).
+/// In order to ensure a malicious module cannot obtain backdoor control over an existing account, a signed message
+/// with a valid signature from the account's auth key is required.
+pub fn multisig_account_create_with_existing_account(
+    multisig_address: AccountAddress,
+    owners: Vec<AccountAddress>,
+    num_signatures_required: u64,
+    account_scheme: u8,
+    account_public_key: Vec<u8>,
+    create_multisig_account_signed_message: Vec<u8>,
+    metadata_keys: Vec<Vec<u8>>,
+    metadata_values: Vec<Vec<u8>>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("create_with_existing_account").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&multisig_address).unwrap(),
+            bcs::to_bytes(&owners).unwrap(),
+            bcs::to_bytes(&num_signatures_required).unwrap(),
+            bcs::to_bytes(&account_scheme).unwrap(),
+            bcs::to_bytes(&account_public_key).unwrap(),
+            bcs::to_bytes(&create_multisig_account_signed_message).unwrap(),
+            bcs::to_bytes(&metadata_keys).unwrap(),
+            bcs::to_bytes(&metadata_values).unwrap(),
+        ],
+    ))
+}
+
+/// Creates a new multisig account with the specified additional owner list and signatures required.
+///
+/// @param additional_owners The owner account who calls this function cannot be in the additional_owners and there
+/// cannot be any duplicate owners in the list.
+/// @param num_signatures_required The number of signatures required to execute a transaction. Must be at least 1 and
+/// at most the total number of owners.
+pub fn multisig_account_create_with_owners(
+    additional_owners: Vec<AccountAddress>,
+    num_signatures_required: u64,
+    metadata_keys: Vec<Vec<u8>>,
+    metadata_values: Vec<Vec<u8>>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("create_with_owners").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&additional_owners).unwrap(),
+            bcs::to_bytes(&num_signatures_required).unwrap(),
+            bcs::to_bytes(&metadata_keys).unwrap(),
+            bcs::to_bytes(&metadata_values).unwrap(),
+        ],
+    ))
+}
+
+/// Remove the next transaction if it has sufficient owner rejections.
+pub fn multisig_account_execute_rejected_transaction(
+    multisig_account: AccountAddress,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("execute_rejected_transaction").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&multisig_account).unwrap()],
+    ))
+}
+
+/// Reject a multisig transaction.
+pub fn multisig_account_reject_transaction(
+    multisig_account: AccountAddress,
+    sequence_number: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("reject_transaction").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&multisig_account).unwrap(),
+            bcs::to_bytes(&sequence_number).unwrap(),
+        ],
+    ))
+}
+
+/// Similar to remove_owners, but only allow removing one owner.
+pub fn multisig_account_remove_owner(owner_to_remove: AccountAddress) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("remove_owner").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&owner_to_remove).unwrap()],
+    ))
+}
+
+/// Remove owners from the multisig account. This can only be invoked by the multisig account itself, through the
+/// proposal flow.
+///
+/// This function skips any owners who are not in the multisig account's list of owners.
+/// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+/// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+/// maliciously alter the owners list.
+pub fn multisig_account_remove_owners(owners_to_remove: Vec<AccountAddress>) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("remove_owners").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&owners_to_remove).unwrap()],
+    ))
+}
+
+/// Update the number of signatures required then remove owners, in a single operation.
+pub fn multisig_account_remove_owners_and_update_signatures_required(
+    owners_to_remove: Vec<AccountAddress>,
+    new_num_signatures_required: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("remove_owners_and_update_signatures_required").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&owners_to_remove).unwrap(),
+            bcs::to_bytes(&new_num_signatures_required).unwrap(),
+        ],
+    ))
+}
+
+/// Allow the multisig account to update its own metadata. Note that this overrides the entire existing metadata.
+/// If any attributes are not specified in the metadata, they will be removed!
+///
+/// This can only be invoked by the multisig account itself, through the proposal flow.
+/// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+/// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+/// maliciously alter the number of signatures required.
+pub fn multisig_account_update_metadata(
+    keys: Vec<Vec<u8>>,
+    values: Vec<Vec<u8>>,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("update_metadata").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&keys).unwrap(),
+            bcs::to_bytes(&values).unwrap(),
+        ],
+    ))
+}
+
+/// Update the number of signatures required to execute transaction in the specified multisig account.
+///
+/// This can only be invoked by the multisig account itself, through the proposal flow.
+/// Note that this function is not public so it can only be invoked directly instead of via a module or script. This
+/// ensures that a multisig transaction cannot lead to another module obtaining the multisig signer and using it to
+/// maliciously alter the number of signatures required.
+pub fn multisig_account_update_signatures_required(
+    new_num_signatures_required: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("update_signatures_required").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&new_num_signatures_required).unwrap()],
+    ))
+}
+
+/// Generic function that can be used to either approve or reject a multisig transaction
+pub fn multisig_account_vote_transanction(
+    multisig_account: AccountAddress,
+    sequence_number: u64,
+    approved: bool,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("multisig_account").to_owned(),
+        ),
+        ident_str!("vote_transanction").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&multisig_account).unwrap(),
+            bcs::to_bytes(&sequence_number).unwrap(),
+            bcs::to_bytes(&approved).unwrap(),
+        ],
+    ))
+}
+
+/// Entry function that can be used to transfer, if allow_ungated_transfer is set true.
+pub fn object_transfer_call(object: AccountAddress, to: AccountAddress) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("object").to_owned(),
+        ),
+        ident_str!("transfer_call").to_owned(),
+        vec![],
+        vec![bcs::to_bytes(&object).unwrap(), bcs::to_bytes(&to).unwrap()],
+    ))
+}
+
 /// Creates a new resource account and rotates the authentication key to either
 /// the optional auth key if it is non-empty (though auth keys are 32-bytes)
 /// or the source accounts current auth key.
@@ -1579,7 +2473,7 @@ pub fn resource_account_create_resource_account(
 /// account, and rotates the authentication key to either the optional auth key if it is
 /// non-empty (though auth keys are 32-bytes) or the source accounts current auth key. Note,
 /// this function adds additional resource ownership to the resource account and should only be
-/// used for resource accounts that need access to Coin<AptosCoin>.
+/// used for resource accounts that need access to `Coin<AptosCoin>`.
 pub fn resource_account_create_resource_account_and_fund(
     seed: Vec<u8>,
     optional_auth_key: Vec<u8>,
@@ -2067,6 +2961,29 @@ pub fn staking_contract_unlock_stake(operator: AccountAddress, amount: u64) -> T
         vec![
             bcs::to_bytes(&operator).unwrap(),
             bcs::to_bytes(&amount).unwrap(),
+        ],
+    ))
+}
+
+/// Convenience function to allow a staker to update the commission percentage paid to the operator.
+/// TODO: fix the typo in function name. commision -> commission
+pub fn staking_contract_update_commision(
+    operator: AccountAddress,
+    new_commission_percentage: u64,
+) -> TransactionPayload {
+    TransactionPayload::EntryFunction(EntryFunction::new(
+        ModuleId::new(
+            AccountAddress::new([
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1,
+            ]),
+            ident_str!("staking_contract").to_owned(),
+        ),
+        ident_str!("update_commision").to_owned(),
+        vec![],
+        vec![
+            bcs::to_bytes(&operator).unwrap(),
+            bcs::to_bytes(&new_commission_percentage).unwrap(),
         ],
     ))
 }
@@ -2867,6 +3784,99 @@ mod decoder {
         }
     }
 
+    pub fn delegation_pool_add_stake(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolAddStake {
+                pool_address: bcs::from_bytes(script.args().get(0)?).ok()?,
+                amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_initialize_delegation_pool(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolInitializeDelegationPool {
+                operator_commission_percentage: bcs::from_bytes(script.args().get(0)?).ok()?,
+                delegation_pool_creation_seed: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_reactivate_stake(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolReactivateStake {
+                pool_address: bcs::from_bytes(script.args().get(0)?).ok()?,
+                amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_set_delegated_voter(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolSetDelegatedVoter {
+                new_voter: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_set_operator(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolSetOperator {
+                new_operator: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_synchronize_delegation_pool(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolSynchronizeDelegationPool {
+                pool_address: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_unlock(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolUnlock {
+                pool_address: bcs::from_bytes(script.args().get(0)?).ok()?,
+                amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn delegation_pool_withdraw(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::DelegationPoolWithdraw {
+                pool_address: bcs::from_bytes(script.args().get(0)?).ok()?,
+                amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn managed_coin_burn(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::ManagedCoinBurn {
@@ -2908,6 +3918,247 @@ mod decoder {
         if let TransactionPayload::EntryFunction(script) = payload {
             Some(EntryFunctionCall::ManagedCoinRegister {
                 coin_type: script.ty_args().get(0)?.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_add_owner(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountAddOwner {
+                new_owner: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_add_owners(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountAddOwners {
+                new_owners: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_add_owners_and_update_signatures_required(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(
+                EntryFunctionCall::MultisigAccountAddOwnersAndUpdateSignaturesRequired {
+                    new_owners: bcs::from_bytes(script.args().get(0)?).ok()?,
+                    new_num_signatures_required: bcs::from_bytes(script.args().get(1)?).ok()?,
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_approve_transaction(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountApproveTransaction {
+                multisig_account: bcs::from_bytes(script.args().get(0)?).ok()?,
+                sequence_number: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_create(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountCreate {
+                num_signatures_required: bcs::from_bytes(script.args().get(0)?).ok()?,
+                metadata_keys: bcs::from_bytes(script.args().get(1)?).ok()?,
+                metadata_values: bcs::from_bytes(script.args().get(2)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_create_transaction(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountCreateTransaction {
+                multisig_account: bcs::from_bytes(script.args().get(0)?).ok()?,
+                payload: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_create_transaction_with_hash(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(
+                EntryFunctionCall::MultisigAccountCreateTransactionWithHash {
+                    multisig_account: bcs::from_bytes(script.args().get(0)?).ok()?,
+                    payload_hash: bcs::from_bytes(script.args().get(1)?).ok()?,
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_create_with_existing_account(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(
+                EntryFunctionCall::MultisigAccountCreateWithExistingAccount {
+                    multisig_address: bcs::from_bytes(script.args().get(0)?).ok()?,
+                    owners: bcs::from_bytes(script.args().get(1)?).ok()?,
+                    num_signatures_required: bcs::from_bytes(script.args().get(2)?).ok()?,
+                    account_scheme: bcs::from_bytes(script.args().get(3)?).ok()?,
+                    account_public_key: bcs::from_bytes(script.args().get(4)?).ok()?,
+                    create_multisig_account_signed_message: bcs::from_bytes(script.args().get(5)?)
+                        .ok()?,
+                    metadata_keys: bcs::from_bytes(script.args().get(6)?).ok()?,
+                    metadata_values: bcs::from_bytes(script.args().get(7)?).ok()?,
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_create_with_owners(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountCreateWithOwners {
+                additional_owners: bcs::from_bytes(script.args().get(0)?).ok()?,
+                num_signatures_required: bcs::from_bytes(script.args().get(1)?).ok()?,
+                metadata_keys: bcs::from_bytes(script.args().get(2)?).ok()?,
+                metadata_values: bcs::from_bytes(script.args().get(3)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_execute_rejected_transaction(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(
+                EntryFunctionCall::MultisigAccountExecuteRejectedTransaction {
+                    multisig_account: bcs::from_bytes(script.args().get(0)?).ok()?,
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_reject_transaction(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountRejectTransaction {
+                multisig_account: bcs::from_bytes(script.args().get(0)?).ok()?,
+                sequence_number: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_remove_owner(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountRemoveOwner {
+                owner_to_remove: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_remove_owners(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountRemoveOwners {
+                owners_to_remove: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_remove_owners_and_update_signatures_required(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(
+                EntryFunctionCall::MultisigAccountRemoveOwnersAndUpdateSignaturesRequired {
+                    owners_to_remove: bcs::from_bytes(script.args().get(0)?).ok()?,
+                    new_num_signatures_required: bcs::from_bytes(script.args().get(1)?).ok()?,
+                },
+            )
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_update_metadata(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountUpdateMetadata {
+                keys: bcs::from_bytes(script.args().get(0)?).ok()?,
+                values: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_update_signatures_required(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountUpdateSignaturesRequired {
+                new_num_signatures_required: bcs::from_bytes(script.args().get(0)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn multisig_account_vote_transanction(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::MultisigAccountVoteTransanction {
+                multisig_account: bcs::from_bytes(script.args().get(0)?).ok()?,
+                sequence_number: bcs::from_bytes(script.args().get(1)?).ok()?,
+                approved: bcs::from_bytes(script.args().get(2)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn object_transfer_call(payload: &TransactionPayload) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::ObjectTransferCall {
+                object: bcs::from_bytes(script.args().get(0)?).ok()?,
+                to: bcs::from_bytes(script.args().get(1)?).ok()?,
             })
         } else {
             None
@@ -3209,6 +4460,19 @@ mod decoder {
             Some(EntryFunctionCall::StakingContractUnlockStake {
                 operator: bcs::from_bytes(script.args().get(0)?).ok()?,
                 amount: bcs::from_bytes(script.args().get(1)?).ok()?,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn staking_contract_update_commision(
+        payload: &TransactionPayload,
+    ) -> Option<EntryFunctionCall> {
+        if let TransactionPayload::EntryFunction(script) = payload {
+            Some(EntryFunctionCall::StakingContractUpdateCommision {
+                operator: bcs::from_bytes(script.args().get(0)?).ok()?,
+                new_commission_percentage: bcs::from_bytes(script.args().get(1)?).ok()?,
             })
         } else {
             None
@@ -3622,6 +4886,38 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
             Box::new(decoder::coin_upgrade_supply),
         );
         map.insert(
+            "delegation_pool_add_stake".to_string(),
+            Box::new(decoder::delegation_pool_add_stake),
+        );
+        map.insert(
+            "delegation_pool_initialize_delegation_pool".to_string(),
+            Box::new(decoder::delegation_pool_initialize_delegation_pool),
+        );
+        map.insert(
+            "delegation_pool_reactivate_stake".to_string(),
+            Box::new(decoder::delegation_pool_reactivate_stake),
+        );
+        map.insert(
+            "delegation_pool_set_delegated_voter".to_string(),
+            Box::new(decoder::delegation_pool_set_delegated_voter),
+        );
+        map.insert(
+            "delegation_pool_set_operator".to_string(),
+            Box::new(decoder::delegation_pool_set_operator),
+        );
+        map.insert(
+            "delegation_pool_synchronize_delegation_pool".to_string(),
+            Box::new(decoder::delegation_pool_synchronize_delegation_pool),
+        );
+        map.insert(
+            "delegation_pool_unlock".to_string(),
+            Box::new(decoder::delegation_pool_unlock),
+        );
+        map.insert(
+            "delegation_pool_withdraw".to_string(),
+            Box::new(decoder::delegation_pool_withdraw),
+        );
+        map.insert(
             "managed_coin_burn".to_string(),
             Box::new(decoder::managed_coin_burn),
         );
@@ -3636,6 +4932,78 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
         map.insert(
             "managed_coin_register".to_string(),
             Box::new(decoder::managed_coin_register),
+        );
+        map.insert(
+            "multisig_account_add_owner".to_string(),
+            Box::new(decoder::multisig_account_add_owner),
+        );
+        map.insert(
+            "multisig_account_add_owners".to_string(),
+            Box::new(decoder::multisig_account_add_owners),
+        );
+        map.insert(
+            "multisig_account_add_owners_and_update_signatures_required".to_string(),
+            Box::new(decoder::multisig_account_add_owners_and_update_signatures_required),
+        );
+        map.insert(
+            "multisig_account_approve_transaction".to_string(),
+            Box::new(decoder::multisig_account_approve_transaction),
+        );
+        map.insert(
+            "multisig_account_create".to_string(),
+            Box::new(decoder::multisig_account_create),
+        );
+        map.insert(
+            "multisig_account_create_transaction".to_string(),
+            Box::new(decoder::multisig_account_create_transaction),
+        );
+        map.insert(
+            "multisig_account_create_transaction_with_hash".to_string(),
+            Box::new(decoder::multisig_account_create_transaction_with_hash),
+        );
+        map.insert(
+            "multisig_account_create_with_existing_account".to_string(),
+            Box::new(decoder::multisig_account_create_with_existing_account),
+        );
+        map.insert(
+            "multisig_account_create_with_owners".to_string(),
+            Box::new(decoder::multisig_account_create_with_owners),
+        );
+        map.insert(
+            "multisig_account_execute_rejected_transaction".to_string(),
+            Box::new(decoder::multisig_account_execute_rejected_transaction),
+        );
+        map.insert(
+            "multisig_account_reject_transaction".to_string(),
+            Box::new(decoder::multisig_account_reject_transaction),
+        );
+        map.insert(
+            "multisig_account_remove_owner".to_string(),
+            Box::new(decoder::multisig_account_remove_owner),
+        );
+        map.insert(
+            "multisig_account_remove_owners".to_string(),
+            Box::new(decoder::multisig_account_remove_owners),
+        );
+        map.insert(
+            "multisig_account_remove_owners_and_update_signatures_required".to_string(),
+            Box::new(decoder::multisig_account_remove_owners_and_update_signatures_required),
+        );
+        map.insert(
+            "multisig_account_update_metadata".to_string(),
+            Box::new(decoder::multisig_account_update_metadata),
+        );
+        map.insert(
+            "multisig_account_update_signatures_required".to_string(),
+            Box::new(decoder::multisig_account_update_signatures_required),
+        );
+        map.insert(
+            "multisig_account_vote_transanction".to_string(),
+            Box::new(decoder::multisig_account_vote_transanction),
+        );
+        map.insert(
+            "object_transfer_call".to_string(),
+            Box::new(decoder::object_transfer_call),
         );
         map.insert(
             "resource_account_create_resource_account".to_string(),
@@ -3733,6 +5101,10 @@ static SCRIPT_FUNCTION_DECODER_MAP: once_cell::sync::Lazy<EntryFunctionDecoderMa
         map.insert(
             "staking_contract_unlock_stake".to_string(),
             Box::new(decoder::staking_contract_unlock_stake),
+        );
+        map.insert(
+            "staking_contract_update_commision".to_string(),
+            Box::new(decoder::staking_contract_update_commision),
         );
         map.insert(
             "staking_contract_update_voter".to_string(),

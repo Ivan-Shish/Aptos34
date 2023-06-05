@@ -1,16 +1,15 @@
-/**
- * AptosGovernance represents the on-chain governance of the Aptos network. Voting power is calculated based on the
- * current epoch's voting power of the proposer or voter's backing stake pool. In addition, for it to count,
- * the stake pool's lockup needs to be at least as long as the proposal's duration.
- *
- * It provides the following flow:
- * 1. Proposers can create a proposal by calling AptosGovernance::create_proposal. The proposer's backing stake pool
- * needs to have the minimum proposer stake required. Off-chain components can subscribe to CreateProposalEvent to
- * track proposal creation and proposal ids.
- * 2. Voters can vote on a proposal. Their voting power is derived from the backing stake pool. Each stake pool can
- * only be used to vote on each proposal exactly once.
- *
- */
+///
+/// AptosGovernance represents the on-chain governance of the Aptos network. Voting power is calculated based on the
+/// current epoch's voting power of the proposer or voter's backing stake pool. In addition, for it to count,
+/// the stake pool's lockup needs to be at least as long as the proposal's duration.
+///
+/// It provides the following flow:
+/// 1. Proposers can create a proposal by calling AptosGovernance::create_proposal. The proposer's backing stake pool
+/// needs to have the minimum proposer stake required. Off-chain components can subscribe to CreateProposalEvent to
+/// track proposal creation and proposal ids.
+/// 2. Voters can vote on a proposal. Their voting power is derived from the backing stake pool. Each stake pool can
+/// only be used to vote on each proposal exactly once.
+///
 module aptos_framework::aptos_governance {
     use std::error;
     use std::option;
@@ -129,7 +128,8 @@ module aptos_framework::aptos_governance {
         signer_address: address,
         signer_cap: SignerCapability,
     ) acquires GovernanceResponsbility {
-        system_addresses::assert_framework_reserved_address(aptos_framework);
+        system_addresses::assert_aptos_framework(aptos_framework);
+        system_addresses::assert_framework_reserved(signer_address);
 
         if (!exists<GovernanceResponsbility>(@aptos_framework)) {
             move_to(aptos_framework, GovernanceResponsbility { signer_caps: simple_map::create<address, SignerCapability>() });
@@ -195,14 +195,17 @@ module aptos_framework::aptos_governance {
         );
     }
 
+    #[view]
     public fun get_voting_duration_secs(): u64 acquires GovernanceConfig {
         borrow_global<GovernanceConfig>(@aptos_framework).voting_duration_secs
     }
 
+    #[view]
     public fun get_min_voting_threshold(): u128 acquires GovernanceConfig {
         borrow_global<GovernanceConfig>(@aptos_framework).min_voting_threshold
     }
 
+    #[view]
     public fun get_required_proposer_stake(): u64 acquires GovernanceConfig {
         borrow_global<GovernanceConfig>(@aptos_framework).required_proposer_stake
     }

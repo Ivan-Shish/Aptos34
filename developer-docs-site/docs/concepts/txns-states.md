@@ -39,23 +39,23 @@ A transaction that is successfully submitted but ultimately discarded may have n
 The submitter can try to increase the gas cost by a trivial amount to help make progress and adjust for whatever may have been causing the discarding of the transaction further downstream.
 
 :::tip Read more
-See [Aptos Blockchain Deep Dive](../guides/basics-life-of-txn.md) for a comprehensive description of the Aptos transaction lifecycle.
+See [Aptos Blockchain Deep Dive](./blockchain.md) for a comprehensive description of the Aptos transaction lifecycle.
 :::
 
 ### Contents of a Transaction
 
-A [signed transaction](../guides/sign-a-transaction.md) on the blockchain contains the following information:
+A [signed transaction](../integration/sign-a-transaction.md) on the blockchain contains the following information:
 
 - **Signature**: The sender uses a digital signature to verify that they signed the transaction (i.e., authentication).
-- **Sender address**: The sender's [account address](./accounts#account-address).
+- **Sender address**: The sender's [account address](./accounts.md#account-address).
 - **Sender public key**: The public authentication key that corresponds to the private authentication key used to sign the transaction.
 - **Program**: The program comprises:
   - A Move module and function name or a move bytecode transaction script.
   - An optional list of inputs to the script. For a peer-to-peer transaction, these inputs contain the recipient's information and the amount transferred to them.
   - An optional list of Move bytecode modules to publish.
 - **Gas price** (in specified gas units): This is the amount the sender is willing to pay per unit of [gas](./gas-txn-fee.md) to execute the transaction. [Gas](./gas-txn-fee.md) is a way to pay for computation and storage. A gas unit is an abstract measurement of computation with no inherent real-world value.
-- **Maximum gas amount**: The [maximum gas amount](./gas-txn-fee#gas-and-transaction-fee-on-the-aptos-blockchain) is the maximum gas units the transaction is allowed to consume.
-- **Sequence number**: This is an unsigned integer that must be equal to the sender's account [sequence number](./accounts#account-sequence-number) at the time of execution.
+- **Maximum gas amount**: The [maximum gas amount](./gas-txn-fee.md#gas-and-transaction-fee-on-the-aptos-blockchain) is the maximum gas units the transaction is allowed to consume.
+- **Sequence number**: This is an unsigned integer that must be equal to the sender's account [sequence number](./accounts.md#account-sequence-number) at the time of execution.
 - **Expiration time**: A timestamp after which the transaction ceases to be valid (i.e., expires).
 
 ### Types of transactions
@@ -69,7 +69,7 @@ Currently the SDKs [Python](https://github.com/aptos-labs/aptos-core/blob/b0fe7e
 All operations on the Aptos blockchain should be available via entry point calls. While one could submit multiple transactions calling entry points in series, many such operations may benefit from being called atomically from a single transaction. A script payload transaction can call any entry point or public function defined within any module.
 
 :::tip Move book
-Currently there are no tutorials in this guide on script payloads, but the [Move book](https://move-language.github.io/move/modules-and-scripts.html?highlight=script#scripts) does go in some depth.
+Currently there are no tutorials in this guide on script payloads, but the [Move book](../move/book/modules-and-scripts.md) does go in some depth.
 :::
 
 :::tip Read more
@@ -92,7 +92,7 @@ The Aptos blockchain uses proof to verify the authenticity and correctness of th
 
 Data within the Aptos blockchain is replicated across the network. Each validator and fullnode's [storage](./validator-nodes#storage) is responsible for persisting the agreed upon blocks of transactions and their execution results to the database. 
 
-The blockchain is represented as an ever-growing [Merkle tree](../reference/glossary#merkle-trees), where each leaf appended to the tree represents a single transaction executed by the blockchain.
+The blockchain is represented as an ever-growing [Merkle tree](../reference/glossary.md#merkle-trees), where each leaf appended to the tree represents a single transaction executed by the blockchain.
 
 All operations executed by the blockchain and all account states can be verified cryptographically. These cryptographic proofs ensure that:
 - The validator nodes agree on the state. 
@@ -122,5 +122,5 @@ In the figure:
 - Accounts **A** and **B**: Represent Alice's and Bob's accounts on the Aptos blockchain.
 - **S<sub>*i-1*</sub>** : Represents the (*i-1*)-the state of the blockchain. In this state, Alice's account **A** has a balance of 110 APT (Aptos coins), and Bob's account **B** has a balance of 52 APT.
 - **T<sub>*i*</sub>** : This is the *i*-th transaction executed on the blockchain. In this example, it represents Alice sending 10 APT to Bob.
-- **Apply()**: This is a deterministic function that always returns the same final state for a specific initial state and a specific transaction. If the current state of the blockchain is **S<sub>*i-1*</sub>**, and transaction **T<sub>*i*</sub>** is executed on the state **S<sub>*i-1*</sub>**, then the new state of the blockchain is always **S<sub>*i*</sub>**. The Aptos blockchain uses the [Move language](https://move-language.github.io/move/) to implement the deterministic execution function **Apply()**.
+- **Apply()**: This is a deterministic function that always returns the same final state for a specific initial state and a specific transaction. If the current state of the blockchain is **S<sub>*i-1*</sub>**, and transaction **T<sub>*i*</sub>** is executed on the state **S<sub>*i-1*</sub>**, then the new state of the blockchain is always **S<sub>*i*</sub>**. The Aptos blockchain uses the [Move language](../move/book/SUMMARY.md) to implement the deterministic execution function **Apply()**.
 - **S<sub>*i*</sub>** : This is the *i*-the state of the blockchain. When the transaction **T<sub>*i*</sub>** is applied to the blockchain, it generates the new state **S<sub>*i*</sub>** (an outcome of applying **Apply(S<sub>*i-1*</sub>, T<sub>*i*</sub>)** to **S<sub>*i-1*</sub>** and **T<sub>*i*</sub>**). This causes Alice’s account balance to be reduced by 10 to 100 APT and Bob’s account balance to be increased by 10 to 62 APT. The new state **S<sub>*i*</sub>** shows these updated balances.

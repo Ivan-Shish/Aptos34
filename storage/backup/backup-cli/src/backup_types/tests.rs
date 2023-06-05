@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -19,8 +20,9 @@ use crate::{
         ReplayConcurrencyLevelOpt, RocksdbOpt, TrustedWaypointOpt,
     },
 };
-use aptos_db::AptosDB;
+use aptos_db::{state_restore::StateSnapshotRestoreMode, AptosDB};
 use aptos_executor_test_helpers::integration_test_impl::test_execution_with_storage_impl;
+use aptos_executor_types::VerifyExecutionMode;
 use aptos_storage_interface::DbReader;
 use aptos_temppath::TempPath;
 use aptos_types::transaction::Version;
@@ -113,7 +115,6 @@ fn test_end_to_end_impl(d: TestData) {
             .run(),
         )
         .unwrap();
-
     // Restore
     let global_restore_opt: GlobalRestoreOptions = GlobalRestoreOpt {
         dry_run: false,
@@ -133,6 +134,7 @@ fn test_end_to_end_impl(d: TestData) {
                     manifest_handle: state_snapshot_manifest.unwrap(),
                     version,
                     validate_modules: false,
+                    restore_mode: StateSnapshotRestoreMode::Default,
                 },
                 global_restore_opt.clone(),
                 Arc::clone(&store),
@@ -149,11 +151,12 @@ fn test_end_to_end_impl(d: TestData) {
                 replay_from_version: Some(
                     d.state_snapshot_ver.unwrap_or(Version::max_value() - 1) + 1,
                 ),
+                kv_only_replay: Some(false),
             },
             global_restore_opt,
             store,
             None, /* epoch_history */
-            vec![],
+            VerifyExecutionMode::verify_all(),
         )
         .run(),
     )
@@ -199,7 +202,7 @@ proptest! {
 
     #[test]
     #[cfg_attr(feature = "consensus-only-perf-test", ignore)]
-    fn test_end_to_end(d in test_data_strategy()) {
+    fn test_end_to_end(d in test_data_strategy().no_shrink()) {
         test_end_to_end_impl(d)
     }
 }

@@ -1,3 +1,11 @@
+### Project config
+
+variable "cluster_bootstrap" {
+  description = "Set when bootstrapping a new cluster"
+  type        = bool
+  default     = false
+}
+
 variable "project" {
   description = "GCP project"
   type        = string
@@ -51,6 +59,11 @@ variable "zone_project" {
 variable "record_name" {
   description = "DNS record name to use (<workspace> is replaced with the TF workspace name)"
   default     = "<workspace>.aptos"
+}
+
+variable "create_dns_records" {
+  description = "Creates DNS records in var.zone_name that point to k8s service, as opposed to using external-dns or other means"
+  default     = true
 }
 
 variable "helm_chart" {
@@ -154,7 +167,7 @@ variable "node_exporter_helm_values" {
 }
 
 variable "manage_via_tf" {
-  description = "Whether to manage the aptos-node k8s workload via Terraform"
+  description = "Whether to manage the aptos-node k8s workload via Terraform. If set to false, the helm_release resource will still be created and updated when values change, but it may not be updated on every apply"
   default     = true
 }
 

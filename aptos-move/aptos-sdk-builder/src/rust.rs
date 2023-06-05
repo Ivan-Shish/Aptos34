@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::common;
@@ -38,6 +39,7 @@ pub fn output(out: &mut dyn Write, abis: &[EntryABI], local_types: bool) -> Resu
     emitter.output_preamble()?;
     writeln!(emitter.out, "#![allow(dead_code)]")?;
     writeln!(emitter.out, "#![allow(unused_imports)]")?;
+    writeln!(emitter.out, "#![allow(clippy::too_many_arguments)]")?;
 
     emitter.output_script_call_enum_with_imports(abis)?;
 
@@ -119,7 +121,7 @@ where
             writeln!(
                 self.out,
                 r#"
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 // This file was generated. Do not modify!

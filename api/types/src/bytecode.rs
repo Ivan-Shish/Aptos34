@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -8,6 +9,10 @@ use crate::{
     },
     MoveFunction, MoveStructTag, MoveType,
 };
+use aptos_framework::{
+    get_metadata_from_compiled_module, get_metadata_from_compiled_script, RuntimeModuleMetadataV1,
+};
+use aptos_vm::determine_is_view;
 use move_binary_format::{
     access::{ModuleAccess, ScriptAccess},
     file_format::{
@@ -36,6 +41,10 @@ pub trait Bytecode {
     fn find_entry_function(&self, name: &IdentStr) -> Option<MoveFunction>;
 
     fn find_function(&self, name: &IdentStr) -> Option<MoveFunction>;
+
+    fn metadata(&self) -> Option<RuntimeModuleMetadataV1>;
+
+    fn function_is_view(&self, name: &IdentStr) -> bool;
 
     fn new_move_struct_field(&self, def: &FieldDefinition) -> MoveStructField {
         MoveStructField {
@@ -124,10 +133,12 @@ pub trait Bytecode {
     fn new_move_function(&self, def: &FunctionDefinition) -> MoveFunction {
         let fhandle = self.function_handle_at(def.function);
         let name = self.identifier_at(fhandle.name).to_owned();
+        let is_view = self.function_is_view(&name);
         MoveFunction {
             name: name.into(),
             visibility: def.visibility.into(),
             is_entry: def.is_entry,
+            is_view,
             generic_type_params: fhandle
                 .type_parameters
                 .iter()
@@ -194,6 +205,14 @@ impl Bytecode for CompiledModule {
             })
             .map(|def| self.new_move_function(def))
     }
+
+    fn metadata(&self) -> Option<RuntimeModuleMetadataV1> {
+        get_metadata_from_compiled_module(self)
+    }
+
+    fn function_is_view(&self, name: &IdentStr) -> bool {
+        determine_is_view(self.metadata().as_ref(), name)
+    }
 }
 
 impl Bytecode for CompiledScript {
@@ -235,5 +254,13 @@ impl Bytecode for CompiledScript {
         } else {
             None
         }
+    }
+
+    fn metadata(&self) -> Option<RuntimeModuleMetadataV1> {
+        get_metadata_from_compiled_script(self)
+    }
+
+    fn function_is_view(&self, _name: &IdentStr) -> bool {
+        false
     }
 }

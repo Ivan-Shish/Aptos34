@@ -1,23 +1,91 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::NetworkLoadTest;
-use aptos_forge::{EmitJobMode, NetworkContext, NetworkTest, Result, Test, TxnStats};
+use aptos_forge::{
+    args::TransactionTypeArg, EmitJobMode, EmitJobRequest, NetworkContext, NetworkTest, Result,
+    Test, TxnStats,
+};
 use aptos_logger::info;
 use rand::SeedableRng;
-use std::time::Duration;
+use std::{
+    fmt::{self, Debug, Display},
+    time::Duration,
+};
 use tokio::runtime::Runtime;
 
 pub struct SingleRunStats {
-    tps: usize,
+    name: String,
     stats: TxnStats,
     ledger_transactions: u64,
     actual_duration: Duration,
 }
 
+pub enum Workloads {
+    TPS(&'static [usize]),
+    TRANSACTIONS(&'static [TransactionWorkload]),
+}
+
+impl Workloads {
+    fn len(&self) -> usize {
+        match self {
+            Self::TPS(tpss) => tpss.len(),
+            Self::TRANSACTIONS(workloads) => workloads.len(),
+        }
+    }
+
+    fn name(&self, index: usize) -> String {
+        match self {
+            Self::TPS(tpss) => tpss[index].to_string(),
+            Self::TRANSACTIONS(workloads) => workloads[index].to_string(),
+        }
+    }
+
+    fn configure(&self, index: usize, request: EmitJobRequest) -> EmitJobRequest {
+        match self {
+            Self::TPS(tpss) => request.mode(EmitJobMode::ConstTps { tps: tpss[index] }),
+            Self::TRANSACTIONS(workloads) => workloads[index].configure(request),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TransactionWorkload {
+    pub transaction_type: TransactionTypeArg,
+    pub num_modules: usize,
+    pub unique_senders: bool,
+}
+
+impl TransactionWorkload {
+    fn configure(&self, request: EmitJobRequest) -> EmitJobRequest {
+        let account_creation_type =
+            TransactionTypeArg::AccountGenerationLargePool.materialize(1, false);
+
+        if self.unique_senders {
+            request.transaction_type(self.transaction_type.materialize(self.num_modules, false))
+        } else {
+            let write_type = self.transaction_type.materialize(self.num_modules, true);
+            request.transaction_mix_per_phase(vec![
+                // warmup
+                vec![(account_creation_type, 1)],
+                vec![(account_creation_type, 1)],
+                vec![(write_type, 1)],
+                // cooldown
+                vec![(write_type, 1)],
+            ])
+        }
+    }
+}
+
+impl Display for TransactionWorkload {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
 pub struct LoadVsPerfBenchmark {
     pub test: &'static dyn NetworkLoadTest,
-    pub tps: &'static [usize],
+    pub workloads: Workloads,
 }
 
 impl Test for LoadVsPerfBenchmark {
@@ -30,28 +98,43 @@ impl LoadVsPerfBenchmark {
     fn evaluate_single(
         &self,
         ctx: &mut NetworkContext<'_>,
-        tps: usize,
+        workloads: &Workloads,
+        index: usize,
         duration: Duration,
-    ) -> Result<SingleRunStats> {
+    ) -> Result<Vec<SingleRunStats>> {
         let rng = SeedableRng::from_rng(ctx.core().rng())?;
-        let emit_job_request = ctx.emit_job.clone().mode(EmitJobMode::ConstTps { tps });
-        let (stats, actual_duration, ledger_transactions) = self.test.network_load_test(
-            ctx,
-            emit_job_request,
-            duration,
-            // add larger warmup, as we are exceeding the max load,
-            // and for that it takes more time to fill mempool.
-            0.2,
-            0.05,
-            rng,
-        )?;
+        let emit_job_request = workloads.configure(index, ctx.emit_job.clone());
+        let (stats, actual_duration, ledger_transactions, stats_by_phase) =
+            self.test.network_load_test(
+                ctx,
+                emit_job_request,
+                duration,
+                // add larger warmup, as when we are exceeding the max load,
+                // it takes more time to fill mempool.
+                0.2,
+                0.05,
+                rng,
+            )?;
 
-        Ok(SingleRunStats {
-            tps,
+        let mut result = vec![SingleRunStats {
+            name: workloads.name(index),
             stats,
             ledger_transactions,
             actual_duration,
-        })
+        }];
+
+        if stats_by_phase.len() > 1 {
+            for (i, (phase_stats, phase_duration)) in stats_by_phase.into_iter().enumerate() {
+                result.push(SingleRunStats {
+                    name: format!("{}_phase_{}", workloads.name(index), i),
+                    stats: phase_stats,
+                    ledger_transactions,
+                    actual_duration: phase_duration,
+                });
+            }
+        }
+
+        Ok(result)
     }
 }
 
@@ -60,29 +143,33 @@ impl NetworkTest for LoadVsPerfBenchmark {
         let _runtime = Runtime::new().unwrap();
         let individual_with_buffer = ctx
             .global_duration
-            .checked_div(self.tps.len() as u32)
+            .checked_div(self.workloads.len() as u32)
             .unwrap();
         let individual_duration = individual_with_buffer.mul_f32(0.8);
         let buffer = individual_with_buffer - individual_duration;
 
         let mut results = Vec::new();
-        for (i, tps) in self.tps.iter().enumerate() {
-            if i != 0 {
+        for index in 0..self.workloads.len() {
+            if index != 0 {
                 info!("Sleeping in between loadtests, for {}s", buffer.as_secs());
                 std::thread::sleep(buffer);
             }
 
-            info!("Starting for {}", tps);
-            let result = self.evaluate_single(ctx, *tps, individual_duration)?;
-            results.push(result);
+            info!("Starting for {}", self.workloads.name(index));
+            results.append(&mut self.evaluate_single(
+                ctx,
+                &self.workloads,
+                index,
+                individual_duration,
+            )?);
 
             // Note: uncomment below to perform reconfig during a test
             // let mut aptos_info = ctx.swarm().aptos_public_info();
             // runtime.block_on(aptos_info.reconfig());
 
             println!(
-                "{: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12}",
-                "wanted/s",
+                "{: <30} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12}",
+                "workload",
                 "submitted/s",
                 "committed/s",
                 "expired/s",
@@ -95,10 +182,10 @@ impl NetworkTest for LoadVsPerfBenchmark {
                 "actual dur"
             );
             for result in &results {
-                let rate = result.stats.rate(result.actual_duration);
+                let rate = result.stats.rate();
                 println!(
-                    "{: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12}",
-                    result.tps,
+                    "{: <30} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12} | {: <12}",
+                    result.name,
                     rate.submitted,
                     rate.committed,
                     rate.expired,

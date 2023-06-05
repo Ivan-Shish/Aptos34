@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use futures::channel::{mpsc::SendError, oneshot::Canceled};
@@ -38,8 +39,8 @@ impl Error {
     }
 }
 
-impl From<aptos_data_client::Error> for Error {
-    fn from(error: aptos_data_client::Error) -> Self {
+impl From<aptos_data_client::error::Error> for Error {
+    fn from(error: aptos_data_client::error::Error) -> Self {
         Error::AptosDataClientError(error.to_string())
     }
 }

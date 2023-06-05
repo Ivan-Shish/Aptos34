@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 //! This crate is the core of the gas metering system of the Aptos blockchain.
@@ -15,7 +15,7 @@
 //! The reason why we need two different representations is that they serve different purposes:
 //!   - The Rust structs are used for quick (static) lookups by the gas meter and native functions
 //!     when calculating gas costs.
-//!   - The on-chain gas schedule needs to be extensible and unordered so we can upgrate it easily
+//!   - The on-chain gas schedule needs to be extensible and unordered so we can upgrade it easily
 //!     in the future.
 
 #[macro_use]
@@ -37,7 +37,7 @@ mod transaction;
 pub use algebra::*;
 pub use gas_meter::{
     AptosGasMeter, AptosGasParameters, FromOnChainGasSchedule, InitialGasSchedule,
-    NativeGasParameters, ToOnChainGasSchedule, LATEST_GAS_FEATURE_VERSION,
+    NativeGasParameters, StandardGasMeter, ToOnChainGasSchedule, LATEST_GAS_FEATURE_VERSION,
 };
 pub use instr::InstructionGasParameters;
 pub use misc::{AbstractValueSizeGasParameters, MiscGasParameters};

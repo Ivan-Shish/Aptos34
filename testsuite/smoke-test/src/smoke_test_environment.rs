@@ -1,19 +1,20 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos::test::CliTestFramework;
 use aptos_config::{config::NodeConfig, keys::ConfigKey, utils::get_available_port};
 use aptos_crypto::ed25519::Ed25519PrivateKey;
-use aptos_faucet::FaucetArgs;
+use aptos_faucet_core::server::{FunderKeyEnum, RunConfig};
 use aptos_forge::{ActiveNodesGuard, Factory, LocalFactory, LocalSwarm, Node};
 use aptos_framework::ReleaseBundle;
 use aptos_genesis::builder::{InitConfigFn, InitGenesisConfigFn};
 use aptos_infallible::Mutex;
 use aptos_logger::prelude::*;
-use aptos_types::{account_config::aptos_test_root_address, chain_id::ChainId};
+use aptos_types::chain_id::ChainId;
 use once_cell::sync::Lazy;
 use rand::rngs::OsRng;
-use std::{num::NonZeroUsize, path::PathBuf, sync::Arc};
+use std::{num::NonZeroUsize, sync::Arc};
 use tokio::task::JoinHandle;
 
 const SWARM_BUILD_NUM_RETRIES: u8 = 3;
@@ -83,7 +84,8 @@ impl SwarmBuilder {
         // TODO change to return Swarm trait
         // Add support for forge
         assert!(self.local);
-        static FACTORY: Lazy<LocalFactory> = Lazy::new(|| LocalFactory::from_workspace().unwrap());
+        static FACTORY: Lazy<LocalFactory> =
+            Lazy::new(|| LocalFactory::from_workspace(None).unwrap());
         let version = FACTORY.versions().max().unwrap();
         info!("Node finished compiling");
 
@@ -135,7 +137,7 @@ impl SwarmBuilder {
     pub async fn build_with_cli(
         &mut self,
         num_cli_accounts: usize,
-    ) -> (LocalSwarm, CliTestFramework, JoinHandle<()>) {
+    ) -> (LocalSwarm, CliTestFramework, JoinHandle<anyhow::Result<()>>) {
         let swarm = self.build().await;
         let chain_id = swarm.chain_id();
         let validator = swarm.validators().next().unwrap();
@@ -190,17 +192,13 @@ pub fn launch_faucet(
     mint_key: Ed25519PrivateKey,
     chain_id: ChainId,
     port: u16,
-) -> JoinHandle<()> {
-    let faucet = FaucetArgs {
-        address: "127.0.0.1".to_string(),
+) -> JoinHandle<anyhow::Result<()>> {
+    let faucet_config = RunConfig::build_for_cli(
+        endpoint,
         port,
-        server_url: endpoint,
-        mint_key_file_path: PathBuf::new(),
-        mint_key: Some(ConfigKey::new(mint_key)),
-        mint_account_address: Some(aptos_test_root_address()),
-        chain_id,
-        maximum_amount: None,
-        do_not_delegate: true,
-    };
-    tokio::spawn(faucet.run())
+        FunderKeyEnum::Key(ConfigKey::new(mint_key)),
+        true,
+        Some(chain_id),
+    );
+    tokio::spawn(faucet_config.run())
 }

@@ -1,4 +1,5 @@
-apiVersion: batch/v1beta1
+{{ $backup_verify_cronjob := lookup "batch/v1" "CronJob" $.Release.Namespace (print (include "backup.fullname" .) "-backup-verify")}}
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: {{ include "backup.fullname" . }}-backup-verify
@@ -23,19 +24,23 @@ spec:
           terminationGracePeriodSeconds: 0
           containers:
           - name: backup-verify
-            # use the same image with the backup sts
+            {{- if and $backup_verify_cronjob (not $.Values.manageImages) }} # if the statefulset already exists and we do not want helm to simply overwrite the image, use the existing image
+            image: {{ (first $backup_verify_cronjob.spec.jobTemplate.spec.template.spec.containers).image }}
+            {{- else }}
             image: {{ .Values.backup.image.repo }}:{{ .Values.backup.image.tag | default .Values.imageTag }}
+            {{- end }}
             imagePullPolicy: {{ .Values.backup.image.pullPolicy }}
             command:
-            - /usr/local/bin/db-backup-verify
+            - /usr/local/bin/aptos-db-tool
+            - backup
+            - verify
             {{- range $.Values.restore.config.trusted_waypoints }}
             - --trust-waypoint
             - {{ . }}
             {{- end }}
             - --metadata-cache-dir
             - /tmp/aptos-backup-verify-metadata
-            - command-adapter
-            - --config
+            - --command-adapter-config
             # use the same config with the backup sts
             - /opt/aptos/etc/{{ .Values.backup.config.location }}.yaml
             env:

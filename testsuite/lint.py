@@ -1,21 +1,29 @@
-from forge import LocalShell
+# Helm linter.
 
+import logging
 import re
 from typing import Tuple
 from pathlib import Path
 
 import click
 
+from forge import LocalShell
+from test_framework.logging import init_logging, log
+
 
 @click.group()
-def main() -> None:
-    pass
+@click.option(
+    "--log-metadata/--no-log-metadata",
+    default=True,
+)
+def main(log_metadata: bool) -> None:
+    init_logging(logger=log, level=logging.DEBUG, print_metadata=log_metadata)
 
 
 @main.command()
 @click.argument("paths", nargs=-1)
 def helm(paths: Tuple[str]) -> None:
-    shell = LocalShell(True)
+    shell = LocalShell()
 
     error = False
     for path in paths:
@@ -28,7 +36,7 @@ def helm(paths: Tuple[str]) -> None:
                 )
                 if match:
                     fullpath = Path(path).parent / match.group("filename")
-                    print(
+                    log.error(
                         "::error file={fullpath},line={line},col=1::{message}".format(
                             fullpath=fullpath, **match.groupdict()
                         )

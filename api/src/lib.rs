@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use poem_openapi::Tags;
@@ -36,6 +37,9 @@ pub enum ApiTags {
 
     /// Access to events
     Events,
+
+    /// Experimental APIs, no guarantees
+    Experimental,
 
     /// General information
     General,

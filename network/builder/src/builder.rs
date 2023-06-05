@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 //! Remotely authenticated vs. unauthenticated network end-points:
@@ -11,20 +12,19 @@
 //! long as the latter is in its trusted peers set.
 use aptos_config::{
     config::{
-        DiscoveryMethod, NetworkConfig, Peer, PeerRole, PeerSet, RateLimitConfig, RoleType,
-        CONNECTION_BACKOFF_BASE, CONNECTIVITY_CHECK_INTERVAL_MS, MAX_CONCURRENT_NETWORK_REQS,
-        MAX_CONNECTION_DELAY_MS, MAX_FRAME_SIZE, MAX_FULLNODE_OUTBOUND_CONNECTIONS,
-        MAX_INBOUND_CONNECTIONS, NETWORK_CHANNEL_SIZE,
+        DiscoveryMethod, NetworkConfig, Peer, PeerRole, PeerSet, RoleType, CONNECTION_BACKOFF_BASE,
+        CONNECTIVITY_CHECK_INTERVAL_MS, MAX_CONCURRENT_NETWORK_REQS, MAX_CONNECTION_DELAY_MS,
+        MAX_FRAME_SIZE, MAX_FULLNODE_OUTBOUND_CONNECTIONS, MAX_INBOUND_CONNECTIONS,
+        NETWORK_CHANNEL_SIZE,
     },
     network_id::NetworkContext,
 };
 use aptos_crypto::x25519::PublicKey;
 use aptos_event_notifications::{EventSubscriptionService, ReconfigNotificationListener};
-use aptos_infallible::RwLock;
 use aptos_logger::prelude::*;
 use aptos_netcore::transport::tcp::TCPBufferCfg;
 use aptos_network::{
-    application::storage::PeerMetadataStorage,
+    application::storage::PeersAndMetadata,
     connectivity_manager::{builder::ConnectivityManagerBuilder, ConnectivityRequest},
     constants::MAX_MESSAGE_SIZE,
     logging::NetworkSchema,
@@ -43,12 +43,7 @@ use aptos_network::{
 use aptos_network_discovery::DiscoveryChangeListener;
 use aptos_time_service::TimeService;
 use aptos_types::{chain_id::ChainId, network_address::NetworkAddress};
-use std::{
-    clone::Clone,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    time::Duration,
-};
+use std::{clone::Clone, collections::HashSet, sync::Arc, time::Duration};
 use tokio::runtime::Handle;
 
 #[derive(Debug, PartialEq, PartialOrd)]
@@ -72,7 +67,7 @@ pub struct NetworkBuilder {
     connectivity_manager_builder: Option<ConnectivityManagerBuilder>,
     health_checker_builder: Option<HealthCheckerBuilder>,
     peer_manager_builder: PeerManagerBuilder,
-    peer_metadata_storage: Arc<PeerMetadataStorage>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
 }
 
 impl NetworkBuilder {
@@ -81,8 +76,7 @@ impl NetworkBuilder {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         chain_id: ChainId,
-        trusted_peers: Arc<RwLock<PeerSet>>,
-        peer_metadata_storage: Arc<PeerMetadataStorage>,
+        peers_and_metadata: Arc<PeersAndMetadata>,
         network_context: NetworkContext,
         time_service: TimeService,
         listen_address: NetworkAddress,
@@ -93,8 +87,6 @@ impl NetworkBuilder {
         network_channel_size: usize,
         max_concurrent_network_reqs: usize,
         inbound_connection_limit: usize,
-        inbound_rate_limit_config: Option<RateLimitConfig>,
-        outbound_rate_limit_config: Option<RateLimitConfig>,
         tcp_buffer_cfg: TCPBufferCfg,
     ) -> Self {
         // A network cannot exist without a PeerManager
@@ -104,8 +96,7 @@ impl NetworkBuilder {
             network_context,
             time_service.clone(),
             listen_address,
-            peer_metadata_storage.clone(),
-            trusted_peers,
+            peers_and_metadata.clone(),
             authentication_mode,
             network_channel_size,
             max_concurrent_network_reqs,
@@ -113,8 +104,6 @@ impl NetworkBuilder {
             max_message_size,
             enable_proxy_protocol,
             inbound_connection_limit,
-            inbound_rate_limit_config,
-            outbound_rate_limit_config,
             tcp_buffer_cfg,
         );
 
@@ -127,26 +116,24 @@ impl NetworkBuilder {
             connectivity_manager_builder: None,
             health_checker_builder: None,
             peer_manager_builder,
-            peer_metadata_storage,
+            peers_and_metadata,
         }
     }
 
     pub fn new_for_test(
         chain_id: ChainId,
         seeds: PeerSet,
-        trusted_peers: Arc<RwLock<PeerSet>>,
         network_context: NetworkContext,
         time_service: TimeService,
         listen_address: NetworkAddress,
         authentication_mode: AuthenticationMode,
-        peer_metadata_storage: Arc<PeerMetadataStorage>,
+        peers_and_metadata: Arc<PeersAndMetadata>,
     ) -> NetworkBuilder {
         let mutual_authentication = matches!(authentication_mode, AuthenticationMode::Mutual(_));
 
         let mut builder = NetworkBuilder::new(
             chain_id,
-            trusted_peers.clone(),
-            peer_metadata_storage,
+            peers_and_metadata.clone(),
             network_context,
             time_service,
             listen_address,
@@ -157,14 +144,12 @@ impl NetworkBuilder {
             NETWORK_CHANNEL_SIZE,
             MAX_CONCURRENT_NETWORK_REQS,
             MAX_INBOUND_CONNECTIONS,
-            None,
-            None,
             TCPBufferCfg::default(),
         );
 
         builder.add_connectivity_manager(
             seeds,
-            trusted_peers,
+            peers_and_metadata,
             MAX_FULLNODE_OUTBOUND_CONNECTIONS,
             CONNECTION_BACKOFF_BASE,
             MAX_CONNECTION_DELAY_MS,
@@ -183,7 +168,7 @@ impl NetworkBuilder {
         config: &NetworkConfig,
         time_service: TimeService,
         mut reconfig_subscription_service: Option<&mut EventSubscriptionService>,
-        peer_metadata_storage: Arc<PeerMetadataStorage>,
+        peers_and_metadata: Arc<PeersAndMetadata>,
     ) -> NetworkBuilder {
         let peer_id = config.peer_id();
         let identity_key = config.identity_key();
@@ -197,12 +182,9 @@ impl NetworkBuilder {
 
         let network_context = NetworkContext::new(role, config.network_id, peer_id);
 
-        let trusted_peers = Arc::new(RwLock::new(HashMap::new()));
-
         let mut network_builder = NetworkBuilder::new(
             chain_id,
-            trusted_peers.clone(),
-            peer_metadata_storage,
+            peers_and_metadata.clone(),
             network_context,
             time_service,
             config.listen_address.clone(),
@@ -213,8 +195,6 @@ impl NetworkBuilder {
             config.network_channel_size,
             config.max_concurrent_network_reqs,
             config.max_inbound_connections,
-            config.inbound_rate_limit_config,
-            config.outbound_rate_limit_config,
             TCPBufferCfg::new_configs(
                 config.inbound_rx_buffer_size_bytes,
                 config.inbound_tx_buffer_size_bytes,
@@ -234,7 +214,7 @@ impl NetworkBuilder {
 
         network_builder.add_connectivity_manager(
             seeds,
-            trusted_peers,
+            peers_and_metadata,
             config.max_outbound_connections,
             config.connection_backoff_base,
             config.max_connection_delay_ms,
@@ -340,9 +320,9 @@ impl NetworkBuilder {
         self.peer_manager_builder.listen_address()
     }
 
-    /// Add a [`network::connectivity_manager::ConnectivityManager`] to the network.
+    /// Add a `network::connectivity_manager::ConnectivityManager` to the network.
     ///
-    /// [`network::connectivity_manager::ConnectivityManager`] is responsible for ensuring that we are connected
+    /// `network::connectivity_manager::ConnectivityManager` is responsible for ensuring that we are connected
     /// to a node iff. it is an eligible node and maintaining persistent
     /// connections with all eligible nodes. A list of eligible nodes is received
     /// at initialization, and updates are received on changes to system membership.
@@ -352,7 +332,7 @@ impl NetworkBuilder {
     pub fn add_connectivity_manager(
         &mut self,
         seeds: PeerSet,
-        trusted_peers: Arc<RwLock<PeerSet>>,
+        peers_and_metadata: Arc<PeersAndMetadata>,
         max_outbound_connections: usize,
         connection_backoff_base: u64,
         max_connection_delay_ms: u64,
@@ -371,7 +351,7 @@ impl NetworkBuilder {
         self.connectivity_manager_builder = Some(ConnectivityManagerBuilder::create(
             self.network_context(),
             self.time_service.clone(),
-            trusted_peers,
+            peers_and_metadata,
             seeds,
             connectivity_check_interval_ms,
             connection_backoff_base,
@@ -447,7 +427,7 @@ impl NetworkBuilder {
             ping_failures_tolerated,
             hc_network_tx,
             hc_network_rx,
-            self.peer_metadata_storage.clone(),
+            self.peers_and_metadata.clone(),
         ));
         debug!(
             NetworkSchema::new(&self.network_context),

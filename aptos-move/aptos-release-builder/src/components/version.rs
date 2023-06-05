@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::utils::*;
@@ -19,7 +19,7 @@ pub fn generate_version_upgrade_proposal(
         &writer,
         is_testnet,
         next_execution_hash.clone(),
-        "aptos_framework::version",
+        &["aptos_framework::version"],
         |writer| {
             if is_testnet && next_execution_hash.is_empty() {
                 emitln!(

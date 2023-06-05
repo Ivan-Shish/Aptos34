@@ -1,13 +1,24 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_metrics_core::{
-    op_counters::DurationHistogram, register_counter, register_gauge, register_histogram,
-    register_histogram_vec, register_int_counter, register_int_counter_vec, register_int_gauge,
-    register_int_gauge_vec, Counter, Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec,
-    IntGauge, IntGaugeVec,
+    exponential_buckets, op_counters::DurationHistogram, register_avg_counter, register_counter,
+    register_gauge, register_gauge_vec, register_histogram, register_histogram_vec,
+    register_int_counter, register_int_counter_vec, register_int_gauge, register_int_gauge_vec,
+    Counter, Gauge, GaugeVec, Histogram, HistogramVec, IntCounter, IntCounterVec, IntGauge,
+    IntGaugeVec,
 };
 use once_cell::sync::Lazy;
+
+/// Transaction commit was successful
+pub const TXN_COMMIT_SUCCESS_LABEL: &str = "success";
+/// Transaction commit failed (will not be retried)
+pub const TXN_COMMIT_FAILED_LABEL: &str = "failed";
+/// Transaction commit failed (will not be retried) because of a duplicate
+pub const TXN_COMMIT_FAILED_DUPLICATE_LABEL: &str = "failed_duplicate";
+/// Transaction commit was unsuccessful, but will be retried
+pub const TXN_COMMIT_RETRY_LABEL: &str = "retry";
 
 //////////////////////
 // HEALTH COUNTERS
@@ -40,6 +51,15 @@ pub static LAST_COMMITTED_VERSION: Lazy<IntGauge> = Lazy::new(|| {
     register_int_gauge!(
         "aptos_consensus_last_committed_version",
         "The counter corresponds to the version of the last committed ledger info."
+    )
+    .unwrap()
+});
+
+/// Count of the committed failed rounds since last restart.
+pub static COMMITTED_FAILED_ROUNDS_COUNT: Lazy<IntCounter> = Lazy::new(|| {
+    register_int_counter!(
+        "aptos_consensus_committed_failed_rounds_count",
+        "Count of the committed failed rounds since last restart."
     )
     .unwrap()
 });
@@ -91,13 +111,41 @@ pub static TOTAL_VOTING_POWER: Lazy<Gauge> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Voting power of the validator
-pub static VALIDATOR_VOTING_POWER: Lazy<Gauge> = Lazy::new(|| {
-    register_gauge!(
-        "aptos_validator_voting_power",
-        "Voting power of the validator"
+/// Number of distinct senders in a block
+pub static NUM_SENDERS_IN_BLOCK: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!("num_senders_in_block", "Total number of senders in a block").unwrap()
+});
+
+/// Transaction shuffling call latency
+pub static TXN_SHUFFLE_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_transaction_shuffle_seconds",
+        // metric description
+        "The time spent in seconds in shuffle of transactions",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
     )
     .unwrap()
+});
+
+/// Transaction dedup call latency
+pub static TXN_DEDUP_SECONDS: Lazy<Histogram> = Lazy::new(|| {
+    register_histogram!(
+        // metric name
+        "aptos_execution_transaction_dedup_seconds",
+        // metric description
+        "The time spent in seconds in dedup of transaction",
+        exponential_buckets(/*start=*/ 1e-6, /*factor=*/ 2.0, /*count=*/ 30).unwrap(),
+    )
+    .unwrap()
+});
+
+/// Transaction dedup number of filtered
+pub static TXN_DEDUP_FILTERED: Lazy<Histogram> = Lazy::new(|| {
+    register_avg_counter(
+        "aptos_execution_transaction_dedup_filtered",
+        "The number of duplicates filtered per block",
+    )
 });
 
 /// Number of rounds we were collecting votes for proposer
@@ -117,7 +165,7 @@ pub static PROPOSER_COLLECTED_MOST_VOTING_POWER: Lazy<Counter> = Lazy::new(|| {
         "aptos_proposer_collected_most_voting_power_sum",
         "Total voting power of all votes collected for the same ledger info for the rounds this node was a proposer",
     )
-    .unwrap()
+        .unwrap()
 });
 
 /// Total voting power of all votes collected for all other ledger info
@@ -127,7 +175,7 @@ pub static PROPOSER_COLLECTED_CONFLICTING_VOTING_POWER: Lazy<Counter> = Lazy::ne
         "aptos_proposer_collected_conflicting_voting_power_sum",
         "Total voting power of all votes collected for all other ledger info for the rounds this node was a proposer",
     )
-    .unwrap()
+        .unwrap()
 });
 
 /// Total voting power of all votes collected for all other ledger info
@@ -137,7 +185,7 @@ pub static PROPOSER_COLLECTED_TIMEOUT_VOTING_POWER: Lazy<Counter> = Lazy::new(||
         "aptos_proposer_collected_timeout_voting_power_sum",
         "Total voting power of all votes collected for the same ledger info for the rounds this node was a proposer",
     )
-    .unwrap()
+        .unwrap()
 });
 
 /// Committed proposals map when using LeaderReputation as the ProposerElection
@@ -176,12 +224,69 @@ pub static LEADER_REPUTATION_ROUND_HISTORY_SIZE: Lazy<IntGauge> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Number of rounds we were collecting votes for proposer
-/// (similar to PROPOSALS_COUNT, but can be larger, if we failed in creating/sending of the proposal)
-pub static CHAIN_HEALTH_BACKOFF_TRIGGERED: Lazy<IntCounter> = Lazy::new(|| {
-    register_int_counter!(
+/// Counts when chain_health backoff is triggered
+pub static CHAIN_HEALTH_BACKOFF_TRIGGERED: Lazy<Histogram> = Lazy::new(|| {
+    register_avg_counter(
         "aptos_chain_health_backoff_triggered",
-        "Total voting power of all votes collected for the round this node was proposer",
+        "Counts when chain_health backoff is triggered",
+    )
+});
+
+/// Counts when waiting for full blocks is triggered
+pub static WAIT_FOR_FULL_BLOCKS_TRIGGERED: Lazy<Histogram> = Lazy::new(|| {
+    register_avg_counter(
+        "aptos_wait_for_full_blocks_triggered",
+        "Counts when waiting for full blocks is triggered",
+    )
+});
+
+/// Counts when chain_health backoff is triggered
+pub static PIPELINE_BACKPRESSURE_ON_PROPOSAL_TRIGGERED: Lazy<Histogram> = Lazy::new(|| {
+    register_avg_counter(
+        "aptos_pipeline_backpressure_on_proposal_triggered",
+        "Counts when chain_health backoff is triggered",
+    )
+});
+
+/// number of rounds pending when creating proposal
+pub static CONSENSUS_PROPOSAL_PENDING_ROUNDS: Lazy<Histogram> = Lazy::new(|| {
+    register_avg_counter(
+        "aptos_consensus_proposal_pending_rounds",
+        "number of rounds pending when creating proposal",
+    )
+});
+
+/// duration pending when creating proposal
+pub static CONSENSUS_PROPOSAL_PENDING_DURATION: Lazy<Histogram> = Lazy::new(|| {
+    register_avg_counter(
+        "aptos_consensus_proposal_pending_duration",
+        "duration pending when creating proposal",
+    )
+});
+
+/// Amount of time (in seconds) proposal is delayed due to backpressure/backoff
+pub static PROPOSER_DELAY_PROPOSAL: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
+        "aptos_proposer_delay_proposal",
+        "Amount of time (in seconds) proposal is delayed due to backpressure/backoff",
+    )
+    .unwrap()
+});
+
+/// How many pending blocks are there, when we make a proposal
+pub static PROPOSER_PENDING_BLOCKS_COUNT: Lazy<IntGauge> = Lazy::new(|| {
+    register_int_gauge!(
+        "aptos_proposer_pending_blocks_count",
+        "How many pending blocks are there, when we make a proposal",
+    )
+    .unwrap()
+});
+
+/// How full is a largest pending block, as a fraction of max len/bytes (between 0 and 1)
+pub static PROPOSER_PENDING_BLOCKS_FILL_FRACTION: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
+        "aptos_proposer_pending_blocks_fill_fraction",
+        "How full is a largest recent pending block, as a fraction of max len/bytes (between 0 and 1)",
     )
     .unwrap()
 });
@@ -234,7 +339,7 @@ pub static CHAIN_HEALTH_PARTICIPATING_VOTING_POWER: Lazy<Vec<Gauge>> = Lazy::new
                 ),
                 "Current (with some delay) voting power that participated in consensus (voted or proposed) in the given window."
             )
-            .unwrap()
+                .unwrap()
         })
         .collect()
 });
@@ -252,9 +357,108 @@ pub static CHAIN_HEALTH_PARTICIPATING_NUM_VALIDATORS: Lazy<Vec<IntGauge>> = Lazy
                 ),
                 "Current (with some delay) number of validators that participated in consensus (voted or proposed) in the given window."
             )
-            .unwrap()
+                .unwrap()
         })
         .collect()
+});
+
+/// Emits consensus participation status for all peers, 0 means no participation in the window
+/// 1 otherwise.
+pub static CONSENSUS_PARTICIPATION_STATUS: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "aptos_consensus_participation_status",
+        "Counter for consensus participation status, 0 means no participation and 1 otherwise",
+        &["peer_id"]
+    )
+    .unwrap()
+});
+
+/// Voting power of the validator
+pub static VALIDATOR_VOTING_POWER: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
+        "aptos_validator_voting_power",
+        "Voting power of the validator"
+    )
+    .unwrap()
+});
+
+/// Emits voting power for all validators in the current epoch.
+pub static ALL_VALIDATORS_VOTING_POWER: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "aptos_all_validators_voting_power",
+        "Voting power for all validators in current epoch",
+        &["peer_id"]
+    )
+    .unwrap()
+});
+
+/// For the current ordering round, voting power needed for quorum.
+pub static CONSENSUS_CURRENT_ROUND_QUORUM_VOTING_POWER: Lazy<Gauge> = Lazy::new(|| {
+    register_gauge!(
+        "aptos_consensus_current_round_quorum_voting_power",
+        "Counter for consensus participation status, 0 means no participation and 1 otherwise",
+    )
+    .unwrap()
+});
+
+/// For the current ordering round, for each peer, whether they have voted, and for which hash_index
+pub static CONSENSUS_CURRENT_ROUND_VOTED_POWER: Lazy<GaugeVec> = Lazy::new(|| {
+    register_gauge_vec!(
+        "aptos_consensus_current_round_voted_power",
+        "Counter for consensus participation status, 0 means no participation and 1 otherwise",
+        &["peer_id", "hash_index"]
+    )
+    .unwrap()
+});
+
+/// For the current ordering round, for each peer, whether they have voted for a timeout
+pub static CONSENSUS_CURRENT_ROUND_TIMEOUT_VOTED_POWER: Lazy<GaugeVec> = Lazy::new(|| {
+    register_gauge_vec!(
+        "aptos_consensus_current_round_timeout_voted_power",
+        "Counter for consensus participation status, 0 means no participation and 1 otherwise",
+        &["peer_id"]
+    )
+    .unwrap()
+});
+
+/// Last vote seen for each of the peers
+pub static CONSENSUS_LAST_VOTE_EPOCH: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "aptos_consensus_last_voted_epoch",
+        "for each peer_id, last epoch we've seen consensus vote",
+        &["peer_id"]
+    )
+    .unwrap()
+});
+
+/// Last vote seen for each of the peers
+pub static CONSENSUS_LAST_VOTE_ROUND: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "aptos_consensus_last_voted_round",
+        "for each peer_id, last round we've seen consensus vote",
+        &["peer_id"]
+    )
+    .unwrap()
+});
+
+/// Last timeout vote seen for each of the peers
+pub static CONSENSUS_LAST_TIMEOUT_VOTE_EPOCH: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "aptos_consensus_last_timeout_voted_epoch",
+        "for each peer_id, last epoch we've seen consensus timeout vote",
+        &["peer_id"]
+    )
+    .unwrap()
+});
+
+/// Last timeout vote seen for each of the peers
+pub static CONSENSUS_LAST_TIMEOUT_VOTE_ROUND: Lazy<IntGaugeVec> = Lazy::new(|| {
+    register_int_gauge_vec!(
+        "aptos_consensus_last_timeout_voted_round",
+        "for each peer_id, last round we've seen consensus timeout vote",
+        &["peer_id"]
+    )
+    .unwrap()
 });
 
 //////////////////////
@@ -346,16 +550,6 @@ pub static NUM_BLOCKS_IN_TREE: Lazy<IntGauge> = Lazy::new(|| {
 });
 
 /// Counter for the number of blocks in the pipeline broken down by stage.
-pub static CONSENSUS_PARTICIPATION_STATUS: Lazy<IntGaugeVec> = Lazy::new(|| {
-    register_int_gauge_vec!(
-        "aptos_consensus_participation_status",
-        "Counter for consensus participation status, 0 means no participation and 1 otherwise",
-        &["peer_id"]
-    )
-    .unwrap()
-});
-
-/// Counter for the number of blocks in the pipeline broken down by stage.
 pub static NUM_BLOCKS_IN_PIPELINE: Lazy<IntGaugeVec> = Lazy::new(|| {
     register_int_gauge_vec!(
         "aptos_consensus_num_blocks_in_pipeline",
@@ -377,11 +571,17 @@ pub static NUM_BLOCKS_IN_PIPELINE: Lazy<IntGaugeVec> = Lazy::new(|| {
 //     .unwrap()
 // });
 
+const NUM_CONSENSUS_TRANSACTIONS_BUCKETS: [f64; 24] = [
+    5.0, 10.0, 20.0, 40.0, 75.0, 100.0, 200.0, 400.0, 800.0, 1200.0, 1800.0, 2500.0, 3300.0,
+    4000.0, 5000.0, 6500.0, 8000.0, 10000.0, 12500.0, 15000.0, 18000.0, 21000.0, 25000.0, 30000.0,
+];
+
 /// Histogram for the number of txns per (committed) blocks.
 pub static NUM_TXNS_PER_BLOCK: Lazy<Histogram> = Lazy::new(|| {
     register_histogram!(
         "aptos_consensus_num_txns_per_block",
-        "Histogram for the number of txns per (committed) blocks."
+        "Histogram for the number of txns per (committed) blocks.",
+        NUM_CONSENSUS_TRANSACTIONS_BUCKETS.to_vec()
     )
     .unwrap()
 });
@@ -396,10 +596,17 @@ pub static BLOCK_TRACING: Lazy<HistogramVec> = Lazy::new(|| {
     .unwrap()
 });
 
+const CONSENSUS_WAIT_DURATION_BUCKETS: [f64; 19] = [
+    0.005, 0.01, 0.015, 0.02, 0.04, 0.06, 0.08, 0.10, 0.125, 0.15, 0.175, 0.2, 0.225, 0.25, 0.3,
+    0.4, 0.6, 0.8, 2.0,
+];
+
 /// Histogram of the time it requires to wait before inserting blocks into block store.
 /// Measured as the block's timestamp minus local timestamp.
 pub static WAIT_DURATION_S: Lazy<DurationHistogram> = Lazy::new(|| {
-    DurationHistogram::new(register_histogram!("aptos_consensus_wait_duration_s", "Histogram of the time it requires to wait before inserting blocks into block store. Measured as the block's timestamp minus the local timestamp.").unwrap())
+    DurationHistogram::new(register_histogram!("aptos_consensus_wait_duration_s",
+    "Histogram of the time it requires to wait before inserting blocks into block store. Measured as the block's timestamp minus the local timestamp.",
+    CONSENSUS_WAIT_DURATION_BUCKETS.to_vec()).unwrap())
 });
 
 ///////////////////
@@ -471,6 +678,16 @@ pub static CONSENSUS_CHANNEL_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     .unwrap()
 });
 
+/// Counters(queued,dequeued,dropped) related to buffer manager channel
+pub static BUFFER_MANAGER_CHANNEL_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
+    register_int_counter_vec!(
+        "aptos_buffer_manager_channel_msgs_count",
+        "Counters(queued,dequeued,dropped) related to buffer manager channel",
+        &["state"]
+    )
+    .unwrap()
+});
+
 /// Counters for received consensus messages broken down by type
 pub static CONSENSUS_RECEIVED_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
@@ -491,11 +708,11 @@ pub static CONSENSUS_SENT_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counters(queued,dequeued,dropped) related to consensus channel
+/// Counters(queued,dequeued,dropped) related to consensus round manager channel
 pub static ROUND_MANAGER_CHANNEL_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_consensus_round_manager_msgs_count",
-        "Counters(queued,dequeued,dropped) related to consensus channel",
+        "Counters(queued,dequeued,dropped) related to consensus round manager channel",
         &["state"]
     )
     .unwrap()
@@ -511,17 +728,17 @@ pub static QUORUM_STORE_CHANNEL_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     .unwrap()
 });
 
-/// Counters(queued,dequeued,dropped) related to block retrieval channel
-pub static BLOCK_RETRIEVAL_CHANNEL_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
+/// Counters(queued,dequeued,dropped) related to rpc request channel
+pub static RPC_CHANNEL_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
-        "aptos_consensus_block_retrieval_channel_msgs_count",
-        "Counters(queued,dequeued,dropped) related to block retrieval channel",
+        "aptos_consensus_rpc_channel_msgs_count",
+        "Counters(queued,dequeued,dropped) related to rpc request channel",
         &["state"]
     )
     .unwrap()
 });
 
-/// Counters(queued,dequeued,dropped) related to block retrieval task
+/// Counters(queued,dequeued,dropped) related to block retrieval per epoch task
 pub static BLOCK_RETRIEVAL_TASK_MSGS: Lazy<IntCounterVec> = Lazy::new(|| {
     register_int_counter_vec!(
         "aptos_consensus_block_retrieval_task_msgs_count",
@@ -540,11 +757,38 @@ pub static BUFFER_MANAGER_RETRY_COUNT: Lazy<IntCounter> = Lazy::new(|| {
     .unwrap()
 });
 
+const PROPSER_ELECTION_DURATION_BUCKETS: [f64; 17] = [
+    0.001, 0.002, 0.003, 0.004, 0.006, 0.008, 0.01, 0.012, 0.014, 0.0175, 0.02, 0.025, 0.05, 0.25,
+    0.5, 1.0, 2.0,
+];
+
 /// Time it takes for proposer election to compute proposer (when not cached)
 pub static PROPOSER_ELECTION_DURATION: Lazy<Histogram> = Lazy::new(|| {
     register_histogram!(
         "aptos_consensus_proposer_election_duration",
-        "Time it takes for proposer election to compute proposer (when not cached)"
+        "Time it takes for proposer election to compute proposer (when not cached)",
+        PROPSER_ELECTION_DURATION_BUCKETS.to_vec()
     )
     .unwrap()
+});
+
+/// Count of the number of blocks that have ready batches to execute.
+pub static QUORUM_BATCH_READY_COUNT: Lazy<IntCounter> = Lazy::new(|| {
+    register_int_counter!(
+        "aptos_consensus_quorum_store_batch_ready_count",
+        "Count of the number of blocks that have ready batches to execute"
+    )
+    .unwrap()
+});
+
+/// Histogram of the time durations waiting for batch when executing.
+pub static BATCH_WAIT_DURATION: Lazy<DurationHistogram> = Lazy::new(|| {
+    DurationHistogram::new(
+        register_histogram!(
+            "aptos_consensus_batch_wait_duration",
+            "Histogram of the time durations for waiting batches.",
+            // exponential_buckets(/*start=*/ 100.0, /*factor=*/ 1.1, /*count=*/ 100).unwrap(),
+        )
+        .unwrap(),
+    )
 });

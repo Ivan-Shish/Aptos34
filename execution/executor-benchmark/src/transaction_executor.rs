@@ -1,34 +1,41 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_crypto::hash::HashValue;
-use aptos_executor::block_executor::BlockExecutor;
+use aptos_executor::block_executor::{BlockExecutor, TransactionBlockExecutor};
 use aptos_executor_types::BlockExecutorTrait;
 use aptos_types::transaction::{Transaction, Version};
-use aptos_vm::AptosVM;
 use std::{
     sync::{mpsc, Arc},
     time::{Duration, Instant},
 };
 
-pub struct TransactionExecutor {
-    executor: Arc<BlockExecutor<AptosVM>>,
+pub struct TransactionExecutor<V> {
+    executor: Arc<BlockExecutor<V>>,
     parent_block_id: HashValue,
     start_time: Option<Instant>,
     version: Version,
     // If commit_sender is `None`, we will commit all the execution result immediately in this struct.
     commit_sender:
         Option<mpsc::SyncSender<(HashValue, HashValue, Instant, Instant, Duration, usize)>>,
+    allow_discards: bool,
+    allow_aborts: bool,
 }
 
-impl TransactionExecutor {
+impl<V> TransactionExecutor<V>
+where
+    V: TransactionBlockExecutor,
+{
     pub fn new(
-        executor: Arc<BlockExecutor<AptosVM>>,
+        executor: Arc<BlockExecutor<V>>,
         parent_block_id: HashValue,
         version: Version,
         commit_sender: Option<
             mpsc::SyncSender<(HashValue, HashValue, Instant, Instant, Duration, usize)>,
         >,
+        allow_discards: bool,
+        allow_aborts: bool,
     ) -> Self {
         Self {
             executor,
@@ -36,6 +43,8 @@ impl TransactionExecutor {
             version,
             start_time: None,
             commit_sender,
+            allow_discards,
+            allow_aborts,
         }
     }
 
@@ -52,8 +61,56 @@ impl TransactionExecutor {
         let block_id = HashValue::random();
         let output = self
             .executor
-            .execute_block((block_id, transactions), self.parent_block_id)
+            .execute_block((block_id, transactions), self.parent_block_id, None)
             .unwrap();
+
+        assert_eq!(output.compute_status().len(), num_txns);
+        let discards = output
+            .compute_status()
+            .iter()
+            .flat_map(|status| match status.status() {
+                Ok(_) => None,
+                Err(error_code) => Some(format!("{:?}", error_code)),
+            })
+            .collect::<Vec<_>>();
+
+        let aborts = output
+            .compute_status()
+            .iter()
+            .flat_map(|status| match status.status() {
+                Ok(execution_status) => {
+                    if execution_status.is_success() {
+                        None
+                    } else {
+                        Some(format!("{:?}", execution_status))
+                    }
+                },
+                Err(_) => None,
+            })
+            .collect::<Vec<_>>();
+        if !discards.is_empty() || !aborts.is_empty() {
+            println!(
+                "Some transactions were not successful: {} discards and {} aborts out of {}, examples: discards: {:?}, aborts: {:?}",
+                discards.len(),
+                aborts.len(),
+                output.compute_status().len(),
+                &discards[..(discards.len().min(3))],
+                &aborts[..(aborts.len().min(3))]
+            )
+        }
+
+        assert!(
+            self.allow_discards || discards.is_empty(),
+            "No discards allowed, {}, examples: {:?}",
+            discards.len(),
+            &discards[..(discards.len().min(3))]
+        );
+        assert!(
+            self.allow_aborts || aborts.is_empty(),
+            "No aborts allowed, {}, examples: {:?}",
+            aborts.len(),
+            &aborts[..(aborts.len().min(3))]
+        );
 
         self.parent_block_id = block_id;
 
@@ -65,7 +122,7 @@ impl TransactionExecutor {
                     self.start_time.unwrap(),
                     execution_start,
                     Instant::now().duration_since(execution_start),
-                    num_txns,
+                    num_txns - discards.len(),
                 ))
                 .unwrap();
         } else {

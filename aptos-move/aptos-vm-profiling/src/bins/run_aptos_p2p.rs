@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::Result;
@@ -44,7 +44,7 @@ fn main() -> Result<()> {
         })
         .collect();
 
-    let res = AptosVM::execute_block(txns, &state_store)?;
+    let res = AptosVM::execute_block(txns, &state_store, None)?;
     for i in 0..NUM_TXNS {
         assert!(res[i as usize].status().status().unwrap().is_success());
     }

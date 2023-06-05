@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_cached_packages::aptos_stdlib;
@@ -9,6 +10,10 @@ use aptos_sdk::{
     types::{transaction::SignedTransaction, LocalAccount},
 };
 use rand::random;
+
+pub const MAX_CATCH_UP_WAIT_SECS: u64 = 180; // The max time we'll wait for nodes to catch up
+pub const MAX_CONNECTIVITY_WAIT_SECS: u64 = 180; // The max time we'll wait for nodes to gain connectivity
+pub const MAX_HEALTHY_WAIT_SECS: u64 = 120; // The max time we'll wait for nodes to become healthy
 
 pub async fn create_and_fund_account(swarm: &'_ mut dyn Swarm, amount: u64) -> LocalAccount {
     let mut info = swarm.aptos_public_info();
@@ -80,18 +85,12 @@ pub async fn assert_balance(client: &RestClient, account: &LocalAccount, balance
 /// node swarm, or a public full node swarm.
 #[cfg(test)]
 pub mod swarm_utils {
-    use aptos_config::config::{
-        InitialSafetyRulesConfig, NodeConfig, SecureBackend, WaypointConfig,
-    };
+    use aptos_config::config::{NodeConfig, SecureBackend, WaypointConfig};
     use aptos_secure_storage::{KVStorage, Storage};
     use aptos_types::waypoint::Waypoint;
 
     pub fn insert_waypoint(node_config: &mut NodeConfig, waypoint: Waypoint) {
         node_config.base.waypoint = WaypointConfig::FromConfig(waypoint);
-        node_config
-            .consensus
-            .safety_rules
-            .initial_safety_rules_config = InitialSafetyRulesConfig::None;
 
         let f = |backend: &SecureBackend| {
             let mut storage: Storage = backend.into();

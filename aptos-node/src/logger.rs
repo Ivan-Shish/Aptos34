@@ -1,4 +1,4 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::mpsc::Receiver;
@@ -40,7 +40,7 @@ pub fn create_logger(
         .level(node_config.logger.level)
         .telemetry_level(node_config.logger.telemetry_level)
         .enable_telemetry_flush(node_config.logger.enable_telemetry_flush)
-        .console_port(node_config.logger.console_port);
+        .tokio_console_port(node_config.logger.tokio_console_port);
     if node_config.logger.enable_backtrace {
         logger_builder.enable_backtrace();
     }
@@ -77,5 +77,17 @@ fn log_config_and_build_information(node_config: &NodeConfig) {
     log_feature_info!("failpoints", "assert-private-keys-not-cloneable");
 
     // Log the node config
-    info!(config = node_config, "Loaded AptosNode config");
+    let mut config = node_config;
+    let mut masked_config;
+    if let Some(u) = &node_config.indexer.postgres_uri {
+        let mut parsed_url = url::Url::parse(u).expect("Invalid postgres uri");
+        if parsed_url.password().is_some() {
+            masked_config = node_config.clone();
+            parsed_url.set_password(Some("*")).unwrap();
+            masked_config.indexer.postgres_uri = Some(parsed_url.to_string());
+            config = &masked_config;
+        }
+    }
+
+    info!("Loaded node config: {:?}", config);
 }

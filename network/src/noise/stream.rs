@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 //! The socket module implements the post-handshake part of the protocol.
@@ -546,20 +547,22 @@ mod test {
         let client_private = x25519::PrivateKey::generate(&mut rng);
         let client_public = client_private.public_key();
         let client_peer_id = aptos_types::account_address::from_identity_public_key(client_public);
+        let client_network_context = NetworkContext::mock_with_peer_id(client_peer_id);
 
         let server_private = x25519::PrivateKey::generate(&mut rng);
         let server_public = server_private.public_key();
         let server_peer_id = aptos_types::account_address::from_identity_public_key(server_public);
+        let server_network_context = NetworkContext::mock_with_peer_id(server_peer_id);
 
         let client = NoiseUpgrader::new(
-            NetworkContext::mock_with_peer_id(client_peer_id),
+            client_network_context,
             client_private,
-            HandshakeAuthMode::server_only(),
+            HandshakeAuthMode::server_only(&[client_network_context.network_id()]),
         );
         let server = NoiseUpgrader::new(
-            NetworkContext::mock_with_peer_id(server_peer_id),
+            server_network_context,
             server_private,
-            HandshakeAuthMode::server_only(),
+            HandshakeAuthMode::server_only(&[server_network_context.network_id()]),
         );
 
         ((client, client_public), (server, server_public))
@@ -575,13 +578,19 @@ mod test {
         let (dialer_socket, listener_socket) = MemorySocket::new_pair();
 
         // perform the handshake
+        let server_peer_id = server.network_context.peer_id();
         let (client_session, server_session) = block_on(join(
-            client.upgrade_outbound(dialer_socket, server_public_key, AntiReplayTimestamps::now),
+            client.upgrade_outbound(
+                dialer_socket,
+                server_peer_id,
+                server_public_key,
+                AntiReplayTimestamps::now,
+            ),
             server.upgrade_inbound(listener_socket),
         ));
 
         //
-        let client_session = client_session.unwrap();
+        let (client_session, _) = client_session.unwrap();
         let (server_session, _, _) = server_session.unwrap();
         (client_session, server_session)
     }
@@ -681,13 +690,19 @@ mod test {
         let ((client, _client_public_key), (server, server_public_key)) = build_peers();
 
         // perform the handshake
+        let server_peer_id = server.network_context.peer_id();
         let (client, server) = block_on(join(
-            client.upgrade_outbound(dialer_socket, server_public_key, AntiReplayTimestamps::now),
+            client.upgrade_outbound(
+                dialer_socket,
+                server_peer_id,
+                server_public_key,
+                AntiReplayTimestamps::now,
+            ),
             server.upgrade_inbound(listener_socket),
         ));
 
         // get session
-        let mut client = client.unwrap();
+        let (mut client, _) = client.unwrap();
         let (mut server, _, _) = server.unwrap();
 
         // test send and receive

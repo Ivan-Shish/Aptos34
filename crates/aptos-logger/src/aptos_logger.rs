@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 //! Implementation of writing logs to both local printers (e.g. stdout) and remote loggers
@@ -62,6 +63,8 @@ pub struct LogEntry {
     timestamp: String,
     data: BTreeMap<Key, serde_json::Value>,
     message: Option<String>,
+    peer_id: Option<&'static str>,
+    chain_id: Option<u8>,
 }
 
 // implement custom serializer for LogEntry since we want to promote the `metadata.level` field into a top-level `level` field
@@ -92,6 +95,9 @@ impl Serialize for LogEntry {
         }
         if let Some(backtrace) = &self.backtrace {
             state.serialize_field("backtrace", backtrace)?;
+        }
+        if let Some(peer_id) = &self.peer_id {
+            state.serialize_field("peer_id", peer_id)?;
         }
         state.end()
     }
@@ -137,6 +143,8 @@ impl LogEntry {
 
         let hostname = HOSTNAME.as_deref();
         let namespace = NAMESPACE.as_deref();
+        let peer_id = aptos_node_identity::peer_id_as_str();
+        let chain_id = aptos_node_identity::chain_id().map(|chain_id| chain_id.id());
 
         let backtrace = if enable_backtrace && matches!(metadata.level(), Level::Error) {
             let mut backtrace = Backtrace::new();
@@ -164,6 +172,8 @@ impl LogEntry {
             timestamp: Utc::now().to_rfc3339_opts(SecondsFormat::Micros, true),
             data,
             message,
+            peer_id,
+            chain_id,
         }
     }
 
@@ -198,12 +208,20 @@ impl LogEntry {
     pub fn message(&self) -> Option<&str> {
         self.message.as_deref()
     }
+
+    pub fn peer_id(&self) -> Option<&str> {
+        self.peer_id
+    }
+
+    pub fn chain_id(&self) -> Option<u8> {
+        self.chain_id
+    }
 }
 
 /// A builder for a `AptosData`, configures what, where, and how to write logs.
 pub struct AptosDataBuilder {
     channel_size: usize,
-    console_port: Option<u16>,
+    tokio_console_port: Option<u16>,
     enable_backtrace: bool,
     level: Level,
     remote_level: Level,
@@ -220,7 +238,7 @@ impl AptosDataBuilder {
     pub fn new() -> Self {
         Self {
             channel_size: CHANNEL_SIZE,
-            console_port: Some(6669),
+            tokio_console_port: None,
             enable_backtrace: false,
             level: Level::Info,
             remote_level: Level::Info,
@@ -263,8 +281,8 @@ impl AptosDataBuilder {
         self
     }
 
-    pub fn console_port(&mut self, console_port: Option<u16>) -> &mut Self {
-        self.console_port = console_port;
+    pub fn tokio_console_port(&mut self, tokio_console_port: Option<u16>) -> &mut Self {
+        self.tokio_console_port = tokio_console_port;
         self
     }
 
@@ -382,13 +400,13 @@ impl AptosDataBuilder {
     pub fn build(&mut self) -> Arc<AptosData> {
         let logger = self.build_logger();
 
-        let console_port = if cfg!(feature = "aptos-console") {
-            self.console_port
+        let tokio_console_port = if cfg!(feature = "tokio-console") {
+            self.tokio_console_port
         } else {
             None
         };
 
-        crate::logger::set_global_logger(logger.clone(), console_port);
+        crate::logger::set_global_logger(logger.clone(), tokio_console_port);
         logger
     }
 }
@@ -427,15 +445,19 @@ impl AptosData {
     }
 
     pub fn init_for_testing() {
-        if env::var(RUST_LOG).is_err() {
-            return;
-        }
-
-        Self::builder()
+        // Create the Aptos Data Builder
+        let mut builder = Self::builder();
+        builder
             .is_async(false)
             .enable_backtrace()
-            .printer(Box::new(StdoutWriter::new()))
-            .build();
+            .printer(Box::new(StdoutWriter::new()));
+
+        // If RUST_LOG wasn't specified, default to Debug logging
+        if env::var(RUST_LOG).is_err() {
+            builder.level(Level::Debug);
+        }
+
+        builder.build();
     }
 
     pub fn set_filter(&self, filter_tuple: FilterTuple) {
@@ -973,23 +995,8 @@ mod tests {
             .read()
             .telemetry_filter
             .enabled(debug_metadata));
-    }
-
-    #[test]
-    fn test_logger_filter_updater_invalid_value() {
-        let (logger_builder, logger) = new_async_logger();
-
-        let debug_metadata = &Metadata::new(Level::Debug, "target", "module_path", "source_path");
-
-        assert!(!logger
-            .filter
-            .read()
-            .telemetry_filter
-            .enabled(debug_metadata));
 
         std::env::set_var(RUST_LOG_TELEMETRY, "debug;hyper=off"); // log values should be separated by commas not semicolons.
-
-        let updater = LoggerFilterUpdater::new(logger.clone(), logger_builder);
         updater.update_filter();
 
         assert!(!logger

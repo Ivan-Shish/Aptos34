@@ -1,6 +1,8 @@
 #!/bin/bash
-# Copyright (c) Aptos
+# Copyright © Aptos Foundation
+# Parts of the project are originally copyright © Meta Platforms, Inc.
 # SPDX-License-Identifier: Apache-2.0
+
 # This script sets up the environment for the build by installing necessary dependencies.
 #
 # Usage ./dev_setup.sh <options>
@@ -12,7 +14,7 @@
 # 3 ${HOME}/bin/, or ${INSTALL_DIR} is expected to be on the path - hashicorp tools/etc.  will be installed there on linux systems.
 
 # fast fail.
-set -eo pipefail
+set -eox pipefail
 
 SHELLCHECK_VERSION=0.7.1
 GRCOV_VERSION=0.8.2
@@ -27,6 +29,7 @@ BOOGIE_VERSION=2.15.8
 ALLURE_VERSION=2.15.pr1135
 # this is 3.21.4; the "3" is silent
 PROTOC_VERSION=21.4
+SOLC_VERSION="v0.8.11+commit.d7f03943"
 
 SCRIPT_PATH="$( cd "$( dirname "$0" )" >/dev/null 2>&1 && pwd )"
 cd "$SCRIPT_PATH/.." || exit
@@ -34,17 +37,20 @@ cd "$SCRIPT_PATH/.." || exit
 function usage {
   echo "Usage:"
   echo "Installs or updates necessary dev tools for aptoslabs/aptos-core."
-  echo "-b batch mode, no user interactions and miminal output"
+  echo "-b batch mode, no user interactions and minimal output"
   echo "-p update ${HOME}/.profile"
   echo "-r install protoc and related tools"
   echo "-t install build tools"
   echo "-o install operations tooling as well: helm, terraform, yamllint, vault, docker, kubectl, python3"
-  echo "-y installs or updates Move prover tools: z3, cvc5, dotnet, boogie"
+  echo "-y install or update Move Prover tools: z3, cvc5, dotnet, boogie"
+  echo "-d install tools for the Move documentation generator: graphviz"
   echo "-a install tools for build and test api"
+  echo "-P install PostgreSQL"
+  echo "-J install js/ts tools"
   echo "-v verbose mode"
   echo "-i installs an individual tool by name"
   echo "-n will target the /opt/ dir rather than the $HOME dir.  /opt/bin/, /opt/rustup/, and /opt/dotnet/ rather than $HOME/bin/, $HOME/.rustup/, and $HOME/.dotnet/"
-  echo "If no toolchain component is selected with -t, -o, -y, or -p, the behavior is as if -t had been provided."
+  echo "If no toolchain component is selected with -t, -o, -y, -d, or -p, the behavior is as if -t had been provided."
   echo "This command must be called from the root folder of the Aptos-core project."
 }
 
@@ -90,6 +96,7 @@ function update_path_and_profile {
     add_to_profile "export CVC5_EXE=\"${BIN_DIR}/cvc5\""
     add_to_profile "export BOOGIE_EXE=\"${DOTNET_ROOT}/tools/boogie\""
   fi
+  add_to_profile "export SOLC_EXE=\"${BIN_DIR}/solc\""
 }
 
 function install_build_essentials {
@@ -138,7 +145,7 @@ function install_protoc {
   mkdir -p "$TMPFILE"/
   (
     cd "$TMPFILE" || exit
-    curl -LOs "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/$PROTOC_PKG.zip"
+    curl -LOs "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/$PROTOC_PKG.zip" --retry 3
     sudo unzip -o "$PROTOC_PKG.zip" -d /usr/local bin/protoc
     sudo unzip -o "$PROTOC_PKG.zip" -d /usr/local 'include/*'
     sudo chmod +x "/usr/local/bin/protoc"
@@ -147,13 +154,13 @@ function install_protoc {
 
   # Install the cargo plugins
   if ! command -v protoc-gen-prost &> /dev/null; then
-    cargo install protoc-gen-prost
+    cargo install protoc-gen-prost --locked
   fi
   if ! command -v protoc-gen-prost-serde &> /dev/null; then
-    cargo install protoc-gen-prost-serde
+    cargo install protoc-gen-prost-serde --locked
   fi
   if ! command -v protoc-gen-prost-crate &> /dev/null; then
-    cargo install protoc-gen-prost-crate
+    cargo install protoc-gen-prost-crate --locked
   fi
 }
 
@@ -426,7 +433,7 @@ function install_cargo_sort {
 }
 
 function install_cargo_nextest {
-  if ! command -v cargo-nextext &> /dev/null; then
+  if ! command -v cargo-nextest &> /dev/null; then
     cargo install cargo-nextest --locked
   fi
 }
@@ -463,8 +470,11 @@ function install_dotnet {
     fi
     # Below we need to (a) set TERM variable because the .net installer expects it and it is not set
     # in some environments (b) use bash not sh because the installer uses bash features.
-    curl -sSL https://dot.net/v1/dotnet-install.sh \
-        | TERM=linux /bin/bash -s -- --channel $DOTNET_VERSION --install-dir "${DOTNET_INSTALL_DIR}" --version latest
+    # NOTE: use wget to better follow the redirect
+    wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+    chmod +x dotnet-install.sh
+    ./dotnet-install.sh --channel $DOTNET_VERSION --install-dir "${DOTNET_INSTALL_DIR}" --version latest
+    rm dotnet-install.sh
   else
     echo Dotnet already installed.
   fi
@@ -494,7 +504,13 @@ function install_z3 {
   if [[ "$(uname)" == "Linux" ]]; then
     Z3_PKG="z3-$Z3_VERSION-x64-glibc-2.31"
   elif [[ "$(uname)" == "Darwin" ]]; then
-    Z3_PKG="z3-$Z3_VERSION-x64-osx-10.16"
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      # brew has a newer, arm64-native version
+      brew install z3
+      return
+    else
+      Z3_PKG="z3-$Z3_VERSION-x64-osx-10.16"
+    fi
   else
     echo "Z3 support not configured for this platform (uname=$(uname))"
     return
@@ -526,7 +542,11 @@ function install_cvc5 {
   if [[ "$(uname)" == "Linux" ]]; then
     CVC5_PKG="cvc5-Linux"
   elif [[ "$(uname)" == "Darwin" ]]; then
-    CVC5_PKG="cvc5-macOS"
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      CVC5_PKG="cvc5-macOS-arm64"
+    else
+      CVC5_PKG="cvc5-macOS"
+    fi
   else
     echo "cvc5 support not configured for this platform (uname=$(uname))"
     return
@@ -536,62 +556,11 @@ function install_cvc5 {
   mkdir -p "$TMPFILE"/
   (
     cd "$TMPFILE" || exit
-    curl -LOs "https://github.com/cvc5/cvc5/releases/download/cvc5-$CVC5_VERSION/$CVC5_PKG"
-    cp "$CVC5_PKG" "${INSTALL_DIR}cvc5"
-    chmod +x "${INSTALL_DIR}cvc5"
+    curl -LOs "https://github.com/cvc5/cvc5/releases/download/cvc5-$CVC5_VERSION/$CVC5_PKG" || true
+    cp "$CVC5_PKG" "${INSTALL_DIR}cvc5" || true
+    chmod +x "${INSTALL_DIR}cvc5" || true
   )
   rm -rf "$TMPFILE"
-}
-
-function install_golang {
-    if [[ $(go version | grep -c "go1.14" || true) == "0" ]]; then
-      if [[ "$PACKAGE_MANAGER" == "apt-get" ]]; then
-        curl -LO https://golang.org/dl/go1.14.15.linux-amd64.tar.gz
-        "${PRE_COMMAND[@]}" rm -rf /usr/local/go
-        "${PRE_COMMAND[@]}" tar -C /usr/local -xzf go1.14.15.linux-amd64.tar.gz
-        "${PRE_COMMAND[@]}" ln -sf /usr/local/go /usr/lib/golang
-        rm go1.14.15.linux-amd64.tar.gz
-      elif [[ "$PACKAGE_MANAGER" == "apk" ]]; then
-        apk --update add --no-cache git make musl-dev go
-      elif [[ "$PACKAGE_MANAGER" == "brew" ]]; then
-        failed=$(brew install go || echo "failed")
-        if [[ "$failed" == "failed" ]]; then
-          brew link --overwrite go
-        fi
-      else
-        install_pkg golang "$PACKAGE_MANAGER"
-      fi
-    fi
-}
-
-function install_deno {
-  curl -fsSL https://deno.land/x/install/install.sh | sh
-  cp "${HOME}/.deno/bin/deno" "${INSTALL_DIR}"
-  chmod +x "${INSTALL_DIR}deno"
-}
-
-function install_swift {
-    echo Installing Swift.
-    install_pkg wget "$PACKAGE_MANAGER"
-    install_pkg libncurses5 "$PACKAGE_MANAGER"
-    install_pkg clang "$PACKAGE_MANAGER"
-    install_pkg libcurl4 "$PACKAGE_MANAGER"
-    install_pkg libpython2.7 "$PACKAGE_MANAGER"
-    install_pkg libpython2.7-dev "$PACKAGE_MANAGER"
-    wget -q https://swift.org/builds/swift-5.3.3-release/ubuntu1804/swift-5.3.3-RELEASE/swift-5.3.3-RELEASE-ubuntu18.04.tar.gz
-    tar xzf swift-5.3.3-RELEASE-ubuntu18.04.tar.gz
-    rm -rf swift-5.3.3-RELEASE-ubuntu18.04.tar.gz
-    mv swift-5.3.3-RELEASE-ubuntu18.04 "${INSTALL_DIR}swift"
-}
-
-function install_java {
-    if [[ "$PACKAGE_MANAGER" == "apt-get" ]]; then
-      "${PRE_COMMAND[@]}" apt-get install -y default-jdk
-    elif [[ "$PACKAGE_MANAGER" == "apk" ]]; then
-      apk --update add --no-cache  -X http://dl-cdn.alpinelinux.org/alpine/edge/community openjdk11
-    else
-      install_pkg java "$PACKAGE_MANAGER"
-    fi
 }
 
 function install_allure {
@@ -627,8 +596,33 @@ function install_nodejs {
     install_pkg npm "$PACKAGE_MANAGER"
 }
 
+function install_solidity {
+  echo "Installing Solidity compiler"
+  if [ -f "${INSTALL_DIR}solc" ]; then
+    echo "Solidity already installed at ${INSTALL_DIR}solc"
+    return
+  fi
+  # We fetch the binary from  https://binaries.soliditylang.org
+  if [[ "$(uname)" == "Linux" ]]; then
+    SOLC_BIN="linux-amd64/solc-linux-amd64-${SOLC_VERSION}"
+  elif [[ "$(uname)" == "Darwin" ]]; then
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      # no native binary supplied, but brew can build one
+      brew install solidity
+      return
+    else
+      SOLC_BIN="macosx-amd64/solc-macosx-amd64-${SOLC_VERSION}"
+    fi
+  else
+    echo "Solidity support not configured for this platform (uname=$(uname))"
+    return
+  fi
+  curl -o "${INSTALL_DIR}solc" "https://binaries.soliditylang.org/${SOLC_BIN}"
+  chmod +x "${INSTALL_DIR}solc"
+}
+
 function install_pnpm {
-    curl -fsSL https://get.pnpm.io/install.sh | "${PRE_COMMAND[@]}" env PNPM_VERSION=7.14.2 SHELL="$(which bash)" bash -
+    curl -fsSL https://get.pnpm.io/install.sh | "${PRE_COMMAND[@]}" env PNPM_VERSION=8.2.0 SHELL="$(which bash)" bash -
 }
 
 function install_python3 {
@@ -665,6 +659,14 @@ function install_lld {
   fi
 }
 
+# this is needed for hdpi crate from aptos-ledger
+function install_libudev-dev {
+  # Need to install libudev-dev for linux
+  if [[ "$(uname)" == "Linux" ]]; then
+    install_pkg libudev-dev "$PACKAGE_MANAGER"
+  fi
+}
+
 function welcome_message {
 cat <<EOF
 Welcome to Aptos!
@@ -685,7 +687,6 @@ Build tools (since -t or no option was provided):
   * lcov
   * pkg-config
   * libssl-dev
-  * NodeJS / NPM
   * protoc (and related tools)
   * lld (only for Linux)
 EOF
@@ -716,6 +717,13 @@ Move prover tools (since -y was provided):
 EOF
   fi
 
+if [[ "$INSTALL_DOC" == "true" ]]; then
+cat <<EOF
+tools for the Move documentation generator (since -d was provided):
+  * graphviz
+EOF
+  fi
+
   if [[ "$INSTALL_PROTOC" == "true" ]]; then
 cat <<EOF
 protoc and related plugins (since -r was provided):
@@ -727,6 +735,21 @@ EOF
 cat <<EOF
 API build and testing tools (since -a was provided):
   * Python3 (schemathesis)
+EOF
+  fi
+
+  if [[ "$INSTALL_POSTGRES" == "true" ]]; then
+cat <<EOF
+PostgreSQL database (since -P was provided):
+EOF
+  fi
+
+  if [[ "$INSTALL_JSTS" == "true" ]]; then
+cat <<EOF
+Javascript/TypeScript tools (since -J was provided):
+  * node.js
+  * pnpm
+  * solidity
 EOF
   fi
 
@@ -748,15 +771,18 @@ INSTALL_BUILD_TOOLS=false;
 OPERATIONS=false;
 INSTALL_PROFILE=false;
 INSTALL_PROVER=false;
+INSTALL_DOC=false;
 INSTALL_PROTOC=false;
 INSTALL_API_BUILD_TOOLS=false;
+INSTALL_POSTGRES=false;
+INSTALL_JSTS=false;
 INSTALL_INDIVIDUAL=false;
 INSTALL_PACKAGES=();
 INSTALL_DIR="${HOME}/bin/"
 OPT_DIR="false"
 
 #parse args
-while getopts "btoprvysah:i:n" arg; do
+while getopts "btoprvydaPJh:i:n" arg; do
   case "$arg" in
     b)
       BATCH_MODE="true"
@@ -779,8 +805,17 @@ while getopts "btoprvysah:i:n" arg; do
     y)
       INSTALL_PROVER="true"
       ;;
+    d)
+      INSTALL_DOC="true"
+      ;;
     a)
       INSTALL_API_BUILD_TOOLS="true"
+      ;;
+    P)
+      INSTALL_POSTGRES="true"
+      ;;
+    J)
+      INSTALL_JSTS="true"
       ;;
     i)
       INSTALL_INDIVIDUAL="true"
@@ -805,7 +840,10 @@ if [[ "$INSTALL_BUILD_TOOLS" == "false" ]] && \
    [[ "$OPERATIONS" == "false" ]] && \
    [[ "$INSTALL_PROFILE" == "false" ]] && \
    [[ "$INSTALL_PROVER" == "false" ]] && \
+   [[ "$INSTALL_DOC" == "false" ]] && \
    [[ "$INSTALL_API_BUILD_TOOLS" == "false" ]] && \
+   [[ "$INSTALL_POSTGRES" == "false" ]] && \
+   [[ "$INSTALL_JSTS" == "false" ]] && \
    [[ "$INSTALL_INDIVIDUAL" == "false" ]]; then
    INSTALL_BUILD_TOOLS="true"
 fi
@@ -900,11 +938,8 @@ if [[ "$INSTALL_BUILD_TOOLS" == "true" ]]; then
   install_cargo_sort
   install_cargo_nextest
   install_grcov
-  install_postgres
   install_pkg git "$PACKAGE_MANAGER"
   install_lcov "$PACKAGE_MANAGER"
-  install_nodejs "$PACKAGE_MANAGER"
-  install_pnpm "$PACKAGE_MANAGER"
   install_pkg unzip "$PACKAGE_MANAGER"
   install_protoc
 fi
@@ -962,14 +997,31 @@ if [[ "$INSTALL_PROVER" == "true" ]]; then
   install_boogie
 fi
 
+if [[ "$INSTALL_DOC" == "true" ]]; then
+  install_pkg graphviz "$PACKAGE_MANAGER"
+fi
+
 if [[ "$INSTALL_API_BUILD_TOOLS" == "true" ]]; then
   # python and tools
   install_python3
   "${PRE_COMMAND[@]}" python3 -m pip install schemathesis
 fi
 
+if [[ "$INSTALL_POSTGRES" == "true" ]]; then
+  install_postgres
+fi
+
+if [[ "$INSTALL_JSTS" == "true" ]]; then
+  # javascript and typescript tools
+  install_nodejs "$PACKAGE_MANAGER"
+  install_pnpm "$PACKAGE_MANAGER"
+  install_solidity
+fi
+
 install_python3
 pip3 install pre-commit
+
+install_libudev-dev
 
 # For now best effort install, will need to improve later
 if command -v pre-commit; then

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use aptos_cached_packages::aptos_stdlib;
@@ -18,6 +19,7 @@ use aptos_types::{
     account_view::AccountView,
     block_metadata::BlockMetadata,
     state_store::state_key::StateKey,
+    test_helpers::transaction_test_helpers::BLOCK_GAS_LIMIT,
     transaction::{Transaction, WriteSetPayload},
     trusted_state::TrustedState,
     validator_signer::ValidatorSigner,
@@ -38,7 +40,7 @@ fn test_genesis() {
     let li = state_proof.latest_ledger_info();
     assert_eq!(li.version(), 0);
 
-    let account_resource_path = StateKey::AccessPath(AccessPath::new(
+    let account_resource_path = StateKey::access_path(AccessPath::new(
         CORE_CODE_ADDRESS,
         AccountResource::struct_tag().access_vector(),
     ));
@@ -138,7 +140,11 @@ fn test_reconfiguration() {
     let txn_block = vec![txn1, txn2, txn3];
     let block_id = gen_block_id(1);
     let vm_output = executor
-        .execute_block((block_id, txn_block.clone()), parent_block_id)
+        .execute_block(
+            (block_id, txn_block.clone()),
+            parent_block_id,
+            BLOCK_GAS_LIMIT,
+        )
         .unwrap();
 
     // Make sure the execution result sees the reconfiguration

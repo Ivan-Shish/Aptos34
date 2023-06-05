@@ -24,7 +24,27 @@ resource "helm_release" "chaos-mesh" {
     jsonencode({
       chaos-mesh = {
         chaosDaemon = {
-          podSecurityPolicy = true
+          runtime    = "containerd"
+          socketPath = "/run/containerd/containerd.sock"
+          image = {
+            repository = "aptos-internal/chaos-daemon"
+            tag        = "latest"
+          }
+        },
+        controllerManager = {
+          image = {
+            repository = "aptos-internal/chaos-mesh"
+            tag        = "latest"
+          }
+        },
+        dashboard = {
+          image = {
+            repository = "aptos-internal/chaos-dashboard"
+            tag        = "latest"
+          }
+        }
+        images = {
+          registry = "us-west1-docker.pkg.dev/aptos-global"
         }
       }
     })

@@ -8,7 +8,15 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # State Synchronization
 
-Nodes in an Aptos network, both the validator nodes and the fullnodes, must always be synchronized to the latest Aptos blockchain state. The state synchronization (state sync) component that runs on each node is responsible for this synchronization. To achieve this synchronization, state sync identifies and fetches new blockchain data from the peers, validates the data and persists it to the local storage.
+Nodes in an Aptos network (e.g., validator nodes and fullnodes) must always be synchronized to the latest Aptos blockchain state. The [state synchronization](https://medium.com/aptoslabs/the-evolution-of-state-sync-the-path-to-100k-transactions-per-second-with-sub-second-latency-at-52e25a2c6f10) (state sync) component that runs on each node is responsible for this. State sync identifies and fetches new blockchain data from the peers, validates the data and persists it to the local storage.
+
+:::tip Need to start a node quickly?
+If you need to start a node quickly, here's what we recommend by use case:
+  - **Devnet public fullnode**: To sync the entire blockchain history, use [output syncing](state-sync.md#applying-all-transaction-outputs). Otherwise, use [fast sync](state-sync.md#fast-syncing).
+  - **Testnet public fullnode**: To sync the entire blockchain history, restore from a [backup](../nodes/full-node/aptos-db-restore.md). Otherwise, download [a snapshot](../nodes/full-node/bootstrap-fullnode.md) or use [fast sync](state-sync.md#fast-syncing).
+  - **Mainnet public fullnode**: To sync the entire blockchain history, restore from a [backup](../nodes/full-node/aptos-db-restore.md). Otherwise, use [fast sync](state-sync.md#fast-syncing).
+  - **Mainnet validator or validator fullnode**: To sync the entire blockchain history, restore from a [backup](../nodes/full-node/aptos-db-restore.md). Otherwise, use [fast sync](state-sync.md#fast-syncing).
+:::
 
 ## State sync modes
 
@@ -48,7 +56,7 @@ configuration file (for example,`fullnode.yaml` or `validator.yaml`):
 
 :::tip Verify node syncing
 While your node is syncing, you'll be able to see the
-[`aptos_state_sync_version{type="synced"}`](/nodes/full-node/fullnode-source-code-or-docker/#verify-initial-synchronization) metric gradually increase.
+[`aptos_state_sync_version{type="synced"}`](../nodes/full-node/fullnode-source-code-or-docker.md#verify-initial-synchronization) metric gradually increase.
 :::
 
 ### Applying all transaction outputs
@@ -66,7 +74,7 @@ node configuration file:
 
 :::tip Verify node syncing
 While your node is syncing, you'll be able to see the
-[`aptos_state_sync_version{type="synced"}`](/nodes/full-node/fullnode-source-code-or-docker/#verify-initial-synchronization) metric gradually increase.
+[`aptos_state_sync_version{type="synced"}`](../nodes/full-node/fullnode-source-code-or-docker.md#verify-initial-synchronization) metric gradually increase.
 :::
 
 ## Fast syncing
@@ -108,15 +116,6 @@ increase then do the following:
 1. Double-check the node configuration file has correctly been updated.
 2. Make sure that the node is starting up with an empty storage database
 (i.e., that it has not synced any state previously).
-3. Add the following to your node configuration to account for any potential
-network delays that may occur when initializing slow network connections:
-
-```yaml
- state_sync:
-   state_sync_driver:
-     ...
-     max_connection_deadline_secs: 1000000 # Tolerate slow peer discovery & connections
-```
 
 ## Running archival nodes
 
@@ -124,7 +123,7 @@ To operate an archival node, which is a fullnode that contains all blockchain da
 since the start of the blockchain's history (that is, genesis), you should:
 1. Run a fullnode and configure it to execute all transactions, or apply all transaction outputs (see above).
 Do not select fast syncing, as the fullnode will not contain all data since genesis.
-2. Disable the ledger pruner, as described in the [Data Pruning document](../guides/data-pruning.md#disabling-the-ledger-pruner).
+2. Disable the ledger pruner, as described in the [Data Pruning document](data-pruning.md#disabling-the-ledger-pruner).
 This will ensure that no data is pruned and the fullnode contains all blockchain data.
 
 :::caution Proceed with caution
@@ -158,43 +157,3 @@ is still manually re-verified, e.g., epoch changes and the resulting blockchain 
 All of the syncing modes get their root of trust from the validator set
 and cryptographic signatures from those validators over the blockchain data.
 For more information about how this works, see the [state synchronization blogpost](https://medium.com/aptoslabs/the-evolution-of-state-sync-the-path-to-100k-transactions-per-second-with-sub-second-latency-at-52e25a2c6f10).
-
-# State sync architecture
-
-The state synchronization component is comprised of four sub-components, each with a specific purpose:
-
-1. **Driver**: The driver “drives” the synchronization progress of the node.
-It is responsible for verifying all data that the node receives from peers. Data
-is forwarded from the peers via the data streaming service. After data
-verification, the driver persists the data to storage.
-2. **Data Streaming Service**: The streaming service creates data streams for
-clients (one of which is the state sync driver). It allows the client to stream
-new data chunks from peers, without having to worry about which peers have the
-data or how to manage data requests. For example, the client can request all
-transactions since version `5` and the data streaming service will provide
-this.
-3. **Aptos Data Client**: The data client is responsible for handling data
-requests from the data streaming service. For the data streaming service to
-stream all transactions, it must make multiple requests (each request for a
-batch of transactions) and send those requests to peers (e.g., transactions
-`1→5`, `6→10`, `11→15`, and so on). The data client takes the request,
-identifies which peer can handle the request and sends the request to them.
-4. **Storage Service**: The storage service is a simple storage API offered by
-each node which allows peers to fetch data. For example, the data client on
-peer `X` can send the data request to the storage service on peer `Y` to fetch
-a batch of transactions.
-
-## State sync code structure
-
-Below are the links to the state sync code showing the structure that matches the architecture outlined above:
-- **Driver:** [https://github.com/aptos-labs/aptos-core/tree/main/state-sync/state-sync-v2/state-sync-driver](https://github.com/aptos-labs/aptos-core/tree/main/state-sync/state-sync-v2/state-sync-driver)
-- **Data Streaming Service:** [https://github.com/aptos-labs/aptos-core/tree/main/state-sync/state-sync-v2/data-streaming-service](https://github.com/aptos-labs/aptos-core/tree/main/state-sync/state-sync-v2/data-streaming-service)
-- **Aptos Data Client**: [https://github.com/aptos-labs/aptos-core/tree/main/state-sync/aptos-data-client](https://github.com/aptos-labs/aptos-core/tree/main/state-sync/aptos-data-client)
-- **Storage Service:** [https://github.com/aptos-labs/aptos-core/tree/main/state-sync/storage-service](https://github.com/aptos-labs/aptos-core/tree/main/state-sync/storage-service)
-
-In addition, see also a directory containing the code for
-**inter-component** communication: [https://github.com/aptos-labs/aptos-core/tree/main/state-sync/inter-component](https://github.com/aptos-labs/aptos-core/tree/main/state-sync/inter-component).
-This is required so that:
-   - State sync can handle notifications from consensus (e.g., to catch up after falling behind).
-   - State sync can notify mempool when transactions are committed (i.e., so they can be removed from mempool).
-   - State sync can update the event subscription service to notify listeners (e.g., other system components for reconfiguration events).

@@ -1,4 +1,5 @@
-// Copyright (c) Aptos
+// Copyright © Aptos Foundation
+// Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
@@ -7,6 +8,8 @@ use crate::{
     payload_manager::PayloadManager,
     state_replication::{StateComputer, StateComputerCommitCallBackType},
     test_utils::mock_storage::MockStorage,
+    transaction_deduper::TransactionDeduper,
+    transaction_shuffler::TransactionShuffler,
 };
 use anyhow::{format_err, Result};
 use aptos_consensus_types::{block::Block, common::Payload, executed_block::ExecutedBlock};
@@ -131,7 +134,17 @@ impl StateComputer for MockStateComputer {
         Ok(())
     }
 
-    fn new_epoch(&self, _: &EpochState, _: Arc<PayloadManager>) {}
+    fn new_epoch(
+        &self,
+        _: &EpochState,
+        _: Arc<PayloadManager>,
+        _: Arc<dyn TransactionShuffler>,
+        _: Option<u64>,
+        _: Arc<dyn TransactionDeduper>,
+    ) {
+    }
+
+    fn end_epoch(&self) {}
 }
 
 pub struct EmptyStateComputer;
@@ -159,7 +172,17 @@ impl StateComputer for EmptyStateComputer {
         Ok(())
     }
 
-    fn new_epoch(&self, _: &EpochState, _: Arc<PayloadManager>) {}
+    fn new_epoch(
+        &self,
+        _: &EpochState,
+        _: Arc<PayloadManager>,
+        _: Arc<dyn TransactionShuffler>,
+        _: Option<u64>,
+        _: Arc<dyn TransactionDeduper>,
+    ) {
+    }
+
+    fn end_epoch(&self) {}
 }
 
 /// Random Compute Result State Computer
@@ -211,5 +234,15 @@ impl StateComputer for RandomComputeResultStateComputer {
         Ok(())
     }
 
-    fn new_epoch(&self, _: &EpochState, _: Arc<PayloadManager>) {}
+    fn new_epoch(
+        &self,
+        _: &EpochState,
+        _: Arc<PayloadManager>,
+        _: Arc<dyn TransactionShuffler>,
+        _: Option<u64>,
+        _: Arc<dyn TransactionDeduper>,
+    ) {
+    }
+
+    fn end_epoch(&self) {}
 }
