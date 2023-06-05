@@ -20,7 +20,7 @@
 ## auto_merge).
 
 name: "Build+Test Docker Images"
-on:
+on: # build on main branch OR when a PR is labeled with `CICD:build-images`
   # Allow us to run this specific workflow without a PR
   workflow_dispatch:
   pull_request_target:
@@ -48,6 +48,7 @@ concurrency:
 
 env:
   GCP_DOCKER_ARTIFACT_REPO: ${{ secrets.GCP_DOCKER_ARTIFACT_REPO }}
+  GCP_DOCKER_ARTIFACT_REPO_US: ${{ secrets.GCP_DOCKER_ARTIFACT_REPO_US }}
   AWS_ECR_ACCOUNT_NUM: ${{ secrets.ENV_ECR_AWS_ACCOUNT_NUM }}
   # In case of pull_request events by default github actions merges main into the PR branch and then runs the tests etc
   # on the prospective merge result instead of only on the tip of the PR.
@@ -116,6 +117,8 @@ jobs:
     needs: [permission-check, determine-docker-build-metadata]
     uses: aptos-labs/aptos-core/.github/workflows/workflow-run-docker-rust-build.yaml@main
     if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'CICD:build-indexer-images')
     secrets: inherit
     with:
@@ -129,6 +132,8 @@ jobs:
     needs: [permission-check, determine-docker-build-metadata]
     uses: aptos-labs/aptos-core/.github/workflows/workflow-run-docker-rust-build.yaml@main
     if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'CICD:build-failpoints-images')
     secrets: inherit
     with:
@@ -142,6 +147,8 @@ jobs:
     needs: [permission-check, determine-docker-build-metadata]
     uses: aptos-labs/aptos-core/.github/workflows/workflow-run-docker-rust-build.yaml@main
     if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'CICD:build-performance-images')
     secrets: inherit
     with:
@@ -164,72 +171,58 @@ jobs:
       FEATURES: consensus-only-perf-test
       BUILD_ADDL_TESTING_IMAGES: true
 
-  rust-images-all:
-    needs:
-      [
-        determine-docker-build-metadata,
-        rust-images,
-        rust-images-indexer,
-        rust-images-failpoints,
-        rust-images-performance,
-        rust-images-consensus-only-perf-test,
-      ]
-    if: always() # this ensures that the job will run even if the previous jobs were skipped
-    runs-on: ubuntu-latest
-    steps:
-      - name: fail if rust-images job failed
-        if: ${{ needs.rust-images.result == 'failure' }}
-        run: exit 1
-      - name: fail if rust-images-indexer job failed
-        if: ${{ needs.rust-images-indexer.result == 'failure' }}
-        run: exit 1
-      - name: fail if rust-images-failpoints job failed
-        if: ${{ needs.rust-images-failpoints.result == 'failure' }}
-        run: exit 1
-      - name: fail if rust-images-performance job failed
-        if: ${{ needs.rust-images-performance.result == 'failure' }}
-        run: exit 1
-      - name: fail if rust-images-consensus-only-perf-test job failed
-        if: ${{ needs.rust-images-consensus-only-perf-test.result == 'failure' }}
-        run: exit 1
-    outputs:
-      rustImagesResult: ${{ needs.rust-images.result }}
-      rustImagesIndexerResult: ${{ needs.rust-images-indexer.result }}
-      rustImagesFailpointsResult: ${{ needs.rust-images-failpoints.result }}
-      rustImagesPerformanceResult: ${{ needs.rust-images-performance.result }}
-      rustImagesConsensusOnlyPerfTestResult: ${{ needs.rust-images-consensus-only-perf-test.result }}
-
   sdk-release:
-    needs: [rust-images-all]
+    needs: [permission-check, rust-images, determine-docker-build-metadata] # runs with the default release docker build variant "rust-images"
     if: |
       (github.event_name == 'push' && github.ref_name != 'main') ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
       github.event.pull_request.auto_merge != null ||
       contains(github.event.pull_request.body, '#e2e')
-    uses: ./.github/workflows/sdk-release.yaml
+    uses: aptos-labs/aptos-core/.github/workflows/sdk-release.yaml@main
     secrets: inherit
     with:
       GIT_SHA: ${{ needs.determine-docker-build-metadata.outputs.gitSha }}
 
   cli-e2e-tests:
-    needs: [rust-images, determine-docker-build-metadata]
+    needs: [permission-check, rust-images, determine-docker-build-metadata] # runs with the default release docker build variant "rust-images"
     if: |
       !contains(github.event.pull_request.labels.*.name, 'CICD:skip-sdk-integration-test') && (
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
-      github.event.pull_request.auto_merge != null) ||
-      contains(github.event.pull_request.body, '#e2e')
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
+        github.event.pull_request.auto_merge != null) ||
+        contains(github.event.pull_request.body, '#e2e'
+      )
     uses: ./.github/workflows/cli-e2e-tests.yaml
     secrets: inherit
     with:
       GIT_SHA: ${{ needs.determine-docker-build-metadata.outputs.gitSha }}
 
-  forge-e2e-test:
-    needs: [rust-images-all, determine-docker-build-metadata]
+  indexer-grpc-e2e-tests:
+    needs: [permission-check, rust-images, determine-docker-build-metadata] # runs with the default release docker build variant "rust-images"
     if: |
-      !contains(github.event.pull_request.labels.*.name, 'CICD:skip-forge-e2e-test') && (
+      (github.event_name == 'push' && github.ref_name != 'main') ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
+      github.event.pull_request.auto_merge != null ||
+      contains(github.event.pull_request.body, '#e2e')
+    uses: ./.github/workflows/docker-indexer-grpc-test.yaml
+    secrets: inherit
+    with:
+      GIT_SHA: ${{ needs.determine-docker-build-metadata.outputs.gitSha }}
+
+  forge-e2e-test:
+    needs:
+      - permission-check
+      - determine-docker-build-metadata
+      - rust-images
+      - rust-images-indexer
+      - rust-images-failpoints
+      - rust-images-performance
+      - rust-images-consensus-only-perf-test
+    if: |
+      !failure() && !cancelled() && needs.permission-check.result == 'success' && (
         (github.event_name == 'push' && github.ref_name != 'main') ||
         github.event_name == 'workflow_dispatch' ||
         contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
@@ -251,14 +244,22 @@ jobs:
 
   # Run e2e compat test against testnet branch
   forge-compat-test:
-    needs: [rust-images-all, determine-docker-build-metadata]
+    needs:
+      - permission-check
+      - determine-docker-build-metadata
+      - rust-images
+      - rust-images-indexer
+      - rust-images-failpoints
+      - rust-images-performance
+      - rust-images-consensus-only-perf-test
     if: |
-      (github.event_name == 'push' && github.ref_name != 'main') ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
-      github.event.pull_request.auto_merge != null ||
-      contains(github.event.pull_request.body, '#e2e')
-
+      !failure() && !cancelled() && needs.permission-check.result == 'success' && (
+        (github.event_name == 'push' && github.ref_name != 'main') ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
+        github.event.pull_request.auto_merge != null ||
+        contains(github.event.pull_request.body, '#e2e')
+      )
     uses: aptos-labs/aptos-core/.github/workflows/workflow-run-forge.yaml@main
     secrets: inherit
     with:
@@ -271,13 +272,22 @@ jobs:
 
   # Run forge framework upgradability test
   forge-framework-upgrade-test:
-    needs: [rust-images-all, determine-docker-build-metadata]
+    needs:
+      - permission-check
+      - determine-docker-build-metadata
+      - rust-images
+      - rust-images-indexer
+      - rust-images-failpoints
+      - rust-images-performance
+      - rust-images-consensus-only-perf-test
     if: |
-      (github.event_name == 'push' && github.ref_name != 'main') ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
-      github.event.pull_request.auto_merge != null ||
-      contains(github.event.pull_request.body, '#e2e')
+      !failure() && !cancelled() && needs.permission-check.result == 'success' && (
+        (github.event_name == 'push' && github.ref_name != 'main') ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'CICD:run-e2e-tests') ||
+        github.event.pull_request.auto_merge != null ||
+        contains(github.event.pull_request.body, '#e2e')
+      )
     uses: aptos-labs/aptos-core/.github/workflows/workflow-run-forge.yaml@main
     secrets: inherit
     with:
@@ -289,8 +299,16 @@ jobs:
       FORGE_NAMESPACE: forge-framework-upgrade-${{ needs.determine-docker-build-metadata.outputs.targetCacheId }}
 
   forge-consensus-only-perf-test:
-    needs: [rust-images-all, determine-docker-build-metadata]
+    needs:
+      - permission-check
+      - determine-docker-build-metadata
+      - rust-images
+      - rust-images-indexer
+      - rust-images-failpoints
+      - rust-images-performance
+      - rust-images-consensus-only-perf-test
     if: |
+      !failure() && !cancelled() && needs.permission-check.result == 'success' &&
       contains(github.event.pull_request.labels.*.name, 'CICD:run-consensus-only-perf-test')
     uses: aptos-labs/aptos-core/.github/workflows/workflow-run-forge.yaml@main
     secrets: inherit
