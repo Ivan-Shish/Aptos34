@@ -13,6 +13,10 @@ resource "google_container_cluster" "aptos" {
     channel = "REGULAR"
   }
 
+  pod_security_policy_config {
+    enabled = false
+  }
+
   master_auth {
     client_certificate_config {
       issue_client_certificate = false
@@ -51,15 +55,6 @@ resource "google_container_cluster" "aptos" {
   network_policy {
     enabled  = true
     provider = "CALICO"
-  }
-
-  node_config {
-    gcfs_config {
-      enabled = var.gke_cluster_enable_gcfs
-    }
-    gvnic {
-      enabled = var.gke_cluster_enable_gvnic
-    }
   }
 
   cluster_autoscaling {
