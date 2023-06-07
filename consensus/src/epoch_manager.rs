@@ -747,16 +747,11 @@ impl EpochManager {
 
         if self.dkg_enabled {
             // start dkg_manager
-            let epoch_start_time_usecs = block_store.commit_root().timestamp_usecs();
-            let dkg_manager = DKGManager::new(self.epoch(), epoch_start_time_usecs, block_store.clone(), batch_generator_cmd_tx);
+            let dkg_manager = DKGManager::new(self.epoch(), self.author, epoch_state.verifier.clone(), batch_generator_cmd_tx);
             let (dkg_manager_cmd_tx, dkg_manager_cmd_rx) =
                 tokio::sync::mpsc::channel(self.config.channel_size);
-            // let (close_tx, close_rx) = oneshot::channel();
             self.dkg_manager_cmd_tx = Some(dkg_manager_cmd_tx);
-            let interval = tokio::time::interval(Duration::from_millis(
-                self.config.dkg_manager_interval_ms as u64,
-            ));
-            dkg_manager.start(dkg_manager_cmd_rx, interval);
+            dkg_manager.start(dkg_manager_cmd_rx);
         }
 
         info!(epoch = epoch, "Create ProposalGenerator");

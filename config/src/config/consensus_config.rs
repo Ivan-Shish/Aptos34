@@ -65,7 +65,6 @@ pub struct ConsensusConfig {
     // must match one of the CHAIN_HEALTH_WINDOW_SIZES values.
     pub window_for_chain_health: usize,
     pub chain_health_backoff: Vec<ChainHealthBackoffValues>,
-    pub dkg_manager_interval_ms: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -206,7 +205,6 @@ impl Default for ConsensusConfig {
                     backoff_proposal_delay_ms: 300,
                 },
             ],
-            dkg_manager_interval_ms: 10_000,    //  every 10s
         }
     }
 }
