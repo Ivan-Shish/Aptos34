@@ -12,7 +12,7 @@ pub struct StakeDis {
     pub distribution: HashMap<Author, u64>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Transcript {
     // dkg todo: use real transcript
     bytes: Vec<u8>,
@@ -43,11 +43,9 @@ pub enum DKGManagerCommand {
 pub struct DKGManager {
     epoch: u64,
     author: Author,
-    voting_power: u128,
-    total_voting_power: u128,
-    validators: ValidatorVerifier,
+    old_validators: ValidatorVerifier,
     my_pvss: Option<Transcript>,
-    // HashMap of PVSS transcripts received from other validators
+    // HashMap of valid PVSS transcripts received from other validators
     all_pvss: HashMap<Author, Transcript>,
     // Aggregated PVSS transcript from enough validators
     aggregated_pvss: Option<Transcript>,
@@ -60,32 +58,18 @@ impl DKGManager {
     pub fn new(
         epoch: u64,
         author: Author,
-        validators: ValidatorVerifier,
+        old_validators: ValidatorVerifier,
         batch_generator_cmd_tx: mpsc::Sender<BatchGeneratorCommand>,
     ) -> Self {
         Self {
             epoch,
             author,
-            voting_power: 0,
-            // dkg todo: use the total voting power after approximation / rounding
-            total_voting_power: validators.total_voting_power(),
-            validators,
+            old_validators,
             my_pvss: None,
             all_pvss: HashMap::new(),
             aggregated_pvss: None,
             batch_generator_cmd_tx,
         }
-    }
-
-    fn add_voting_power(&mut self, author: Author) {
-        // dkg todo: use the voting power after approximation / rounding
-        if let Some(voting_power) = self.validators.get_voting_power(&author) {
-            self.voting_power += voting_power as u128;
-        }
-    }
-
-    fn check_voting_power(&self) -> bool {
-        self.voting_power > self.total_voting_power * 2 / 3 + 1
     }
 
     fn compute_pvss(&mut self, stake_dis: StakeDis) -> anyhow::Result<()> {
@@ -119,17 +103,15 @@ impl DKGManager {
                             }
                             // dkg todo: start PVSS generation, once done reliably multicast to all validators
                             if self.compute_pvss(stake_dis).is_ok() {
-                                // dkg todo: the voting power should be after approximation / rounding
-                                self.add_voting_power(self.author);
+                                self.all_pvss.insert(self.author, self.my_pvss.clone().unwrap());
                                 self.broadcast_pvss().await;
                             }
                         }
                         DKGManagerCommand::ReceivePVSS(peer, transcript) => {
                             // dkg todo: verify if the PVSS transcript is valid
                             if transcript.verify().is_ok() && !self.all_pvss.contains_key(&peer) {
-                                self.add_voting_power(peer);
                                 self.all_pvss.insert(peer, transcript);
-                                if self.check_voting_power() {
+                                if self.old_validators.check_voting_power(self.all_pvss.keys()).is_ok() {
                                     // dkg todo: aggregate PVSS transcripts from other validators
                                     if let Some(aggregated_pvss) = self.aggregate_pvss() {
                                         // dkg todo: generate a new transaction for the aggregated pvss transcript
