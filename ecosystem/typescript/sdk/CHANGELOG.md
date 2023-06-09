@@ -4,6 +4,9 @@ All notable changes to the Aptos Node SDK will be captured in this file. This ch
 
 ## Unreleased
 
+- Support transfer a fungible token.
+  - add a `transfer` function to the `AptosToken` class that accepts `NonFungibleTokenParameters` or `FungibleTokenParameters` types.
+
 ## 1.10.0 (2023-06-07)
 
 - Add `x-aptos-client` header to `IndexerClient` requests
