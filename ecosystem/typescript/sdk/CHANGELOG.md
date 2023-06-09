@@ -6,6 +6,7 @@ All notable changes to the Aptos Node SDK will be captured in this file. This ch
 
 - Support transfer a fungible token.
   - add a `transfer` function to the `AptosToken` class that accepts `NonFungibleTokenParameters` or `FungibleTokenParameters` types.
+- `getTokenData` query supports token standard v2. Return fields have changed.
 
 ## 1.10.0 (2023-06-07)
 
