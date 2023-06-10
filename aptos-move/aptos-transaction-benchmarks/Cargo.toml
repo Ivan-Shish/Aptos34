@@ -28,6 +28,7 @@ criterion = { workspace = true, features = ["html_reports"] }
 criterion-cpu-time = { workspace = true }
 num_cpus = { workspace = true }
 proptest = { workspace = true }
+rayon = { workspace = true }
 
 [[bench]]
 name = "transaction_benches"

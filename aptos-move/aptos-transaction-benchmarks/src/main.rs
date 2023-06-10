@@ -9,10 +9,10 @@ use aptos_push_metrics::MetricsPusher;
 use aptos_transaction_benchmarks::transactions::TransactionBencher;
 use clap::{Parser, Subcommand};
 use proptest::prelude::*;
-use std::{
-    net::SocketAddr,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{net::SocketAddr, thread, time::{SystemTime, UNIX_EPOCH}};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+use rayon::scope;
 
 /// This is needed for filters on the Grafana dashboard working as its used to populate the filter
 /// variables.
@@ -187,19 +187,103 @@ fn execute(opt: ExecuteOpt) {
 }
 
 fn main() {
-    aptos_logger::Logger::new().init();
-    START_TIME.set(
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as i64,
-    );
-    let _mp = MetricsPusher::start_for_local_run("block-stm-benchmark");
-    let args = Args::parse();
+    // aptos_logger::Logger::new().init();
+    // START_TIME.set(
+    //     SystemTime::now()
+    //         .duration_since(UNIX_EPOCH)
+    //         .unwrap()
+    //         .as_millis() as i64,
+    // );
+    // let _mp = MetricsPusher::start_for_local_run("block-stm-benchmark");
+    // let args = Args::parse();
+    //
+    // // TODO: Check if I need DisplayChain here in the error case.
+    // match args.command {
+    //     BenchmarkCommand::ParamSweep(opt) => param_sweep(opt),
+    //     BenchmarkCommand::Execute(opt) => execute(opt),
+    // }
 
-    // TODO: Check if I need DisplayChain here in the error case.
-    match args.command {
-        BenchmarkCommand::ParamSweep(opt) => param_sweep(opt),
-        BenchmarkCommand::Execute(opt) => execute(opt),
+    // Measure the elapsed time using Instant
+    let start_time = Instant::now();
+    thread_example();
+    let elapsed_time = start_time.elapsed();
+    println!("Elapsed time for thread example: {:?}", elapsed_time);
+
+    let start_time = Instant::now();
+    rayon_example();
+    let elapsed_time = start_time.elapsed();
+    println!("Elapsed time for rayon example: {:?}", elapsed_time);
+}
+
+fn calculate_expensive_task(input: i32) -> i32 {
+    // Perform some CPU-bound calculation
+    let mut result = input.checked_mul(input).unwrap_or(i32::MAX);
+    for i in 0..100 {
+        result = result.checked_mul(input).unwrap_or(i32::MAX);
     }
+    result
+}
+
+fn rayon_example() {
+    // Generate some data
+    let mut data: Vec<i32> = (0..10_000_000).collect();
+
+    let num_threads = num_cpus::get();
+
+    // Divide the work among multiple threads
+    let chunk_size = data.len() / num_threads;
+
+    // Create a mutable results vector
+    //let mut results: Vec<i32> = vec![0; data.len()];
+
+    // Parallel computation using Rayon's `scope`
+    rayon::scope(|s| {
+        // Iterate over data slices in parallel
+        for (_, chunk) in data.chunks_mut(chunk_size).enumerate() {
+            s.spawn(move |_| {
+                for (_, &input) in chunk.iter().enumerate() {
+                    let result = calculate_expensive_task(input);
+                    //results[chunk_index * 1000 + index] = result;
+                }
+            });
+        }
+    });
+
+    // Print the results
+    //println!("Results: {:?}", results);
+}
+
+fn thread_example() {
+    // Get the number of CPU cores
+    let num_threads = num_cpus::get();
+    let data: Arc<Vec<i32>> = Arc::new((0..10_000_000).collect());
+
+
+    // Divide the work among multiple threads
+    let chunk_size = data.len() / num_threads;
+    let mut threads = Vec::new();
+
+    for i in 0..num_threads {
+        let start_index = i * chunk_size;
+        let end_index = if i == num_threads - 1 {
+            data.len()
+        } else {
+            (i + 1) * chunk_size
+        };
+
+        let data = data.clone();
+
+        threads.push(thread::spawn(move || {
+            for index in start_index..end_index {
+                let result = calculate_expensive_task(data[index]);
+            }
+
+        }));
+    }
+
+    // Wait for all threads to finish
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
 }

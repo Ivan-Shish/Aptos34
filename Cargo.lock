@@ -3196,6 +3196,7 @@ dependencies = [
  "criterion-cpu-time",
  "num_cpus",
  "proptest",
+ "rayon",
 ]
 
 [[package]]
