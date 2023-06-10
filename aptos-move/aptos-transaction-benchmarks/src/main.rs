@@ -11,6 +11,7 @@ use clap::{Parser, Subcommand};
 use proptest::prelude::*;
 use std::{net::SocketAddr, thread, time::{SystemTime, UNIX_EPOCH}};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicU64;
 use std::time::Instant;
 use rayon::scope;
 
@@ -215,20 +216,22 @@ fn main() {
     println!("Elapsed time for rayon example: {:?}", elapsed_time);
 }
 
-fn calculate_expensive_task(input: i32) -> i32 {
+fn calculate_expensive_task(input: u64) -> u64 {
     // Perform some CPU-bound calculation
-    let mut result = input.checked_mul(input).unwrap_or(i32::MAX);
+    let mut result = input.checked_mul(input).unwrap_or(u64::MAX);
     for i in 0..100 {
-        result = result.checked_mul(input).unwrap_or(i32::MAX);
+        result = result.checked_mul(input).unwrap_or(u64::MAX);
     }
     result
 }
 
 fn rayon_example() {
     // Generate some data
-    let mut data: Vec<i32> = (0..10_000_000).collect();
+    let mut data: Vec<u64> = (0..10_000_000).collect();
 
     let num_threads = num_cpus::get();
+
+    let sum = Arc::new(Mutex::new(0 as u64));
 
     // Divide the work among multiple threads
     let chunk_size = data.len() / num_threads;
@@ -240,9 +243,12 @@ fn rayon_example() {
     rayon::scope(|s| {
         // Iterate over data slices in parallel
         for (_, chunk) in data.chunks_mut(chunk_size).enumerate() {
+            let sum = sum.clone();
             s.spawn(move |_| {
                 for (_, &input) in chunk.iter().enumerate() {
                     let result = calculate_expensive_task(input);
+                    let mut sum = sum.lock().unwrap();
+                    *sum = sum.checked_add(result).unwrap_or(0);
                     //results[chunk_index * 1000 + index] = result;
                 }
             });
@@ -250,14 +256,15 @@ fn rayon_example() {
     });
 
     // Print the results
-    //println!("Results: {:?}", results);
+    println!("Sum is : {:?}", sum);
 }
 
 fn thread_example() {
     // Get the number of CPU cores
     let num_threads = num_cpus::get();
-    let data: Arc<Vec<i32>> = Arc::new((0..10_000_000).collect());
+    let data: Arc<Vec<u64>> = Arc::new((0..10_000_000).collect());
 
+    let sum = Arc::new(Mutex::new(0 as u64));
 
     // Divide the work among multiple threads
     let chunk_size = data.len() / num_threads;
@@ -272,10 +279,13 @@ fn thread_example() {
         };
 
         let data = data.clone();
+        let sum = sum.clone();
 
         threads.push(thread::spawn(move || {
             for index in start_index..end_index {
                 let result = calculate_expensive_task(data[index]);
+                let mut sum = sum.lock().unwrap();
+                *sum = sum.checked_add(result).unwrap_or(0);
             }
 
         }));
@@ -285,5 +295,8 @@ fn thread_example() {
     for thread in threads {
         thread.join().unwrap();
     }
+
+    // Print the results
+    println!("Sum is : {:?}", sum);
 
 }
