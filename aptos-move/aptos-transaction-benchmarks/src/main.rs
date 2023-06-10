@@ -217,6 +217,7 @@ fn main() {
 }
 
 fn calculate_expensive_task(input: u64) -> u64 {
+    let input = input % 10_000;
     // Perform some CPU-bound calculation
     let mut result = input.checked_mul(input).unwrap_or(u64::MAX);
     for i in 0..100 {
