@@ -235,7 +235,7 @@ where
             *worker_idx = (*worker_idx + 1) % post_commit_txs.len();
 
             // Committed the last transaction, BlockSTM finishes execution.
-            if scheduler.txn_index_right_after(txn_idx).is_none() && scheduler.no_more_txns {
+            if scheduler.txn_index_right_after(txn_idx).is_none() {
                 *scheduler_task = SchedulerTask::Done;
 
                 counters::PARALLEL_PER_BLOCK_GAS.observe(*accumulated_gas as f64);
@@ -445,12 +445,9 @@ where
         }
 
         let num_txns = signature_verified_block.len() as u32;
-        let mut last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new();
-        let mut scheduler = Scheduler::new();
         let txn_indices: Vec<TxnIndex> = (0..num_txns).collect();
-        last_input_output.add_txns(&txn_indices);
-        scheduler.add_txns(&txn_indices);
-        scheduler.end_of_txn_stream();
+        let last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new(&txn_indices);
+        let scheduler = Scheduler::new(&txn_indices);
         let mut roles: Vec<CommitRole> = vec![];
         let mut senders: Vec<Sender<u32>> = Vec::with_capacity(self.concurrency_level - 1);
         for _ in 0..(self.concurrency_level - 1) {

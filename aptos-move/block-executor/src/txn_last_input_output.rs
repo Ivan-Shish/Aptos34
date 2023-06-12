@@ -21,6 +21,7 @@ use std::{
         Arc,
     },
 };
+use std::collections::HashMap;
 
 type TxnInput<K> = Vec<ReadDescriptor<K>>;
 // When a transaction is committed, the output delta writes must be populated by
@@ -119,9 +120,9 @@ impl<K: ModulePath> ReadDescriptor<K> {
 }
 
 pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
-    inputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
+    inputs: HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
 
-    outputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
+    outputs: HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
 
     // Record all writes and reads to access paths corresponding to modules (code) in any
     // (speculative) executions. Used to avoid a potential race with module publishing and
@@ -131,26 +132,18 @@ pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
 
     module_read_write_intersection: AtomicBool,
 
-    commit_locks: DashMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
+    commit_locks: HashMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
 }
 
 impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputOutput<K, T, E> {
-    pub fn new() -> Self {
+    pub fn new(txn_indices: &Vec<TxnIndex>) -> Self {
         Self {
-            inputs: DashMap::new(),
-            outputs: DashMap::new(),
+            inputs: txn_indices.iter().map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty()))).collect(),
+            outputs: txn_indices.iter().map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty()))).collect(),
             module_writes: DashSet::new(),
             module_reads: DashSet::new(),
             module_read_write_intersection: AtomicBool::new(false),
-            commit_locks: DashMap::new(),
-        }
-    }
-
-    pub fn add_txns(&mut self, indices: &Vec<TxnIndex>) {
-        for &index in indices {
-            self.inputs.insert(index, CachePadded::new(ArcSwapOption::empty()));
-            self.outputs.insert(index, CachePadded::new(ArcSwapOption::empty()));
-            self.commit_locks.insert(index, Mutex::new(()));
+            commit_locks: txn_indices.iter().map(|&tid| (tid, Mutex::new(()))).collect(),
         }
     }
 

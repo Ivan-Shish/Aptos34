@@ -16,6 +16,7 @@ use std::{
         Arc, Condvar,
     },
 };
+use std::collections::HashMap;
 use dashmap::DashMap;
 
 const TXN_IDX_MASK: u64 = (1 << 32) - 1;
@@ -188,20 +189,18 @@ impl ValidationStatus {
 }
 
 pub struct Scheduler {
-    pub no_more_txns: bool,
-
     /// The *global indices* of the txns assigned to the current BlockSTM shard.
     /// You should only append it, and keep it in an ascending order.
     txn_indices: Vec<TxnIndex>,
 
     /// Simply the inverse of `txn_indices`.
-    position_by_txn: DashMap<TxnIndex, usize>,
+    position_by_txn: HashMap<TxnIndex, usize>,
 
     /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
     /// should be re-executed once transaction i's next incarnation finishes.
-    txn_dependency: DashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>,
+    txn_dependency: HashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>,
     /// An index i maps to the most up-to-date status of transaction i.
-    txn_status: DashMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>,
+    txn_status: HashMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>,
 
     /// Next transaction to commit, and sweeping lower bound on the wave of a validation that must
     /// be successful in order to commit the next transaction.
@@ -237,55 +236,27 @@ pub struct Scheduler {
 
 /// Public Interfaces for the Scheduler
 impl Scheduler {
-    pub fn new() -> Self {
+    pub fn new(txn_indices: &Vec<TxnIndex>) -> Self {
+        let initial_execution_idx = *(txn_indices.get(0).unwrap_or(&TXN_IDX_NONE));
         Self {
-            no_more_txns: false,
-            txn_indices: vec![],
-            position_by_txn: DashMap::new(),
-            txn_dependency: DashMap::new(),
-            txn_status: DashMap::new(),
-            commit_state: CachePadded::new(Mutex::new((TXN_IDX_NONE, 0))),
-            execution_idx: AtomicU32::new(TXN_IDX_NONE),
-            validation_idx: AtomicU64::new(TXN_IDX_NONE as u64),
+            txn_indices: txn_indices.clone(),
+            position_by_txn: txn_indices.iter().enumerate().map(|(pos,&tid)|{(tid, pos)}).collect::<HashMap<_,_>>(),
+            txn_dependency: txn_indices.iter().map(|&tid| {
+                let initial_dep = CachePadded::new(Mutex::new(Vec::new()));
+                (tid, initial_dep)
+            }).collect::<HashMap<_,_>>(),
+            txn_status: txn_indices.iter().map(|&txn_idx| {
+                let initial_status = CachePadded::new((
+                    RwLock::new(ExecutionStatus::ReadyToExecute(0, None)),
+                    RwLock::new(ValidationStatus::new()),
+                ));
+                (txn_idx, initial_status)
+            }).collect::<HashMap<_,_>>(),
+            commit_state: CachePadded::new(Mutex::new((initial_execution_idx, 0))),
+            execution_idx: AtomicU32::new( initial_execution_idx),
+            validation_idx: AtomicU64::new(initial_execution_idx as u64),
             done_marker: CachePadded::new(AtomicBool::new(false)),
         }
-    }
-
-    /// Callers should ensure `new_indices` are in ascending order and bigger than those for the previous invocation.
-    pub fn add_txns(&mut self, new_indices: &Vec<TxnIndex>) {
-        for &new_txn_idx in new_indices.iter() {
-            let new_pos = self.txn_indices.len();
-            self.txn_indices.push(new_txn_idx);
-            self.position_by_txn.insert(new_txn_idx, new_pos);
-            self.txn_dependency.insert(new_txn_idx, CachePadded::new(Mutex::new(Vec::new())));
-            self.txn_status.insert(new_txn_idx, CachePadded::new((
-                RwLock::new(ExecutionStatus::ReadyToExecute(0, None)),
-                RwLock::new(ValidationStatus::new()),
-            )));
-        }
-
-        if let Some(&new_smallest) = new_indices.first() {
-            self.execution_idx.compare_exchange(TXN_IDX_NONE, new_smallest, Ordering::SeqCst, Ordering::SeqCst).unwrap();
-            self.validation_idx.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |x|{
-                let (txn_idx, wave) = Self::unpack_validation_idx(x);
-                if txn_idx == TXN_IDX_NONE {
-                    Some(((wave as u64) << 32) | (new_smallest as u64))
-                } else {
-                    None
-                }
-            }).unwrap();
-            {
-                let mut k = self.commit_state.lock();
-                let (a, _) = k.deref_mut();
-                if *a == TXN_IDX_NONE {
-                    *a = new_smallest;
-                }
-            }
-        }
-    }
-
-    pub fn end_of_txn_stream(&mut self) {
-        self.no_more_txns = true;
     }
 
     /// If successful, returns Some(TxnIndex), the index of committed transaction.
@@ -320,7 +291,7 @@ impl Scheduler {
 
                             let cur_txn_idx = *commit_idx;
                             *commit_idx = self.txn_index_right_after(*commit_idx).unwrap_or(TXN_IDX_NONE);
-                            if *commit_idx == TXN_IDX_NONE && self.no_more_txns {
+                            if *commit_idx == TXN_IDX_NONE {
                                 // All txns have been committed, the parallel execution can finish.
                                 self.done_marker.store(true, Ordering::SeqCst);
                             }
@@ -350,7 +321,7 @@ impl Scheduler {
         // Note: we could upgradable read, then upgrade and write. Similar for other places.
         // However, it is likely an overkill (and overhead to actually upgrade),
         // while unlikely there would be much contention on a specific index lock.
-        let status_ref = self.txn_status.get_mut(&txn_idx).unwrap();
+        let status_ref = self.txn_status.get(&txn_idx).unwrap();
         let mut status = status_ref.0.write();
 
         if *status == ExecutionStatus::Executed(incarnation) {
