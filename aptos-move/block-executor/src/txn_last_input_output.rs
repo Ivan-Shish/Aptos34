@@ -21,7 +21,7 @@ use std::{
         Arc,
     },
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 type TxnInput<K> = Vec<ReadDescriptor<K>>;
 // When a transaction is committed, the output delta writes must be populated by
@@ -239,7 +239,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
     }
 
     pub fn update_to_skip_rest(&self, txn_idx: TxnIndex) {
-        let _lock = self.commit_locks.get(&txn_idx).unwrap().lock();
+        let lock_ref = self.commit_locks.get(&txn_idx).unwrap();
+        let _lock = lock_ref.lock();
         if let ExecutionStatus::Success(output) = self.take_output(txn_idx) {
             self.outputs.get(&txn_idx).unwrap().store(Some(Arc::new(TxnOutput {
                 output_status: ExecutionStatus::SkipRest(output),
@@ -273,7 +274,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
         usize,
         Box<dyn Iterator<Item = <<T as TransactionOutput>::Txn as Transaction>::Key>>,
     ) {
-        let _lock = self.commit_locks.get(&txn_idx).unwrap().lock();
+        let lock_ref = self.commit_locks.get(&txn_idx).unwrap();
+        let _lock = lock_ref.lock();
         let ret: (
             usize,
             Box<dyn Iterator<Item = <<T as TransactionOutput>::Txn as Transaction>::Key>>,
@@ -303,7 +305,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
         txn_idx: TxnIndex,
         delta_writes: Vec<(<<T as TransactionOutput>::Txn as Transaction>::Key, WriteOp)>,
     ) {
-        let _lock = self.commit_locks.get(&txn_idx).unwrap().lock();
+        let lock_ref = self.commit_locks.get(&txn_idx).unwrap();
+        let _lock = lock_ref.lock();
         match &self.outputs.get(&txn_idx).unwrap()
             .load_full()
             .expect("Output must exist")
