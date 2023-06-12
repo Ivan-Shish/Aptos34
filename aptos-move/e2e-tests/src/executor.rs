@@ -14,6 +14,7 @@ use crate::{
 };
 use anyhow::Error;
 use aptos_bitvec::BitVec;
+use aptos_block_executor::scheduler::NoOpPostCommitProcessing;
 use aptos_crypto::HashValue;
 use aptos_framework::ReleaseBundle;
 use aptos_gas::{
@@ -416,6 +417,7 @@ impl FakeExecutor {
             &self.data_store,
             usize::min(4, num_cpus::get()),
             None,
+            Arc::new(NoOpPostCommitProcessing{}),
         )
     }
 

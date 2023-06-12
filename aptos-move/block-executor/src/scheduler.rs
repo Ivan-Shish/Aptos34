@@ -187,6 +187,17 @@ impl ValidationStatus {
     }
 }
 
+pub trait PostCommitProcessing : Sync + Send {
+    fn trigger(&self, tid: TxnIndex);
+}
+
+pub struct NoOpPostCommitProcessing {}
+
+impl PostCommitProcessing for NoOpPostCommitProcessing {
+    fn trigger(&self, tid: TxnIndex) {
+    }
+}
+
 pub struct Scheduler {
     txn_indices: Arc<Vec<TxnIndex>>,
 
@@ -229,11 +240,13 @@ pub struct Scheduler {
 
     /// Shared marker that is set when a thread detects that all txns can be committed.
     done_marker: CachePadded<AtomicBool>,
+
+    post_commit_processing: Arc<dyn PostCommitProcessing>,
 }
 
 /// Public Interfaces for the Scheduler
 impl Scheduler {
-    pub fn new(txn_indices: Arc<Vec<TxnIndex>>) -> Self {
+    pub fn new(txn_indices: Arc<Vec<TxnIndex>>, post_commit_processing: Arc<dyn PostCommitProcessing>) -> Self {
         let initial_execution_idx = *(txn_indices.get(0).unwrap_or(&TXN_IDX_NONE));
         let position_by_txn = txn_indices.iter().enumerate().map(|(pos,&tid)|{(tid, pos)}).collect();
         let txn_dependency = txn_indices.iter().map(|&tid| {
@@ -256,6 +269,7 @@ impl Scheduler {
             execution_idx: AtomicU32::new( initial_execution_idx),
             validation_idx: AtomicU64::new(initial_execution_idx as u64),
             done_marker: CachePadded::new(AtomicBool::new(false)),
+            post_commit_processing,
         }
     }
 
@@ -288,8 +302,8 @@ impl Scheduler {
                             // Upgrade the execution status read lock to write lock.
                             // Can commit.
                             *status_write = ExecutionStatus::Committed(incarnation);
-
                             let cur_txn_idx = *commit_idx;
+                            self.post_commit_processing.trigger(cur_txn_idx);
                             *commit_idx = self.txn_index_right_after(*commit_idx).unwrap_or(TXN_IDX_NONE);
                             if *commit_idx == TXN_IDX_NONE {
                                 // All txns have been committed, the parallel execution can finish.

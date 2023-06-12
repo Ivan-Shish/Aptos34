@@ -26,14 +26,12 @@ use aptos_types::{executable::Executable, write_set::WriteOp};
 use aptos_vm_logging::{clear_speculative_txn_logs, init_speculative_logs};
 use num_cpus;
 use rayon::ThreadPool;
-use std::{
-    marker::PhantomData,
-    sync::{
-        Arc,
-        mpsc,
-        mpsc::{Receiver, Sender},
-    },
-};
+use std::{marker::PhantomData, sync::{
+    Arc,
+    mpsc,
+    mpsc::{Receiver, Sender},
+}, thread};
+use crate::scheduler::PostCommitProcessing;
 
 #[derive(Debug)]
 enum CommitRole {
@@ -430,6 +428,7 @@ where
         executor_initial_arguments: E::Argument,
         signature_verified_block: &Vec<T>,
         base_view: &S,
+        post_commit_processing: Arc<dyn PostCommitProcessing>,
     ) -> Result<Vec<E::Output>, E::Error> {
         let _timer = PARALLEL_EXECUTION_SECONDS.start_timer();
         // Using parallel execution with 1 thread currently will not work as it
@@ -438,7 +437,7 @@ where
         // w. concurrency_level = 1 for some reason.
         assert!(self.concurrency_level > 1, "Must use sequential execution");
 
-        let versioned_cache = MVHashMap::new();
+        let versioned_cache = MVHashMap::new(); //TODO[zjma]
 
         if signature_verified_block.is_empty() {
             return Ok(vec![]);
@@ -447,7 +446,7 @@ where
         let num_txns = signature_verified_block.len() as u32;
         let txn_indices: Arc<Vec<TxnIndex>> = Arc::new((0..num_txns).collect());
         let last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new(txn_indices.clone());
-        let scheduler = Scheduler::new(txn_indices);
+        let scheduler = Scheduler::new(txn_indices, post_commit_processing);
         let mut roles: Vec<CommitRole> = vec![];
         let mut senders: Vec<Sender<u32>> = Vec::with_capacity(self.concurrency_level - 1);
         for _ in 0..(self.concurrency_level - 1) {
@@ -463,6 +462,7 @@ where
         roles.push(CommitRole::Coordinator(senders));
 
         let timer = RAYON_EXECUTION_SECONDS.start_timer();
+
         self.executor_thread_pool.scope(|s| {
             for _ in 0..self.concurrency_level {
                 let role = roles.pop().expect("Role must be set for all threads");
@@ -602,12 +602,14 @@ where
         executor_arguments: E::Argument,
         signature_verified_block: Vec<T>,
         base_view: &S,
+        post_commit_processing: Arc<dyn PostCommitProcessing>,
     ) -> Result<Vec<E::Output>, E::Error> {
         let mut ret = if self.concurrency_level > 1 {
             self.execute_transactions_parallel(
                 executor_arguments,
                 &signature_verified_block,
                 base_view,
+                post_commit_processing,
             )
         } else {
             self.execute_transactions_sequential(

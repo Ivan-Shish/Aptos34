@@ -21,6 +21,7 @@ use std::{
     sync::{atomic::AtomicUsize, Arc},
 };
 use aptos_types::executable::ExecutableTestType;
+use crate::scheduler::NoOpPostCommitProcessing;
 
 fn run_and_assert<K, V>(transactions: Vec<Transaction<K, V>>)
 where
@@ -44,7 +45,7 @@ where
         DeltaDataView<K, V>,
         ExecutableTestType,
     >::new(num_cpus::get(), executor_thread_pool, None)
-    .execute_transactions_parallel((), &transactions, &data_view);
+    .execute_transactions_parallel((), &transactions, &data_view, Arc::new(NoOpPostCommitProcessing{}));
 
     let baseline = ExpectedOutput::generate_baseline(&transactions, None, None);
     baseline.assert_output(&output);
@@ -262,7 +263,8 @@ fn early_skips() {
 #[test]
 fn scheduler_tasks() {
     let indices = Arc::new((0..5).collect());
-    let mut s = Scheduler::new(indices);
+    let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+    let mut s = Scheduler::new(indices, post_commit_processing);
 
     for i in 0..5 {
         // No validation tasks.
@@ -354,7 +356,8 @@ fn scheduler_tasks() {
 #[test]
 fn scheduler_first_wave() {
     let indices = Arc::new((0..6).collect());
-    let mut s = Scheduler::new(indices);
+    let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+    let mut s = Scheduler::new(indices, post_commit_processing);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -410,7 +413,8 @@ fn scheduler_first_wave() {
 #[test]
 fn scheduler_dependency() {
     let indices = Arc::new((0..10).collect());
-    let mut s = Scheduler::new(indices);
+    let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+    let mut s = Scheduler::new(indices, post_commit_processing);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -458,7 +462,8 @@ fn scheduler_dependency() {
 // for execution, validation index = num_txns, and wave = 0.
 fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler {
     let indices = Arc::new((0..num_txns).collect());
-    let mut s = Scheduler::new(indices);
+    let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+    let mut s = Scheduler::new(indices, post_commit_processing);
 
     for i in 0..num_txns {
         // Get the first executions out of the way.
@@ -573,7 +578,8 @@ fn scheduler_incarnation() {
 #[test]
 fn scheduler_basic() {
     let indices = Arc::new((0..3).collect());
-    let mut s = Scheduler::new(indices);
+    let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+    let mut s = Scheduler::new(indices, post_commit_processing);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -624,7 +630,8 @@ fn scheduler_basic() {
 #[test]
 fn scheduler_drain_idx() {
     let indices = Arc::new((0..3).collect());
-    let mut s = Scheduler::new(indices);
+    let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+    let mut s = Scheduler::new(indices, post_commit_processing);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -768,7 +775,8 @@ fn no_conflict_task_count() {
     let num_txns: TxnIndex = 1000;
     for num_concurrent_tasks in [1, 5, 10, 20] {
         let indices = Arc::new((0..num_txns).collect());
-        let mut s = Scheduler::new(indices);
+        let post_commit_processing = Arc::new(NoOpPostCommitProcessing{});
+        let mut s = Scheduler::new(indices, post_commit_processing);
 
         let mut tasks = BTreeMap::new();
 

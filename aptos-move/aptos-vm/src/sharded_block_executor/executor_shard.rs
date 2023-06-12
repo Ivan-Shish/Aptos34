@@ -12,6 +12,8 @@ use std::sync::{
     mpsc::{Receiver, Sender},
     Arc,
 };
+use aptos_block_executor::scheduler::PostCommitProcessing;
+use aptos_mvhashmap::types::TxnIndex;
 
 /// A remote block executor that receives transactions from a channel and executes them in parallel.
 /// Currently it runs in the local machine and it will be further extended to run in a remote machine.
@@ -20,6 +22,15 @@ pub struct ExecutorShard<S: StateView + Sync + Send + 'static> {
     executor_thread_pool: Arc<rayon::ThreadPool>,
     command_rx: Receiver<ExecutorShardCommand<S>>,
     result_tx: Sender<Result<Vec<TransactionOutput>, VMStatus>>,
+}
+
+
+pub struct ResultForwarder {}
+
+impl PostCommitProcessing for ResultForwarder {
+    fn trigger(&self, tid: TxnIndex) {
+        todo!()
+    }
 }
 
 impl<S: StateView + Sync + Send + 'static> ExecutorShard<S> {
@@ -65,12 +76,14 @@ impl<S: StateView + Sync + Send + 'static> ExecutorShard<S> {
                         self.shard_id,
                         transactions.len()
                     );
+                    let result_forwarder = Arc::new(ResultForwarder{});
                     let ret = BlockAptosVM::execute_block(
                         self.executor_thread_pool.clone(),
                         transactions,
                         state_view.as_ref(),
                         concurrency_level_per_shard,
                         maybe_block_gas_limit,
+                        result_forwarder,
                     );
                     drop(state_view);
                     self.result_tx.send(ret).unwrap();

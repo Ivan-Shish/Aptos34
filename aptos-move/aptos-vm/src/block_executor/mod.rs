@@ -36,6 +36,7 @@ use move_core_types::vm_status::VMStatus;
 use once_cell::sync::OnceCell;
 use rayon::{prelude::*, ThreadPool};
 use std::sync::Arc;
+use aptos_block_executor::scheduler::PostCommitProcessing;
 
 impl BlockExecutorTransaction for PreprocessedTransaction {
     type Key = StateKey;
@@ -138,6 +139,7 @@ impl BlockAptosVM {
         state_view: &S,
         concurrency_level: usize,
         maybe_block_gas_limit: Option<u64>,
+        post_commit_processing: Arc<dyn PostCommitProcessing>,
     ) -> Result<Vec<TransactionOutput>, VMStatus> {
         let _timer = BLOCK_EXECUTOR_EXECUTE_BLOCK_SECONDS.start_timer();
         // Verify the signatures of all the transactions in parallel.
@@ -175,7 +177,7 @@ impl BlockAptosVM {
             maybe_block_gas_limit,
         );
 
-        let ret = executor.execute_block(state_view, signature_verified_block, state_view);
+        let ret = executor.execute_block(state_view, signature_verified_block, state_view, post_commit_processing);
 
         match ret {
             Ok(outputs) => {
