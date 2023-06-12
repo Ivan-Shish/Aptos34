@@ -17,6 +17,7 @@ use std::{
     },
 };
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use dashmap::DashMap;
 
 const TXN_IDX_MASK: u64 = (1 << 32) - 1;
 
@@ -195,13 +196,13 @@ pub struct Scheduler {
     txn_indices: Vec<TxnIndex>,
 
     /// Simply the inverse of `txn_indices`.
-    position_by_txn: HashMap<TxnIndex, usize>,
+    position_by_txn: DashMap<TxnIndex, usize>,
 
     /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
     /// should be re-executed once transaction i's next incarnation finishes.
-    txn_dependency: BTreeMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>,
+    txn_dependency: DashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>,
     /// An index i maps to the most up-to-date status of transaction i.
-    txn_status: BTreeMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>,
+    txn_status: DashMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>,
 
     /// Next transaction to commit, and sweeping lower bound on the wave of a validation that must
     /// be successful in order to commit the next transaction.
@@ -241,9 +242,9 @@ impl Scheduler {
         Self {
             no_more_txns: false,
             txn_indices: vec![],
-            position_by_txn: HashMap::new(),
-            txn_dependency: BTreeMap::new(),
-            txn_status: BTreeMap::new(),
+            position_by_txn: DashMap::new(),
+            txn_dependency: DashMap::new(),
+            txn_status: DashMap::new(),
             commit_state: CachePadded::new(Mutex::new((TXN_IDX_NONE, 0))),
             execution_idx: AtomicU32::new(TXN_IDX_NONE),
             validation_idx: AtomicU64::new(TXN_IDX_NONE as u64),

@@ -11,7 +11,7 @@ use aptos_mvhashmap::types::{Incarnation, TxnIndex, Version};
 use aptos_types::{access_path::AccessPath, executable::ModulePath, write_set::WriteOp};
 use arc_swap::ArcSwapOption;
 use crossbeam::utils::CachePadded;
-use dashmap::DashSet;
+use dashmap::{DashMap, DashSet};
 use std::{
     collections::HashSet,
     fmt::Debug,
@@ -120,9 +120,9 @@ impl<K: ModulePath> ReadDescriptor<K> {
 }
 
 pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
-    inputs: BTreeMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
+    inputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
 
-    outputs: BTreeMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
+    outputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
 
     // Record all writes and reads to access paths corresponding to modules (code) in any
     // (speculative) executions. Used to avoid a potential race with module publishing and
@@ -132,18 +132,18 @@ pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
 
     module_read_write_intersection: AtomicBool,
 
-    commit_locks: BTreeMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
+    commit_locks: DashMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
 }
 
 impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputOutput<K, T, E> {
     pub fn new() -> Self {
         Self {
-            inputs: BTreeMap::new(),
-            outputs: BTreeMap::new(),
+            inputs: DashMap::new(),
+            outputs: DashMap::new(),
             module_writes: DashSet::new(),
             module_reads: DashSet::new(),
             module_read_write_intersection: AtomicBool::new(false),
-            commit_locks: BTreeMap::new(),
+            commit_locks: DashMap::new(),
         }
     }
 
