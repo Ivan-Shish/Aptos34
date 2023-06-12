@@ -16,7 +16,6 @@ use std::{
         Arc, Condvar,
     },
 };
-use std::collections::BTreeSet;
 use dashmap::DashMap;
 
 const TXN_IDX_MASK: u64 = (1 << 32) - 1;
@@ -252,15 +251,8 @@ impl Scheduler {
         }
     }
 
-    pub fn add_txns(&mut self, new_indices: &BTreeSet<TxnIndex>) {
-        if let Some(&old_biggest) = self.txn_indices.last() {
-            if let Some(&new_smallest) = new_indices.first() {
-                if old_biggest > new_smallest {
-                    unreachable!()
-                }
-            }
-        }
-
+    /// Callers should ensure `new_indices` are in ascending order and bigger than those for the previous invocation.
+    pub fn add_txns(&mut self, new_indices: &Vec<TxnIndex>) {
         for &new_txn_idx in new_indices.iter() {
             let new_pos = self.txn_indices.len();
             self.txn_indices.push(new_txn_idx);

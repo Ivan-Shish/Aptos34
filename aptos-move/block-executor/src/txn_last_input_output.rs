@@ -21,7 +21,6 @@ use std::{
         Arc,
     },
 };
-use std::collections::BTreeSet;
 
 type TxnInput<K> = Vec<ReadDescriptor<K>>;
 // When a transaction is committed, the output delta writes must be populated by
@@ -147,7 +146,7 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
         }
     }
 
-    pub fn add_txns(&mut self, indices: &BTreeSet<TxnIndex>) {
+    pub fn add_txns(&mut self, indices: &Vec<TxnIndex>) {
         for &index in indices {
             self.inputs.insert(index, CachePadded::new(ArcSwapOption::empty()));
             self.outputs.insert(index, CachePadded::new(ArcSwapOption::empty()));

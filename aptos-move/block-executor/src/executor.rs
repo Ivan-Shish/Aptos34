@@ -34,7 +34,6 @@ use std::{
         mpsc::{Receiver, Sender},
     },
 };
-use std::collections::BTreeSet;
 
 #[derive(Debug)]
 enum CommitRole {
@@ -448,7 +447,7 @@ where
         let num_txns = signature_verified_block.len() as u32;
         let mut last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new();
         let mut scheduler = Scheduler::new();
-        let txn_indices: BTreeSet<TxnIndex> = (0..num_txns).collect();
+        let txn_indices: Vec<TxnIndex> = (0..num_txns).collect();
         last_input_output.add_txns(&txn_indices);
         scheduler.add_txns(&txn_indices);
         scheduler.end_of_txn_stream();
