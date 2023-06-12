@@ -261,7 +261,8 @@ fn early_skips() {
 
 #[test]
 fn scheduler_tasks() {
-    let mut s = Scheduler::new(&(0..5).collect());
+    let indices = Arc::new((0..5).collect());
+    let mut s = Scheduler::new(indices);
 
     for i in 0..5 {
         // No validation tasks.
@@ -352,7 +353,8 @@ fn scheduler_tasks() {
 
 #[test]
 fn scheduler_first_wave() {
-    let mut s = Scheduler::new(&(0..6).collect());
+    let indices = Arc::new((0..6).collect());
+    let mut s = Scheduler::new(indices);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -407,7 +409,8 @@ fn scheduler_first_wave() {
 
 #[test]
 fn scheduler_dependency() {
-    let mut s = Scheduler::new(&(0..10).collect());
+    let indices = Arc::new((0..10).collect());
+    let mut s = Scheduler::new(indices);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -454,7 +457,8 @@ fn scheduler_dependency() {
 // Will return a scheduler in a state where all transactions are scheduled for
 // for execution, validation index = num_txns, and wave = 0.
 fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler {
-    let mut s = Scheduler::new(&(0..num_txns).collect());
+    let indices = Arc::new((0..num_txns).collect());
+    let mut s = Scheduler::new(indices);
 
     for i in 0..num_txns {
         // Get the first executions out of the way.
@@ -568,7 +572,8 @@ fn scheduler_incarnation() {
 
 #[test]
 fn scheduler_basic() {
-    let mut s = Scheduler::new(&(0..3).collect());
+    let indices = Arc::new((0..3).collect());
+    let mut s = Scheduler::new(indices);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -618,7 +623,8 @@ fn scheduler_basic() {
 
 #[test]
 fn scheduler_drain_idx() {
-    let mut s = Scheduler::new(&(0..3).collect());
+    let indices = Arc::new((0..3).collect());
+    let mut s = Scheduler::new(indices);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -761,7 +767,8 @@ fn no_conflict_task_count() {
 
     let num_txns: TxnIndex = 1000;
     for num_concurrent_tasks in [1, 5, 10, 20] {
-        let mut s = Scheduler::new(&(0..num_txns).collect());
+        let indices = Arc::new((0..num_txns).collect());
+        let mut s = Scheduler::new(indices);
 
         let mut tasks = BTreeMap::new();
 

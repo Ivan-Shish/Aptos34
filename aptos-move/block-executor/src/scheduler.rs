@@ -16,7 +16,6 @@ use std::{
         Arc, Condvar,
     },
 };
-use std::collections::HashMap;
 use dashmap::DashMap;
 
 const TXN_IDX_MASK: u64 = (1 << 32) - 1;
@@ -189,18 +188,16 @@ impl ValidationStatus {
 }
 
 pub struct Scheduler {
-    /// The *global indices* of the txns assigned to the current BlockSTM shard.
-    /// You should only append it, and keep it in an ascending order.
-    txn_indices: Vec<TxnIndex>,
+    txn_indices: Arc<Vec<TxnIndex>>,
 
     /// Simply the inverse of `txn_indices`.
-    position_by_txn: HashMap<TxnIndex, usize>,
+    position_by_txn: DashMap<TxnIndex, usize>,
 
     /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
     /// should be re-executed once transaction i's next incarnation finishes.
-    txn_dependency: HashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>,
+    txn_dependency: DashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>,
     /// An index i maps to the most up-to-date status of transaction i.
-    txn_status: HashMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>,
+    txn_status: DashMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>,
 
     /// Next transaction to commit, and sweeping lower bound on the wave of a validation that must
     /// be successful in order to commit the next transaction.
@@ -236,22 +233,25 @@ pub struct Scheduler {
 
 /// Public Interfaces for the Scheduler
 impl Scheduler {
-    pub fn new(txn_indices: &Vec<TxnIndex>) -> Self {
+    pub fn new(txn_indices: Arc<Vec<TxnIndex>>) -> Self {
         let initial_execution_idx = *(txn_indices.get(0).unwrap_or(&TXN_IDX_NONE));
+        let position_by_txn = txn_indices.iter().enumerate().map(|(pos,&tid)|{(tid, pos)}).collect();
+        let txn_dependency = txn_indices.iter().map(|&tid| {
+            let initial_dep = CachePadded::new(Mutex::new(Vec::new()));
+            (tid, initial_dep)
+        }).collect();
+        let txn_status = txn_indices.iter().map(|&txn_idx| {
+            let initial_status = CachePadded::new((
+                RwLock::new(ExecutionStatus::ReadyToExecute(0, None)),
+                RwLock::new(ValidationStatus::new()),
+            ));
+            (txn_idx, initial_status)
+        }).collect();
         Self {
-            txn_indices: txn_indices.clone(),
-            position_by_txn: txn_indices.iter().enumerate().map(|(pos,&tid)|{(tid, pos)}).collect::<HashMap<_,_>>(),
-            txn_dependency: txn_indices.iter().map(|&tid| {
-                let initial_dep = CachePadded::new(Mutex::new(Vec::new()));
-                (tid, initial_dep)
-            }).collect::<HashMap<_,_>>(),
-            txn_status: txn_indices.iter().map(|&txn_idx| {
-                let initial_status = CachePadded::new((
-                    RwLock::new(ExecutionStatus::ReadyToExecute(0, None)),
-                    RwLock::new(ValidationStatus::new()),
-                ));
-                (txn_idx, initial_status)
-            }).collect::<HashMap<_,_>>(),
+            txn_indices,
+            position_by_txn,
+            txn_dependency,
+            txn_status,
             commit_state: CachePadded::new(Mutex::new((initial_execution_idx, 0))),
             execution_idx: AtomicU32::new( initial_execution_idx),
             validation_idx: AtomicU64::new(initial_execution_idx as u64),

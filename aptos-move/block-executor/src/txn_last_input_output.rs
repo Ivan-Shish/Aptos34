@@ -21,7 +21,6 @@ use std::{
         Arc,
     },
 };
-use std::collections::HashMap;
 
 type TxnInput<K> = Vec<ReadDescriptor<K>>;
 // When a transaction is committed, the output delta writes must be populated by
@@ -120,9 +119,9 @@ impl<K: ModulePath> ReadDescriptor<K> {
 }
 
 pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
-    inputs: HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
+    inputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
 
-    outputs: HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
+    outputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
 
     // Record all writes and reads to access paths corresponding to modules (code) in any
     // (speculative) executions. Used to avoid a potential race with module publishing and
@@ -132,11 +131,11 @@ pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
 
     module_read_write_intersection: AtomicBool,
 
-    commit_locks: HashMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
+    commit_locks: DashMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
 }
 
 impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputOutput<K, T, E> {
-    pub fn new(txn_indices: &Vec<TxnIndex>) -> Self {
+    pub fn new(txn_indices: Arc<Vec<TxnIndex>>) -> Self {
         Self {
             inputs: txn_indices.iter().map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty()))).collect(),
             outputs: txn_indices.iter().map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty()))).collect(),

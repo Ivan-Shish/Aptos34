@@ -445,9 +445,9 @@ where
         }
 
         let num_txns = signature_verified_block.len() as u32;
-        let txn_indices: Vec<TxnIndex> = (0..num_txns).collect();
-        let last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new(&txn_indices);
-        let scheduler = Scheduler::new(&txn_indices);
+        let txn_indices: Arc<Vec<TxnIndex>> = Arc::new((0..num_txns).collect());
+        let last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new(txn_indices.clone());
+        let scheduler = Scheduler::new(txn_indices);
         let mut roles: Vec<CommitRole> = vec![];
         let mut senders: Vec<Sender<u32>> = Vec::with_capacity(self.concurrency_level - 1);
         for _ in 0..(self.concurrency_level - 1) {
