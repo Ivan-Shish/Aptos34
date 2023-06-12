@@ -8,7 +8,7 @@ use crate::{
     logging::LogEvent,
     monitor,
     network_interface::{ConsensusMsg, ConsensusNetworkClient},
-    quorum_store::types::{Batch, BatchMsg, BatchRequest},
+    quorum_store::types::{Batch, BatchMsg, BatchRequest}, dag::reliable_broadcast::DAGNetworkSender,
 };
 use anyhow::{anyhow, ensure};
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
@@ -377,6 +377,22 @@ impl QuorumStoreSender for NetworkSender {
         fail_point!("consensus::send::proof_of_store", |_| ());
         let msg = ConsensusMsg::ProofOfStoreMsg(Box::new(ProofOfStoreMsg::new(proofs)));
         self.broadcast(msg).await
+    }
+}
+
+#[async_trait::async_trait]
+impl DAGNetworkSender for NetworkSender {
+    async fn send_rpc(
+        &self,
+        receiver: Author,
+        message: ConsensusMsg,
+        timeout: Duration,
+    ) -> anyhow::Result<ConsensusMsg> {
+        let response = self
+            .consensus_network_client
+            .send_rpc(receiver, message, timeout)
+            .await?;
+        Ok(response)
     }
 }
 

@@ -3,6 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[allow(dead_code)]
-mod reliable_broadcast;
+pub mod reliable_broadcast;
 #[cfg(test)]
 mod tests;

@@ -1,35 +1,27 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, sync::Arc};
-use aptos_consensus_types::common::Author;
+use std::{collections::HashMap, sync::Arc, thread, time::Duration};
+use aptos_consensus_types::{common::Author, dkg_msg::{Transcript, DKGMsg}};
+use aptos_logger::info;
 use aptos_types::{transaction::SignedTransaction, validator_verifier::ValidatorVerifier};
+use serde::Serialize;
 use tokio::{sync::{oneshot, mpsc}, time::Interval};
-use crate::{quorum_store::batch_generator::BatchGeneratorCommand, block_storage::BlockReader};
+use crate::{
+    quorum_store::batch_generator::BatchGeneratorCommand, block_storage::BlockReader,
+    dkg::{dkg_reliable_broadcast::DKGBroadcastStatus},
+    dag::reliable_broadcast::{ReliableBroadcast, DAGNetworkSender},
+};
+
+// the transcript size is 3.25MB
+const TRANSCRIPT_SIZE: usize = 3_250_000;
+const TRANSCRIPT_COMPUTE_TIME_MS: u64 = 4760;
+const TRANSCRIPT_VERIFY_TIME_MS: u64 = 555;
+const TRANSCRIPT_AGGREGATE_TIME_MS: u64 = 21;
 
 #[derive(Debug)]
 pub struct StakeDis {
     pub distribution: HashMap<Author, u64>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Transcript {
-    // dkg todo: use real transcript
-    bytes: Vec<u8>,
-}
-
-// the transcript size is 3.25MB
-const TRANSCRIPT_SIZE: usize = 3250000;
-
-impl Transcript {
-    pub fn new() -> Self {
-        Transcript { bytes: vec![u8::MAX; TRANSCRIPT_SIZE] }
-    }
-
-    pub fn verify(&self) -> anyhow::Result<()> {
-        // dkg todo: verify the transcript
-        Ok(())
-    }
 }
 
 #[derive(Debug)]
@@ -52,6 +44,7 @@ pub struct DKGManager {
     // dkg todo: add the key pair to sign the PVSS transcript
     // Channel to send the aggregated PVSS transcript to the batch generator
     batch_generator_cmd_tx: mpsc::Sender<BatchGeneratorCommand>,
+    dkg_rbc: ReliableBroadcast,
 }
 
 impl DKGManager {
@@ -60,7 +53,9 @@ impl DKGManager {
         author: Author,
         old_validators: ValidatorVerifier,
         batch_generator_cmd_tx: mpsc::Sender<BatchGeneratorCommand>,
+        network_sender: Arc<dyn DAGNetworkSender>,
     ) -> Self {
+        let dkg_rbc = ReliableBroadcast::new(old_validators.get_ordered_account_addresses(), network_sender);
         Self {
             epoch,
             author,
@@ -69,22 +64,32 @@ impl DKGManager {
             all_pvss: HashMap::new(),
             aggregated_pvss: None,
             batch_generator_cmd_tx,
+            dkg_rbc,
         }
     }
 
     fn compute_pvss(&mut self, stake_dis: StakeDis) -> anyhow::Result<()> {
         // dkg todo: compute pvss transcript
-        self.my_pvss = Some(Transcript::new());
+        thread::sleep(Duration::from_millis(TRANSCRIPT_COMPUTE_TIME_MS));
+        self.my_pvss = Some(Transcript::new(TRANSCRIPT_SIZE));
         Ok(())
     }
 
     async fn broadcast_pvss(&self) {
         // dkg todo: reliably broadcast pvss transcript, need to ensure all validators receive it
         // waiting for the reliable broadcast implementation on main
+        let validators = self.old_validators.get_ordered_account_addresses();
+        let transcript_bytes = serde_json::to_vec(&self.my_pvss.clone().unwrap()).unwrap();
+        let message = DKGMsg(transcript_bytes);
+        let (tx, rx) = oneshot::channel();
+        let (_cancel_tx, cancel_rx) = oneshot::channel();
+        tokio::spawn(self.dkg_rbc.broadcast::<DKGBroadcastStatus>(message, tx, cancel_rx));
+        assert_eq!(rx.await.unwrap(), validators.into_iter().collect());
     }
 
     fn aggregate_pvss(&self) -> Option<Transcript> {
         // dkg todo: aggregate all pvss transcripts
+        thread::sleep(Duration::from_millis(TRANSCRIPT_AGGREGATE_TIME_MS));
         None
     }
 
@@ -109,7 +114,7 @@ impl DKGManager {
                         }
                         DKGManagerCommand::ReceivePVSS(peer, transcript) => {
                             // dkg todo: verify if the PVSS transcript is valid
-                            if transcript.verify().is_ok() && !self.all_pvss.contains_key(&peer) {
+                            if !self.all_pvss.contains_key(&peer) && transcript.verify(TRANSCRIPT_VERIFY_TIME_MS).is_ok() {
                                 self.all_pvss.insert(peer, transcript);
                                 if self.old_validators.check_voting_power(self.all_pvss.keys()).is_ok() {
                                     // dkg todo: aggregate PVSS transcripts from other validators
@@ -129,5 +134,6 @@ impl DKGManager {
                 }
             }
         }
+        info!("DKGManager of epoch {} stopped", self.epoch);
     }
 }

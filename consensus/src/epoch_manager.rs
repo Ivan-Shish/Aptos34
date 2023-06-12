@@ -747,7 +747,7 @@ impl EpochManager {
 
         if self.dkg_enabled {
             // start dkg_manager
-            let dkg_manager = DKGManager::new(self.epoch(), self.author, epoch_state.verifier.clone(), batch_generator_cmd_tx);
+            let dkg_manager = DKGManager::new(self.epoch(), self.author, epoch_state.verifier.clone(), batch_generator_cmd_tx, Arc::new(network_sender.clone()));
             let (dkg_manager_cmd_tx, dkg_manager_cmd_rx) =
                 tokio::sync::mpsc::channel(self.config.channel_size);
             self.dkg_manager_cmd_tx = Some(dkg_manager_cmd_tx);

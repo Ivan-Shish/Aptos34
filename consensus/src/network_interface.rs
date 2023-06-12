@@ -14,6 +14,7 @@ use aptos_consensus_types::{
     proposal_msg::ProposalMsg,
     sync_info::SyncInfo,
     vote_msg::VoteMsg,
+    dkg_msg::DKGMsg,
 };
 use aptos_network::{
     application::{error::Error, interface::NetworkClientInterface},
@@ -61,6 +62,8 @@ pub enum ConsensusMsg {
     SignedBatchInfo(Box<SignedBatchInfoMsg>),
     /// Quorum Store: Broadcast a certified proof of store (a digest that received 2f+1 votes).
     ProofOfStoreMsg(Box<ProofOfStoreMsg>),
+    /// dkg todo: use pvss transcript
+    DKGMessage(Box<DKGMsg>),
     #[cfg(test)]
     DAGTestMessage(Vec<u8>),
 }
@@ -85,6 +88,7 @@ impl ConsensusMsg {
             ConsensusMsg::BatchResponse(_) => "BatchResponse",
             ConsensusMsg::SignedBatchInfo(_) => "SignedBatchInfo",
             ConsensusMsg::ProofOfStoreMsg(_) => "ProofOfStoreMsg",
+            ConsensusMsg::DKGMessage(_) => "DKGMessage",
             #[cfg(test)]
             ConsensusMsg::DAGTestMessage(_) => "DAGTestMessage",
         }

@@ -28,7 +28,6 @@ impl DAGMessage for TestMessage {
             _ => bail!("wrong message"),
         }
     }
-
     fn into_network_message(self) -> ConsensusMsg {
         ConsensusMsg::DAGTestMessage(self.0)
     }

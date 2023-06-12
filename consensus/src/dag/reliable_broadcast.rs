@@ -13,7 +13,6 @@ pub trait DAGMessage: Sized + Clone {
 
     fn into_network_message(self) -> ConsensusMsg;
 }
-
 pub trait BroadcastStatus {
     type Message: DAGMessage;
     type Ack: DAGMessage;
@@ -23,7 +22,6 @@ pub trait BroadcastStatus {
 
     fn add(&mut self, peer: Author, ack: Self::Ack) -> anyhow::Result<Option<Self::Aggregated>>;
 }
-
 #[async_trait]
 pub trait DAGNetworkSender: Send + Sync {
     async fn send_rpc(
