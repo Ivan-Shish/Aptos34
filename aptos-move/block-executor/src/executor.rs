@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    blockstm_providers::{LastInputOuputProvider, SchedulerProvider},
+    blockstm_providers::{LastInputOutputProvider, SchedulerProvider},
     counters,
     counters::{
         PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
@@ -65,7 +65,7 @@ where
     E: ExecutorTask<Txn = T, Output = TO, Error = TE>,
     S: TStateView<Key = K> + Sync,
     X: Executable + 'static,
-    P: SchedulerProvider + LastInputOuputProvider<K, TO, TE> + 'static,
+    P: SchedulerProvider + LastInputOutputProvider<K, TO, TE> + 'static,
 {
     /// The caller needs to ensure that concurrency_level > 1 (0 is illegal and 1 should
     /// be handled by sequential execution) and that concurrency_level <= num_cpus.

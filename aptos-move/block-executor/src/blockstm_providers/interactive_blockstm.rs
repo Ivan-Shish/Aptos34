@@ -1,7 +1,7 @@
 // Copyright © Aptos Foundation
 
 use crate::{
-    blockstm_providers::{LastInputOuputProvider, SchedulerProvider},
+    blockstm_providers::{LastInputOutputProvider, SchedulerProvider},
     CachePadded, ExecutionStatus, TransactionOutput, TxnInput, TxnOutput, ValidationStatus,
 };
 use aptos_infallible::Mutex;
@@ -17,11 +17,11 @@ pub struct InteractiveBlockStmProvider {
 }
 
 impl SchedulerProvider for InteractiveBlockStmProvider {
-    type TxnDependencyInfo = HashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>;
-    type TxnStatusProvider =
+    type TxnDependencyCollection = HashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>;
+    type TxnStatusCollection =
         HashMap<TxnIndex, CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>;
 
-    fn new_txn_dep_info(&self) -> Self::TxnDependencyInfo {
+    fn new_txn_dep_info(&self) -> Self::TxnDependencyCollection {
         self.txn_indices
             .iter()
             .map(|&tid| {
@@ -31,7 +31,7 @@ impl SchedulerProvider for InteractiveBlockStmProvider {
             .collect()
     }
 
-    fn new_txn_status_provider(&self) -> Self::TxnStatusProvider {
+    fn new_txn_status_provider(&self) -> Self::TxnStatusCollection {
         self.txn_indices
             .iter()
             .map(|&txn_idx| {
@@ -45,14 +45,14 @@ impl SchedulerProvider for InteractiveBlockStmProvider {
     }
 
     fn get_txn_deps_by_tid(
-        deps: &Self::TxnDependencyInfo,
+        deps: &Self::TxnDependencyCollection,
         tid: TxnIndex,
     ) -> &CachePadded<Mutex<Vec<TxnIndex>>> {
         deps.get(&tid).unwrap()
     }
 
     fn get_txn_status_by_tid(
-        status: &Self::TxnStatusProvider,
+        status: &Self::TxnStatusCollection,
         tid: TxnIndex,
     ) -> &CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)> {
         status.get(&tid).unwrap()
@@ -67,8 +67,8 @@ impl SchedulerProvider for InteractiveBlockStmProvider {
         }
     }
 
-    fn all_txn_indices(&self) -> Vec<TxnIndex> {
-        self.txn_indices.clone()
+    fn all_txn_indices(&self) -> Box<dyn Iterator<Item = TxnIndex> + '_> {
+        Box::new(self.txn_indices.iter().cloned())
     }
 
     fn get_local_position_by_tid(&self, tid: TxnIndex) -> usize {
@@ -93,27 +93,27 @@ impl SchedulerProvider for InteractiveBlockStmProvider {
 }
 
 impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
-    LastInputOuputProvider<K, TO, TE> for InteractiveBlockStmProvider
+    LastInputOutputProvider<K, TO, TE> for InteractiveBlockStmProvider
 {
-    type CommitLocks = HashMap<TxnIndex, Mutex<()>>;
-    type TxnLastInputs = HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>;
-    type TxnLastOutputs = HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<TO, TE>>>>;
+    type CommitLockCollection = HashMap<TxnIndex, Mutex<()>>;
+    type TxnLastInputCollection = HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>;
+    type TxnLastOutputCollection = HashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<TO, TE>>>>;
 
-    fn new_txn_inputs(&self) -> Self::TxnLastInputs {
+    fn new_txn_inputs(&self) -> Self::TxnLastInputCollection {
         self.txn_indices
             .iter()
             .map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty())))
             .collect()
     }
 
-    fn new_txn_outputs(&self) -> Self::TxnLastOutputs {
+    fn new_txn_outputs(&self) -> Self::TxnLastOutputCollection {
         self.txn_indices
             .iter()
             .map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty())))
             .collect()
     }
 
-    fn new_commit_locks(&self) -> Self::CommitLocks {
+    fn new_commit_locks(&self) -> Self::CommitLockCollection {
         self.txn_indices
             .iter()
             .map(|&tid| (tid, Mutex::new(())))
@@ -121,20 +121,20 @@ impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
     }
 
     fn get_inputs_by_tid(
-        inputs: &Self::TxnLastInputs,
+        inputs: &Self::TxnLastInputCollection,
         tid: TxnIndex,
     ) -> &CachePadded<ArcSwapOption<TxnInput<K>>> {
         inputs.get(&tid).unwrap()
     }
 
     fn get_outputs_by_tid(
-        outputs: &Self::TxnLastOutputs,
+        outputs: &Self::TxnLastOutputCollection,
         tid: TxnIndex,
     ) -> &CachePadded<ArcSwapOption<TxnOutput<TO, TE>>> {
         outputs.get(&tid).unwrap()
     }
 
-    fn get_commit_lock_by_tid(locks: &Self::CommitLocks, tid: TxnIndex) -> &Mutex<()> {
+    fn get_commit_lock_by_tid(locks: &Self::CommitLockCollection, tid: TxnIndex) -> &Mutex<()> {
         locks.get(&tid).unwrap()
     }
 }

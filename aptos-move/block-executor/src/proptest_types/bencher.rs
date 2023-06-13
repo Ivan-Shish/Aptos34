@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    blockstm_providers::default::DefaultProvider,
+    blockstm_providers::default::DefaultBlockStmProvider,
     executor::BlockExecutor,
     proptest_types::types::{
         EmptyDataView, ExpectedOutput, KeyType, Output, Task, Transaction, TransactionGen,
@@ -122,7 +122,7 @@ where
                 .unwrap(),
         );
 
-        let x_provider = Arc::new(DefaultProvider::new(self.transactions.len()));
+        let x_provider = Arc::new(DefaultBlockStmProvider::new(self.transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<K>, ValueType<V>>,
             Task<KeyType<K>, ValueType<V>>,
@@ -131,7 +131,7 @@ where
             KeyType<K>,
             Output<KeyType<K>, ValueType<V>>,
             usize,
-            DefaultProvider,
+            DefaultBlockStmProvider,
         >::new(num_cpus::get(), executor_thread_pool, None)
         .execute_transactions_parallel((), &self.transactions, &data_view, x_provider);
 

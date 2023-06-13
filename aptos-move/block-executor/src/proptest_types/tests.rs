@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    blockstm_providers::default::DefaultProvider,
+    blockstm_providers::default::DefaultBlockStmProvider,
     errors::Error,
     executor::BlockExecutor,
     proptest_types::types::{
@@ -62,7 +62,7 @@ fn run_transactions<K, V>(
     );
 
     for _ in 0..num_repeat {
-        let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
+        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<K>, ValueType<V>>,
             Task<KeyType<K>, ValueType<V>>,
@@ -71,7 +71,7 @@ fn run_transactions<K, V>(
             KeyType<K>,
             Output<KeyType<K>, ValueType<V>>,
             usize,
-            DefaultProvider,
+            DefaultBlockStmProvider,
         >::new(
             num_cpus::get(),
             executor_thread_pool.clone(),
@@ -202,7 +202,7 @@ fn deltas_writes_mixed_with_block_gas_limit(num_txns: usize, maybe_block_gas_lim
     );
 
     for _ in 0..20 {
-        let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
+        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
@@ -211,7 +211,7 @@ fn deltas_writes_mixed_with_block_gas_limit(num_txns: usize, maybe_block_gas_lim
             KeyType<[u8; 32]>,
             Output<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             usize,
-            DefaultProvider,
+            DefaultBlockStmProvider,
         >::new(
             num_cpus::get(),
             executor_thread_pool.clone(),
@@ -258,7 +258,7 @@ fn deltas_resolver_with_block_gas_limit(num_txns: usize, maybe_block_gas_limit: 
     );
 
     for _ in 0..20 {
-        let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
+        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
@@ -267,7 +267,7 @@ fn deltas_resolver_with_block_gas_limit(num_txns: usize, maybe_block_gas_limit: 
             KeyType<[u8; 32]>,
             Output<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             usize,
-            DefaultProvider,
+            DefaultBlockStmProvider,
         >::new(
             num_cpus::get(),
             executor_thread_pool.clone(),
@@ -436,7 +436,7 @@ fn publishing_fixed_params_with_block_gas_limit(
             .unwrap(),
     );
 
-    let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
+    let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
 
     // Confirm still no intersection
     let output = BlockExecutor::<
@@ -447,7 +447,7 @@ fn publishing_fixed_params_with_block_gas_limit(
         KeyType<[u8; 32]>,
         Output<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
         usize,
-        DefaultProvider,
+        DefaultBlockStmProvider,
     >::new(num_cpus::get(), executor_thread_pool, maybe_block_gas_limit)
     .execute_transactions_parallel((), &transactions, &data_view, x_provider);
     assert_ok!(output);
@@ -487,7 +487,7 @@ fn publishing_fixed_params_with_block_gas_limit(
     );
 
     for _ in 0..200 {
-        let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
+        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
@@ -496,7 +496,7 @@ fn publishing_fixed_params_with_block_gas_limit(
             KeyType<[u8; 32]>,
             Output<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             usize,
-            DefaultProvider,
+            DefaultBlockStmProvider,
         >::new(
             num_cpus::get(),
             executor_thread_pool.clone(),

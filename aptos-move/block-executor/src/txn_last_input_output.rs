@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    blockstm_providers::LastInputOuputProvider,
+    blockstm_providers::LastInputOutputProvider,
     errors::Error,
     task::{ExecutionStatus, Transaction, TransactionOutput},
 };
@@ -120,10 +120,10 @@ pub struct TxnLastInputOutput<
     K,
     TO: TransactionOutput,
     TE: Debug,
-    P: LastInputOuputProvider<K, TO, TE>,
+    P: LastInputOutputProvider<K, TO, TE>,
 > {
-    inputs: P::TxnLastInputs,
-    outputs: P::TxnLastOutputs,
+    inputs: P::TxnLastInputCollection,
+    outputs: P::TxnLastOutputCollection,
 
     // Record all writes and reads to access paths corresponding to modules (code) in any
     // (speculative) executions. Used to avoid a potential race with module publishing and
@@ -133,14 +133,14 @@ pub struct TxnLastInputOutput<
 
     module_read_write_intersection: AtomicBool,
 
-    commit_locks: P::CommitLocks, // Shared locks to prevent race during commit
+    commit_locks: P::CommitLockCollection, // Shared locks to prevent race during commit
 }
 
 impl<
         K: ModulePath,
         TO: TransactionOutput,
         E: Debug + Send + Clone,
-        PY: LastInputOuputProvider<K, TO, E>,
+        PY: LastInputOutputProvider<K, TO, E>,
     > TxnLastInputOutput<K, TO, E, PY>
 {
     pub fn new(provider: Arc<PY>) -> Self {

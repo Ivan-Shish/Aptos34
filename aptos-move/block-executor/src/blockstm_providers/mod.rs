@@ -12,41 +12,59 @@ use std::fmt::Debug;
 pub mod default;
 pub mod interactive_blockstm;
 
+/// This trait captures the `Scheduler`-related processes and data structures
+/// where the default BlockSTM and the interactive BlockSTM differ.
 pub trait SchedulerProvider: Send + Sync {
-    type TxnDependencyInfo: Send + Sync;
-    type TxnStatusProvider: Send + Sync;
-    fn new_txn_dep_info(&self) -> Self::TxnDependencyInfo;
-    fn new_txn_status_provider(&self) -> Self::TxnStatusProvider;
+    type TxnDependencyCollection: Send + Sync;
+
+    type TxnStatusCollection: Send + Sync;
+
+    fn new_txn_dep_info(&self) -> Self::TxnDependencyCollection;
+
+    fn new_txn_status_provider(&self) -> Self::TxnStatusCollection;
+
     fn get_txn_deps_by_tid(
-        deps: &Self::TxnDependencyInfo,
+        deps: &Self::TxnDependencyCollection,
         tid: TxnIndex,
     ) -> &CachePadded<Mutex<Vec<TxnIndex>>>;
+
     fn get_txn_status_by_tid(
-        status: &Self::TxnStatusProvider,
+        status: &Self::TxnStatusCollection,
         tid: TxnIndex,
     ) -> &CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>;
+
+    /// Get the next transaction index in the list, if exists.
     fn txn_index_right_after(&self, x: TxnIndex) -> TxnIndex;
-    fn all_txn_indices(&self) -> Vec<TxnIndex>;
+
+    fn all_txn_indices(&self) -> Box<dyn Iterator<Item = TxnIndex> + '_>;
+
+    /// Get the position of the given transaction in the transaction list.
     fn get_local_position_by_tid(&self, tid: TxnIndex) -> usize;
+
+    /// Get an invalid transaction index that represents the end of the transaction list.
     fn txn_end_index(&self) -> TxnIndex;
+
+    /// Get the index of the first transaction.
     fn get_first_tid(&self) -> TxnIndex;
     fn num_txns(&self) -> usize;
 }
 
-pub trait LastInputOuputProvider<K, TO: TransactionOutput, TE: Debug>: Send + Sync {
-    type TxnLastInputs: Send + Sync;
-    type TxnLastOutputs: Send + Sync;
-    type CommitLocks: Send + Sync;
-    fn new_txn_inputs(&self) -> Self::TxnLastInputs;
-    fn new_txn_outputs(&self) -> Self::TxnLastOutputs;
-    fn new_commit_locks(&self) -> Self::CommitLocks;
+/// This trait captures the `LastInputOutput`-related processes and data structures
+/// where the default BlockSTM and the interactive BlockSTM differ.
+pub trait LastInputOutputProvider<K, TO: TransactionOutput, TE: Debug>: Send + Sync {
+    type TxnLastInputCollection: Send + Sync;
+    type TxnLastOutputCollection: Send + Sync;
+    type CommitLockCollection: Send + Sync;
+    fn new_txn_inputs(&self) -> Self::TxnLastInputCollection;
+    fn new_txn_outputs(&self) -> Self::TxnLastOutputCollection;
+    fn new_commit_locks(&self) -> Self::CommitLockCollection;
     fn get_inputs_by_tid(
-        inputs: &Self::TxnLastInputs,
+        inputs: &Self::TxnLastInputCollection,
         tid: TxnIndex,
     ) -> &CachePadded<ArcSwapOption<TxnInput<K>>>;
     fn get_outputs_by_tid(
-        outputs: &Self::TxnLastOutputs,
+        outputs: &Self::TxnLastOutputCollection,
         tid: TxnIndex,
     ) -> &CachePadded<ArcSwapOption<TxnOutput<TO, TE>>>;
-    fn get_commit_lock_by_tid(locks: &Self::CommitLocks, tid: TxnIndex) -> &Mutex<()>;
+    fn get_commit_lock_by_tid(locks: &Self::CommitLockCollection, tid: TxnIndex) -> &Mutex<()>;
 }

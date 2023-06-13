@@ -15,7 +15,7 @@ use crate::{
 };
 use aptos_aggregator::delta_change_set::DeltaOp;
 use aptos_block_executor::{
-    blockstm_providers::default::DefaultProvider,
+    blockstm_providers::default::DefaultBlockStmProvider,
     errors::Error,
     executor::BlockExecutor,
     task::{
@@ -173,14 +173,14 @@ impl BlockAptosVM {
             StateKey,
             AptosTransactionOutput,
             VMStatus,
-            DefaultProvider,
+            DefaultBlockStmProvider,
         >::new(
             concurrency_level,
             executor_thread_pool,
             maybe_block_gas_limit,
         );
 
-        let provider = Arc::new(DefaultProvider::new(signature_verified_block.len()));
+        let provider = Arc::new(DefaultBlockStmProvider::new(signature_verified_block.len()));
         let ret =
             executor.execute_block(state_view, signature_verified_block, state_view, provider);
 

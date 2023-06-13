@@ -197,10 +197,10 @@ pub struct Scheduler<P: SchedulerProvider> {
 
     /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
     /// should be re-executed once transaction i's next incarnation finishes.
-    txn_dependency: P::TxnDependencyInfo,
+    txn_dependency: P::TxnDependencyCollection,
 
     /// An index i maps to the most up-to-date status of transaction i.
-    txn_status: P::TxnStatusProvider,
+    txn_status: P::TxnStatusCollection,
 
     /// Next transaction to commit, and sweeping lower bound on the wave of a validation that must
     /// be successful in order to commit the next transaction.
@@ -566,7 +566,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
         // resolving the conditional variables, to help other theads that may be pending
         // on the read dependency. See the comment of the function resolve_condvar().
         if !self.done_marker.swap(true, Ordering::SeqCst) {
-            for &txn_idx in self.provider.all_txn_indices().iter() {
+            for txn_idx in self.provider.all_txn_indices() {
                 self.resolve_condvar(txn_idx);
             }
         }

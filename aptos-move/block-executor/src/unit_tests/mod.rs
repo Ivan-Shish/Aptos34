@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    blockstm_providers::{default::DefaultProvider, SchedulerProvider},
+    blockstm_providers::{default::DefaultBlockStmProvider, SchedulerProvider},
     executor::BlockExecutor,
     proptest_types::types::{
         DeltaDataView, ExpectedOutput, KeyType, Output, Task, Transaction, ValueType,
@@ -43,7 +43,7 @@ where
             .unwrap(),
     );
 
-    let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
+    let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
     let output = BlockExecutor::<
         Transaction<K, V>,
         Task<K, V>,
@@ -52,7 +52,7 @@ where
         K,
         Output<K, V>,
         usize,
-        DefaultProvider,
+        DefaultBlockStmProvider,
     >::new(num_cpus::get(), executor_thread_pool, None)
     .execute_transactions_parallel((), &transactions, &data_view, x_provider);
 
@@ -271,7 +271,7 @@ fn early_skips() {
 
 #[test]
 fn scheduler_tasks() {
-    let provider = Arc::new(DefaultProvider::new(5));
+    let provider = Arc::new(DefaultBlockStmProvider::new(5));
     let s = Scheduler::new(provider);
 
     for i in 0..5 {
@@ -363,7 +363,7 @@ fn scheduler_tasks() {
 
 #[test]
 fn scheduler_first_wave() {
-    let x_provider = Arc::new(DefaultProvider::new(6));
+    let x_provider = Arc::new(DefaultBlockStmProvider::new(6));
     let s = Scheduler::new(x_provider);
 
     for i in 0..5 {
@@ -419,7 +419,7 @@ fn scheduler_first_wave() {
 
 #[test]
 fn scheduler_dependency() {
-    let x_provider = Arc::new(DefaultProvider::new(10));
+    let x_provider = Arc::new(DefaultBlockStmProvider::new(10));
     let s = Scheduler::new(x_provider);
 
     for i in 0..5 {
@@ -466,7 +466,9 @@ fn scheduler_dependency() {
 
 // Will return a scheduler in a state where all transactions are scheduled for
 // for execution, validation index = num_txns, and wave = 0.
-fn incarnation_one_scheduler(provider: Arc<DefaultProvider>) -> Scheduler<DefaultProvider> {
+fn incarnation_one_scheduler(
+    provider: Arc<DefaultBlockStmProvider>,
+) -> Scheduler<DefaultBlockStmProvider> {
     let s = Scheduler::new(provider.clone());
 
     for i in provider.all_txn_indices() {
@@ -494,7 +496,7 @@ fn incarnation_one_scheduler(provider: Arc<DefaultProvider>) -> Scheduler<Defaul
 
 #[test]
 fn scheduler_incarnation() {
-    let provider = Arc::new(DefaultProvider::new(5));
+    let provider = Arc::new(DefaultBlockStmProvider::new(5));
     let s = incarnation_one_scheduler(provider);
 
     // execution/validation index = 5, wave = 0.
@@ -582,7 +584,7 @@ fn scheduler_incarnation() {
 
 #[test]
 fn scheduler_basic() {
-    let provider = Arc::new(DefaultProvider::new(3));
+    let provider = Arc::new(DefaultBlockStmProvider::new(3));
     let s = Scheduler::new(provider);
 
     for i in 0..3 {
@@ -633,7 +635,7 @@ fn scheduler_basic() {
 
 #[test]
 fn scheduler_drain_idx() {
-    let x_provider = Arc::new(DefaultProvider::new(3));
+    let x_provider = Arc::new(DefaultBlockStmProvider::new(3));
     let s = Scheduler::new(x_provider);
 
     for i in 0..3 {
@@ -686,7 +688,7 @@ fn scheduler_drain_idx() {
 fn finish_execution_wave() {
     // Wave won't be increased, because validation index is already 2, and finish_execution
     // tries to reduce it to 2.
-    let provider = Arc::new(DefaultProvider::new(2));
+    let provider = Arc::new(DefaultBlockStmProvider::new(2));
     let s = incarnation_one_scheduler(provider);
     assert!(matches!(
         s.finish_execution(1, 1, true),
@@ -694,7 +696,7 @@ fn finish_execution_wave() {
     ));
 
     // Here wave will increase, because validation index is reduced from 3 to 2.
-    let provider = Arc::new(DefaultProvider::new(3));
+    let provider = Arc::new(DefaultBlockStmProvider::new(3));
     let s = incarnation_one_scheduler(provider);
     assert!(matches!(
         s.finish_execution(1, 1, true),
@@ -702,7 +704,7 @@ fn finish_execution_wave() {
     ));
 
     // Here wave won't be increased, because we pass revalidate_suffix = false.
-    let provider = Arc::new(DefaultProvider::new(3));
+    let provider = Arc::new(DefaultBlockStmProvider::new(3));
     let s = incarnation_one_scheduler(provider);
     assert!(matches!(
         s.finish_execution(1, 1, false),
@@ -712,7 +714,7 @@ fn finish_execution_wave() {
 
 #[test]
 fn rolling_commit_wave() {
-    let provider = Arc::new(DefaultProvider::new(3));
+    let provider = Arc::new(DefaultBlockStmProvider::new(3));
     let s = incarnation_one_scheduler(provider.clone());
 
     // Finish execution for txn 0 without validate_suffix and because
@@ -781,7 +783,7 @@ fn no_conflict_task_count() {
 
     let num_txns: TxnIndex = 1000;
     for num_concurrent_tasks in [1, 5, 10, 20] {
-        let provider = Arc::new(DefaultProvider::new(num_txns as usize));
+        let provider = Arc::new(DefaultBlockStmProvider::new(num_txns as usize));
         let s = Scheduler::new(provider.clone());
 
         let mut tasks = BTreeMap::new();
