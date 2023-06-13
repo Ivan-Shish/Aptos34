@@ -14,14 +14,17 @@ use anyhow::{format_err, Result};
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{NetworkConfig, NodeConfig},
-    network_id::NetworkId,
+    network_id::{NetworkId, PeerNetworkId},
 };
+use aptos_data_client::{interface::AptosPeersInterface, peer_states::PeerState};
 use aptos_event_notifications::{ReconfigNotification, ReconfigNotificationListener};
 use aptos_infallible::{Mutex, RwLock};
 use aptos_mempool_notifications::{self, MempoolNotifier};
 use aptos_network::{
     application::{
+        error::Error,
         interface::{NetworkClient, NetworkServiceEvents},
+        metadata::PeerMetadata,
         storage::PeersAndMetadata,
     },
     peer_manager::{conn_notifs_channel, ConnectionRequestSender, PeerManagerRequestSender},
@@ -42,6 +45,28 @@ use futures::channel::mpsc;
 use maplit::hashmap;
 use std::{collections::HashMap, sync::Arc};
 use tokio::runtime::{Handle, Runtime};
+
+#[derive(Default)]
+pub struct MockAptosPeers {
+    peers_metadata: HashMap<PeerNetworkId, PeerMetadata>,
+    peers_state: HashMap<PeerNetworkId, PeerState>,
+}
+
+impl AptosPeersInterface for MockAptosPeers {
+    fn get_connected_peers_and_metadata(
+        &self,
+    ) -> std::result::Result<HashMap<PeerNetworkId, PeerMetadata>, Error> {
+        Ok(self.peers_metadata.clone())
+    }
+
+    fn get_peer_to_states(&self) -> HashMap<PeerNetworkId, PeerState> {
+        self.peers_state.clone()
+    }
+
+    fn is_vfn(&self) -> bool {
+        false
+    }
+}
 
 /// Mock of a running instance of shared mempool.
 pub struct MockSharedMempool {
@@ -159,7 +184,7 @@ impl MockSharedMempool {
             db.reader.clone(),
             Arc::new(RwLock::new(validator)),
             vec![],
-            None,
+            Arc::new(MockAptosPeers::default()),
             broadcast_peers_selector,
         );
 

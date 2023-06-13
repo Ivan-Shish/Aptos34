@@ -20,7 +20,7 @@ use crate::{
 use aptos_bounded_executor::BoundedExecutor;
 use aptos_config::network_id::{NetworkId, PeerNetworkId};
 use aptos_consensus_types::common::TransactionSummary;
-use aptos_data_client::client::AptosDataClient;
+use aptos_data_client::interface::AptosPeersInterface;
 use aptos_event_notifications::ReconfigNotificationListener;
 use aptos_infallible::{Mutex, RwLock};
 use aptos_logger::prelude::*;
@@ -54,10 +54,7 @@ pub(crate) async fn coordinator<NetworkClient, TransactionValidator>(
     mut mempool_listener: MempoolNotificationListener,
     mut mempool_reconfig_events: ReconfigNotificationListener,
     peer_update_interval_ms: u64,
-    // TODO: being an option is a complete stop-gap to compile. To actually run the tests we'll need
-    // TODO: to pass in something and also drive the peers from here
-    aptos_data_client: Option<AptosDataClient>,
-    // TODO: Make BroadcastPeersSelector concrete and use RwLock<BroadcastPeersSelector>?
+    peers: Arc<dyn AptosPeersInterface>,
     broadcast_peers_selector: Arc<RwLock<Box<dyn BroadcastPeersSelector>>>,
 ) where
     NetworkClient: NetworkClientInterface<MempoolSyncMsg> + 'static,
@@ -118,40 +115,34 @@ pub(crate) async fn coordinator<NetworkClient, TransactionValidator>(
                 handle_network_event(&executor, &bounded_executor, &mut scheduled_broadcasts, &mut smp, network_id, event).await;
             },
             _ = update_peers_interval.tick().fuse() => {
-                if let Some(ref client) = aptos_data_client {
-                    let peer_states = client.get_peer_states();
-                    if let Ok(connected_peers) = peer_states
-                        .get_peers_and_metadata()
-                        .get_connected_peers_and_metadata()
-                    {
-                        let mut peer_to_states = peer_states.get_peer_to_states();
-                        // connected_peers and peer_to_states can be out of sync. So we only include
-                        // peers that are in both.
-                        let mut updated_peers = HashMap::new();
-                        for (peer, metadata) in connected_peers {
-                            if let Some(state) = peer_to_states.remove(&peer) {
-                                updated_peers.insert(peer, (metadata, state));
-                            }
+                if let Ok(connected_peers) = peers.get_connected_peers_and_metadata() {
+                    let mut peer_to_states = peers.get_peer_to_states();
+                    // connected_peers and peer_to_states can be out of sync. So we only include
+                    // peers that are in both.
+                    let mut updated_peers = HashMap::new();
+                    for (peer, metadata) in connected_peers {
+                        if let Some(state) = peer_to_states.remove(&peer) {
+                            updated_peers.insert(peer, (metadata, state));
                         }
+                    }
 
-                        broadcast_peers_selector.write().update_peers(&updated_peers);
-                        let (newly_added_upstream, disabled) = smp.network_interface.update_peers(&updated_peers);
-                        if !newly_added_upstream.is_empty() || !disabled.is_empty() {
-                            counters::shared_mempool_event_inc("peer_update");
-                            notify_subscribers(SharedMempoolNotification::PeerStateChange, &smp.subscribers);
-                        }
-                        for peer in newly_added_upstream {
-                            debug!(LogSchema::new(LogEntry::NewPeer)
-                                .peer(&peer));
-                            tasks::execute_broadcast(peer, false, &mut smp, &mut scheduled_broadcasts, executor.clone()).await;
-                        }
-                        // TODO: Also need to redirect the out of date ones, based on some threshold
-                        // TODO: of out-of-date versions
-                        for peer in disabled {
-                            debug!(LogSchema::new(LogEntry::LostPeer)
-                                .peer(&peer));
-                            smp.mempool.lock().redirect(peer);
-                        }
+                    broadcast_peers_selector.write().update_peers(&updated_peers);
+                    let (newly_added_upstream, disabled) = smp.network_interface.update_peers(&updated_peers);
+                    if !newly_added_upstream.is_empty() || !disabled.is_empty() {
+                        counters::shared_mempool_event_inc("peer_update");
+                        notify_subscribers(SharedMempoolNotification::PeerStateChange, &smp.subscribers);
+                    }
+                    for peer in newly_added_upstream {
+                        debug!(LogSchema::new(LogEntry::NewPeer)
+                            .peer(&peer));
+                        tasks::execute_broadcast(peer, false, &mut smp, &mut scheduled_broadcasts, executor.clone()).await;
+                    }
+                    // TODO: Also need to redirect the out of date ones, based on some threshold
+                    // TODO: of out-of-date versions
+                    for peer in disabled {
+                        debug!(LogSchema::new(LogEntry::LostPeer)
+                            .peer(&peer));
+                        smp.mempool.lock().redirect(peer);
                     }
                 }
             },

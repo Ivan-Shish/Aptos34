@@ -9,7 +9,10 @@ use crate::{
         start_shared_mempool,
         types::MultiBatchId,
     },
-    tests::{common, common::TestTransaction},
+    tests::{
+        common,
+        common::{PeersAndMetadataPeers, TestTransaction},
+    },
     MempoolClientRequest, MempoolClientSender, MempoolSyncMsg, QuorumStoreRequest,
 };
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
@@ -457,7 +460,12 @@ impl TestFramework<MempoolNode> for MempoolTestFramework {
             peers_and_metadata,
         ) = setup_node_networks(&network_ids);
         let (mempool_client_sender, consensus_to_mempool_sender, mempool_notifications, mempool) =
-            setup_mempool(config, network_client, network_service_events);
+            setup_mempool(
+                config,
+                network_client,
+                network_service_events,
+                peers_and_metadata.clone(),
+            );
 
         MempoolNode {
             node_id,
@@ -569,6 +577,7 @@ fn setup_mempool(
     config: NodeConfig,
     network_client: NetworkClient<MempoolSyncMsg>,
     network_service_events: NetworkServiceEvents<MempoolSyncMsg>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
 ) -> (
     MempoolClientSender,
     futures::channel::mpsc::Sender<QuorumStoreRequest>,
@@ -614,7 +623,7 @@ fn setup_mempool(
         db_ro,
         vm_validator,
         vec![sender],
-        None,
+        Arc::new(PeersAndMetadataPeers::new(peers_and_metadata)),
         broadcast_peers_selector,
     );
 

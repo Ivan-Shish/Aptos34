@@ -532,7 +532,7 @@ pub fn setup_environment_and_start_node(
             mempool_network_interfaces,
             mempool_listener,
             mempool_client_receiver,
-            aptos_data_client,
+            Arc::new(aptos_data_client),
         );
 
     // Create the consensus runtime (this blocks on state sync first)

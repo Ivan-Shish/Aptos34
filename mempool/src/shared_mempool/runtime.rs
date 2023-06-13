@@ -15,7 +15,7 @@ use crate::{
     QuorumStoreRequest,
 };
 use aptos_config::config::NodeConfig;
-use aptos_data_client::client::AptosDataClient;
+use aptos_data_client::interface::AptosPeersInterface;
 use aptos_event_notifications::ReconfigNotificationListener;
 use aptos_infallible::{Mutex, RwLock};
 use aptos_logger::Level;
@@ -46,7 +46,7 @@ pub(crate) fn start_shared_mempool<TransactionValidator>(
     db: Arc<dyn DbReader>,
     validator: Arc<RwLock<TransactionValidator>>,
     subscribers: Vec<UnboundedSender<SharedMempoolNotification>>,
-    aptos_data_client: Option<AptosDataClient>,
+    peers: Arc<dyn AptosPeersInterface>,
     broadcast_peers_selector: Arc<RwLock<Box<dyn BroadcastPeersSelector>>>,
 ) where
     TransactionValidator: TransactionValidation + 'static,
@@ -71,7 +71,7 @@ pub(crate) fn start_shared_mempool<TransactionValidator>(
         mempool_listener,
         mempool_reconfig_events,
         config.mempool.peer_update_interval_ms,
-        aptos_data_client,
+        peers,
         broadcast_peers_selector,
     ));
 
@@ -97,14 +97,14 @@ pub fn bootstrap(
     quorum_store_requests: Receiver<QuorumStoreRequest>,
     mempool_listener: MempoolNotificationListener,
     mempool_reconfig_events: ReconfigNotificationListener,
-    aptos_data_client: AptosDataClient,
+    peers: Arc<dyn AptosPeersInterface>,
 ) -> Runtime {
     let runtime = aptos_runtimes::spawn_named_runtime("shared-mem".into(), None);
 
     let broadcast_peers_selector = {
         let inner_selector: Box<dyn BroadcastPeersSelector> = if config.base.role.is_validator() {
             Box::new(AllPeersSelector::new())
-        } else if aptos_data_client.get_peer_states().is_vfn() {
+        } else if peers.is_vfn() {
             Box::new(PrioritizedPeersSelector::new(config.mempool.clone()))
         } else {
             Box::new(FreshPeersSelector::new(config.mempool.clone()))
@@ -130,7 +130,7 @@ pub fn bootstrap(
         db,
         vm_validator,
         vec![],
-        Some(aptos_data_client),
+        peers,
         broadcast_peers_selector,
     );
     runtime
