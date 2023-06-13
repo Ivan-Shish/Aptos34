@@ -2,24 +2,16 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    counters,
-    counters::{
-        PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
-        TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
-    },
-    errors::*,
-    scheduler::{DependencyStatus, Scheduler, SchedulerTask, Wave},
-    task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput},
-    txn_last_input_output::TxnLastInputOutput,
-    view::{LatestView, MVHashMapView},
-};
+use crate::{counters, counters::{
+    PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
+    TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
+}, errors::*, scheduler::{DependencyStatus, Scheduler, SchedulerTask, Wave}, task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput}, txn_last_input_output::TxnLastInputOutput, view::{LatestView, MVHashMapView}};
 use aptos_aggregator::delta_change_set::{deserialize, serialize};
 use aptos_logger::{debug, info};
 use aptos_mvhashmap::{
+    MVHashMap,
     types::{MVDataError, MVDataOutput, TxnIndex, Version},
     unsync_map::UnsyncMap,
-    MVHashMap,
 };
 use aptos_state_view::TStateView;
 use aptos_types::{executable::Executable, write_set::WriteOp};
@@ -34,6 +26,11 @@ use std::{
         mpsc::{Receiver, Sender},
     },
 };
+use std::fmt::Debug;
+use std::hash::Hash;
+use aptos_mvhashmap::types::TXN_IDX_NONE;
+use aptos_types::executable::ModulePath;
+use crate::blockstm_providers::{LastInputOuputProvider, SchedulerProvider};
 
 #[derive(Debug)]
 enum CommitRole {
@@ -41,21 +38,25 @@ enum CommitRole {
     Worker(Receiver<TxnIndex>),
 }
 
-pub struct BlockExecutor<T, E, S, X> {
+pub struct BlockExecutor<T, E, S, X, K, TO, TE, P> {
     // number of active concurrent tasks, corresponding to the maximum number of rayon
     // threads that may be concurrently participating in parallel execution.
     concurrency_level: usize,
     executor_thread_pool: Arc<ThreadPool>,
     maybe_block_gas_limit: Option<u64>,
-    phantom: PhantomData<(T, E, S, X)>,
+    phantom: PhantomData<(T, E, S, X, K, TO, TE, P)>,
 }
 
-impl<T, E, S, X> BlockExecutor<T, E, S, X>
+impl<T, E, S, X, K, TO, TE, P> BlockExecutor<T, E, S, X, K, TO, TE, P>
 where
-    T: Transaction,
-    E: ExecutorTask<Txn = T>,
-    S: TStateView<Key = T::Key> + Sync,
+    T: Transaction<Key = K>,
+    K: ModulePath + Ord + Send + Sync + Clone + Debug + Hash + Eq + 'static,
+    TO: TransactionOutput<Txn = T> + 'static,
+    TE: Debug + Send + Sync + Clone + 'static,
+    E: ExecutorTask<Txn = T, Output = TO, Error = TE>,
+    S: TStateView<Key = K> + Sync,
     X: Executable + 'static,
+    P: SchedulerProvider + LastInputOuputProvider<K, TO, TE> + 'static,
 {
     /// The caller needs to ensure that concurrency_level > 1 (0 is illegal and 1 should
     /// be handled by sequential execution) and that concurrency_level <= num_cpus.
@@ -81,9 +82,9 @@ where
         &self,
         version: Version,
         signature_verified_block: &[T],
-        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
+        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
         versioned_cache: &MVHashMap<T::Key, T::Value, X>,
-        scheduler: &Scheduler,
+        scheduler: &Scheduler<P>,
         executor: &E,
         base_view: &S,
     ) -> SchedulerTask {
@@ -95,7 +96,7 @@ where
 
         // VM execution.
         let execute_result = executor.execute_transaction(
-            &LatestView::<T, S, X>::new_mv_view(base_view, &speculative_view, idx_to_execute),
+            &LatestView::<T, S, X, P>::new_mv_view(base_view, &speculative_view, idx_to_execute),
             txn,
             idx_to_execute,
             false,
@@ -165,9 +166,9 @@ where
         &self,
         version_to_validate: Version,
         validation_wave: Wave,
-        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
+        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
         versioned_cache: &MVHashMap<T::Key, T::Value, X>,
-        scheduler: &Scheduler,
+        scheduler: &Scheduler<P>,
     ) -> SchedulerTask {
         use MVDataError::*;
         use MVDataOutput::*;
@@ -220,12 +221,13 @@ where
     fn coordinator_commit_hook(
         &self,
         maybe_block_gas_limit: Option<u64>,
-        scheduler: &Scheduler,
+        scheduler: &Scheduler<P>,
         post_commit_txs: &Vec<Sender<u32>>,
         worker_idx: &mut usize,
         accumulated_gas: &mut u64,
         scheduler_task: &mut SchedulerTask,
-        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
+        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
+        x_provider: Arc<P>,
     ) {
         while let Some(txn_idx) = scheduler.try_commit() {
             post_commit_txs[*worker_idx]
@@ -235,14 +237,15 @@ where
             *worker_idx = (*worker_idx + 1) % post_commit_txs.len();
 
             // Committed the last transaction, BlockSTM finishes execution.
-            if scheduler.txn_index_right_after(txn_idx).is_none() {
+            if x_provider.txn_index_right_after(txn_idx) == TXN_IDX_NONE {
                 *scheduler_task = SchedulerTask::Done;
 
+                let num_committed = x_provider.get_local_position_by_tid(txn_idx) + 1;
                 counters::PARALLEL_PER_BLOCK_GAS.observe(*accumulated_gas as f64);
-                counters::PARALLEL_PER_BLOCK_COMMITTED_TXNS.observe((txn_idx + 1) as f64);
+                counters::PARALLEL_PER_BLOCK_COMMITTED_TXNS.observe(num_committed as f64);
                 info!(
                     "[BlockSTM]: Parallel execution completed, all {} txns committed.",
-                    scheduler.get_txn_local_position(txn_idx) + 1
+                    num_committed
                 );
                 break;
             }
@@ -259,7 +262,7 @@ where
 
                     counters::PARALLEL_PER_BLOCK_GAS.observe(*accumulated_gas as f64);
                     counters::PARALLEL_PER_BLOCK_COMMITTED_TXNS.observe((txn_idx + 1) as f64);
-                    info!("[BlockSTM]: Parallel execution early halted due to Abort or SkipRest txn, {} txns committed.", scheduler.get_txn_local_position(txn_idx) + 1);
+                    info!("[BlockSTM]: Parallel execution early halted due to Abort or SkipRest txn, {} txns committed.", x_provider.get_local_position_by_tid(txn_idx) + 1);
                     break;
                 },
             };
@@ -293,7 +296,7 @@ where
         &self,
         txn_idx: TxnIndex,
         versioned_cache: &MVHashMap<T::Key, T::Value, X>,
-        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
+        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
         base_view: &S,
     ) {
         let (num_deltas, delta_keys) = last_input_output.delta_keys(txn_idx);
@@ -336,11 +339,12 @@ where
         &self,
         executor_arguments: &E::Argument,
         block: &[T],
-        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error>,
+        last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
         versioned_cache: &MVHashMap<T::Key, T::Value, X>,
-        scheduler: &Scheduler,
+        scheduler: &Scheduler<P>,
         base_view: &S,
         role: CommitRole,
+        x_provider: Arc<P>,
     ) {
         // Make executor for each task. TODO: fast concurrent executor.
         let init_timer = VM_INIT_SECONDS.start_timer();
@@ -365,6 +369,7 @@ where
                         &mut accumulated_gas,
                         &mut scheduler_task,
                         last_input_output,
+                        x_provider.clone(),
                     );
                 },
                 CommitRole::Worker(rx) => {
@@ -430,6 +435,7 @@ where
         executor_initial_arguments: E::Argument,
         signature_verified_block: &Vec<T>,
         base_view: &S,
+        x_provider: Arc<P>,
     ) -> Result<Vec<E::Output>, E::Error> {
         let _timer = PARALLEL_EXECUTION_SECONDS.start_timer();
         // Using parallel execution with 1 thread currently will not work as it
@@ -446,8 +452,8 @@ where
 
         let num_txns = signature_verified_block.len() as u32;
         let txn_indices: Arc<Vec<TxnIndex>> = Arc::new((0..num_txns).collect());
-        let last_input_output: TxnLastInputOutput<<T as Transaction>::Key, <E as ExecutorTask>::Output, <E as ExecutorTask>::Error> = TxnLastInputOutput::new(txn_indices.clone());
-        let scheduler = Scheduler::new(txn_indices);
+        let last_input_output = TxnLastInputOutput::new(x_provider.clone());
+        let scheduler = Scheduler::new(x_provider.clone(), txn_indices);
         let mut roles: Vec<CommitRole> = vec![];
         let mut senders: Vec<Sender<u32>> = Vec::with_capacity(self.concurrency_level - 1);
         for _ in 0..(self.concurrency_level - 1) {
@@ -475,6 +481,7 @@ where
                         &scheduler,
                         base_view,
                         role,
+                        x_provider.clone(),
                     );
                 });
             }
@@ -537,7 +544,7 @@ where
         let mut accumulated_gas = 0;
         for (idx, txn) in signature_verified_block.iter().enumerate() {
             let res = executor.execute_transaction(
-                &LatestView::<T, S, X>::new_btree_view(base_view, &data_map, idx as TxnIndex),
+                &LatestView::<T, S, X, P>::new_btree_view(base_view, &data_map, idx as TxnIndex),
                 txn,
                 idx as TxnIndex,
                 true,
@@ -602,12 +609,14 @@ where
         executor_arguments: E::Argument,
         signature_verified_block: Vec<T>,
         base_view: &S,
+        x_provider: Arc<P>,
     ) -> Result<Vec<E::Output>, E::Error> {
         let mut ret = if self.concurrency_level > 1 {
             self.execute_transactions_parallel(
                 executor_arguments,
                 &signature_verified_block,
                 base_view,
+                x_provider,
             )
         } else {
             self.execute_transactions_sequential(

@@ -2,11 +2,7 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    executor::BlockExecutor,
-    proptest_types::types::{DeltaDataView, ExpectedOutput, KeyType, Task, Transaction, ValueType},
-    scheduler::{DependencyResult, Scheduler, SchedulerTask},
-};
+use crate::{executor::BlockExecutor, proptest_types::types::{DeltaDataView, ExpectedOutput, KeyType, Task, Transaction, ValueType}, scheduler::{DependencyResult, Scheduler, SchedulerTask}};
 use aptos_aggregator::delta_change_set::{delta_add, delta_sub, DeltaOp, DeltaUpdate};
 use aptos_mvhashmap::types::{TXN_IDX_NONE, TxnIndex};
 use aptos_types::{executable::ModulePath, write_set::TransactionWrite};
@@ -18,9 +14,11 @@ use std::{
     fmt::Debug,
     hash::Hash,
     marker::PhantomData,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{Arc, atomic::AtomicUsize},
 };
 use aptos_types::executable::ExecutableTestType;
+use crate::blockstm_providers::default::DefaultProvider;
+use crate::proptest_types::types::Output;
 
 fn run_and_assert<K, V>(transactions: Vec<Transaction<K, V>>)
 where
@@ -38,13 +36,18 @@ where
             .unwrap(),
     );
 
+    let x_provider = Arc::new(DefaultProvider::new(transactions.len()));
     let output = BlockExecutor::<
         Transaction<K, V>,
         Task<K, V>,
         DeltaDataView<K, V>,
         ExecutableTestType,
+        K,
+        Output<K, V>,
+        usize,
+        DefaultProvider,
     >::new(num_cpus::get(), executor_thread_pool, None)
-    .execute_transactions_parallel((), &transactions, &data_view);
+    .execute_transactions_parallel((), &transactions, &data_view, x_provider);
 
     let baseline = ExpectedOutput::generate_baseline(&transactions, None, None);
     baseline.assert_output(&output);
@@ -261,8 +264,9 @@ fn early_skips() {
 
 #[test]
 fn scheduler_tasks() {
+    let provider = Arc::new(DefaultProvider::new(5));
     let indices = Arc::new((0..5).collect());
-    let mut s = Scheduler::new(indices);
+    let s = Scheduler::new(provider, indices);
 
     for i in 0..5 {
         // No validation tasks.
@@ -353,8 +357,9 @@ fn scheduler_tasks() {
 
 #[test]
 fn scheduler_first_wave() {
+    let x_provider = Arc::new(DefaultProvider::new(6));
     let indices = Arc::new((0..6).collect());
-    let mut s = Scheduler::new(indices);
+    let s = Scheduler::new(x_provider, indices);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -409,8 +414,9 @@ fn scheduler_first_wave() {
 
 #[test]
 fn scheduler_dependency() {
+    let x_provider = Arc::new(DefaultProvider::new(10));
     let indices = Arc::new((0..10).collect());
-    let mut s = Scheduler::new(indices);
+    let s = Scheduler::new(x_provider, indices);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -456,9 +462,10 @@ fn scheduler_dependency() {
 
 // Will return a scheduler in a state where all transactions are scheduled for
 // for execution, validation index = num_txns, and wave = 0.
-fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler {
+fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler<DefaultProvider> {
+    let x_provider = Arc::new(DefaultProvider::new(num_txns as usize));
     let indices = Arc::new((0..num_txns).collect());
-    let mut s = Scheduler::new(indices);
+    let s = Scheduler::new(x_provider, indices);
 
     for i in 0..num_txns {
         // Get the first executions out of the way.
@@ -572,8 +579,9 @@ fn scheduler_incarnation() {
 
 #[test]
 fn scheduler_basic() {
+    let x_provider = Arc::new(DefaultProvider::new(3));
     let indices = Arc::new((0..3).collect());
-    let mut s = Scheduler::new(indices);
+    let s = Scheduler::new(x_provider, indices);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -623,8 +631,9 @@ fn scheduler_basic() {
 
 #[test]
 fn scheduler_drain_idx() {
+    let x_provider = Arc::new(DefaultProvider::new(3));
     let indices = Arc::new((0..3).collect());
-    let mut s = Scheduler::new(indices);
+    let s = Scheduler::new(x_provider, indices);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -767,8 +776,9 @@ fn no_conflict_task_count() {
 
     let num_txns: TxnIndex = 1000;
     for num_concurrent_tasks in [1, 5, 10, 20] {
+        let x_provider = Arc::new(DefaultProvider::new(num_txns as usize));
         let indices = Arc::new((0..num_txns).collect());
-        let mut s = Scheduler::new(indices);
+        let s = Scheduler::new(x_provider, indices);
 
         let mut tasks = BTreeMap::new();
 

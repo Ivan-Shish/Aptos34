@@ -2,13 +2,10 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    executor::BlockExecutor,
-    proptest_types::types::{
-        EmptyDataView, ExpectedOutput, KeyType, Task, Transaction, TransactionGen,
-        TransactionGenParams, ValueType,
-    },
-};
+use crate::{executor::BlockExecutor, proptest_types::types::{
+    EmptyDataView, ExpectedOutput, KeyType, Task, Transaction, TransactionGen,
+    TransactionGenParams, ValueType,
+}};
 use aptos_types::executable::ExecutableTestType;
 use criterion::{BatchSize, Bencher as CBencher};
 use num_cpus;
@@ -20,6 +17,9 @@ use proptest::{
     test_runner::TestRunner,
 };
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
+use aptos_mvhashmap::types::TxnIndex;
+use crate::blockstm_providers::default::DefaultProvider;
+use crate::proptest_types::types::Output;
 
 pub struct Bencher<K, V> {
     transaction_size: usize,
@@ -121,13 +121,18 @@ where
                 .unwrap(),
         );
 
+        let x_provider = Arc::new(DefaultProvider::new(self.transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<K>, ValueType<V>>,
             Task<KeyType<K>, ValueType<V>>,
             EmptyDataView<KeyType<K>, ValueType<V>>,
             ExecutableTestType,
+            KeyType<K>,
+            Output<KeyType<K>, ValueType<V>>,
+            usize,
+            DefaultProvider,
         >::new(num_cpus::get(), executor_thread_pool, None)
-        .execute_transactions_parallel((), &self.transactions, &data_view);
+        .execute_transactions_parallel((), &self.transactions, &data_view, x_provider);
 
         self.expected_output.assert_output(&output);
     }

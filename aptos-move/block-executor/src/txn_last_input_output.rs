@@ -1,10 +1,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    errors::Error,
-    task::{ExecutionStatus, Transaction, TransactionOutput},
-};
+use crate::{errors::Error, task::{ExecutionStatus, Transaction, TransactionOutput}};
 use anyhow::anyhow;
 use aptos_infallible::Mutex;
 use aptos_mvhashmap::types::{Incarnation, TxnIndex, Version};
@@ -17,22 +14,23 @@ use std::{
     fmt::Debug,
     iter::{empty, Iterator},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
+use crate::blockstm_providers::{LastInputOuputProvider};
 
-type TxnInput<K> = Vec<ReadDescriptor<K>>;
+pub type TxnInput<K> = Vec<ReadDescriptor<K>>;
 // When a transaction is committed, the output delta writes must be populated by
 // the WriteOps corresponding to the deltas in the corresponding outputs.
 #[derive(Debug)]
-struct TxnOutput<T: TransactionOutput, E: Debug> {
-    output_status: ExecutionStatus<T, Error<E>>,
+pub struct TxnOutput<TO: TransactionOutput, TE: Debug> {
+    output_status: ExecutionStatus<TO, Error<TE>>,
 }
 type KeySet<T> = HashSet<<<T as TransactionOutput>::Txn as Transaction>::Key>;
 
-impl<T: TransactionOutput, E: Debug> TxnOutput<T, E> {
-    fn from_output_status(output_status: ExecutionStatus<T, Error<E>>) -> Self {
+impl<TO: TransactionOutput, TE: Debug> TxnOutput<TO, TE> {
+    fn from_output_status(output_status: ExecutionStatus<TO, Error<TE>>) -> Self {
         Self { output_status }
     }
 }
@@ -118,10 +116,9 @@ impl<K: ModulePath> ReadDescriptor<K> {
     }
 }
 
-pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
-    inputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnInput<K>>>>,
-
-    outputs: DashMap<TxnIndex, CachePadded<ArcSwapOption<TxnOutput<T, E>>>>,
+pub struct TxnLastInputOutput<K, TO: TransactionOutput, TE: Debug, P: LastInputOuputProvider<K, TO, TE>> {
+    inputs: P::TxnLastInputs,
+    outputs: P::TxnLastOutputs,
 
     // Record all writes and reads to access paths corresponding to modules (code) in any
     // (speculative) executions. Used to avoid a potential race with module publishing and
@@ -131,18 +128,18 @@ pub struct TxnLastInputOutput<K, T: TransactionOutput, E: Debug> {
 
     module_read_write_intersection: AtomicBool,
 
-    commit_locks: DashMap<TxnIndex, Mutex<()>>, // Shared locks to prevent race during commit
+    commit_locks: P::CommitLocks, // Shared locks to prevent race during commit
 }
 
-impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputOutput<K, T, E> {
-    pub fn new(txn_indices: Arc<Vec<TxnIndex>>) -> Self {
+impl<K: ModulePath, TO: TransactionOutput, E: Debug + Send + Clone, PY: LastInputOuputProvider<K, TO, E>> TxnLastInputOutput<K, TO, E, PY> {
+    pub fn new(provider: Arc<PY>) -> Self {
         Self {
-            inputs: txn_indices.iter().map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty()))).collect(),
-            outputs: txn_indices.iter().map(|&tid| (tid, CachePadded::new(ArcSwapOption::empty()))).collect(),
+            inputs: provider.new_txn_inputs(),
+            outputs: provider.new_txn_outputs(),
             module_writes: DashSet::new(),
             module_reads: DashSet::new(),
             module_read_write_intersection: AtomicBool::new(false),
-            commit_locks: txn_indices.iter().map(|&tid| (tid, Mutex::new(()))).collect(),
+            commit_locks: provider.new_commit_locks(),
         }
     }
 
@@ -178,7 +175,7 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
         &self,
         txn_idx: TxnIndex,
         input: Vec<ReadDescriptor<K>>,
-        output: ExecutionStatus<T, Error<E>>,
+        output: ExecutionStatus<TO, Error<E>>,
     ) -> anyhow::Result<()> {
         let read_modules: Vec<AccessPath> =
             input.iter().filter_map(|desc| desc.module_path()).collect();
@@ -203,9 +200,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
                 ));
             }
         }
-
-        self.inputs.get(&txn_idx).unwrap().store(Some(Arc::new(input)));
-        self.outputs.get(&txn_idx).unwrap().store(Some(Arc::new(TxnOutput::from_output_status(output))));
+        PY::get_inputs_by_tid(&self.inputs, txn_idx).store(Some(Arc::new(input)));
+        PY::get_outputs_by_tid(&self.outputs, txn_idx).store(Some(Arc::new(TxnOutput::from_output_status(output))));
 
         Ok(())
     }
@@ -215,11 +211,11 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
     }
 
     pub(crate) fn read_set(&self, txn_idx: TxnIndex) -> Option<Arc<Vec<ReadDescriptor<K>>>> {
-        self.inputs.get(&txn_idx).unwrap().load_full()
+        PY::get_inputs_by_tid(&self.inputs, txn_idx).load_full()
     }
 
     pub fn gas_used(&self, txn_idx: TxnIndex) -> Option<u64> {
-        match &self.outputs.get(&txn_idx).unwrap()
+        match &PY::get_outputs_by_tid(&self.outputs, txn_idx)
             .load_full()
             .expect("[BlockSTM]: Execution output must be recorded after execution")
             .output_status
@@ -230,10 +226,10 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
     }
 
     pub fn update_to_skip_rest(&self, txn_idx: TxnIndex) {
-        let lock_ref = self.commit_locks.get(&txn_idx).unwrap();
+        let lock_ref = PY::get_commit_lock_by_tid(&self.commit_locks, txn_idx);
         let _lock = lock_ref.lock();
         if let ExecutionStatus::Success(output) = self.take_output(txn_idx) {
-            self.outputs.get(&txn_idx).unwrap().store(Some(Arc::new(TxnOutput {
+            PY::get_outputs_by_tid(&self.outputs, txn_idx).store(Some(Arc::new(TxnOutput {
                 output_status: ExecutionStatus::SkipRest(output),
             })));
         } else {
@@ -243,8 +239,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
 
     // Extracts a set of paths written or updated during execution from transaction
     // output: (modified by writes, modified by deltas).
-    pub(crate) fn modified_keys(&self, txn_idx: TxnIndex) -> KeySet<T> {
-        match &self.outputs.get(&txn_idx).unwrap().load_full() {
+    pub(crate) fn modified_keys(&self, txn_idx: TxnIndex) -> KeySet<TO> {
+        match &PY::get_outputs_by_tid(&self.outputs, txn_idx).load_full() {
             None => HashSet::new(),
             Some(txn_output) => match &txn_output.output_status {
                 ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => t
@@ -263,17 +259,17 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
         txn_idx: TxnIndex,
     ) -> (
         usize,
-        Box<dyn Iterator<Item = <<T as TransactionOutput>::Txn as Transaction>::Key>>,
+        Box<dyn Iterator<Item = <<TO as TransactionOutput>::Txn as Transaction>::Key>>,
     ) {
-        let lock_ref = self.commit_locks.get(&txn_idx).unwrap();
+        let lock_ref = PY::get_commit_lock_by_tid(&self.commit_locks, txn_idx);
         let _lock = lock_ref.lock();
         let ret: (
             usize,
-            Box<dyn Iterator<Item = <<T as TransactionOutput>::Txn as Transaction>::Key>>,
-        ) = self.outputs.get(&txn_idx).unwrap().load().as_ref().map_or(
+            Box<dyn Iterator<Item = <<TO as TransactionOutput>::Txn as Transaction>::Key>>,
+        ) = PY::get_outputs_by_tid(&self.outputs, txn_idx).load().as_ref().map_or(
             (
                 0,
-                Box::new(empty::<<<T as TransactionOutput>::Txn as Transaction>::Key>()),
+                Box::new(empty::<<<TO as TransactionOutput>::Txn as Transaction>::Key>()),
             ),
             |txn_output| match &txn_output.output_status {
                 ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
@@ -282,7 +278,7 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
                 },
                 ExecutionStatus::Abort(_) => (
                     0,
-                    Box::new(empty::<<<T as TransactionOutput>::Txn as Transaction>::Key>()),
+                    Box::new(empty::<<<TO as TransactionOutput>::Txn as Transaction>::Key>()),
                 ),
             },
         );
@@ -294,11 +290,11 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
     pub(crate) fn record_delta_writes(
         &self,
         txn_idx: TxnIndex,
-        delta_writes: Vec<(<<T as TransactionOutput>::Txn as Transaction>::Key, WriteOp)>,
+        delta_writes: Vec<(<<TO as TransactionOutput>::Txn as Transaction>::Key, WriteOp)>,
     ) {
-        let lock_ref = self.commit_locks.get(&txn_idx).unwrap();
+        let lock_ref = PY::get_commit_lock_by_tid(&self.commit_locks, txn_idx);
         let _lock = lock_ref.lock();
-        match &self.outputs.get(&txn_idx).unwrap()
+        match &PY::get_outputs_by_tid(&self.outputs, txn_idx)
             .load_full()
             .expect("Output must exist")
             .output_status
@@ -312,8 +308,8 @@ impl<K: ModulePath, T: TransactionOutput, E: Debug + Send + Clone> TxnLastInputO
 
     // Must be executed after parallel execution is done, grabs outputs. Will panic if
     // other outstanding references to the recorded outputs exist.
-    pub(crate) fn take_output(&self, txn_idx: TxnIndex) -> ExecutionStatus<T, Error<E>> {
-        let owning_ptr = self.outputs.get(&txn_idx).unwrap()
+    pub(crate) fn take_output(&self, txn_idx: TxnIndex) -> ExecutionStatus<TO, Error<E>> {
+        let owning_ptr = PY::get_outputs_by_tid(&self.outputs, txn_idx)
             .swap(None)
             .expect("[BlockSTM]: Output must be recorded after execution");
 
