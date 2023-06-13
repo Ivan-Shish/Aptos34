@@ -10,25 +10,6 @@ use arc_swap::ArcSwapOption;
 use parking_lot::RwLock;
 use std::fmt::Debug;
 
-pub struct DefaultTxnIndexIterator {
-    next_idx: TxnIndex,
-    num_indices: TxnIndex,
-}
-
-impl Iterator for DefaultTxnIndexIterator {
-    type Item = TxnIndex;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.next_idx >= self.num_indices {
-            None
-        } else {
-            let ret = self.next_idx;
-            self.next_idx += 1;
-            Some(ret)
-        }
-    }
-}
-
 pub struct DefaultBlockStmProvider {
     num_txns: TxnIndex,
 }
