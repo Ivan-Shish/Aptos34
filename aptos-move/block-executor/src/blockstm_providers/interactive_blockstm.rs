@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use arc_swap::ArcSwapOption;
-use aptos_mvhashmap::types::{TXN_IDX_NONE, TxnIndex};
+use aptos_mvhashmap::types::TxnIndex;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use aptos_infallible::Mutex;
 use crate::blockstm_providers::{LastInputOuputProvider, SchedulerProvider};
-use crate::{TransactionOutput, ExecutionStatus, ValidationStatus, TxnInput, TxnOutput, CachePadded};
+use crate::{CachePadded, ExecutionStatus, TransactionOutput, TxnInput, TxnOutput, ValidationStatus};
 
 pub struct InteractiveBlockStmProvider {
     txn_indices: Vec<TxnIndex>,
@@ -64,6 +64,18 @@ impl SchedulerProvider for InteractiveBlockStmProvider {
             *self.positions_by_tid.get(&tid).unwrap()
         }
     }
+
+    fn txn_end_index(&self) -> TxnIndex {
+        TXN_IDX_NONE
+    }
+
+    fn get_first_tid(&self) -> TxnIndex {
+        *self.txn_indices.get(0).unwrap_or(&TXN_IDX_NONE)
+    }
+
+    fn num_txns(&self) -> usize {
+        self.txn_indices.len()
+    }
 }
 
 impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync> LastInputOuputProvider<K, TO, TE> for InteractiveBlockStmProvider {
@@ -95,3 +107,5 @@ impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync> LastInputOu
         locks.get(&tid).unwrap()
     }
 }
+
+const TXN_IDX_NONE: TxnIndex = 0xffffffff;

@@ -56,6 +56,18 @@ impl SchedulerProvider for DefaultProvider {
     fn get_local_position_by_tid(&self, tid: TxnIndex) -> usize {
         (tid + 1) as usize
     }
+
+    fn txn_end_index(&self) -> TxnIndex {
+        self.num_txns
+    }
+
+    fn get_first_tid(&self) -> TxnIndex {
+        0
+    }
+
+    fn num_txns(&self) -> usize {
+        self.num_txns as usize
+    }
 }
 
 impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync> LastInputOuputProvider<K, TO, TE> for DefaultProvider {

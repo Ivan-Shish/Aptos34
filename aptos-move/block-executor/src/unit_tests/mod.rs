@@ -4,7 +4,7 @@
 
 use crate::{executor::BlockExecutor, proptest_types::types::{DeltaDataView, ExpectedOutput, KeyType, Task, Transaction, ValueType}, scheduler::{DependencyResult, Scheduler, SchedulerTask}};
 use aptos_aggregator::delta_change_set::{delta_add, delta_sub, DeltaOp, DeltaUpdate};
-use aptos_mvhashmap::types::{TXN_IDX_NONE, TxnIndex};
+use aptos_mvhashmap::types::TxnIndex;
 use aptos_types::{executable::ModulePath, write_set::TransactionWrite};
 use claims::{assert_matches, assert_some_eq};
 use rand::{prelude::*, random};
@@ -18,6 +18,7 @@ use std::{
 };
 use aptos_types::executable::ExecutableTestType;
 use crate::blockstm_providers::default::DefaultProvider;
+use crate::blockstm_providers::SchedulerProvider;
 use crate::proptest_types::types::Output;
 
 fn run_and_assert<K, V>(transactions: Vec<Transaction<K, V>>)
@@ -265,8 +266,7 @@ fn early_skips() {
 #[test]
 fn scheduler_tasks() {
     let provider = Arc::new(DefaultProvider::new(5));
-    let indices = Arc::new((0..5).collect());
-    let s = Scheduler::new(provider, indices);
+    let s = Scheduler::new(provider);
 
     for i in 0..5 {
         // No validation tasks.
@@ -358,8 +358,7 @@ fn scheduler_tasks() {
 #[test]
 fn scheduler_first_wave() {
     let x_provider = Arc::new(DefaultProvider::new(6));
-    let indices = Arc::new((0..6).collect());
-    let s = Scheduler::new(x_provider, indices);
+    let s = Scheduler::new(x_provider);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -415,8 +414,7 @@ fn scheduler_first_wave() {
 #[test]
 fn scheduler_dependency() {
     let x_provider = Arc::new(DefaultProvider::new(10));
-    let indices = Arc::new((0..10).collect());
-    let s = Scheduler::new(x_provider, indices);
+    let s = Scheduler::new(x_provider);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -462,12 +460,10 @@ fn scheduler_dependency() {
 
 // Will return a scheduler in a state where all transactions are scheduled for
 // for execution, validation index = num_txns, and wave = 0.
-fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler<DefaultProvider> {
-    let x_provider = Arc::new(DefaultProvider::new(num_txns as usize));
-    let indices = Arc::new((0..num_txns).collect());
-    let s = Scheduler::new(x_provider, indices);
+fn incarnation_one_scheduler(provider: Arc<DefaultProvider>) -> Scheduler<DefaultProvider> {
+    let s = Scheduler::new(provider.clone());
 
-    for i in 0..num_txns {
+    for i in provider.all_txn_indices() {
         // Get the first executions out of the way.
         assert!(matches!(
             s.next_task(false),
@@ -492,7 +488,8 @@ fn incarnation_one_scheduler(num_txns: TxnIndex) -> Scheduler<DefaultProvider> {
 
 #[test]
 fn scheduler_incarnation() {
-    let s = incarnation_one_scheduler(5);
+    let provider = Arc::new(DefaultProvider::new(5));
+    let s = incarnation_one_scheduler(provider);
 
     // execution/validation index = 5, wave = 0.
     assert!(matches!(
@@ -579,9 +576,8 @@ fn scheduler_incarnation() {
 
 #[test]
 fn scheduler_basic() {
-    let x_provider = Arc::new(DefaultProvider::new(3));
-    let indices = Arc::new((0..3).collect());
-    let s = Scheduler::new(x_provider, indices);
+    let provider = Arc::new(DefaultProvider::new(3));
+    let s = Scheduler::new(provider.clone());
 
     for i in 0..3 {
         // Nothing to validate.
@@ -632,8 +628,7 @@ fn scheduler_basic() {
 #[test]
 fn scheduler_drain_idx() {
     let x_provider = Arc::new(DefaultProvider::new(3));
-    let indices = Arc::new((0..3).collect());
-    let s = Scheduler::new(x_provider, indices);
+    let s = Scheduler::new(x_provider);
 
     for i in 0..3 {
         // Nothing to validate.
@@ -685,21 +680,24 @@ fn scheduler_drain_idx() {
 fn finish_execution_wave() {
     // Wave won't be increased, because validation index is already 2, and finish_execution
     // tries to reduce it to 2.
-    let s = incarnation_one_scheduler(2);
+    let provider = Arc::new(DefaultProvider::new(2));
+    let s = incarnation_one_scheduler(provider);
     assert!(matches!(
         s.finish_execution(1, 1, true),
         SchedulerTask::ValidationTask((1, 1), 0),
     ));
 
     // Here wave will increase, because validation index is reduced from 3 to 2.
-    let s = incarnation_one_scheduler(3);
+    let provider = Arc::new(DefaultProvider::new(3));
+    let s = incarnation_one_scheduler(provider);
     assert!(matches!(
         s.finish_execution(1, 1, true),
         SchedulerTask::ValidationTask((1, 1), 1),
     ));
 
     // Here wave won't be increased, because we pass revalidate_suffix = false.
-    let s = incarnation_one_scheduler(3);
+    let provider = Arc::new(DefaultProvider::new(3));
+    let s = incarnation_one_scheduler(provider);
     assert!(matches!(
         s.finish_execution(1, 1, false),
         SchedulerTask::ValidationTask((1, 1), 0),
@@ -708,7 +706,8 @@ fn finish_execution_wave() {
 
 #[test]
 fn rolling_commit_wave() {
-    let s = incarnation_one_scheduler(3);
+    let provider = Arc::new(DefaultProvider::new(3));
+    let s = incarnation_one_scheduler(provider.clone());
 
     // Finish execution for txn 0 without validate_suffix and because
     // validation index is higher will return validation task to the caller.
@@ -753,7 +752,7 @@ fn rolling_commit_wave() {
     // Finish validation with appropriate wave.
     s.finish_validation(2, 1);
     assert_some_eq!(s.try_commit(), 2);
-    assert_eq!(s.commit_state(), (TXN_IDX_NONE, 1));
+    assert_eq!((provider.txn_end_index(), 1), s.commit_state());
 
     // All txns have been committed.
     assert!(matches!(s.next_task(false), SchedulerTask::Done));
@@ -776,9 +775,8 @@ fn no_conflict_task_count() {
 
     let num_txns: TxnIndex = 1000;
     for num_concurrent_tasks in [1, 5, 10, 20] {
-        let x_provider = Arc::new(DefaultProvider::new(num_txns as usize));
-        let indices = Arc::new((0..num_txns).collect());
-        let s = Scheduler::new(x_provider, indices);
+        let provider = Arc::new(DefaultProvider::new(num_txns as usize));
+        let s = Scheduler::new(provider.clone());
 
         let mut tasks = BTreeMap::new();
 
@@ -841,12 +839,12 @@ fn no_conflict_task_count() {
 
         for i in 0..num_txns {
             assert_some_eq!(s.try_commit(), i);
-            let expected_txn_idx = if i == num_txns - 1 {
-                TXN_IDX_NONE
+            let expected_tid = if i == num_txns - 1 {
+                provider.txn_end_index()
             } else {
                 i + 1
             };
-            assert_eq!(s.commit_state(), (expected_txn_idx, 0));
+            assert_eq!((expected_tid, 0), s.commit_state());
         }
         assert!(matches!(s.next_task(false), SchedulerTask::Done));
     }

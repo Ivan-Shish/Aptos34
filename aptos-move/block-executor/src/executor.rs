@@ -28,7 +28,6 @@ use std::{
 };
 use std::fmt::Debug;
 use std::hash::Hash;
-use aptos_mvhashmap::types::TXN_IDX_NONE;
 use aptos_types::executable::ModulePath;
 use crate::blockstm_providers::{LastInputOuputProvider, SchedulerProvider};
 
@@ -227,7 +226,7 @@ where
         accumulated_gas: &mut u64,
         scheduler_task: &mut SchedulerTask,
         last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
-        x_provider: Arc<P>,
+        provider: Arc<P>,
     ) {
         while let Some(txn_idx) = scheduler.try_commit() {
             post_commit_txs[*worker_idx]
@@ -237,10 +236,11 @@ where
             *worker_idx = (*worker_idx + 1) % post_commit_txs.len();
 
             // Committed the last transaction, BlockSTM finishes execution.
-            if x_provider.txn_index_right_after(txn_idx) == TXN_IDX_NONE {
+            let next_tid = provider.txn_index_right_after(txn_idx);
+            if next_tid >= provider.txn_end_index() {
                 *scheduler_task = SchedulerTask::Done;
 
-                let num_committed = x_provider.get_local_position_by_tid(txn_idx) + 1;
+                let num_committed = provider.get_local_position_by_tid(txn_idx) + 1;
                 counters::PARALLEL_PER_BLOCK_GAS.observe(*accumulated_gas as f64);
                 counters::PARALLEL_PER_BLOCK_COMMITTED_TXNS.observe(num_committed as f64);
                 info!(
@@ -262,7 +262,7 @@ where
 
                     counters::PARALLEL_PER_BLOCK_GAS.observe(*accumulated_gas as f64);
                     counters::PARALLEL_PER_BLOCK_COMMITTED_TXNS.observe((txn_idx + 1) as f64);
-                    info!("[BlockSTM]: Parallel execution early halted due to Abort or SkipRest txn, {} txns committed.", x_provider.get_local_position_by_tid(txn_idx) + 1);
+                    info!("[BlockSTM]: Parallel execution early halted due to Abort or SkipRest txn, {} txns committed.", provider.get_local_position_by_tid(txn_idx) + 1);
                     break;
                 },
             };
@@ -435,7 +435,7 @@ where
         executor_initial_arguments: E::Argument,
         signature_verified_block: &Vec<T>,
         base_view: &S,
-        x_provider: Arc<P>,
+        provider: Arc<P>,
     ) -> Result<Vec<E::Output>, E::Error> {
         let _timer = PARALLEL_EXECUTION_SECONDS.start_timer();
         // Using parallel execution with 1 thread currently will not work as it
@@ -450,10 +450,8 @@ where
             return Ok(vec![]);
         }
 
-        let num_txns = signature_verified_block.len() as u32;
-        let txn_indices: Arc<Vec<TxnIndex>> = Arc::new((0..num_txns).collect());
-        let last_input_output = TxnLastInputOutput::new(x_provider.clone());
-        let scheduler = Scheduler::new(x_provider.clone(), txn_indices);
+        let last_input_output = TxnLastInputOutput::new(provider.clone());
+        let scheduler = Scheduler::new(provider.clone());
         let mut roles: Vec<CommitRole> = vec![];
         let mut senders: Vec<Sender<u32>> = Vec::with_capacity(self.concurrency_level - 1);
         for _ in 0..(self.concurrency_level - 1) {
@@ -481,24 +479,23 @@ where
                         &scheduler,
                         base_view,
                         role,
-                        x_provider.clone(),
+                        provider.clone(),
                     );
                 });
             }
         });
         drop(timer);
 
-        let num_txns = num_txns as usize;
         // TODO: for large block sizes and many cores, extract outputs in parallel.
-        let mut final_results = Vec::with_capacity(num_txns);
+        let mut final_results = Vec::with_capacity(provider.num_txns());
 
         let maybe_err = if last_input_output.module_publishing_may_race() {
             counters::MODULE_PUBLISHING_FALLBACK_COUNT.inc();
             Some(Error::ModulePathReadWrite)
         } else {
             let mut ret = None;
-            for idx in 0..num_txns {
-                match last_input_output.take_output(idx as TxnIndex) {
+            for idx in provider.all_txn_indices() {
+                match last_input_output.take_output(idx) {
                     ExecutionStatus::Success(t) => final_results.push(t),
                     ExecutionStatus::SkipRest(t) => {
                         final_results.push(t);
@@ -524,7 +521,7 @@ where
         match maybe_err {
             Some(err) => Err(err),
             None => {
-                final_results.resize_with(num_txns, E::Output::skip_output);
+                final_results.resize_with(provider.num_txns(), E::Output::skip_output);
                 Ok(final_results)
             },
         }

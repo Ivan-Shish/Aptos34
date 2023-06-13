@@ -4,19 +4,18 @@
 
 use crate::counters::GET_NEXT_TASK_SECONDS;
 use aptos_infallible::Mutex;
-use aptos_mvhashmap::types::{Incarnation, TXN_IDX_NONE, TxnIndex, Version};
+use aptos_mvhashmap::types::{Incarnation, TxnIndex, Version};
 use crossbeam::utils::CachePadded;
-use parking_lot::{RwLock, RwLockUpgradableReadGuard};
+use parking_lot::RwLockUpgradableReadGuard;
 use std::{
     cmp::{max, min},
     hint,
     ops::DerefMut,
     sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
-        Arc, Condvar,
+        Arc,
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering}, Condvar,
     },
 };
-use dashmap::DashMap;
 use crate::blockstm_providers::SchedulerProvider;
 
 const TXN_IDX_MASK: u64 = (1 << 32) - 1;
@@ -189,7 +188,7 @@ impl ValidationStatus {
 }
 
 pub struct Scheduler<P: SchedulerProvider> {
-    x_provider: Arc<P>,
+    provider: Arc<P>,
 
     /// An index i maps to indices of other transactions that depend on transaction i, i.e. they
     /// should be re-executed once transaction i's next incarnation finishes.
@@ -232,12 +231,12 @@ pub struct Scheduler<P: SchedulerProvider> {
 
 /// Public Interfaces for the Scheduler
 impl<P: SchedulerProvider> Scheduler<P> {
-    pub fn new(x_provider: Arc<P>, txn_indices: Arc<Vec<TxnIndex>>) -> Self {
-        let initial_execution_idx = *(txn_indices.get(0).unwrap_or(&TXN_IDX_NONE));
-        let txn_dependency = x_provider.new_txn_dep_info();
-        let txn_status = x_provider.new_txn_status_provider();
+    pub fn new(provider: Arc<P>) -> Self {
+        let initial_execution_idx = provider.get_first_tid();
+        let txn_dependency = provider.new_txn_dep_info();
+        let txn_status = provider.new_txn_status_provider();
         Self {
-            x_provider,
+            provider,
             txn_dependency,
             txn_status,
             commit_state: CachePadded::new(Mutex::new((initial_execution_idx, 0))),
@@ -278,8 +277,8 @@ impl<P: SchedulerProvider> Scheduler<P> {
                             *status_write = ExecutionStatus::Committed(incarnation);
 
                             let cur_txn_idx = *commit_idx;
-                            *commit_idx = self.x_provider.txn_index_right_after(*commit_idx);
-                            if *commit_idx == TXN_IDX_NONE {
+                            *commit_idx = self.provider.txn_index_right_after(*commit_idx);
+                            if *commit_idx >= self.provider.txn_end_index() {
                                 // All txns have been committed, the parallel execution can finish.
                                 self.done_marker.store(true, Ordering::SeqCst);
                             }
@@ -333,10 +332,10 @@ impl<P: SchedulerProvider> Scheduler<P> {
                 Self::unpack_validation_idx(self.validation_idx.load(Ordering::Acquire));
             let idx_to_execute = self.execution_idx.load(Ordering::Acquire);
 
-            let prefer_validate = idx_to_validate < min(idx_to_execute, TXN_IDX_NONE)
+            let prefer_validate = idx_to_validate < min(idx_to_execute, self.provider.txn_end_index())
                 && !self.never_executed(idx_to_validate);
 
-            if !prefer_validate && idx_to_execute == TXN_IDX_NONE {
+            if !prefer_validate && idx_to_execute >= self.provider.txn_end_index() {
                 return if self.done() {
                     // Check again to avoid commit delay due to a race.
                     SchedulerTask::Done
@@ -487,7 +486,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
                 // The transaction execution required revalidating all higher txns (not
                 // only itself), currently happens when incarnation writes to a new path
                 // (w.r.t. the write-set of its previous completed incarnation).
-                if let Some(wave) = self.decrease_validation_idx(self.x_provider.txn_index_right_after(txn_idx)) {
+                if let Some(wave) = self.decrease_validation_idx(self.provider.txn_index_right_after(txn_idx)) {
                     cur_wave = wave;
                 };
             }
@@ -519,7 +518,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
 
             // Schedule higher txns for validation, skipping txn_idx itself (needs to be
             // re-executed first).
-            self.decrease_validation_idx(self.x_provider.txn_index_right_after(txn_idx));
+            self.decrease_validation_idx(self.provider.txn_index_right_after(txn_idx));
 
             // can release the lock early.
         }
@@ -556,7 +555,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
         // resolving the conditional variables, to help other theads that may be pending
         // on the read dependency. See the comment of the function resolve_condvar().
         if !self.done_marker.swap(true, Ordering::SeqCst) {
-            for &txn_idx in self.x_provider.all_txn_indices().iter() {
+            for &txn_idx in self.provider.all_txn_indices().iter() {
                 self.resolve_condvar(txn_idx);
             }
         }
@@ -600,7 +599,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
 
     /// Decreases the validation index, adjusting the wave and validation status as needed.
     fn decrease_validation_idx(&self, target_idx: TxnIndex) -> Option<Wave> {
-        if target_idx == TXN_IDX_NONE {
+        if target_idx >= self.provider.txn_end_index() {
             return None;
         }
 
@@ -640,7 +639,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
     /// An unsuccessful incarnation returns None. Since incarnation numbers never decrease
     /// for each transaction, incarnate function may not succeed more than once per version.
     fn try_incarnate(&self, txn_idx: TxnIndex) -> Option<(Incarnation, Option<DependencyCondvar>)> {
-        if txn_idx == TXN_IDX_NONE {
+        if txn_idx >= self.provider.txn_end_index() {
             return None;
         }
 
@@ -668,7 +667,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
     /// and a committed (in between) txn does not need to be scheduled for validation -
     /// so can return None.
     fn is_executed(&self, txn_idx: TxnIndex, include_committed: bool) -> Option<Incarnation> {
-        debug_assert!(txn_idx < TXN_IDX_NONE);
+        debug_assert!(txn_idx < self.provider.txn_end_index());
 
         let status_ref = P::get_txn_status_by_tid(&self.txn_status, txn_idx);
         let status = status_ref.0.read();
@@ -718,7 +717,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
         // but if we used fetch-and-increment, two threads can arrive in a cloned state and
         // both increment, effectively skipping over the 'never_executed' transaction index.
         let validation_idx = (idx_to_validate as u64) | ((wave as u64) << 32);
-        let new_validation_idx = (self.x_provider.txn_index_right_after(idx_to_validate) as u64) | ((wave as u64) << 32);
+        let new_validation_idx = (self.provider.txn_index_right_after(idx_to_validate) as u64) | ((wave as u64) << 32);
         if self
             .validation_idx
             .compare_exchange(
@@ -749,10 +748,10 @@ impl<P: SchedulerProvider> Scheduler<P> {
     /// - Otherwise, return None.
     fn try_execute_next_version(&self) -> Option<(Version, Option<DependencyCondvar>)> {
         let idx_to_execute = self.execution_idx.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v|{
-            Some(self.x_provider.txn_index_right_after(v))
+            Some(self.provider.txn_index_right_after(v))
         }).unwrap();
 
-        if idx_to_execute == TXN_IDX_NONE {
+        if idx_to_execute >= self.provider.txn_end_index() {
             return None;
         }
 

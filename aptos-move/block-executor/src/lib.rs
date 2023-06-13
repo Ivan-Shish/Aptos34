@@ -2,15 +2,7 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashMap;
-use std::fmt::Debug;
-use arc_swap::ArcSwapOption;
 use crossbeam::utils::CachePadded;
-use dashmap::DashMap;
-use dashmap::mapref::one::Ref;
-use parking_lot::RwLock;
-use aptos_infallible::Mutex;
-use aptos_mvhashmap::types::{TXN_IDX_NONE, TxnIndex};
 use crate::scheduler::{ExecutionStatus, ValidationStatus};
 use crate::task::TransactionOutput;
 use crate::txn_last_input_output::{TxnInput, TxnOutput};

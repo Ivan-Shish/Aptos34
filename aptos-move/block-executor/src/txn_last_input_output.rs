@@ -3,12 +3,9 @@
 
 use crate::{errors::Error, task::{ExecutionStatus, Transaction, TransactionOutput}};
 use anyhow::anyhow;
-use aptos_infallible::Mutex;
 use aptos_mvhashmap::types::{Incarnation, TxnIndex, Version};
 use aptos_types::{access_path::AccessPath, executable::ModulePath, write_set::WriteOp};
-use arc_swap::ArcSwapOption;
-use crossbeam::utils::CachePadded;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashSet;
 use std::{
     collections::HashSet,
     fmt::Debug,

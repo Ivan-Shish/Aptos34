@@ -20,6 +20,9 @@ pub trait SchedulerProvider: Send + Sync {
     fn txn_index_right_after(&self, x: TxnIndex) -> TxnIndex;
     fn all_txn_indices(&self) -> Vec<TxnIndex>;
     fn get_local_position_by_tid(&self, tid: TxnIndex) -> usize;
+    fn txn_end_index(&self) -> TxnIndex;
+    fn get_first_tid(&self) -> TxnIndex;
+    fn num_txns(&self) -> usize;
 }
 
 pub trait LastInputOuputProvider<K, TO: TransactionOutput, TE: Debug>: Send + Sync {

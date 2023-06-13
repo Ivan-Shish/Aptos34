@@ -18,7 +18,6 @@ use proptest::{
 };
 use rand::Rng;
 use std::{cmp::max, fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
-use aptos_mvhashmap::types::TxnIndex;
 use crate::blockstm_providers::default::DefaultProvider;
 use crate::proptest_types::types::Output;
 
