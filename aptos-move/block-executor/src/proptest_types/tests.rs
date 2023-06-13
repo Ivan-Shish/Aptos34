@@ -62,7 +62,7 @@ fn run_transactions<K, V>(
     );
 
     for _ in 0..num_repeat {
-        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
+        let provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<K>, ValueType<V>>,
             Task<KeyType<K>, ValueType<V>>,
@@ -77,7 +77,7 @@ fn run_transactions<K, V>(
             executor_thread_pool.clone(),
             maybe_block_gas_limit,
         )
-        .execute_transactions_parallel((), &transactions, &data_view, x_provider);
+        .execute_transactions_parallel((), &transactions, &data_view, provider);
 
         if module_access.0 && module_access.1 {
             assert_eq!(output.unwrap_err(), Error::ModulePathReadWrite);
@@ -202,7 +202,7 @@ fn deltas_writes_mixed_with_block_gas_limit(num_txns: usize, maybe_block_gas_lim
     );
 
     for _ in 0..20 {
-        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
+        let provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
@@ -217,7 +217,7 @@ fn deltas_writes_mixed_with_block_gas_limit(num_txns: usize, maybe_block_gas_lim
             executor_thread_pool.clone(),
             maybe_block_gas_limit,
         )
-        .execute_transactions_parallel((), &transactions, &data_view, x_provider);
+        .execute_transactions_parallel((), &transactions, &data_view, provider);
 
         let baseline =
             ExpectedOutput::generate_baseline(&transactions, None, maybe_block_gas_limit);
@@ -258,7 +258,7 @@ fn deltas_resolver_with_block_gas_limit(num_txns: usize, maybe_block_gas_limit: 
     );
 
     for _ in 0..20 {
-        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
+        let provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
@@ -273,7 +273,7 @@ fn deltas_resolver_with_block_gas_limit(num_txns: usize, maybe_block_gas_limit: 
             executor_thread_pool.clone(),
             maybe_block_gas_limit,
         )
-        .execute_transactions_parallel((), &transactions, &data_view, x_provider);
+        .execute_transactions_parallel((), &transactions, &data_view, provider);
 
         let delta_writes = output
             .as_ref()
@@ -436,7 +436,7 @@ fn publishing_fixed_params_with_block_gas_limit(
             .unwrap(),
     );
 
-    let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
+    let provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
 
     // Confirm still no intersection
     let output = BlockExecutor::<
@@ -449,7 +449,7 @@ fn publishing_fixed_params_with_block_gas_limit(
         usize,
         DefaultBlockStmProvider,
     >::new(num_cpus::get(), executor_thread_pool, maybe_block_gas_limit)
-    .execute_transactions_parallel((), &transactions, &data_view, x_provider);
+    .execute_transactions_parallel((), &transactions, &data_view, provider);
     assert_ok!(output);
 
     // Adjust the reads of txn indices[2] to contain module read to key 42.
@@ -487,7 +487,7 @@ fn publishing_fixed_params_with_block_gas_limit(
     );
 
     for _ in 0..200 {
-        let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
+        let provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
         let output = BlockExecutor::<
             Transaction<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
             Task<KeyType<[u8; 32]>, ValueType<[u8; 32]>>,
@@ -502,7 +502,7 @@ fn publishing_fixed_params_with_block_gas_limit(
             executor_thread_pool.clone(),
             Some(max(w_index, r_index) as u64 + 1),
         ) // Ensure enough gas limit to commit the module txns
-        .execute_transactions_parallel((), &transactions, &data_view, x_provider);
+        .execute_transactions_parallel((), &transactions, &data_view, provider);
 
         assert_eq!(output.unwrap_err(), Error::ModulePathReadWrite);
     }

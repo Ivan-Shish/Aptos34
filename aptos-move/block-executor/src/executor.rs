@@ -354,7 +354,7 @@ where
         scheduler: &Scheduler<P>,
         base_view: &S,
         role: CommitRole,
-        x_provider: Arc<P>,
+        provider: Arc<P>,
     ) {
         // Make executor for each task. TODO: fast concurrent executor.
         let init_timer = VM_INIT_SECONDS.start_timer();
@@ -379,7 +379,7 @@ where
                         &mut accumulated_gas,
                         &mut scheduler_task,
                         last_input_output,
-                        x_provider.clone(),
+                        provider.clone(),
                     );
                 },
                 CommitRole::Worker(rx) => {
@@ -616,14 +616,14 @@ where
         executor_arguments: E::Argument,
         signature_verified_block: Vec<T>,
         base_view: &S,
-        x_provider: Arc<P>,
+        provider: Arc<P>,
     ) -> Result<Vec<E::Output>, E::Error> {
         let mut ret = if self.concurrency_level > 1 {
             self.execute_transactions_parallel(
                 executor_arguments,
                 &signature_verified_block,
                 base_view,
-                x_provider,
+                provider,
             )
         } else {
             self.execute_transactions_sequential(

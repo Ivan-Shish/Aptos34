@@ -43,7 +43,7 @@ where
             .unwrap(),
     );
 
-    let x_provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
+    let provider = Arc::new(DefaultBlockStmProvider::new(transactions.len()));
     let output = BlockExecutor::<
         Transaction<K, V>,
         Task<K, V>,
@@ -54,7 +54,7 @@ where
         usize,
         DefaultBlockStmProvider,
     >::new(num_cpus::get(), executor_thread_pool, None)
-    .execute_transactions_parallel((), &transactions, &data_view, x_provider);
+    .execute_transactions_parallel((), &transactions, &data_view, provider);
 
     let baseline = ExpectedOutput::generate_baseline(&transactions, None, None);
     baseline.assert_output(&output);
@@ -363,8 +363,8 @@ fn scheduler_tasks() {
 
 #[test]
 fn scheduler_first_wave() {
-    let x_provider = Arc::new(DefaultBlockStmProvider::new(6));
-    let s = Scheduler::new(x_provider);
+    let provider = Arc::new(DefaultBlockStmProvider::new(6));
+    let s = Scheduler::new(provider);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -419,8 +419,8 @@ fn scheduler_first_wave() {
 
 #[test]
 fn scheduler_dependency() {
-    let x_provider = Arc::new(DefaultBlockStmProvider::new(10));
-    let s = Scheduler::new(x_provider);
+    let provider = Arc::new(DefaultBlockStmProvider::new(10));
+    let s = Scheduler::new(provider);
 
     for i in 0..5 {
         // Nothing to validate.
@@ -635,8 +635,8 @@ fn scheduler_basic() {
 
 #[test]
 fn scheduler_drain_idx() {
-    let x_provider = Arc::new(DefaultBlockStmProvider::new(3));
-    let s = Scheduler::new(x_provider);
+    let provider = Arc::new(DefaultBlockStmProvider::new(3));
+    let s = Scheduler::new(provider);
 
     for i in 0..3 {
         // Nothing to validate.
