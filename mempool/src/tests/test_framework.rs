@@ -9,10 +9,7 @@ use crate::{
         start_shared_mempool,
         types::MultiBatchId,
     },
-    tests::{
-        common,
-        common::{PeersAndMetadataPeers, TestTransaction},
-    },
+    tests::{common, common::TestTransaction},
     MempoolClientRequest, MempoolClientSender, MempoolSyncMsg, QuorumStoreRequest,
 };
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
@@ -623,7 +620,7 @@ fn setup_mempool(
         db_ro,
         vm_validator,
         vec![sender],
-        Arc::new(PeersAndMetadataPeers::new(peers_and_metadata)),
+        peers_and_metadata,
         broadcast_peers_selector,
     );
 

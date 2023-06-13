@@ -10,7 +10,7 @@ use crate::{
         start_shared_mempool,
         types::SharedMempoolNotification,
     },
-    tests::common::{PeersAndMetadataPeers, TestTransaction},
+    tests::common::TestTransaction,
 };
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
@@ -635,7 +635,7 @@ fn start_node_mempool(
         Arc::new(MockDbReaderWriter),
         Arc::new(RwLock::new(MockVMValidator)),
         vec![sender],
-        Arc::new(PeersAndMetadataPeers::new(peers_and_metadata)),
+        peers_and_metadata,
         broadcast_peers_selector,
     );
 

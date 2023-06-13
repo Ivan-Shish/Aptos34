@@ -19,7 +19,6 @@ use aptos_config::{
     config::{MempoolConfig, RoleType},
     network_id::PeerNetworkId,
 };
-use aptos_data_client::peer_states::PeerState;
 use aptos_infallible::RwLock;
 use aptos_logger::prelude::*;
 use aptos_netcore::transport::ConnectionOrigin;
@@ -99,7 +98,7 @@ impl<NetworkClient: NetworkClientInterface<MempoolSyncMsg>> MempoolNetworkInterf
 
     pub fn update_peers(
         &self,
-        updated_peers: &HashMap<PeerNetworkId, (PeerMetadata, PeerState)>,
+        updated_peers: &HashMap<PeerNetworkId, PeerMetadata>,
     ) -> (Vec<PeerNetworkId>, Vec<PeerNetworkId>) {
         let read_states = self.sync_states.read();
         let mut to_disable = vec![];
@@ -115,7 +114,7 @@ impl<NetworkClient: NetworkClientInterface<MempoolSyncMsg>> MempoolNetworkInterf
                     *new_peer,
                     updated_peers
                         .get(new_peer)
-                        .map(|(metadata, _)| metadata.get_connection_metadata()),
+                        .map(|metadata| metadata.get_connection_metadata()),
                 ));
             }
         }

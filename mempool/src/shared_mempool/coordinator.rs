@@ -20,13 +20,15 @@ use crate::{
 use aptos_bounded_executor::BoundedExecutor;
 use aptos_config::network_id::{NetworkId, PeerNetworkId};
 use aptos_consensus_types::common::TransactionSummary;
-use aptos_data_client::interface::AptosPeersInterface;
 use aptos_event_notifications::ReconfigNotificationListener;
 use aptos_infallible::{Mutex, RwLock};
 use aptos_logger::prelude::*;
 use aptos_mempool_notifications::{MempoolCommitNotification, MempoolNotificationListener};
 use aptos_network::{
-    application::interface::{NetworkClientInterface, NetworkServiceEvents},
+    application::{
+        interface::{NetworkClientInterface, NetworkServiceEvents},
+        storage::PeersAndMetadata,
+    },
     protocols::network::Event,
 };
 use aptos_types::on_chain_config::OnChainConfigPayload;
@@ -37,7 +39,6 @@ use futures::{
     FutureExt, StreamExt,
 };
 use std::{
-    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant, SystemTime},
 };
@@ -54,7 +55,7 @@ pub(crate) async fn coordinator<NetworkClient, TransactionValidator>(
     mut mempool_listener: MempoolNotificationListener,
     mut mempool_reconfig_events: ReconfigNotificationListener,
     peer_update_interval_ms: u64,
-    peers: Arc<dyn AptosPeersInterface>,
+    peers: Arc<PeersAndMetadata>,
     broadcast_peers_selector: Arc<RwLock<Box<dyn BroadcastPeersSelector>>>,
 ) where
     NetworkClient: NetworkClientInterface<MempoolSyncMsg> + 'static,
@@ -115,17 +116,7 @@ pub(crate) async fn coordinator<NetworkClient, TransactionValidator>(
                 handle_network_event(&executor, &bounded_executor, &mut scheduled_broadcasts, &mut smp, network_id, event).await;
             },
             _ = update_peers_interval.tick().fuse() => {
-                if let Ok(connected_peers) = peers.get_connected_peers_and_metadata() {
-                    let mut peer_to_states = peers.get_peer_to_states();
-                    // connected_peers and peer_to_states can be out of sync. So we only include
-                    // peers that are in both.
-                    let mut updated_peers = HashMap::new();
-                    for (peer, metadata) in connected_peers {
-                        if let Some(state) = peer_to_states.remove(&peer) {
-                            updated_peers.insert(peer, (metadata, state));
-                        }
-                    }
-
+                if let Ok(updated_peers) = peers.get_connected_peers_and_metadata() {
                     broadcast_peers_selector.write().update_peers(&updated_peers);
                     let (newly_added_upstream, disabled) = smp.network_interface.update_peers(&updated_peers);
                     if !newly_added_upstream.is_empty() || !disabled.is_empty() {

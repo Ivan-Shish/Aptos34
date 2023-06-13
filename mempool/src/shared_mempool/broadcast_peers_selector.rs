@@ -6,7 +6,6 @@ use aptos_config::{
     config::{MempoolConfig, PeerRole},
     network_id::PeerNetworkId,
 };
-use aptos_data_client::peer_states::PeerState;
 use aptos_logger::info;
 use aptos_network::application::metadata::PeerMetadata;
 use aptos_types::{account_address::AccountAddress, transaction::Version, PeerId};
@@ -21,7 +20,7 @@ use std::{
 };
 
 pub trait BroadcastPeersSelector: Send + Sync {
-    fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, (PeerMetadata, PeerState)>);
+    fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, PeerMetadata>);
     // TODO: for backwards compatibility, an empty vector could mean we send to all?
     // TODO: for all the tests, just added an empty vector, need to audit later
     fn broadcast_peers(&self, account: &AccountAddress) -> Vec<PeerNetworkId>;
@@ -89,7 +88,7 @@ impl AllPeersSelector {
 }
 
 impl BroadcastPeersSelector for AllPeersSelector {
-    fn update_peers(&mut self, _updated_peers: &HashMap<PeerNetworkId, (PeerMetadata, PeerState)>) {
+    fn update_peers(&mut self, _updated_peers: &HashMap<PeerNetworkId, PeerMetadata>) {
         // Do nothing
     }
 
@@ -115,10 +114,10 @@ impl PrioritizedPeersSelector {
 }
 
 impl BroadcastPeersSelector for PrioritizedPeersSelector {
-    fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, (PeerMetadata, PeerState)>) {
+    fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, PeerMetadata>) {
         self.prioritized_peers = updated_peers
             .iter()
-            .map(|(peer, (metadata, _))| (*peer, metadata.get_connection_metadata().role))
+            .map(|(peer, metadata)| (*peer, metadata.get_connection_metadata().role))
             .sorted_by(|peer_a, peer_b| self.prioritized_peers_comparator.compare(peer_a, peer_b))
             .map(|(peer, _)| peer)
             .collect();
@@ -181,16 +180,17 @@ impl FreshPeersSelector {
 }
 
 impl BroadcastPeersSelector for FreshPeersSelector {
-    fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, (PeerMetadata, PeerState)>) {
+    fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, PeerMetadata>) {
         // TODO: Also need prioritized peers for VFN. Or is it always better to send to fresh peer?
 
         let mut peer_versions: Vec<_> = updated_peers
             .iter()
-            .map(|(peer, (_, state))| {
-                if let Some(summary) = state.storage_summary_if_not_ignored() {
-                    if let Some(ledger_info) = &summary.data_summary.synced_ledger_info {
-                        return (*peer, ledger_info.ledger_info().version());
-                    }
+            .map(|(peer, metadata)| {
+                if let Some(node_information) = metadata
+                    .get_peer_monitoring_metadata()
+                    .latest_node_info_response
+                {
+                    return (*peer, node_information.highest_synced_version);
                 }
                 (*peer, 0)
             })
