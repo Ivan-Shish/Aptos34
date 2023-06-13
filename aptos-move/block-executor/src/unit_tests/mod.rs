@@ -386,10 +386,8 @@ fn scheduler_first_wave() {
         s.next_task(false),
         SchedulerTask::ValidationTask((0, 0), 0)
     ));
-    assert!(matches!(
-        s.next_task(false),
-        SchedulerTask::ExecutionTask((5, 0), None)
-    ));
+    let t = s.next_task(false);
+    assert!(matches!(t, SchedulerTask::ExecutionTask((5, 0), None)));
     // Since (1, 0) is not EXECUTED, no validation tasks, and execution index
     // is already at the limit, so no tasks immediately available.
     assert!(matches!(s.next_task(false), SchedulerTask::NoTask));
@@ -857,3 +855,5 @@ fn no_conflict_task_count() {
         assert!(matches!(s.next_task(false), SchedulerTask::Done));
     }
 }
+
+mod interactive_blockstm;

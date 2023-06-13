@@ -16,6 +16,20 @@ pub struct InteractiveBlockStmProvider {
     positions_by_tid: DashMap<TxnIndex, usize>,
 }
 
+impl InteractiveBlockStmProvider {
+    pub fn new(txn_indices: Vec<TxnIndex>) -> Self {
+        let positions_by_tid = txn_indices
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| (v, i))
+            .collect();
+        Self {
+            txn_indices,
+            positions_by_tid,
+        }
+    }
+}
+
 impl SchedulerProvider for InteractiveBlockStmProvider {
     type TxnDependencyCollection = HashMap<TxnIndex, CachePadded<Mutex<Vec<TxnIndex>>>>;
     type TxnStatusCollection =
@@ -60,10 +74,10 @@ impl SchedulerProvider for InteractiveBlockStmProvider {
 
     fn txn_index_right_after(&self, x: TxnIndex) -> TxnIndex {
         let pos = self.get_local_position_by_tid(x);
-        if pos >= self.txn_indices.len() {
+        if pos >= self.txn_indices.len() - 1 {
             TXN_IDX_NONE
         } else {
-            self.txn_indices[pos]
+            self.txn_indices[pos + 1]
         }
     }
 
@@ -139,4 +153,4 @@ impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
     }
 }
 
-const TXN_IDX_NONE: TxnIndex = 0xFFFFFFFF;
+pub const TXN_IDX_NONE: TxnIndex = 0xFFFFFFFF;
