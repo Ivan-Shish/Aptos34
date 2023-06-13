@@ -1,0 +1,11 @@
+[package]
+name = "resource_account_package"
+version = "1.0.0"
+upgrade_policy = "compatible"
+
+[dependencies]
+AptosFramework = { local = "../../framework/aptos-framework" }
+
+[addresses]
+deployer = "_"
+resource_account_package = "_"

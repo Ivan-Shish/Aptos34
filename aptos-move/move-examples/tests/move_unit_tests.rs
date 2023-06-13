@@ -190,3 +190,12 @@ fn test_nft_dao_test() {
     )]);
     run_tests_for_pkg("dao/nft_dao", named_address);
 }
+
+#[test]
+fn test_resource_account_package() {
+    let named_address = BTreeMap::from([(
+        String::from("deployer"),
+        AccountAddress::from_hex_literal("0x123").unwrap(),
+    )]);
+    run_tests_for_pkg("resource_account_package", named_address);
+}
