@@ -2,34 +2,44 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{counters, counters::{
-    PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
-    TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
-}, errors::*, scheduler::{DependencyStatus, Scheduler, SchedulerTask, Wave}, task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput}, txn_last_input_output::TxnLastInputOutput, view::{LatestView, MVHashMapView}};
+use crate::{
+    blockstm_providers::{LastInputOuputProvider, SchedulerProvider},
+    counters,
+    counters::{
+        PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
+        TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
+    },
+    errors::*,
+    scheduler::{DependencyStatus, Scheduler, SchedulerTask, Wave},
+    task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput},
+    txn_last_input_output::TxnLastInputOutput,
+    view::{LatestView, MVHashMapView},
+};
 use aptos_aggregator::delta_change_set::{deserialize, serialize};
 use aptos_logger::{debug, info};
 use aptos_mvhashmap::{
-    MVHashMap,
     types::{MVDataError, MVDataOutput, TxnIndex, Version},
     unsync_map::UnsyncMap,
+    MVHashMap,
 };
 use aptos_state_view::TStateView;
-use aptos_types::{executable::Executable, write_set::WriteOp};
+use aptos_types::{
+    executable::{Executable, ModulePath},
+    write_set::WriteOp,
+};
 use aptos_vm_logging::{clear_speculative_txn_logs, init_speculative_logs};
 use num_cpus;
 use rayon::ThreadPool;
 use std::{
+    fmt::Debug,
+    hash::Hash,
     marker::PhantomData,
     sync::{
-        Arc,
         mpsc,
         mpsc::{Receiver, Sender},
+        Arc,
     },
 };
-use std::fmt::Debug;
-use std::hash::Hash;
-use aptos_types::executable::ModulePath;
-use crate::blockstm_providers::{LastInputOuputProvider, SchedulerProvider};
 
 #[derive(Debug)]
 enum CommitRole {

@@ -2,11 +2,14 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::{
+    scheduler::{ExecutionStatus, ValidationStatus},
+    task::TransactionOutput,
+    txn_last_input_output::{TxnInput, TxnOutput},
+};
 use crossbeam::utils::CachePadded;
-use crate::scheduler::{ExecutionStatus, ValidationStatus};
-use crate::task::TransactionOutput;
-use crate::txn_last_input_output::{TxnInput, TxnOutput};
 
+pub mod blockstm_providers;
 /**
 The high level parallel execution logic is implemented in 'executor.rs'. The
 input of parallel executor is a block of transactions, containing a sequence
@@ -152,4 +155,3 @@ mod txn_last_input_output;
 #[cfg(test)]
 mod unit_tests;
 pub mod view;
-pub mod blockstm_providers;

@@ -2,10 +2,20 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{executor::BlockExecutor, proptest_types::types::{DeltaDataView, ExpectedOutput, KeyType, Task, Transaction, ValueType}, scheduler::{DependencyResult, Scheduler, SchedulerTask}};
+use crate::{
+    blockstm_providers::{default::DefaultProvider, SchedulerProvider},
+    executor::BlockExecutor,
+    proptest_types::types::{
+        DeltaDataView, ExpectedOutput, KeyType, Output, Task, Transaction, ValueType,
+    },
+    scheduler::{DependencyResult, Scheduler, SchedulerTask},
+};
 use aptos_aggregator::delta_change_set::{delta_add, delta_sub, DeltaOp, DeltaUpdate};
 use aptos_mvhashmap::types::TxnIndex;
-use aptos_types::{executable::ModulePath, write_set::TransactionWrite};
+use aptos_types::{
+    executable::{ExecutableTestType, ModulePath},
+    write_set::TransactionWrite,
+};
 use claims::{assert_matches, assert_some_eq};
 use rand::{prelude::*, random};
 use std::{
@@ -14,12 +24,8 @@ use std::{
     fmt::Debug,
     hash::Hash,
     marker::PhantomData,
-    sync::{Arc, atomic::AtomicUsize},
+    sync::{atomic::AtomicUsize, Arc},
 };
-use aptos_types::executable::ExecutableTestType;
-use crate::blockstm_providers::default::DefaultProvider;
-use crate::blockstm_providers::SchedulerProvider;
-use crate::proptest_types::types::Output;
 
 fn run_and_assert<K, V>(transactions: Vec<Transaction<K, V>>)
 where
@@ -577,7 +583,7 @@ fn scheduler_incarnation() {
 #[test]
 fn scheduler_basic() {
     let provider = Arc::new(DefaultProvider::new(3));
-    let s = Scheduler::new(provider.clone());
+    let s = Scheduler::new(provider);
 
     for i in 0..3 {
         // Nothing to validate.

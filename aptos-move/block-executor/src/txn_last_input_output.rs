@@ -1,7 +1,11 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{errors::Error, task::{ExecutionStatus, Transaction, TransactionOutput}};
+use crate::{
+    blockstm_providers::LastInputOuputProvider,
+    errors::Error,
+    task::{ExecutionStatus, Transaction, TransactionOutput},
+};
 use anyhow::anyhow;
 use aptos_mvhashmap::types::{Incarnation, TxnIndex, Version};
 use aptos_types::{access_path::AccessPath, executable::ModulePath, write_set::WriteOp};
@@ -11,11 +15,10 @@ use std::{
     fmt::Debug,
     iter::{empty, Iterator},
     sync::{
-        Arc,
         atomic::{AtomicBool, Ordering},
+        Arc,
     },
 };
-use crate::blockstm_providers::{LastInputOuputProvider};
 
 pub type TxnInput<K> = Vec<ReadDescriptor<K>>;
 // When a transaction is committed, the output delta writes must be populated by
@@ -113,7 +116,12 @@ impl<K: ModulePath> ReadDescriptor<K> {
     }
 }
 
-pub struct TxnLastInputOutput<K, TO: TransactionOutput, TE: Debug, P: LastInputOuputProvider<K, TO, TE>> {
+pub struct TxnLastInputOutput<
+    K,
+    TO: TransactionOutput,
+    TE: Debug,
+    P: LastInputOuputProvider<K, TO, TE>,
+> {
     inputs: P::TxnLastInputs,
     outputs: P::TxnLastOutputs,
 
@@ -128,7 +136,13 @@ pub struct TxnLastInputOutput<K, TO: TransactionOutput, TE: Debug, P: LastInputO
     commit_locks: P::CommitLocks, // Shared locks to prevent race during commit
 }
 
-impl<K: ModulePath, TO: TransactionOutput, E: Debug + Send + Clone, PY: LastInputOuputProvider<K, TO, E>> TxnLastInputOutput<K, TO, E, PY> {
+impl<
+        K: ModulePath,
+        TO: TransactionOutput,
+        E: Debug + Send + Clone,
+        PY: LastInputOuputProvider<K, TO, E>,
+    > TxnLastInputOutput<K, TO, E, PY>
+{
     pub fn new(provider: Arc<PY>) -> Self {
         Self {
             inputs: provider.new_txn_inputs(),
@@ -198,7 +212,8 @@ impl<K: ModulePath, TO: TransactionOutput, E: Debug + Send + Clone, PY: LastInpu
             }
         }
         PY::get_inputs_by_tid(&self.inputs, txn_idx).store(Some(Arc::new(input)));
-        PY::get_outputs_by_tid(&self.outputs, txn_idx).store(Some(Arc::new(TxnOutput::from_output_status(output))));
+        PY::get_outputs_by_tid(&self.outputs, txn_idx)
+            .store(Some(Arc::new(TxnOutput::from_output_status(output))));
 
         Ok(())
     }
@@ -263,22 +278,25 @@ impl<K: ModulePath, TO: TransactionOutput, E: Debug + Send + Clone, PY: LastInpu
         let ret: (
             usize,
             Box<dyn Iterator<Item = <<TO as TransactionOutput>::Txn as Transaction>::Key>>,
-        ) = PY::get_outputs_by_tid(&self.outputs, txn_idx).load().as_ref().map_or(
-            (
-                0,
-                Box::new(empty::<<<TO as TransactionOutput>::Txn as Transaction>::Key>()),
-            ),
-            |txn_output| match &txn_output.output_status {
-                ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
-                    let deltas = t.get_deltas();
-                    (deltas.len(), Box::new(deltas.into_iter().map(|(k, _)| k)))
-                },
-                ExecutionStatus::Abort(_) => (
+        ) = PY::get_outputs_by_tid(&self.outputs, txn_idx)
+            .load()
+            .as_ref()
+            .map_or(
+                (
                     0,
                     Box::new(empty::<<<TO as TransactionOutput>::Txn as Transaction>::Key>()),
                 ),
-            },
-        );
+                |txn_output| match &txn_output.output_status {
+                    ExecutionStatus::Success(t) | ExecutionStatus::SkipRest(t) => {
+                        let deltas = t.get_deltas();
+                        (deltas.len(), Box::new(deltas.into_iter().map(|(k, _)| k)))
+                    },
+                    ExecutionStatus::Abort(_) => (
+                        0,
+                        Box::new(empty::<<<TO as TransactionOutput>::Txn as Transaction>::Key>()),
+                    ),
+                },
+            );
         ret
     }
 
@@ -287,7 +305,10 @@ impl<K: ModulePath, TO: TransactionOutput, E: Debug + Send + Clone, PY: LastInpu
     pub(crate) fn record_delta_writes(
         &self,
         txn_idx: TxnIndex,
-        delta_writes: Vec<(<<TO as TransactionOutput>::Txn as Transaction>::Key, WriteOp)>,
+        delta_writes: Vec<(
+            <<TO as TransactionOutput>::Txn as Transaction>::Key,
+            WriteOp,
+        )>,
     ) {
         let lock_ref = PY::get_commit_lock_by_tid(&self.commit_locks, txn_idx);
         let _lock = lock_ref.lock();

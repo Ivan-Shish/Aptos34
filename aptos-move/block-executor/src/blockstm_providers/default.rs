@@ -1,12 +1,14 @@
 // Copyright © Aptos Foundation
 
-use std::fmt::Debug;
-use arc_swap::ArcSwapOption;
-use parking_lot::RwLock;
+use crate::{
+    blockstm_providers::{LastInputOuputProvider, SchedulerProvider},
+    CachePadded, ExecutionStatus, TransactionOutput, TxnInput, TxnOutput, ValidationStatus,
+};
 use aptos_infallible::Mutex;
 use aptos_mvhashmap::types::TxnIndex;
-use crate::blockstm_providers::{LastInputOuputProvider, SchedulerProvider};
-use crate::{CachePadded, TransactionOutput, ExecutionStatus, ValidationStatus, TxnInput, TxnOutput};
+use arc_swap::ArcSwapOption;
+use parking_lot::RwLock;
+use std::fmt::Debug;
 
 pub struct DefaultProvider {
     num_txns: TxnIndex,
@@ -15,7 +17,7 @@ pub struct DefaultProvider {
 impl DefaultProvider {
     pub fn new(num_txns: usize) -> Self {
         Self {
-            num_txns: num_txns as TxnIndex
+            num_txns: num_txns as TxnIndex,
         }
     }
 }
@@ -25,23 +27,33 @@ impl SchedulerProvider for DefaultProvider {
     type TxnStatusProvider = Vec<CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)>>;
 
     fn new_txn_dep_info(&self) -> Self::TxnDependencyInfo {
-        (0..self.num_txns).map(|_|CachePadded::new(Mutex::new(Vec::new()))).collect()
+        (0..self.num_txns)
+            .map(|_| CachePadded::new(Mutex::new(Vec::new())))
+            .collect()
     }
 
     fn new_txn_status_provider(&self) -> Self::TxnStatusProvider {
-        (0..self.num_txns).map(|_| {
-            CachePadded::new((
-                RwLock::new(ExecutionStatus::ReadyToExecute(0, None)),
-                RwLock::new(ValidationStatus::new()),
-            ))
-        }).collect()
+        (0..self.num_txns)
+            .map(|_| {
+                CachePadded::new((
+                    RwLock::new(ExecutionStatus::ReadyToExecute(0, None)),
+                    RwLock::new(ValidationStatus::new()),
+                ))
+            })
+            .collect()
     }
 
-    fn get_txn_deps_by_tid(deps: &Self::TxnDependencyInfo, tid: TxnIndex) -> &CachePadded<Mutex<Vec<TxnIndex>>> {
+    fn get_txn_deps_by_tid(
+        deps: &Self::TxnDependencyInfo,
+        tid: TxnIndex,
+    ) -> &CachePadded<Mutex<Vec<TxnIndex>>> {
         &deps[tid as usize]
     }
 
-    fn get_txn_status_by_tid(status: &Self::TxnStatusProvider, tid: TxnIndex) -> &CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)> {
+    fn get_txn_status_by_tid(
+        status: &Self::TxnStatusProvider,
+        tid: TxnIndex,
+    ) -> &CachePadded<(RwLock<ExecutionStatus>, RwLock<ValidationStatus>)> {
         &status[tid as usize]
     }
 
@@ -70,28 +82,40 @@ impl SchedulerProvider for DefaultProvider {
     }
 }
 
-impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync> LastInputOuputProvider<K, TO, TE> for DefaultProvider {
+impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
+    LastInputOuputProvider<K, TO, TE> for DefaultProvider
+{
+    type CommitLocks = Vec<Mutex<()>>;
     type TxnLastInputs = Vec<CachePadded<ArcSwapOption<TxnInput<K>>>>;
     type TxnLastOutputs = Vec<CachePadded<ArcSwapOption<TxnOutput<TO, TE>>>>;
-    type CommitLocks = Vec<Mutex<()>>;
 
     fn new_txn_inputs(&self) -> Self::TxnLastInputs {
-        (0..self.num_txns).map(|_| CachePadded::new(ArcSwapOption::empty())).collect()
+        (0..self.num_txns)
+            .map(|_| CachePadded::new(ArcSwapOption::empty()))
+            .collect()
     }
 
     fn new_txn_outputs(&self) -> Self::TxnLastOutputs {
-        (0..self.num_txns).map(|_| CachePadded::new(ArcSwapOption::empty())).collect()
+        (0..self.num_txns)
+            .map(|_| CachePadded::new(ArcSwapOption::empty()))
+            .collect()
     }
 
     fn new_commit_locks(&self) -> Self::CommitLocks {
         (0..self.num_txns).map(|_| Mutex::new(())).collect()
     }
 
-    fn get_inputs_by_tid(inputs: &Self::TxnLastInputs, tid: TxnIndex) -> &CachePadded<ArcSwapOption<TxnInput<K>>> {
+    fn get_inputs_by_tid(
+        inputs: &Self::TxnLastInputs,
+        tid: TxnIndex,
+    ) -> &CachePadded<ArcSwapOption<TxnInput<K>>> {
         &inputs[tid as usize]
     }
 
-    fn get_outputs_by_tid(outputs: &Self::TxnLastOutputs, tid: TxnIndex) -> &CachePadded<ArcSwapOption<TxnOutput<TO, TE>>> {
+    fn get_outputs_by_tid(
+        outputs: &Self::TxnLastOutputs,
+        tid: TxnIndex,
+    ) -> &CachePadded<ArcSwapOption<TxnOutput<TO, TE>>> {
         &outputs[tid as usize]
     }
 

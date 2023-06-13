@@ -2,10 +2,15 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{errors::Error, executor::BlockExecutor, proptest_types::types::{
-    DeltaDataView, EmptyDataView, ExpectedOutput, KeyType, Task, Transaction, TransactionGen,
-    TransactionGenParams, ValueType,
-}};
+use crate::{
+    blockstm_providers::default::DefaultProvider,
+    errors::Error,
+    executor::BlockExecutor,
+    proptest_types::types::{
+        DeltaDataView, EmptyDataView, ExpectedOutput, KeyType, Output, Task, Transaction,
+        TransactionGen, TransactionGenParams, ValueType,
+    },
+};
 use aptos_types::executable::ExecutableTestType;
 use claims::assert_ok;
 use num_cpus;
@@ -18,8 +23,6 @@ use proptest::{
 };
 use rand::Rng;
 use std::{cmp::max, fmt::Debug, hash::Hash, marker::PhantomData, sync::Arc};
-use crate::blockstm_providers::default::DefaultProvider;
-use crate::proptest_types::types::Output;
 
 fn run_transactions<K, V>(
     key_universe: &[K],

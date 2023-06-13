@@ -1,14 +1,20 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{counters, scheduler::{DependencyResult, DependencyStatus, Scheduler}, task::Transaction, txn_last_input_output::ReadDescriptor};
+use crate::{
+    blockstm_providers::SchedulerProvider,
+    counters,
+    scheduler::{DependencyResult, DependencyStatus, Scheduler},
+    task::Transaction,
+    txn_last_input_output::ReadDescriptor,
+};
 use anyhow::Result;
 use aptos_aggregator::delta_change_set::{deserialize, serialize};
 use aptos_logger::error;
 use aptos_mvhashmap::{
-    MVHashMap,
     types::{MVDataError, MVDataOutput, MVModulesError, MVModulesOutput, TxnIndex},
     unsync_map::UnsyncMap,
+    MVHashMap,
 };
 use aptos_state_view::{StateViewId, TStateView};
 use aptos_types::{
@@ -19,7 +25,6 @@ use aptos_types::{
 };
 use aptos_vm_logging::{log_schema::AdapterLogSchema, prelude::*};
 use std::{cell::RefCell, fmt::Debug, hash::Hash, sync::Arc};
-use crate::blockstm_providers::SchedulerProvider;
 
 /// A struct that is always used by a single thread performing an execution task. The struct is
 /// passed to the VM and acts as a proxy to resolve reads first in the shared multi-version
@@ -171,13 +176,21 @@ enum ViewMapKind<'a, T: Transaction, X: Executable, P: SchedulerProvider> {
     Unsync(&'a UnsyncMap<T::Key, T::Value, X>),
 }
 
-pub(crate) struct LatestView<'a, T: Transaction, S: TStateView<Key = T::Key>, X: Executable, P: SchedulerProvider> {
+pub(crate) struct LatestView<
+    'a,
+    T: Transaction,
+    S: TStateView<Key = T::Key>,
+    X: Executable,
+    P: SchedulerProvider,
+> {
     base_view: &'a S,
     latest_view: ViewMapKind<'a, T, X, P>,
     txn_idx: TxnIndex,
 }
 
-impl<'a, T: Transaction, S: TStateView<Key = T::Key>, X: Executable, P: SchedulerProvider> LatestView<'a, T, S, X, P> {
+impl<'a, T: Transaction, S: TStateView<Key = T::Key>, X: Executable, P: SchedulerProvider>
+    LatestView<'a, T, S, X, P>
+{
     pub(crate) fn new_mv_view(
         base_view: &'a S,
         map: &'a MVHashMapView<'a, T::Key, T::Value, X, P>,
@@ -219,8 +232,8 @@ impl<'a, T: Transaction, S: TStateView<Key = T::Key>, X: Executable, P: Schedule
     }
 }
 
-impl<'a, T: Transaction, S: TStateView<Key = T::Key>, X: Executable, P: SchedulerProvider> TStateView
-    for LatestView<'a, T, S, X, P>
+impl<'a, T: Transaction, S: TStateView<Key = T::Key>, X: Executable, P: SchedulerProvider>
+    TStateView for LatestView<'a, T, S, X, P>
 {
     type Key = T::Key;
 

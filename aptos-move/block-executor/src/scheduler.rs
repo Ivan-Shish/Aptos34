@@ -2,7 +2,7 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::counters::GET_NEXT_TASK_SECONDS;
+use crate::{blockstm_providers::SchedulerProvider, counters::GET_NEXT_TASK_SECONDS};
 use aptos_infallible::Mutex;
 use aptos_mvhashmap::types::{Incarnation, TxnIndex, Version};
 use crossbeam::utils::CachePadded;
@@ -12,11 +12,10 @@ use std::{
     hint,
     ops::DerefMut,
     sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering}, Condvar,
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        Arc, Condvar,
     },
 };
-use crate::blockstm_providers::SchedulerProvider;
 
 const TXN_IDX_MASK: u64 = (1 << 32) - 1;
 
@@ -187,6 +186,12 @@ impl ValidationStatus {
     }
 }
 
+impl Default for ValidationStatus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct Scheduler<P: SchedulerProvider> {
     provider: Arc<P>,
 
@@ -240,7 +245,7 @@ impl<P: SchedulerProvider> Scheduler<P> {
             txn_dependency,
             txn_status,
             commit_state: CachePadded::new(Mutex::new((initial_execution_idx, 0))),
-            execution_idx: AtomicU32::new( initial_execution_idx),
+            execution_idx: AtomicU32::new(initial_execution_idx),
             validation_idx: AtomicU64::new(initial_execution_idx as u64),
             done_marker: CachePadded::new(AtomicBool::new(false)),
         }
@@ -254,7 +259,10 @@ impl<P: SchedulerProvider> Scheduler<P> {
         let commit_state = commit_state_mutex.deref_mut();
         let (commit_idx, commit_wave) = (&mut commit_state.0, &mut commit_state.1);
 
-        if let Some(validation_status) = P::get_txn_status_by_tid(&self.txn_status, *commit_idx).1.try_read() {
+        if let Some(validation_status) = P::get_txn_status_by_tid(&self.txn_status, *commit_idx)
+            .1
+            .try_read()
+        {
             // Acquired the validation status read lock.
             if let Some(status) = P::get_txn_status_by_tid(&self.txn_status, *commit_idx)
                 .0
@@ -332,7 +340,8 @@ impl<P: SchedulerProvider> Scheduler<P> {
                 Self::unpack_validation_idx(self.validation_idx.load(Ordering::Acquire));
             let idx_to_execute = self.execution_idx.load(Ordering::Acquire);
 
-            let prefer_validate = idx_to_validate < min(idx_to_execute, self.provider.txn_end_index())
+            let prefer_validate = idx_to_validate
+                < min(idx_to_execute, self.provider.txn_end_index())
                 && !self.never_executed(idx_to_validate);
 
             if !prefer_validate && idx_to_execute >= self.provider.txn_end_index() {
@@ -486,7 +495,9 @@ impl<P: SchedulerProvider> Scheduler<P> {
                 // The transaction execution required revalidating all higher txns (not
                 // only itself), currently happens when incarnation writes to a new path
                 // (w.r.t. the write-set of its previous completed incarnation).
-                if let Some(wave) = self.decrease_validation_idx(self.provider.txn_index_right_after(txn_idx)) {
+                if let Some(wave) =
+                    self.decrease_validation_idx(self.provider.txn_index_right_after(txn_idx))
+                {
                     cur_wave = wave;
                 };
             }
@@ -608,7 +619,8 @@ impl<P: SchedulerProvider> Scheduler<P> {
                 .fetch_update(Ordering::Acquire, Ordering::SeqCst, |val_idx| {
                     let (txn_idx, wave) = Self::unpack_validation_idx(val_idx);
                     if txn_idx > target_idx {
-                        let validation_status_ref = P::get_txn_status_by_tid(&self.txn_status, target_idx);
+                        let validation_status_ref =
+                            P::get_txn_status_by_tid(&self.txn_status, target_idx);
                         let mut validation_status = validation_status_ref.1.write();
                         // Update the minimum wave all the suffix txn needs to pass.
                         // We set it to max for safety (to avoid overwriting with lower values
@@ -717,7 +729,8 @@ impl<P: SchedulerProvider> Scheduler<P> {
         // but if we used fetch-and-increment, two threads can arrive in a cloned state and
         // both increment, effectively skipping over the 'never_executed' transaction index.
         let validation_idx = (idx_to_validate as u64) | ((wave as u64) << 32);
-        let new_validation_idx = (self.provider.txn_index_right_after(idx_to_validate) as u64) | ((wave as u64) << 32);
+        let new_validation_idx =
+            (self.provider.txn_index_right_after(idx_to_validate) as u64) | ((wave as u64) << 32);
         if self
             .validation_idx
             .compare_exchange(
@@ -747,9 +760,12 @@ impl<P: SchedulerProvider> Scheduler<P> {
     /// return the version to the caller for the corresponding ExecutionTask.
     /// - Otherwise, return None.
     fn try_execute_next_version(&self) -> Option<(Version, Option<DependencyCondvar>)> {
-        let idx_to_execute = self.execution_idx.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v|{
-            Some(self.provider.txn_index_right_after(v))
-        }).unwrap();
+        let idx_to_execute = self
+            .execution_idx
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| {
+                Some(self.provider.txn_index_right_after(v))
+            })
+            .unwrap();
 
         if idx_to_execute >= self.provider.txn_end_index() {
             return None;
