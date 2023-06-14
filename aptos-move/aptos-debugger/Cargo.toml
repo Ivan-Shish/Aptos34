@@ -34,3 +34,4 @@ move-vm-runtime = { workspace = true }
 move-vm-test-utils = { workspace = true }
 tokio = { workspace = true }
 url = { workspace = true }
+bcs = { workspace = true }

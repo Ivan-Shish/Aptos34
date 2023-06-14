@@ -32,6 +32,7 @@ use aptos_vm_logging::log_schema::AdapterLogSchema;
 use aptos_vm_types::{change_set::VMChangeSet, output::VMOutput};
 use move_binary_format::errors::VMResult;
 use std::{path::Path, sync::Arc};
+use aptos_types::transaction::Transaction::UserTransaction;
 
 pub struct AptosDebugger {
     debugger: Arc<dyn AptosValidatorInterface + Send>,
@@ -112,6 +113,26 @@ impl AptosDebugger {
             .debugger
             .get_committed_transactions(begin, limit)
             .await?;
+        // if let UserTransaction(signed_txn) = txns[0].clone() {
+        //     println!("{}", signed_txn.sequence_number());
+        // }
+        // let mut c_txn1 = txns[0].clone();
+        // if let UserTransaction(signed_txn) = &c_txn1 {
+        //     //println!("{}", signed_txn.sequence_number());
+        //     signed_txn
+        // }
+        let mut copied_txns = Vec::new();
+        let mut copied_txn_infos  = Vec::new();
+        copied_txns.push(txns[0].clone());
+        copied_txns.push(txns[0].clone());
+        copied_txns.push(txns[0].clone());
+        txns.append(&mut copied_txns);
+        limit += 3;
+
+        copied_txn_infos.push(txn_infos[0].clone());
+        copied_txn_infos.push(txn_infos[0].clone());
+        copied_txn_infos.push(txn_infos[0].clone());
+        txn_infos.append(&mut copied_txn_infos);
 
         let mut ret = vec![];
         while limit != 0 {
