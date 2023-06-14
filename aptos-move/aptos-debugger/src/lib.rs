@@ -32,7 +32,6 @@ use aptos_vm_logging::log_schema::AdapterLogSchema;
 use aptos_vm_types::{change_set::VMChangeSet, output::VMOutput};
 use move_binary_format::errors::VMResult;
 use std::{path::Path, sync::Arc};
-use aptos_types::transaction::Transaction::UserTransaction;
 
 pub struct AptosDebugger {
     debugger: Arc<dyn AptosValidatorInterface + Send>,
@@ -122,7 +121,7 @@ impl AptosDebugger {
         //     signed_txn
         // }
         let mut copied_txns = Vec::new();
-        let mut copied_txn_infos  = Vec::new();
+        let mut copied_txn_infos = Vec::new();
         copied_txns.push(txns[0].clone());
         copied_txns.push(txns[0].clone());
         copied_txns.push(txns[0].clone());
