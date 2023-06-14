@@ -193,9 +193,15 @@ fn test_nft_dao_test() {
 
 #[test]
 fn test_resource_account_package() {
-    let named_address = BTreeMap::from([(
-        String::from("deployer"),
-        AccountAddress::from_hex_literal("0x123").unwrap(),
-    )]);
+    let named_address = BTreeMap::from([
+        (
+            String::from("deployer"),
+            AccountAddress::from_hex_literal("0x123").unwrap(),
+        ),
+        (
+            String::from("resource_account_package"),
+            AccountAddress::from_hex_literal("0x123").unwrap(),
+        )
+    ]);
     run_tests_for_pkg("resource_account_package", named_address);
 }
