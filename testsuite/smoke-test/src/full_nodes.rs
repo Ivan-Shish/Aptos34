@@ -232,30 +232,16 @@ async fn test_pfn_route_updates() {
 async fn send_and_receive_coin(
     transaction_factory: &TransactionFactory,
     pfn_client: &Client,
-    mut account_0: &mut LocalAccount,
-    mut account_1: &mut LocalAccount,
+    account_0: &mut LocalAccount,
+    account_1: &mut LocalAccount,
     balance: u64,
 ) {
-    let _txn = transfer_coins(
-        &pfn_client,
-        &transaction_factory,
-        &mut account_0,
-        &account_1,
-        1,
-    )
-    .await;
-    assert_balance(&pfn_client, &account_0, balance - 1).await;
-    assert_balance(&pfn_client, &account_1, balance + 1).await;
-    let _txn = transfer_coins(
-        &pfn_client,
-        &transaction_factory,
-        &mut account_1,
-        &account_0,
-        1,
-    )
-    .await;
-    assert_balance(&pfn_client, &account_1, balance).await;
-    assert_balance(&pfn_client, &account_0, balance).await;
+    let _txn = transfer_coins(pfn_client, transaction_factory, account_0, account_1, 1).await;
+    assert_balance(pfn_client, account_0, balance - 1).await;
+    assert_balance(pfn_client, account_1, balance + 1).await;
+    let _txn = transfer_coins(pfn_client, transaction_factory, account_1, account_0, 1).await;
+    assert_balance(pfn_client, account_1, balance).await;
+    assert_balance(pfn_client, account_0, balance).await;
 }
 
 #[tokio::test]
