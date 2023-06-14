@@ -123,6 +123,9 @@ pub(crate) async fn coordinator<NetworkClient, TransactionValidator>(
                         counters::shared_mempool_event_inc("peer_update");
                         notify_subscribers(SharedMempoolNotification::PeerStateChange, &smp.subscribers);
                     }
+                    if !newly_added_upstream.is_empty() {
+                        smp.mempool.lock().redirect_no_peers();
+                    }
                     for peer in newly_added_upstream {
                         debug!(LogSchema::new(LogEntry::NewPeer)
                             .peer(&peer));

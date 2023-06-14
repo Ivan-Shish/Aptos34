@@ -361,8 +361,13 @@ impl Mempool {
         self.transactions.gc_by_expiration_time(block_time);
     }
 
+    pub(crate) fn redirect_no_peers(&mut self) {
+        info!("redirect_no_peers");
+        self.transactions.redirect_no_peers();
+    }
+
     pub(crate) fn redirect(&mut self, peer: PeerNetworkId) {
-        info!("Redirect: {}", peer);
+        info!("redirect: {}", peer);
         self.transactions.redirect(peer);
     }
 

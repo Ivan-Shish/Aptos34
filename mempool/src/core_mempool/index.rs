@@ -273,19 +273,12 @@ impl TimelineIndex {
             .collect()
     }
 
-    pub(crate) fn insert(&mut self, txn: &mut MempoolTransaction, peers: Vec<PeerNetworkId>) {
-        if peers.is_empty() {
-            self.timeline.insert(
-                self.timeline_id,
-                (
-                    txn.get_sender(),
-                    txn.sequence_info.transaction_sequence_number,
-                    None,
-                ),
-            );
-            txn.timeline_state = TimelineState::Ready(vec![self.timeline_id]);
-            self.timeline_id += 1;
-        } else {
+    pub(crate) fn insert(
+        &mut self,
+        txn: &mut MempoolTransaction,
+        peers: Option<Vec<PeerNetworkId>>,
+    ) {
+        if let Some(peers) = peers {
             let mut timeline_ids = vec![];
             for peer in peers {
                 self.timeline.insert(
@@ -300,6 +293,17 @@ impl TimelineIndex {
                 self.timeline_id += 1;
             }
             txn.timeline_state = TimelineState::Ready(timeline_ids);
+        } else {
+            self.timeline.insert(
+                self.timeline_id,
+                (
+                    txn.get_sender(),
+                    txn.sequence_info.transaction_sequence_number,
+                    None,
+                ),
+            );
+            txn.timeline_state = TimelineState::Ready(vec![self.timeline_id]);
+            self.timeline_id += 1;
         }
     }
 
@@ -430,7 +434,11 @@ impl MultiBucketTimelineIndex {
         self.timelines.get_mut(index).unwrap()
     }
 
-    pub(crate) fn insert(&mut self, txn: &mut MempoolTransaction, peers: Vec<PeerNetworkId>) {
+    pub(crate) fn insert(
+        &mut self,
+        txn: &mut MempoolTransaction,
+        peers: Option<Vec<PeerNetworkId>>,
+    ) {
         self.get_timeline(txn.ranking_score).insert(txn, peers);
     }
 
@@ -570,6 +578,15 @@ pub type TxnPointer = TransactionSummary;
 
 impl From<&MempoolTransaction> for TxnPointer {
     fn from(txn: &MempoolTransaction) -> Self {
+        Self {
+            sender: txn.get_sender(),
+            sequence_number: txn.sequence_info.transaction_sequence_number,
+        }
+    }
+}
+
+impl From<&mut MempoolTransaction> for TxnPointer {
+    fn from(txn: &mut MempoolTransaction) -> Self {
         Self {
             sender: txn.get_sender(),
             sequence_number: txn.sequence_info.transaction_sequence_number,

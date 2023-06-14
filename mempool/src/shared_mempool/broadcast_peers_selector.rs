@@ -23,7 +23,7 @@ pub trait BroadcastPeersSelector: Send + Sync {
     fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, PeerMetadata>);
     // TODO: for backwards compatibility, an empty vector could mean we send to all?
     // TODO: for all the tests, just added an empty vector, need to audit later
-    fn broadcast_peers(&self, account: &AccountAddress) -> Vec<PeerNetworkId>;
+    fn broadcast_peers(&self, account: &AccountAddress) -> Option<Vec<PeerNetworkId>>;
 }
 
 #[derive(Clone, Debug)]
@@ -92,8 +92,8 @@ impl BroadcastPeersSelector for AllPeersSelector {
         // Do nothing
     }
 
-    fn broadcast_peers(&self, _account: &AccountAddress) -> Vec<PeerNetworkId> {
-        vec![]
+    fn broadcast_peers(&self, _account: &AccountAddress) -> Option<Vec<PeerNetworkId>> {
+        None
     }
 }
 
@@ -123,15 +123,19 @@ impl BroadcastPeersSelector for PrioritizedPeersSelector {
             .collect();
     }
 
-    fn broadcast_peers(&self, _account: &AccountAddress) -> Vec<PeerNetworkId> {
+    fn broadcast_peers(&self, _account: &AccountAddress) -> Option<Vec<PeerNetworkId>> {
         let ret: Vec<_> = self
             .prioritized_peers
             .iter()
             .take(self.mempool_config.default_failovers + 1)
             .cloned()
             .collect();
-        info!("peers (len {}): {:?}", self.prioritized_peers.len(), ret);
-        ret
+        info!(
+            "prioritized_peers (len {}): {:?}",
+            self.prioritized_peers.len(),
+            ret
+        );
+        Some(ret)
     }
 }
 
@@ -169,7 +173,7 @@ impl FreshPeersSelector {
             // TODO: random shuffle among similar versions to keep from biasing
             // TODO: add a sample, completely remove
             info!(
-                "selected peers: {:?} / total peers (len {}): {:?}",
+                "fresh_peers: {:?} / total peers (len {}): {:?}",
                 peers,
                 self.sorted_peers.len(),
                 self.sorted_peers
@@ -198,13 +202,14 @@ impl BroadcastPeersSelector for FreshPeersSelector {
         // TODO: what if we don't actually have a mempool connection to this host?
         // TODO: do we have to filter? or penalize but still allow selection?
         peer_versions.sort_by_key(|(_peer, version)| *version);
+        info!("fresh_peers update_peers: {:?}", peer_versions);
 
         self.sorted_peers = peer_versions;
         self.peers = HashSet::from_iter(self.sorted_peers.iter().map(|(peer, _version)| *peer));
     }
 
     // TODO: a filter for already tried peers. also clear stickiness cache in this case?
-    fn broadcast_peers(&self, account: &PeerId) -> Vec<PeerNetworkId> {
+    fn broadcast_peers(&self, account: &PeerId) -> Option<Vec<PeerNetworkId>> {
         let possibly_cached_results = self.broadcast_peers_inner(account);
         let results: Vec<_> = possibly_cached_results
             .iter()
@@ -214,11 +219,11 @@ impl BroadcastPeersSelector for FreshPeersSelector {
         if results.is_empty() {
             self.stickiness_cache.remove(account);
             let res = self.broadcast_peers_inner(account);
-            info!("broadcast_peers, stickiness removed: {:?}", res);
-            res
+            info!("fresh_peers, stickiness removed: {:?}", res);
+            Some(res)
         } else {
-            info!("broadcast_peers: {:?}", results);
-            results
+            info!("fresh_peers: {:?}", results);
+            Some(results)
         }
     }
 }

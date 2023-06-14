@@ -30,7 +30,7 @@ use aptos_types::{
 };
 use std::{
     cmp::max,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     mem::size_of,
     ops::Bound,
     sync::Arc,
@@ -73,6 +73,7 @@ pub struct TransactionStore {
     size_bytes: usize,
     // keeps track of txns that were resubmitted with higher gas
     gas_upgraded_index: HashMap<TxnPointer, u64>,
+    ready_no_peers_index: HashSet<TxnPointer>,
 
     // configuration
     capacity: usize,
@@ -110,6 +111,7 @@ impl TransactionStore {
             // estimated size in bytes
             size_bytes: 0,
             gas_upgraded_index: HashMap::new(),
+            ready_no_peers_index: HashSet::new(),
 
             // configuration
             capacity: config.capacity,
@@ -135,6 +137,17 @@ impl TransactionStore {
             .get(address)
             .and_then(|txns| txns.get(&sequence_number))
     }
+
+    // #[inline]
+    // fn get_mempool_txn_mut(
+    //     &mut self,
+    //     address: &AccountAddress,
+    //     sequence_number: u64,
+    // ) -> Option<&mut MempoolTransaction> {
+    //     self.transactions
+    //         .get_mut(address)
+    //         .and_then(|txns| txns.get_mut(&sequence_number))
+    // }
 
     /// Fetch transaction by account address + sequence_number.
     pub(crate) fn get(
@@ -446,12 +459,27 @@ impl TransactionStore {
                 // TODO: If there are no peers here, send the txn back to not ready?
                 let process_broadcast_ready = txn.timeline_state == TimelineState::NotReady;
                 if process_broadcast_ready {
-                    self.timeline_index.insert(
-                        txn,
-                        self.broadcast_peers_selector
-                            .read()
-                            .broadcast_peers(address),
-                    );
+                    let peers = self
+                        .broadcast_peers_selector
+                        .read()
+                        .broadcast_peers(address);
+                    let mut insert = true;
+                    if let Some(peers) = peers {
+                        if peers.is_empty() {
+                            insert = false;
+                        }
+                    }
+                    if insert {
+                        self.timeline_index.insert(
+                            txn,
+                            self.broadcast_peers_selector
+                                .read()
+                                .broadcast_peers(address),
+                        );
+                    } else {
+                        self.ready_no_peers_index
+                            .insert(TxnPointer::from(&txn.clone()));
+                    }
                 }
 
                 if process_ready {
@@ -572,7 +600,9 @@ impl TransactionStore {
         self.parking_lot_index.remove(txn);
         self.hash_index.remove(&txn.get_committed_hash());
         self.size_bytes -= txn.get_estimated_bytes();
-        self.gas_upgraded_index.remove(&TxnPointer::from(txn));
+        let txn_pointer = TxnPointer::from(txn);
+        self.gas_upgraded_index.remove(&txn_pointer);
+        self.ready_no_peers_index.remove(&txn_pointer);
 
         // Remove account datastructures if there are no more transactions for the account.
         let address = &txn.get_sender();
@@ -766,26 +796,67 @@ impl TransactionStore {
         self.track_indices();
     }
 
+    // TODO: there's repeated code, kind of hard to refactor because of mutable/immutable borrows.
+    pub(crate) fn redirect_no_peers(&mut self) {
+        if self.ready_no_peers_index.is_empty() {
+            return;
+        }
+        info!(
+            "redirect_no_peers, with index size: {}",
+            self.ready_no_peers_index.len()
+        );
+
+        let mut reinsert = vec![];
+        for txn_pointer in &self.ready_no_peers_index {
+            if let Some(mempool_txn) =
+                self.get_mempool_txn(&txn_pointer.sender, txn_pointer.sequence_number)
+            {
+                if let Some(new_peers) = self
+                    .broadcast_peers_selector
+                    .read()
+                    .broadcast_peers(&txn_pointer.sender)
+                {
+                    if new_peers.is_empty() {
+                        warn!("On redirect, empty again!");
+                        reinsert.push(TxnPointer::from(mempool_txn));
+                    } else {
+                        let mut txn = mempool_txn.clone();
+                        self.timeline_index.update(&mut txn, new_peers);
+                        if let Some(txns) = self.transactions.get_mut(&txn_pointer.sender) {
+                            txns.insert(txn_pointer.sequence_number, txn);
+                        }
+                    }
+                }
+            }
+        }
+        self.ready_no_peers_index.clear();
+        for txn_pointer in reinsert {
+            self.ready_no_peers_index.insert(txn_pointer);
+        }
+    }
+
     pub(crate) fn redirect(&mut self, peer: PeerNetworkId) {
         // TODO: look at this again
         let to_redirect = self.timeline_index.timeline(Some(peer));
         info!("to_redirect: {:?}", to_redirect);
         for (account, seq_no) in &to_redirect {
-            let new_peers = self
-                .broadcast_peers_selector
-                .read()
-                .broadcast_peers(account);
-            info!("redirect new_peers: {:?}", new_peers);
             if let Some(mempool_txn) = self.get_mempool_txn(account, *seq_no) {
-                info!(
-                    "redirect timeline_state before: {:?}",
-                    mempool_txn.timeline_state
-                );
-                let mut txn = mempool_txn.clone();
-                self.timeline_index.update(&mut txn, new_peers);
-                info!("redirect timeline_state after: {:?}", txn.timeline_state);
-                if let Some(txns) = self.transactions.get_mut(account) {
-                    txns.insert(*seq_no, txn);
+                if let Some(new_peers) = self
+                    .broadcast_peers_selector
+                    .read()
+                    .broadcast_peers(account)
+                {
+                    info!("redirect new_peers: {:?}", new_peers);
+                    if new_peers.is_empty() {
+                        self.ready_no_peers_index
+                            .insert(TxnPointer::from(mempool_txn));
+                    } else {
+                        let mut txn = mempool_txn.clone();
+                        self.timeline_index.update(&mut txn, new_peers);
+                        if let Some(txns) = self.transactions.get_mut(account) {
+                            txns.insert(*seq_no, txn);
+                        }
+                    }
                 }
             }
         }
