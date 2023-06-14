@@ -9,6 +9,8 @@ use aptos_mvhashmap::types::TxnIndex;
 use arc_swap::ArcSwapOption;
 use parking_lot::RwLock;
 use std::fmt::Debug;
+use rayon::Scope;
+use crate::blockstm_providers::RemoteDependencyListener;
 
 pub struct DefaultBlockStmProvider {
     num_txns: TxnIndex,
@@ -123,4 +125,8 @@ impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
     fn get_commit_lock_by_tid(locks: &Self::CommitLockCollection, tid: TxnIndex) -> &Mutex<()> {
         &locks[tid as usize]
     }
+}
+
+impl RemoteDependencyListener for DefaultBlockStmProvider {
+    fn start_listening_to_remote_commit(&self, s: &Scope) {}
 }

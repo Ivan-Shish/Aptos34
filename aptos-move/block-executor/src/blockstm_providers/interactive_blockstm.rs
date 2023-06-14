@@ -10,6 +10,10 @@ use arc_swap::ArcSwapOption;
 use dashmap::DashMap;
 use parking_lot::RwLock;
 use std::{collections::HashMap, fmt::Debug};
+use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
+use rayon::Scope;
+use crate::blockstm_providers::RemoteDependencyListener;
 
 pub struct InteractiveBlockStmProvider {
     txn_indices: Vec<TxnIndex>,
@@ -154,3 +158,18 @@ impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
 }
 
 pub const TXN_IDX_NONE: TxnIndex = 0xFFFFFFFF;
+
+impl RemoteDependencyListener for InteractiveBlockStmProvider {
+    fn start_listening_to_remote_commit(&self, s: &Scope) {
+        s.spawn(|_s|{
+            let (_tx, rx) = mpsc::channel::<()>();
+            loop {
+                match rx.recv().unwrap() {
+                    _ => {
+                        break;
+                    }
+                }
+            }
+        });
+    }
+}

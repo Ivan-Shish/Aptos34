@@ -40,6 +40,7 @@ use std::{
         Arc,
     },
 };
+use crate::blockstm_providers::RemoteDependencyListener;
 
 #[derive(Debug)]
 enum CommitRole {
@@ -65,7 +66,7 @@ where
     E: ExecutorTask<Txn = T, Output = TO, Error = TE>,
     S: TStateView<Key = K> + Sync,
     X: Executable + 'static,
-    P: SchedulerProvider + LastInputOutputProvider<K, TO, TE> + 'static,
+    P: SchedulerProvider + LastInputOutputProvider<K, TO, TE> + RemoteDependencyListener + 'static,
 {
     /// The caller needs to ensure that concurrency_level > 1 (0 is illegal and 1 should
     /// be handled by sequential execution) and that concurrency_level <= num_cpus.
@@ -243,6 +244,7 @@ where
                 .send(txn_idx)
                 .expect("Worker must be available");
             // Iterate round robin over workers to do commit_hook.
+            //TODO: send something out.
             *worker_idx = (*worker_idx + 1) % post_commit_txs.len();
 
             // Committed the last transaction, BlockSTM finishes execution.
@@ -478,6 +480,7 @@ where
 
         let timer = RAYON_EXECUTION_SECONDS.start_timer();
         self.executor_thread_pool.scope(|s| {
+            provider.start_listening_to_remote_commit(s);
             for _ in 0..self.concurrency_level {
                 let role = roles.pop().expect("Role must be set for all threads");
                 s.spawn(|_| {

@@ -8,6 +8,7 @@ use aptos_mvhashmap::types::TxnIndex;
 use arc_swap::ArcSwapOption;
 use parking_lot::RwLock;
 use std::fmt::Debug;
+use rayon::Scope;
 
 pub mod default;
 pub mod interactive_blockstm;
@@ -67,4 +68,8 @@ pub trait LastInputOutputProvider<K, TO: TransactionOutput, TE: Debug>: Send + S
         tid: TxnIndex,
     ) -> &CachePadded<ArcSwapOption<TxnOutput<TO, TE>>>;
     fn get_commit_lock_by_tid(locks: &Self::CommitLockCollection, tid: TxnIndex) -> &Mutex<()>;
+}
+
+pub trait RemoteDependencyListener: Send + Sync {
+    fn start_listening_to_remote_commit(&self, s: &Scope);
 }
