@@ -336,6 +336,11 @@ impl<NetworkClient: NetworkClientInterface<MempoolSyncMsg>> MempoolNetworkInterf
         }
         let retry_batch_id = state.broadcast_info.retry_batches.iter().rev().next();
 
+        let timeline_peer = if self.is_validator() {
+            None
+        } else {
+            Some(peer)
+        };
         let (batch_id, transactions, metric_label) =
             match std::cmp::max(expired_batch_id, retry_batch_id) {
                 Some(id) => {
@@ -345,7 +350,7 @@ impl<NetworkClient: NetworkClientInterface<MempoolSyncMsg>> MempoolNetworkInterf
                         Some(counters::RETRY_BROADCAST_LABEL)
                     };
 
-                    let txns = mempool.timeline_range(&id.0, Some(peer));
+                    let txns = mempool.timeline_range(&id.0, timeline_peer);
                     (id.clone(), txns, metric_label)
                 },
                 None => {
@@ -353,7 +358,7 @@ impl<NetworkClient: NetworkClientInterface<MempoolSyncMsg>> MempoolNetworkInterf
                     let (txns, new_timeline_id) = mempool.read_timeline(
                         &state.timeline_id,
                         self.mempool_config.shared_mempool_batch_size,
-                        Some(peer),
+                        timeline_peer,
                     );
                     (
                         MultiBatchId::from_timeline_ids(&state.timeline_id, &new_timeline_id),
