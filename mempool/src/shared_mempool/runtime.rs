@@ -49,7 +49,7 @@ pub(crate) fn start_shared_mempool<TransactionValidator>(
     db: Arc<dyn DbReader>,
     validator: Arc<RwLock<TransactionValidator>>,
     subscribers: Vec<UnboundedSender<SharedMempoolNotification>>,
-    peers: Arc<PeersAndMetadata>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
     broadcast_peers_selector: Arc<RwLock<Box<dyn BroadcastPeersSelector>>>,
 ) where
     TransactionValidator: TransactionValidation + 'static,
@@ -74,7 +74,7 @@ pub(crate) fn start_shared_mempool<TransactionValidator>(
         mempool_listener,
         mempool_reconfig_events,
         config.mempool.peer_update_interval_ms,
-        peers,
+        peers_and_metadata,
         broadcast_peers_selector,
     ));
 
@@ -100,7 +100,7 @@ pub fn bootstrap(
     quorum_store_requests: Receiver<QuorumStoreRequest>,
     mempool_listener: MempoolNotificationListener,
     mempool_reconfig_events: ReconfigNotificationListener,
-    peers: Arc<PeersAndMetadata>,
+    peers_and_metadata: Arc<PeersAndMetadata>,
 ) -> Runtime {
     let runtime = aptos_runtimes::spawn_named_runtime("shared-mem".into(), None);
 
@@ -108,7 +108,9 @@ pub fn bootstrap(
         let inner_selector: Box<dyn BroadcastPeersSelector> = if config.base.role.is_validator() {
             Box::new(AllPeersSelector::new())
         } else if !config.base.role.is_validator()
-            && peers.get_registered_networks().contains(&NetworkId::Vfn)
+            && peers_and_metadata
+                .get_registered_networks()
+                .contains(&NetworkId::Vfn)
         {
             // is_vfn
             Box::new(PrioritizedPeersSelector::new(config.mempool.clone()))
@@ -136,7 +138,7 @@ pub fn bootstrap(
         db,
         vm_validator,
         vec![],
-        peers,
+        peers_and_metadata,
         broadcast_peers_selector,
     );
     runtime
