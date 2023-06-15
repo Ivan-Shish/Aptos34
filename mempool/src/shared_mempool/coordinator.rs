@@ -13,7 +13,7 @@ use crate::{
         broadcast_peers_selector::BroadcastPeersSelector,
         tasks,
         tasks::process_committed_transactions,
-        types::{notify_subscribers, ScheduledBroadcast, SharedMempool, SharedMempoolNotification},
+        types::{notify_subscribers, SharedMempool, SharedMempoolNotification},
     },
     MempoolEventsReceiver, QuorumStoreRequest,
 };
@@ -113,7 +113,7 @@ pub(crate) async fn coordinator<NetworkClient, TransactionValidator>(
                 tasks::execute_broadcast(peer, backoff, &mut smp, &mut scheduled_broadcasts, executor.clone()).await;
             },
             (network_id, event) = events.select_next_some() => {
-                handle_network_event(&executor, &bounded_executor, &mut scheduled_broadcasts, &mut smp, network_id, event).await;
+                handle_network_event(&bounded_executor, &mut smp, network_id, event).await;
             },
             _ = update_peers_interval.tick().fuse() => {
                 if let Ok(updated_peers) = peers_and_metadata.get_connected_peers_and_metadata() {
@@ -282,11 +282,7 @@ async fn handle_mempool_reconfig_event<NetworkClient, TransactionValidator>(
 /// - Network messages follow a simple Request/Response framework to accept new transactions
 /// TODO: Move to RPC off of DirectSend
 async fn handle_network_event<NetworkClient, TransactionValidator>(
-    // TODO: remove
-    _executor: &Handle,
     bounded_executor: &BoundedExecutor,
-    // TODO: remove
-    _scheduled_broadcasts: &mut FuturesUnordered<ScheduledBroadcast>,
     smp: &mut SharedMempool<NetworkClient, TransactionValidator>,
     network_id: NetworkId,
     event: Event<MempoolSyncMsg>,
