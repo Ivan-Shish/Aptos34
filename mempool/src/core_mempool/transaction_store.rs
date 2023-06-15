@@ -16,7 +16,8 @@ use crate::{
     counters::{BROADCAST_BATCHED_LABEL, BROADCAST_READY_LABEL, CONSENSUS_READY_LABEL},
     logging::{LogEntry, LogEvent, LogSchema, TxnsLog},
     shared_mempool::{
-        broadcast_peers_selector::BroadcastPeersSelector, types::MultiBucketTimelineIndexIds,
+        broadcast_peers_selector::{BroadcastPeersSelector, SelectedPeers},
+        types::MultiBucketTimelineIndexIds,
     },
 };
 use aptos_config::{config::MempoolConfig, network_id::PeerNetworkId};
@@ -458,21 +459,21 @@ impl TransactionStore {
 
                 let process_broadcast_ready = txn.timeline_state == TimelineState::NotReady;
                 if process_broadcast_ready {
-                    let peers = self
+                    match self
                         .broadcast_peers_selector
                         .read()
-                        .broadcast_peers(address);
-                    let mut no_peers = false;
-                    if let Some(peers) = &peers {
-                        if peers.is_empty() {
-                            no_peers = true;
-                        }
-                    }
-                    if no_peers {
-                        self.ready_no_peers_index
-                            .insert(TxnPointer::from(&txn.clone()));
-                    } else {
-                        self.timeline_index.insert(txn, peers);
+                        .broadcast_peers(address)
+                    {
+                        SelectedPeers::None => {
+                            self.ready_no_peers_index
+                                .insert(TxnPointer::from(&txn.clone()));
+                        },
+                        SelectedPeers::All => {
+                            self.timeline_index.insert(txn, None);
+                        },
+                        SelectedPeers::Selected(peers) => {
+                            self.timeline_index.insert(txn, Some(peers));
+                        },
                     }
                 }
 
@@ -805,21 +806,23 @@ impl TransactionStore {
             if let Some(mempool_txn) =
                 self.get_mempool_txn(&txn_pointer.sender, txn_pointer.sequence_number)
             {
-                if let Some(new_peers) = self
+                match self
                     .broadcast_peers_selector
                     .read()
                     .broadcast_peers(&txn_pointer.sender)
                 {
-                    if new_peers.is_empty() {
+                    SelectedPeers::All => panic!("Unexpected"),
+                    SelectedPeers::None => {
                         warn!("On redirect, empty again!");
                         reinsert.push(TxnPointer::from(mempool_txn));
-                    } else {
+                    },
+                    SelectedPeers::Selected(new_peers) => {
                         let mut txn = mempool_txn.clone();
                         self.timeline_index.update(&mut txn, new_peers);
                         if let Some(txns) = self.transactions.get_mut(&txn_pointer.sender) {
                             txns.insert(txn_pointer.sequence_number, txn);
                         }
-                    }
+                    },
                 }
             }
         }
@@ -835,22 +838,23 @@ impl TransactionStore {
         info!("to_redirect: {:?}", to_redirect);
         for (account, seq_no) in &to_redirect {
             if let Some(mempool_txn) = self.get_mempool_txn(account, *seq_no) {
-                if let Some(new_peers) = self
+                match self
                     .broadcast_peers_selector
                     .read()
                     .broadcast_peers(account)
                 {
-                    info!("redirect new_peers: {:?}", new_peers);
-                    if new_peers.is_empty() {
+                    SelectedPeers::All => panic!("Unexpected"),
+                    SelectedPeers::None => {
                         self.ready_no_peers_index
                             .insert(TxnPointer::from(mempool_txn));
-                    } else {
+                    },
+                    SelectedPeers::Selected(new_peers) => {
                         let mut txn = mempool_txn.clone();
                         self.timeline_index.update(&mut txn, new_peers);
                         if let Some(txns) = self.transactions.get_mut(account) {
                             txns.insert(*seq_no, txn);
                         }
-                    }
+                    },
                 }
             }
         }

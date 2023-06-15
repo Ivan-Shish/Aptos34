@@ -19,11 +19,27 @@ use std::{
     time::Duration,
 };
 
+pub enum SelectedPeers {
+    All,
+    Selected(Vec<PeerNetworkId>),
+    None,
+}
+
+impl From<Vec<PeerNetworkId>> for SelectedPeers {
+    fn from(peers: Vec<PeerNetworkId>) -> Self {
+        if peers.is_empty() {
+            SelectedPeers::None
+        } else {
+            SelectedPeers::Selected(peers)
+        }
+    }
+}
+
 pub trait BroadcastPeersSelector: Send + Sync {
     fn update_peers(&mut self, updated_peers: &HashMap<PeerNetworkId, PeerMetadata>);
     // TODO: for backwards compatibility, an empty vector could mean we send to all?
     // TODO: for all the tests, just added an empty vector, need to audit later
-    fn broadcast_peers(&self, account: &AccountAddress) -> Option<Vec<PeerNetworkId>>;
+    fn broadcast_peers(&self, account: &AccountAddress) -> SelectedPeers;
 }
 
 #[derive(Clone, Debug)]
@@ -92,8 +108,8 @@ impl BroadcastPeersSelector for AllPeersSelector {
         // Do nothing
     }
 
-    fn broadcast_peers(&self, _account: &AccountAddress) -> Option<Vec<PeerNetworkId>> {
-        None
+    fn broadcast_peers(&self, _account: &AccountAddress) -> SelectedPeers {
+        SelectedPeers::All
     }
 }
 
@@ -123,8 +139,8 @@ impl BroadcastPeersSelector for PrioritizedPeersSelector {
             .collect();
     }
 
-    fn broadcast_peers(&self, _account: &AccountAddress) -> Option<Vec<PeerNetworkId>> {
-        let ret: Vec<_> = self
+    fn broadcast_peers(&self, _account: &AccountAddress) -> SelectedPeers {
+        let peers: Vec<_> = self
             .prioritized_peers
             .iter()
             .take(self.mempool_config.default_failovers + 1)
@@ -133,9 +149,9 @@ impl BroadcastPeersSelector for PrioritizedPeersSelector {
         info!(
             "prioritized_peers (len {}): {:?}",
             self.prioritized_peers.len(),
-            ret
+            peers
         );
-        Some(ret)
+        peers.into()
     }
 }
 
@@ -208,23 +224,19 @@ impl BroadcastPeersSelector for FreshPeersSelector {
         self.peers = HashSet::from_iter(self.sorted_peers.iter().map(|(peer, _version)| *peer));
     }
 
-    // TODO: a filter for already tried peers. also clear stickiness cache in this case?
-    fn broadcast_peers(&self, account: &PeerId) -> Option<Vec<PeerNetworkId>> {
+    fn broadcast_peers(&self, account: &PeerId) -> SelectedPeers {
         let possibly_cached_results = self.broadcast_peers_inner(account);
-        let results: Vec<_> = possibly_cached_results
+        let mut peers: Vec<_> = possibly_cached_results
             .iter()
             .filter(|peer| self.peers.contains(peer))
             .cloned()
             .collect();
-        if results.is_empty() {
+        if peers.is_empty() {
             self.stickiness_cache.remove(account);
-            let res = self.broadcast_peers_inner(account);
-            info!("fresh_peers, stickiness removed: {:?}", res);
-            Some(res)
-        } else {
-            info!("fresh_peers: {:?}", results);
-            Some(results)
+            peers = self.broadcast_peers_inner(account);
+            info!("fresh_peers, stickiness removed");
         }
+        peers.into()
     }
 }
 
