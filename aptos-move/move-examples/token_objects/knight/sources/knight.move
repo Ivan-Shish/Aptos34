@@ -176,12 +176,12 @@ module token_objects::knight {
         feed_food(from, meat_token, to, amount);
     }
 
-    public entry fun feed_food(from: &signer, food_token: Object<FoodToken>, to: Object<KnightToken>, amount: u64) acquires HealthPoint, KnightToken {
-        let knight_token_address = object::object_address(&to);
-        food::burn_food(from, food_token, amount);
+    public entry fun feed_food(from: &signer, food: Object<FoodToken>, to: Object<KnightToken>, amount: u64) acquires HealthPoint, KnightToken {
+        food::burn_food(from, food, amount);
 
-        let restoration_amount = food::restoration_value(food_token) * amount;
-        let health_point = borrow_global_mut<HealthPoint>(object::object_address(&to));
+        let restoration_amount = food::restoration_value(food) * amount;
+        let knight_token_address = object::object_address(&to);
+        let health_point = borrow_global_mut<HealthPoint>(knight_token_address);
         let old_health_point = health_point.value;
         let new_health_point = old_health_point + restoration_amount;
         health_point.value = new_health_point;
