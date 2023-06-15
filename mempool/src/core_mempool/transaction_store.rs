@@ -456,29 +456,23 @@ impl TransactionStore {
                 let process_ready = !self.priority_index.contains(txn);
                 self.priority_index.insert(txn);
 
-                // TODO: If there are no peers here, send the txn back to not ready?
                 let process_broadcast_ready = txn.timeline_state == TimelineState::NotReady;
                 if process_broadcast_ready {
                     let peers = self
                         .broadcast_peers_selector
                         .read()
                         .broadcast_peers(address);
-                    let mut insert = true;
-                    if let Some(peers) = peers {
+                    let mut no_peers = false;
+                    if let Some(peers) = &peers {
                         if peers.is_empty() {
-                            insert = false;
+                            no_peers = true;
                         }
                     }
-                    if insert {
-                        self.timeline_index.insert(
-                            txn,
-                            self.broadcast_peers_selector
-                                .read()
-                                .broadcast_peers(address),
-                        );
-                    } else {
+                    if no_peers {
                         self.ready_no_peers_index
                             .insert(TxnPointer::from(&txn.clone()));
+                    } else {
+                        self.timeline_index.insert(txn, peers);
                     }
                 }
 
