@@ -1,0 +1,56 @@
+[package]
+name = "aptos-node-api-v2"
+description = "Aptos node API v2"
+version = "2.0.1"
+
+# Workspace inherited keys
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+publish = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+aptos-api = { workspace = true }
+aptos-api-types = { workspace = true }
+aptos-build-info = { workspace = true }
+aptos-config = { workspace = true }
+aptos-crypto = { workspace = true }
+aptos-gas = { workspace = true }
+aptos-indexer-grpc-fullnode = { workspace = true }
+aptos-logger = { workspace = true }
+aptos-mempool = { workspace = true }
+aptos-metrics-core = { workspace = true }
+aptos-protos = { workspace = true }
+aptos-runtimes = { workspace = true }
+aptos-state-view = { workspace = true }
+aptos-storage-interface = { workspace = true }
+aptos-types = { workspace = true }
+aptos-vm = { workspace = true }
+async-graphql = "5.0.10"
+async-graphql-poem = "5.0.10"
+async-trait = { workspace = true }
+bcs = { workspace = true }
+bytes = { workspace = true }
+fail = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+hyper = { workspace = true }
+itertools = { workspace = true }
+mime = { workspace = true }
+move-core-types = { workspace = true }
+num_cpus = { workspace = true }
+once_cell = { workspace = true }
+paste = { workspace = true }
+pbjson-types = "0.5.1"
+poem = { workspace = true }
+poem-openapi = { workspace = true }
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+

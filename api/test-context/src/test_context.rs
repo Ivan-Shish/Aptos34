@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::{golden_output::GoldenOutputs, pretty};
-use aptos_api::{attach_poem_to_runtime, BasicError, Context};
+use aptos_api::{BasicError, Context};
 use aptos_api_types::{
     mime_types, HexEncodedBytes, TransactionOnChainData, X_APTOS_CHAIN_ID,
     X_APTOS_LEDGER_TIMESTAMP, X_APTOS_LEDGER_VERSION,
@@ -22,6 +22,9 @@ use aptos_executor_types::BlockExecutorTrait;
 use aptos_framework::BuiltPackage;
 use aptos_mempool::mocks::MockSharedMempool;
 use aptos_mempool_notifications::MempoolNotificationSender;
+use aptos_node_api_entrypoint::{attach_to_runtime, build_routes};
+use aptos_node_api_v1::ApiV1Config;
+use aptos_node_api_v2::ApiV2Config;
 use aptos_sdk::{
     bcs,
     transaction_builder::TransactionFactory,
@@ -139,11 +142,17 @@ pub fn new_test_context(
         mempool.ac_client.clone(),
         node_config.clone(),
     );
+    let context = Arc::new(context);
 
     // Configure the testing depending on which API version we're testing.
     let runtime_handle = tokio::runtime::Handle::current();
-    let poem_address = attach_poem_to_runtime(&runtime_handle, context.clone(), &node_config, true)
-        .expect("Failed to attach poem to runtime");
+    let routes = build_routes(
+        ApiV1Config::new(context.clone()),
+        ApiV2Config::new(context.clone()),
+    )
+    .expect("Failed to build API routes");
+    let poem_address = attach_to_runtime(&runtime_handle, &node_config, routes, true)
+        .expect("Failed to attach API to runtime");
     let api_specific_config = ApiSpecificConfig::V1(poem_address);
 
     TestContext::new(
@@ -161,7 +170,7 @@ pub fn new_test_context(
 
 #[derive(Clone)]
 pub struct TestContext {
-    pub context: Context,
+    pub context: Arc<Context>,
     pub validator_owner: AccountAddress,
     pub mempool: Arc<MockSharedMempool>,
     pub db: Arc<AptosDB>,
@@ -177,7 +186,7 @@ pub struct TestContext {
 
 impl TestContext {
     pub fn new(
-        context: Context,
+        context: Arc<Context>,
         rng: rand::rngs::StdRng,
         root_key: Ed25519PrivateKey,
         validator_owner: AccountAddress,
