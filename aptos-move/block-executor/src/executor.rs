@@ -2,19 +2,10 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{
-    blockstm_providers::{LastInputOutputProvider, SchedulerProvider},
-    counters,
-    counters::{
-        PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
-        TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
-    },
-    errors::*,
-    scheduler::{DependencyStatus, Scheduler, SchedulerTask, Wave},
-    task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput},
-    txn_last_input_output::TxnLastInputOutput,
-    view::{LatestView, MVHashMapView},
-};
+use crate::{blockstm_providers::{LastInputOutputProvider, SchedulerProvider}, counters, counters::{
+    PARALLEL_EXECUTION_SECONDS, RAYON_EXECUTION_SECONDS, TASK_EXECUTE_SECONDS,
+    TASK_VALIDATE_SECONDS, VM_INIT_SECONDS, WORK_WITH_TASK_SECONDS,
+}, errors::*, MessageForShardedBlockSTM, scheduler::{DependencyStatus, Scheduler, SchedulerTask, Wave}, task::{ExecutionStatus, ExecutorTask, Transaction, TransactionOutput}, txn_last_input_output::TxnLastInputOutput, view::{LatestView, MVHashMapView}};
 use aptos_aggregator::delta_change_set::{deserialize, serialize};
 use aptos_logger::{debug, info};
 use aptos_mvhashmap::{
@@ -66,7 +57,7 @@ where
     E: ExecutorTask<Txn = T, Output = TO, Error = TE>,
     S: TStateView<Key = K> + Sync,
     X: Executable + 'static,
-    P: SchedulerProvider + LastInputOutputProvider<K, TO, TE> + RemoteDependencyListener + 'static,
+    P: SchedulerProvider + LastInputOutputProvider<K, TO, TE> + RemoteDependencyListener<T::Key, T::Value, X> + 'static,
 {
     /// The caller needs to ensure that concurrency_level > 1 (0 is illegal and 1 should
     /// be handled by sequential execution) and that concurrency_level <= num_cpus.
@@ -244,7 +235,6 @@ where
                 .send(txn_idx)
                 .expect("Worker must be available");
             // Iterate round robin over workers to do commit_hook.
-            //TODO: send something out.
             *worker_idx = (*worker_idx + 1) % post_commit_txs.len();
 
             // Committed the last transaction, BlockSTM finishes execution.
@@ -311,6 +301,7 @@ where
         last_input_output: &TxnLastInputOutput<T::Key, E::Output, E::Error, P>,
         base_view: &S,
     ) {
+        //TODO: send something out.
         let (num_deltas, delta_keys) = last_input_output.delta_keys(txn_idx);
         let mut delta_writes = Vec::with_capacity(num_deltas);
         for k in delta_keys {
@@ -456,7 +447,7 @@ where
         // w. concurrency_level = 1 for some reason.
         assert!(self.concurrency_level > 1, "Must use sequential execution");
 
-        let versioned_cache = MVHashMap::new();
+        let versioned_cache: MVHashMap<K, <T as Transaction>::Value, X> = MVHashMap::new();
 
         if signature_verified_block.is_empty() {
             return Ok(vec![]);
@@ -480,7 +471,24 @@ where
 
         let timer = RAYON_EXECUTION_SECONDS.start_timer();
         self.executor_thread_pool.scope(|s| {
-            provider.start_listening_to_remote_commit(s);
+            if provider.enabled() {
+                s.spawn(|_s| {
+                    let (_tx, rx) = mpsc::channel::<MessageForShardedBlockSTM<T::Key, T::Value>>();
+                    loop {
+                        match rx.recv().unwrap() {
+                            MessageForShardedBlockSTM::NewRemoteResult(tid, writes) => {
+                                for (k,v) in writes {
+                                    versioned_cache.write(k, (tid, 1), v);
+                                }
+                                scheduler.finish_execution(tid, 1, false);
+                            }
+                            MessageForShardedBlockSTM::Shutdown => {
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
             for _ in 0..self.concurrency_level {
                 let role = roles.pop().expect("Role must be set for all threads");
                 s.spawn(|_| {

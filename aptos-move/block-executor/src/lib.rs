@@ -8,6 +8,7 @@ use crate::{
     txn_last_input_output::{TxnInput, TxnOutput},
 };
 use crossbeam::utils::CachePadded;
+use aptos_mvhashmap::types::TxnIndex;
 
 pub mod blockstm_providers;
 /**
@@ -155,3 +156,8 @@ mod txn_last_input_output;
 #[cfg(test)]
 mod unit_tests;
 pub mod view;
+
+pub enum MessageForShardedBlockSTM<K,V> {
+    NewRemoteResult(TxnIndex, Vec<(K,V)>),
+    Shutdown,
+}

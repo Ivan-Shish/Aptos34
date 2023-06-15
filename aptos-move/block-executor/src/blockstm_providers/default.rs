@@ -10,7 +10,11 @@ use arc_swap::ArcSwapOption;
 use parking_lot::RwLock;
 use std::fmt::Debug;
 use rayon::Scope;
+use aptos_mvhashmap::MVHashMap;
+use aptos_types::executable::Executable;
+use aptos_types::write_set::TransactionWrite;
 use crate::blockstm_providers::RemoteDependencyListener;
+use crate::scheduler::Scheduler;
 
 pub struct DefaultBlockStmProvider {
     num_txns: TxnIndex,
@@ -127,6 +131,11 @@ impl<K: Send + Sync, TO: TransactionOutput, TE: Debug + Send + Sync>
     }
 }
 
-impl RemoteDependencyListener for DefaultBlockStmProvider {
-    fn start_listening_to_remote_commit(&self, s: &Scope) {}
+impl<K, T: TransactionWrite, X: Executable> RemoteDependencyListener<K, T, X> for DefaultBlockStmProvider {
+    fn start_listening_to_remote_commit(&self, s: &Scope, mv: &MVHashMap<K, T, X>, scheduler: &Scheduler<Self>) {
+    }
+
+    fn enabled(&self) -> bool {
+        false
+    }
 }
