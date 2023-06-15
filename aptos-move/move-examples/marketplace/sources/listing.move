@@ -23,6 +23,7 @@ module marketplace::listing {
     use marketplace::fee_schedule::FeeSchedule;
 
     friend marketplace::coin_listing;
+    friend marketplace::collection_offer;
 
     /// There exists no listing.
     const ENO_LISTING: u64 = 1;
@@ -112,7 +113,7 @@ module marketplace::listing {
         create_tokenv1_container_with_token(seller, token)
     }
 
-    public fun create_tokenv1_container_with_token(
+    public(friend) fun create_tokenv1_container_with_token(
         seller: &signer,
         token: TokenV1,
     ): Object<TokenV1Container> {
