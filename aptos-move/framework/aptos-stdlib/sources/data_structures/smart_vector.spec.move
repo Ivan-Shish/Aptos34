@@ -12,6 +12,10 @@ spec aptos_std::smart_vector {
             || (option::is_some(inline_capacity) && option::is_some(bucket_size));
     }
 
+    spec new {
+        aborts_if false;
+    }
+
     spec empty {
         aborts_if false;
     }
