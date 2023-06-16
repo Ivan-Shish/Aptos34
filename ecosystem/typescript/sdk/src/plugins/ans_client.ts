@@ -1,4 +1,4 @@
-import { AptosClient, ApiError, Provider, OptionalTransactionArgs } from "../providers";
+import { AptosClient, Provider, OptionalTransactionArgs, ApiError } from "../providers";
 import * as Gen from "../generated/index";
 import { AptosAccount } from "../account";
 import { TransactionBuilderRemoteABI } from "../transaction_builder";
@@ -117,7 +117,7 @@ export class AnsClient {
     // check if the name is available
     const address = await this.getAddressByName(domainName);
     if (address !== null) {
-      throw new ApiError(400, `Name ${domainName} is not available`);
+      throw new ApiError(404, `Name ${domainName} is not available`);
     }
 
     const builder = new TransactionBuilderRemoteABI(this.provider.aptosClient, {
