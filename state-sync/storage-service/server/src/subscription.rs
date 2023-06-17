@@ -158,13 +158,11 @@ impl SubscriptionRequest {
     pub fn subscription_stream_id(&self) -> u64 {
         match &self.request.data_request {
             DataRequest::SubscribeTransactionOutputsWithProof(request) => {
-                request.subscription_stream_index
+                request.subscription_stream_id
             },
-            DataRequest::SubscribeTransactionsWithProof(request) => {
-                request.subscription_stream_index
-            },
+            DataRequest::SubscribeTransactionsWithProof(request) => request.subscription_stream_id,
             DataRequest::SubscribeTransactionsOrOutputsWithProof(request) => {
-                request.subscription_stream_index
+                request.subscription_stream_id
             },
             request => unreachable!("Unexpected subscription request: {:?}", request),
         }
@@ -174,11 +172,13 @@ impl SubscriptionRequest {
     fn subscription_stream_index(&self) -> u64 {
         match &self.request.data_request {
             DataRequest::SubscribeTransactionOutputsWithProof(request) => {
-                request.subscription_stream_id
+                request.subscription_stream_index
             },
-            DataRequest::SubscribeTransactionsWithProof(request) => request.subscription_stream_id,
+            DataRequest::SubscribeTransactionsWithProof(request) => {
+                request.subscription_stream_index
+            },
             DataRequest::SubscribeTransactionsOrOutputsWithProof(request) => {
-                request.subscription_stream_id
+                request.subscription_stream_index
             },
             request => unreachable!("Unexpected subscription request: {:?}", request),
         }
@@ -262,7 +262,7 @@ impl SubscriptionStreamRequests {
 
     /// Returns a reference to the first pending subscription request
     /// in the stream (if it exists).
-    fn first_pending_request(&self) -> Option<&SubscriptionRequest> {
+    pub fn first_pending_request(&self) -> Option<&SubscriptionRequest> {
         self.pending_subscription_requests
             .first_key_value()
             .map(|(_, request)| request)
@@ -273,27 +273,20 @@ impl SubscriptionStreamRequests {
     /// pending request has been blocked for too long; or (ii)
     /// the stream has been idle for too long.
     fn is_expired(&self, timeout_ms: u64) -> bool {
-        if let Some(subscription_request) = self.first_pending_request() {
-            // Verify the stream hasn't been blocked for too long
-            let current_time = self.time_service.now();
-            let elapsed_time = current_time
-                .duration_since(subscription_request.request_start_time)
-                .as_millis();
-            if elapsed_time > timeout_ms as u128 {
-                return true; // The stream has been blocked for too long
-            }
-        } else {
-            // If the steam is empty, verify the stream hasn't been idle for too long
-            let current_time = self.time_service.now();
-            let elapsed_time = current_time
-                .duration_since(self.last_stream_update_time)
-                .as_millis();
-            if elapsed_time > timeout_ms as u128 {
-                return true; // The stream has been idle for too long
-            }
-        }
+        // Determine the time when the stream was first blocked
+        let time_when_first_blocked =
+            if let Some(subscription_request) = self.first_pending_request() {
+                subscription_request.request_start_time // The stream is blocked on the first pending request
+            } else {
+                self.last_stream_update_time // The stream is idle and hasn't been updated in a while
+            };
 
-        false
+        // Verify the stream hasn't been blocked for too long
+        let current_time = self.time_service.now();
+        let elapsed_time = current_time
+            .duration_since(time_when_first_blocked)
+            .as_millis();
+        elapsed_time > (timeout_ms as u128)
     }
 
     /// Removes the first pending subscription request from the stream
@@ -365,6 +358,9 @@ impl SubscriptionStreamRequests {
         if target_ledger_info.ledger_info().ends_epoch() {
             self.highest_known_epoch += 1;
         }
+
+        // Update the next index to serve
+        self.next_index_to_serve += 1;
 
         // Refresh the last stream update time
         self.refresh_last_stream_update_time();
@@ -562,7 +558,7 @@ pub(crate) fn remove_expired_subscription_streams(
         .lock()
         .retain(|peer_network_id, subscription_stream_requests| {
             // Update the expired subscription stream metrics
-            if subscription_stream_requests.is_expired(config.max_subscription_period) {
+            if subscription_stream_requests.is_expired(config.max_subscription_period_ms) {
                 increment_counter(
                     &metrics::SUBSCRIPTION_EVENTS,
                     peer_network_id.network_id(),
@@ -571,6 +567,6 @@ pub(crate) fn remove_expired_subscription_streams(
             }
 
             // Only retain non-expired subscription streams
-            !subscription_stream_requests.is_expired(config.max_subscription_period)
+            !subscription_stream_requests.is_expired(config.max_subscription_period_ms)
         });
 }

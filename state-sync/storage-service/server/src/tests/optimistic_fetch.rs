@@ -24,7 +24,7 @@ use aptos_types::epoch_change::EpochChangeProof;
 use futures::channel::oneshot;
 use lru::LruCache;
 use rand::{rngs::OsRng, Rng};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc};
 
 #[tokio::test]
 async fn test_peers_with_ready_optimistic_fetches() {
@@ -147,9 +147,9 @@ async fn test_peers_with_ready_optimistic_fetches() {
 #[tokio::test]
 async fn test_remove_expired_optimistic_fetches() {
     // Create a storage service config
-    let max_optimistic_fetch_period = 100;
+    let max_optimistic_fetch_period_ms = 100;
     let storage_service_config = StorageServiceConfig {
-        max_optimistic_fetch_period,
+        max_optimistic_fetch_period_ms,
         ..Default::default()
     };
 
@@ -173,11 +173,7 @@ async fn test_remove_expired_optimistic_fetches() {
     );
 
     // Elapse a small amount of time (not enough to expire the optimistic fetches)
-    time_service
-        .clone()
-        .into_mock()
-        .advance_async(Duration::from_millis(max_optimistic_fetch_period / 2))
-        .await;
+    utils::elapse_time(max_optimistic_fetch_period_ms / 2, &time_service).await;
 
     // Remove the expired optimistic fetches and verify none were removed
     optimistic_fetch::remove_expired_optimistic_fetches(
@@ -204,11 +200,7 @@ async fn test_remove_expired_optimistic_fetches() {
     );
 
     // Elapse enough time to expire the first batch of optimistic fetches
-    time_service
-        .clone()
-        .into_mock()
-        .advance_async(Duration::from_millis(max_optimistic_fetch_period))
-        .await;
+    utils::elapse_time(max_optimistic_fetch_period_ms, &time_service).await;
 
     // Remove the expired optimistic fetches and verify the first batch was removed
     optimistic_fetch::remove_expired_optimistic_fetches(
@@ -221,10 +213,7 @@ async fn test_remove_expired_optimistic_fetches() {
     );
 
     // Elapse enough time to expire the second batch of optimistic fetches
-    time_service
-        .into_mock()
-        .advance_async(Duration::from_millis(max_optimistic_fetch_period))
-        .await;
+    utils::elapse_time(max_optimistic_fetch_period_ms, &time_service).await;
 
     // Remove the expired optimistic fetches and verify the second batch was removed
     optimistic_fetch::remove_expired_optimistic_fetches(

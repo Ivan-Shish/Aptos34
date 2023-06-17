@@ -321,7 +321,7 @@ pub(crate) fn remove_expired_optimistic_fetches(
         .lock()
         .retain(|peer_network_id, optimistic_fetch| {
             // Update the expired optimistic fetch metrics
-            if optimistic_fetch.is_expired(config.max_optimistic_fetch_period) {
+            if optimistic_fetch.is_expired(config.max_optimistic_fetch_period_ms) {
                 increment_counter(
                     &metrics::OPTIMISTIC_FETCH_EVENTS,
                     peer_network_id.network_id(),
@@ -330,6 +330,6 @@ pub(crate) fn remove_expired_optimistic_fetches(
             }
 
             // Only retain non-expired optimistic fetches
-            !optimistic_fetch.is_expired(config.max_optimistic_fetch_period)
+            !optimistic_fetch.is_expired(config.max_optimistic_fetch_period_ms)
         });
 }

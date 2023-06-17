@@ -4,6 +4,7 @@
 use crate::{
     optimistic_fetch::OptimisticFetchRequest,
     storage::StorageReader,
+    subscription::SubscriptionStreamRequests,
     tests::mock::{MockClient, MockDatabaseReader},
     StorageServiceServer,
 };
@@ -13,6 +14,7 @@ use aptos_config::{
 };
 use aptos_crypto::{ed25519::Ed25519PrivateKey, HashValue, PrivateKey, SigningKey, Uniform};
 use aptos_infallible::Mutex;
+use aptos_logger::Level;
 use aptos_storage_service_types::{
     requests::{
         DataRequest, StateValuesWithProofRequest, StorageServiceRequest,
@@ -21,7 +23,7 @@ use aptos_storage_service_types::{
     responses::{CompleteDataRange, DataResponse, StorageServerSummary, StorageServiceResponse},
     Epoch, StorageServiceError,
 };
-use aptos_time_service::MockTimeService;
+use aptos_time_service::{MockTimeService, TimeService};
 use aptos_types::{
     account_address::AccountAddress,
     aggregate_signature::AggregateSignature,
@@ -39,6 +41,7 @@ use aptos_types::{
     validator_verifier::ValidatorVerifier,
     write_set::WriteSet,
 };
+use futures::channel::oneshot::Receiver;
 use mockall::predicate::eq;
 use rand::Rng;
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -253,6 +256,15 @@ pub fn configure_network_chunk_limit(
     }
 }
 
+/// Advances the mock time service by the specified number of milliseconds
+pub async fn elapse_time(time_ms: u64, time_service: &TimeService) {
+    time_service
+        .clone()
+        .into_mock()
+        .advance_async(Duration::from_millis(time_ms))
+        .await;
+}
+
 /// Sets an expectation on the given mock db for a call to fetch an epoch change proof
 pub fn expect_get_epoch_ending_ledger_infos(
     mock_db: &mut MockDatabaseReader,
@@ -361,6 +373,14 @@ pub async fn get_transactions_with_proof(
     send_storage_request(mock_client, use_compression, data_request).await
 }
 
+/// Initializes the Aptos logger for tests
+pub fn initialize_logger() {
+    aptos_logger::Logger::builder()
+        .is_async(false)
+        .level(Level::Debug)
+        .build();
+}
+
 /// Sends the given storage request to the given client
 pub async fn send_storage_request(
     mock_client: &mut MockClient,
@@ -401,6 +421,94 @@ pub fn update_storage_server_summary(
     *storage_server.cached_storage_server_summary.write() = storage_server_summary;
 }
 
+/// Verifies that a new transaction outputs with proof response is received
+/// and that the response contains the correct data.
+pub async fn verify_new_transaction_outputs_with_proof(
+    mock_client: &mut MockClient,
+    receiver: Receiver<Result<bytes::Bytes, aptos_network::protocols::network::RpcError>>,
+    output_list_with_proof: TransactionOutputListWithProof,
+    expected_ledger_info: LedgerInfoWithSignatures,
+) {
+    match mock_client
+        .wait_for_response(receiver)
+        .await
+        .unwrap()
+        .get_data_response()
+        .unwrap()
+    {
+        DataResponse::NewTransactionOutputsWithProof((outputs_with_proof, ledger_info)) => {
+            assert_eq!(outputs_with_proof, output_list_with_proof);
+            assert_eq!(ledger_info, expected_ledger_info);
+        },
+        response => panic!(
+            "Expected new transaction outputs with proof but got: {:?}",
+            response
+        ),
+    };
+}
+
+/// Verifies that a new transactions with proof response is received
+/// and that the response contains the correct data.
+pub async fn verify_new_transactions_with_proof(
+    mock_client: &mut MockClient,
+    receiver: Receiver<Result<bytes::Bytes, aptos_network::protocols::network::RpcError>>,
+    expected_transactions_with_proof: TransactionListWithProof,
+    expected_ledger_info: LedgerInfoWithSignatures,
+) {
+    match mock_client
+        .wait_for_response(receiver)
+        .await
+        .unwrap()
+        .get_data_response()
+        .unwrap()
+    {
+        DataResponse::NewTransactionsWithProof((transactions_with_proof, ledger_info)) => {
+            assert_eq!(transactions_with_proof, expected_transactions_with_proof);
+            assert_eq!(ledger_info, expected_ledger_info);
+        },
+        response => panic!(
+            "Expected new transaction with proof but got: {:?}",
+            response
+        ),
+    };
+}
+
+/// Verifies that a new transactions or outputs with proof response is received
+/// and that the response contains the correct data.
+pub async fn verify_new_transactions_or_outputs_with_proof(
+    mock_client: &mut MockClient,
+    receiver: Receiver<Result<bytes::Bytes, aptos_network::protocols::network::RpcError>>,
+    expected_transaction_list_with_proof: Option<TransactionListWithProof>,
+    expected_output_list_with_proof: Option<TransactionOutputListWithProof>,
+    expected_ledger_info: LedgerInfoWithSignatures,
+) {
+    let response = mock_client.wait_for_response(receiver).await.unwrap();
+    match response.get_data_response().unwrap() {
+        DataResponse::NewTransactionsOrOutputsWithProof((
+            transactions_or_outputs_with_proof,
+            ledger_info,
+        )) => {
+            let (transactions_with_proof, outputs_with_proof) = transactions_or_outputs_with_proof;
+            if let Some(transactions_with_proof) = transactions_with_proof {
+                assert_eq!(
+                    transactions_with_proof,
+                    expected_transaction_list_with_proof.unwrap()
+                );
+            } else {
+                assert_eq!(
+                    outputs_with_proof.unwrap(),
+                    expected_output_list_with_proof.unwrap()
+                );
+            }
+            assert_eq!(ledger_info, expected_ledger_info);
+        },
+        response => panic!(
+            "Expected new transaction outputs with proof but got: {:?}",
+            response
+        ),
+    };
+}
+
 /// Waits until the storage summary has refreshed for the first time
 pub async fn wait_for_storage_to_refresh(
     mock_client: &mut MockClient,
@@ -433,6 +541,18 @@ pub async fn wait_for_optimistic_fetch_service_to_refresh(
     advance_storage_refresh_time(mock_time).await;
 }
 
+/// Advances enough time that the subscription service is able to refresh
+pub async fn wait_for_subscription_service_to_refresh(
+    mock_client: &mut MockClient,
+    mock_time: &MockTimeService,
+) {
+    // Elapse enough time to force storage to be updated
+    wait_for_storage_to_refresh(mock_client, mock_time).await;
+
+    // Elapse enough time to force the subscription thread to work
+    advance_storage_refresh_time(mock_time).await;
+}
+
 /// Waits for the specified number of optimistic fetches to be active
 pub async fn wait_for_active_optimistic_fetches(
     active_optimistic_fetches: Arc<Mutex<HashMap<PeerNetworkId, OptimisticFetchRequest>>>,
@@ -442,6 +562,22 @@ pub async fn wait_for_active_optimistic_fetches(
         let num_active_fetches = active_optimistic_fetches.lock().len();
         if num_active_fetches == expected_num_active_fetches {
             return; // We found the expected number of active fetches
+        }
+
+        // Sleep for a while
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+/// Waits for the specified number of subscriptions to be active
+pub async fn wait_for_active_subscriptions(
+    active_subscriptions: Arc<Mutex<HashMap<PeerNetworkId, SubscriptionStreamRequests>>>,
+    expected_num_active_subscriptions: usize,
+) {
+    loop {
+        let num_active_subscriptions = active_subscriptions.lock().len();
+        if num_active_subscriptions == expected_num_active_subscriptions {
+            return; // We found the expected number of active subscriptions
         }
 
         // Sleep for a while

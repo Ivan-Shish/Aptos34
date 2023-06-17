@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    metrics, network::StorageServiceNetworkEvents, storage::StorageReader, StorageServiceServer,
+    metrics, network::StorageServiceNetworkEvents, storage::StorageReader, tests::utils,
+    StorageServiceServer,
 };
 use anyhow::Result;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{config::StorageServiceConfig, network_id::NetworkId};
 use aptos_crypto::HashValue;
-use aptos_logger::Level;
 use aptos_network::{
     application::{interface::NetworkServiceEvents, storage::PeersAndMetadata},
     peer_manager::PeerManagerNotification,
@@ -68,7 +68,7 @@ impl MockClient {
         MockTimeService,
         Arc<PeersAndMetadata>,
     ) {
-        initialize_logger();
+        utils::initialize_logger();
 
         // Create the storage reader
         let storage_config = storage_config.unwrap_or_default();
@@ -202,14 +202,6 @@ fn get_random_network_id() -> NetworkId {
         2 => NetworkId::Public,
         num => panic!("This shouldn't be possible! Got num: {:?}", num),
     }
-}
-
-/// Initializes the Aptos logger for tests
-fn initialize_logger() {
-    aptos_logger::Logger::builder()
-        .is_async(false)
-        .level(Level::Debug)
-        .build();
 }
 
 // This automatically creates a MockDatabaseReader.
@@ -347,8 +339,9 @@ mock! {
     }
 }
 
-/// Creates a mock db with the basic expectations required to handle optimistic fetch requests
-pub fn create_mock_db_for_optimistic_fetch(
+/// Creates a mock db with the basic expectations required to
+/// handle storage summary updates.
+fn create_mock_db_for_storage_summary_updates(
     highest_ledger_info_clone: LedgerInfoWithSignatures,
     lowest_version: Version,
 ) -> MockDatabaseReader {
@@ -369,6 +362,22 @@ pub fn create_mock_db_for_optimistic_fetch(
         .expect_is_state_merkle_pruner_enabled()
         .returning(move || Ok(true));
     db_reader
+}
+
+/// Creates a mock db with the basic expectations required to handle optimistic fetch requests
+pub fn create_mock_db_for_optimistic_fetch(
+    highest_ledger_info_clone: LedgerInfoWithSignatures,
+    lowest_version: Version,
+) -> MockDatabaseReader {
+    create_mock_db_for_storage_summary_updates(highest_ledger_info_clone, lowest_version)
+}
+
+/// Creates a mock db with the basic expectations required to handle subscription requests
+pub fn create_mock_db_for_subscription(
+    highest_ledger_info_clone: LedgerInfoWithSignatures,
+    lowest_version: Version,
+) -> MockDatabaseReader {
+    create_mock_db_for_storage_summary_updates(highest_ledger_info_clone, lowest_version)
 }
 
 /// Creates a mock database reader
