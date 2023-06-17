@@ -7,7 +7,8 @@ use crate::{
         GetNewTransactionsOrOutputsWithProof, GetNewTransactionsWithProof,
         GetNumberOfStatesAtVersion, GetServerProtocolVersion, GetStateValuesWithProof,
         GetStorageServerSummary, GetTransactionOutputsWithProof, GetTransactionsOrOutputsWithProof,
-        GetTransactionsWithProof,
+        GetTransactionsWithProof, SubscribeTransactionOutputsWithProof,
+        SubscribeTransactionsOrOutputsWithProof, SubscribeTransactionsWithProof,
     },
     responses::Error::DegenerateRangeError,
     Epoch, StorageServiceRequest, COMPRESSION_SUFFIX_LABEL,
@@ -30,10 +31,15 @@ use std::{
 };
 use thiserror::Error;
 
-/// The version delta we'll tolerate when considering if a peer is eligible
+/// The version lag we'll tolerate when considering if a peer is eligible
 /// to handle an optimistic fetch for new data. This value is set assuming
 /// 5k TPS for a 5 second delay, which should be more than enough.
-pub const OPTIMISTIC_FETCH_VERSION_DELTA: u64 = 25000;
+pub const OPTIMISTIC_FETCH_VERSION_LAG: u64 = 25_000;
+
+/// The version lag we'll tolerate when considering if a peer is eligible
+/// to handle a subscription for new data. This value is set assuming
+/// 5k TPS for a 20 second delay, which should be more than enough.
+pub const SUBSCRIPTION_VERSION_LAG: u64 = 100_000;
 
 #[derive(Clone, Debug, Deserialize, Error, PartialEq, Eq, Serialize)]
 pub enum Error {
@@ -527,14 +533,33 @@ impl DataSummary {
 
                 can_serve_txns && can_serve_outputs && can_create_proof
             },
+            SubscribeTransactionOutputsWithProof(request) => {
+                self.can_service_subscription_request(request.known_version)
+            },
+            SubscribeTransactionsWithProof(request) => {
+                self.can_service_subscription_request(request.known_version)
+            },
+            SubscribeTransactionsOrOutputsWithProof(request) => {
+                self.can_service_subscription_request(request.known_version)
+            },
         }
     }
 
     /// Returns true iff the optimistic data request can be serviced
     fn can_service_optimistic_request(&self, known_version: u64) -> bool {
+        self.check_synced_version_lag(known_version, OPTIMISTIC_FETCH_VERSION_LAG)
+    }
+
+    /// Returns true iff the subscription data request can be serviced
+    fn can_service_subscription_request(&self, known_version: u64) -> bool {
+        self.check_synced_version_lag(known_version, SUBSCRIPTION_VERSION_LAG)
+    }
+
+    /// Returns true iff the synced version is within the given lag range
+    fn check_synced_version_lag(&self, known_version: u64, max_version_lag: u64) -> bool {
         self.synced_ledger_info
             .as_ref()
-            .map(|li| (li.ledger_info().version() + OPTIMISTIC_FETCH_VERSION_DELTA) > known_version)
+            .map(|li| (li.ledger_info().version() + max_version_lag) > known_version)
             .unwrap_or(false)
     }
 }

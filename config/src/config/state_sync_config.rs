@@ -158,6 +158,8 @@ pub struct StorageServiceConfig {
     pub max_optimistic_fetch_period: u64,
     /// Maximum number of state keys and values per chunk
     pub max_state_chunk_size: u64,
+    /// Maximum subscription period (ms) before a subscription is dropped
+    pub max_subscription_period: u64,
     /// Maximum number of transactions per chunk
     pub max_transaction_chunk_size: u64,
     /// Maximum number of transaction outputs per chunk
@@ -181,6 +183,7 @@ impl Default for StorageServiceConfig {
             max_network_chunk_bytes: MAX_MESSAGE_SIZE as u64,
             max_optimistic_fetch_period: 5000, // 5 seconds
             max_state_chunk_size: MAX_STATE_CHUNK_SIZE,
+            max_subscription_period: 10_000, // 10 seconds
             max_transaction_chunk_size: MAX_TRANSACTION_CHUNK_SIZE,
             max_transaction_output_chunk_size: MAX_TRANSACTION_OUTPUT_CHUNK_SIZE,
             min_time_to_ignore_peers_secs: 300, // 5 minutes

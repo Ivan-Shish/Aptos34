@@ -7,6 +7,7 @@
 use crate::{
     logging::{LogEntry, LogSchema},
     network::StorageServiceNetworkEvents,
+    subscription::SubscriptionStreamRequests,
 };
 use aptos_bounded_executor::BoundedExecutor;
 use aptos_config::{config::StorageServiceConfig, network_id::PeerNetworkId};
@@ -37,6 +38,8 @@ mod moderator;
 pub mod network;
 mod optimistic_fetch;
 pub mod storage;
+mod subscription;
+mod utils;
 
 #[cfg(test)]
 mod tests;
@@ -62,6 +65,9 @@ pub struct StorageServiceServer<T> {
     // A set of active optimistic fetches for peers waiting for new data
     optimistic_fetches: Arc<Mutex<HashMap<PeerNetworkId, OptimisticFetchRequest>>>,
 
+    // A set of active subscriptions for peers waiting for new data
+    subscriptions: Arc<Mutex<HashMap<PeerNetworkId, SubscriptionStreamRequests>>>,
+
     // A moderator for incoming peer requests
     request_moderator: Arc<RequestModerator>,
 }
@@ -82,6 +88,7 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
         let lru_response_cache = Arc::new(Mutex::new(LruCache::new(
             config.max_lru_cache_size as usize,
         )));
+        let subscriptions = Arc::new(Mutex::new(HashMap::new()));
         let request_moderator = Arc::new(RequestModerator::new(
             cached_storage_server_summary.clone(),
             peers_and_metadata,
@@ -92,18 +99,20 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
         Self {
             config,
             bounded_executor,
-            storage,
             network_requests,
+            storage,
             time_service,
             cached_storage_server_summary,
             lru_response_cache,
             optimistic_fetches,
+            subscriptions,
             request_moderator,
         }
     }
 
     /// Spawns a non-terminating task that refreshes the cached storage server summary
     async fn spawn_storage_summary_refresher(&mut self) {
+        // Clone the required components for the task
         let cached_storage_server_summary = self.cached_storage_server_summary.clone();
         let config = self.config;
         let storage = self.storage.clone();
@@ -138,10 +147,12 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
 
     /// Spawns a non-terminating task that handles optimistic fetches
     async fn spawn_optimistic_fetch_handler(&mut self) {
+        // Clone the required components for the task
         let cached_storage_server_summary = self.cached_storage_server_summary.clone();
         let config = self.config;
-        let optimistic_fetches = self.optimistic_fetches.clone();
         let lru_response_cache = self.lru_response_cache.clone();
+        let optimistic_fetches = self.optimistic_fetches.clone();
+        let subscriptions = self.subscriptions.clone();
         let request_moderator = self.request_moderator.clone();
         let storage = self.storage.clone();
         let time_service = self.time_service.clone();
@@ -163,6 +174,7 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
                         cached_storage_server_summary.clone(),
                         config,
                         optimistic_fetches.clone(),
+                        subscriptions.clone(),
                         lru_response_cache.clone(),
                         request_moderator.clone(),
                         storage.clone(),
@@ -177,9 +189,54 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
             .await;
     }
 
+    /// Spawns a non-terminating task that handles subscriptions
+    async fn spawn_subscription_handler(&mut self) {
+        // Clone the required components for the task
+        let cached_storage_server_summary = self.cached_storage_server_summary.clone();
+        let config = self.config;
+        let lru_response_cache = self.lru_response_cache.clone();
+        let optimistic_fetches = self.optimistic_fetches.clone();
+        let subscriptions = self.subscriptions.clone();
+        let request_moderator = self.request_moderator.clone();
+        let storage = self.storage.clone();
+        let time_service = self.time_service.clone();
+
+        // Spawn the task
+        self.bounded_executor
+            .spawn(async move {
+                // Create a ticker for the refresh interval
+                let duration = Duration::from_millis(config.storage_summary_refresh_interval_ms);
+                let ticker = time_service.interval(duration);
+                futures::pin_mut!(ticker);
+
+                // Periodically check the subscriptions
+                loop {
+                    ticker.next().await;
+
+                    // Check and handle the active subscriptions
+                    if let Err(error) = subscription::handle_active_subscriptions(
+                        cached_storage_server_summary.clone(),
+                        config,
+                        lru_response_cache.clone(),
+                        optimistic_fetches.clone(),
+                        request_moderator.clone(),
+                        storage.clone(),
+                        subscriptions.clone(),
+                        time_service.clone(),
+                    ) {
+                        error!(LogSchema::new(LogEntry::SubscriptionRefresh)
+                            .error(&error)
+                            .message("Failed to handle active subscriptions!"));
+                    }
+                }
+            })
+            .await;
+    }
+
     /// Spawns a non-terminating task that refreshes the unhealthy
     /// peer states in the request moderator.
     async fn spawn_moderator_peer_refresher(&mut self) {
+        // Clone the required components for the task
         let config = self.config;
         let request_moderator = self.request_moderator.clone();
         let time_service = self.time_service.clone();
@@ -215,6 +272,9 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
         // Spawn the optimistic fetch handler
         self.spawn_optimistic_fetch_handler().await;
 
+        // Spawn the subscription handler
+        self.spawn_subscription_handler().await;
+
         // Spawn the refresher for the request moderator
         self.spawn_moderator_peer_refresher().await;
 
@@ -239,6 +299,7 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
             let optimistic_fetches = self.optimistic_fetches.clone();
             let lru_response_cache = self.lru_response_cache.clone();
             let request_moderator = self.request_moderator.clone();
+            let subscriptions = self.subscriptions.clone();
             let time_service = self.time_service.clone();
             self.bounded_executor
                 .spawn_blocking(move || {
@@ -248,6 +309,7 @@ impl<T: StorageReaderInterface> StorageServiceServer<T> {
                         lru_response_cache,
                         request_moderator,
                         storage,
+                        subscriptions,
                         time_service,
                     )
                     .process_request_and_respond(

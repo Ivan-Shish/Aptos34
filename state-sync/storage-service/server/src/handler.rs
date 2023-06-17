@@ -7,11 +7,13 @@ use crate::{
     metrics,
     metrics::{
         increment_counter, start_timer, LRU_CACHE_HIT, LRU_CACHE_PROBE, OPTIMISTIC_FETCH_ADD,
+        SUBSCRIPTION_ADD,
     },
     moderator::RequestModerator,
     network::ResponseSender,
     optimistic_fetch::OptimisticFetchRequest,
     storage::StorageReaderInterface,
+    subscription::{SubscriptionRequest, SubscriptionStreamRequests},
 };
 use aptos_config::network_id::PeerNetworkId;
 use aptos_infallible::{Mutex, RwLock};
@@ -47,6 +49,7 @@ pub struct Handler<T> {
     lru_response_cache: Arc<Mutex<LruCache<StorageServiceRequest, StorageServiceResponse>>>,
     request_moderator: Arc<RequestModerator>,
     storage: T,
+    subscriptions: Arc<Mutex<HashMap<PeerNetworkId, SubscriptionStreamRequests>>>,
     time_service: TimeService,
 }
 
@@ -57,14 +60,16 @@ impl<T: StorageReaderInterface> Handler<T> {
         lru_response_cache: Arc<Mutex<LruCache<StorageServiceRequest, StorageServiceResponse>>>,
         request_moderator: Arc<RequestModerator>,
         storage: T,
+        subscriptions: Arc<Mutex<HashMap<PeerNetworkId, SubscriptionStreamRequests>>>,
         time_service: TimeService,
     ) -> Self {
         Self {
-            storage,
             cached_storage_server_summary,
             optimistic_fetches,
             lru_response_cache,
             request_moderator,
+            storage,
+            subscriptions,
             time_service,
         }
     }
@@ -87,6 +92,12 @@ impl<T: StorageReaderInterface> Handler<T> {
         // Handle any optimistic fetch requests
         if request.data_request.is_optimistic_fetch() {
             self.handle_optimistic_fetch_request(peer_network_id, request, response_sender);
+            return;
+        }
+
+        // Handle any subscription requests
+        if request.data_request.is_subscription_request() {
+            self.handle_subscription_request(peer_network_id, request, response_sender);
             return;
         }
 
@@ -228,6 +239,56 @@ impl<T: StorageReaderInterface> Handler<T> {
             &metrics::OPTIMISTIC_FETCH_EVENTS,
             peer_network_id.network_id(),
             OPTIMISTIC_FETCH_ADD.into(),
+        );
+    }
+
+    /// Handles the given subscription request
+    pub fn handle_subscription_request(
+        &self,
+        peer_network_id: PeerNetworkId,
+        request: StorageServiceRequest,
+        response_sender: ResponseSender,
+    ) {
+        // Create a new subscription request
+        let subscription_request =
+            SubscriptionRequest::new(request.clone(), response_sender, self.time_service.clone());
+
+        // Get the existing stream ID and the request stream ID
+        let existing_stream_id = self.subscriptions.lock().get_mut(&peer_network_id).map(
+            |subscription_stream_requests| subscription_stream_requests.subscription_stream_id(),
+        );
+        let request_stream_id = subscription_request.subscription_stream_id();
+
+        // Add the request to the existing stream, or create a new one
+        if existing_stream_id == Some(request_stream_id) {
+            // Add the request to the existing stream (the stream IDs match)
+            if let Some(existing_stream) = self.subscriptions.lock().get_mut(&peer_network_id) {
+                if let Err(error) = existing_stream.add_subscription_request(subscription_request) {
+                    sample!(
+                        SampleRate::Duration(Duration::from_secs(INVALID_REQUEST_LOG_FREQUENCY_SECS)),
+                        warn!(LogSchema::new(LogEntry::SubscriptionRequest)
+                            .error(&error)
+                            .peer_network_id(&peer_network_id)
+                            .request(&request)
+                        );
+                    );
+                    return; // Something went wrong when adding the request to the stream
+                }
+            }
+        } else {
+            // Create a new stream and overwrite any existing one
+            let subscription_stream_requests =
+                SubscriptionStreamRequests::new(subscription_request, self.time_service.clone());
+            self.subscriptions
+                .lock()
+                .insert(peer_network_id, subscription_stream_requests);
+        }
+
+        // Update the subscription metrics
+        increment_counter(
+            &metrics::SUBSCRIPTION_EVENTS,
+            peer_network_id.network_id(),
+            SUBSCRIPTION_ADD.into(),
         );
     }
 

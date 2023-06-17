@@ -64,6 +64,7 @@ async fn test_peers_with_ready_optimistic_fetches() {
 
     // Create test data with an empty storage server summary
     let cached_storage_server_summary = Arc::new(RwLock::new(StorageServerSummary::default()));
+    let subscriptions = Arc::new(Mutex::new(HashMap::new()));
     let lru_response_cache = Arc::new(Mutex::new(LruCache::new(0)));
     let request_moderator = Arc::new(RequestModerator::new(
         cached_storage_server_summary.clone(),
@@ -77,6 +78,7 @@ async fn test_peers_with_ready_optimistic_fetches() {
         optimistic_fetch::get_peers_with_ready_optimistic_fetches(
             cached_storage_server_summary.clone(),
             optimistic_fetches.clone(),
+            subscriptions.clone(),
             lru_response_cache.clone(),
             request_moderator.clone(),
             storage_reader.clone(),
@@ -99,6 +101,7 @@ async fn test_peers_with_ready_optimistic_fetches() {
         optimistic_fetch::get_peers_with_ready_optimistic_fetches(
             cached_storage_server_summary.clone(),
             optimistic_fetches.clone(),
+            subscriptions.clone(),
             lru_response_cache.clone(),
             request_moderator.clone(),
             storage_reader.clone(),
@@ -128,6 +131,7 @@ async fn test_peers_with_ready_optimistic_fetches() {
         optimistic_fetch::get_peers_with_ready_optimistic_fetches(
             cached_storage_server_summary,
             optimistic_fetches,
+            subscriptions,
             lru_response_cache,
             request_moderator,
             storage_reader,
