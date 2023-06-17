@@ -47,6 +47,33 @@ impl AccountAddress {
         Self(buf)
     }
 
+    /// Represent an account addresses in a way that is compliant with the address
+    /// standard. See more about the standard here: <link>
+    ///
+    /// In short, all special addresses (those with 63 leading zeroes in LONG form)
+    /// MUST be represented in SHORT form (e.g. 0x1). All other addresses MUST be
+    /// represented in LONG form (e.g. 0x232098630cfad4734812fa37dc18d9b8d59242feabe49259e26318d468a99584).
+    ///
+    /// Additionally, all string representations of addresses MUST be prefixed with 0x.
+    pub fn to_standard_string(&self) -> String {
+        let suffix = if self.is_special() {
+            self.short_str_lossless()
+        } else {
+            self.to_canonical_string()
+        };
+        format!("0x{}", suffix)
+    }
+
+    /// Returns whether the address is a "special" address, where special is defined as
+    /// addresses that match the following regex: ^0x0{63}[0-9a-f]$. So, in short form,
+    /// the addresses 0x0 to 0xf.
+    pub fn is_special(&self) -> bool {
+        self.0[..Self::LENGTH - 1].iter().all(|x| *x == 0)
+    }
+
+    /// NOTE: For the purposes of displaying an address, using it in a response, or
+    /// storing it at rest as a string, use `to_standard_string`.
+    ///
     /// Return a canonical string representation of the address
     /// Addresses are hex-encoded lowercase values of length ADDRESS_LENGTH (16, 20, or 32 depending on the Move platform)
     /// e.g., 0000000000000000000000000000000a, *not* 0x0000000000000000000000000000000a, 0xa, or 0xA
@@ -56,6 +83,8 @@ impl AccountAddress {
         hex::encode(self.0)
     }
 
+    /// NOTE: For the purposes of displaying an address, using it in a response, or
+    /// storing it at rest as a string, use `to_standard_string`.
     pub fn short_str_lossless(&self) -> String {
         let hex_str = hex::encode(self.0).trim_start_matches('0').to_string();
         if hex_str.is_empty() {
@@ -97,6 +126,7 @@ impl AccountAddress {
         }
     }
 
+    /// NOTE: For display, response, and at rest encoding, prefer `to_standard_string`.
     pub fn to_hex_literal(&self) -> String {
         format!("0x{}", self.short_str_lossless())
     }
@@ -107,6 +137,8 @@ impl AccountAddress {
             .map(Self)
     }
 
+    /// NOTE: For the purposes of displaying an address, using it in a response, or
+    /// storing it at rest as a string, use `to_standard_string`.
     pub fn to_hex(&self) -> String {
         format!("{:x}", self)
     }
