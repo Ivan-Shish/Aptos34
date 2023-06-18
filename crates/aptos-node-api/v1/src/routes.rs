@@ -6,6 +6,7 @@ use anyhow::Result;
 use aptos_api::{
     check_size::PostSizeLimit, error_converter::convert_error, log::middleware_log, set_failpoints,
 };
+use aptos_api_types::X_APTOS_CLIENT;
 use poem::{
     http::{header, Method},
     middleware::Cors,
@@ -29,7 +30,11 @@ pub fn build_api_v1_routes(config: ApiV1Config) -> Result<impl IntoEndpoint> {
         // https://stackoverflow.com/a/24689738/3846032
         .allow_credentials(true)
         .allow_methods(vec![Method::GET, Method::POST])
-        .allow_headers(vec![header::CONTENT_TYPE, header::ACCEPT]);
+        .allow_headers(vec![
+            header::HeaderName::from_static(X_APTOS_CLIENT),
+            header::CONTENT_TYPE,
+            header::ACCEPT,
+        ]);
 
     // Build routes for the API
     let routes = Route::new()

@@ -43,7 +43,7 @@ use move_core_types::{
     language_storage::{ModuleId, StructTag, TypeTag},
     value::{MoveStructLayout, MoveTypeLayout},
 };
-use move_resource_viewer::MoveValueAnnotator;
+use move_resource_viewer::{AnnotatedMoveStruct, MoveValueAnnotator};
 use serde_json::Value;
 use std::{
     convert::{TryFrom, TryInto},
@@ -101,7 +101,15 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             .collect::<Result<Vec<_>>>()
     }
 
-    pub fn move_struct_fields(
+    pub fn try_into_inner_resource<'b>(
+        &self,
+        typ: &StructTag,
+        bytes: &'b [u8],
+    ) -> Result<AnnotatedMoveStruct> {
+        self.inner.view_resource(typ, bytes)
+    }
+
+    pub fn move_struct_fields<'b>(
         &self,
         typ: &StructTag,
         bytes: &'_ [u8],

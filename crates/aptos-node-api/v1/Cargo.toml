@@ -44,7 +44,6 @@ paste = { workspace = true }
 poem = { workspace = true }
 poem-openapi = { workspace = true }
 regex = { workspace = true }
-reverse-proxy-service = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

@@ -24,14 +24,15 @@ aptos-indexer-grpc-fullnode = { workspace = true }
 aptos-logger = { workspace = true }
 aptos-mempool = { workspace = true }
 aptos-metrics-core = { workspace = true }
+aptos-move-graphql-values = { workspace = true }
 aptos-protos = { workspace = true }
 aptos-runtimes = { workspace = true }
 aptos-state-view = { workspace = true }
 aptos-storage-interface = { workspace = true }
 aptos-types = { workspace = true }
 aptos-vm = { workspace = true }
-async-graphql = "5.0.10"
-async-graphql-poem = "5.0.10"
+async-graphql = { workspace = true }
+async-graphql-poem = { workspace = true }
 async-trait = { workspace = true }
 bcs = { workspace = true }
 bytes = { workspace = true }

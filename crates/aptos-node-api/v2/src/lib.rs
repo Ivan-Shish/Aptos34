@@ -4,6 +4,7 @@
 mod config;
 mod error;
 mod modules;
+mod resources;
 mod routes;
 mod schema;
 
