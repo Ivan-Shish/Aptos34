@@ -17,6 +17,24 @@ impl Address {
     pub fn inner(&self) -> &AccountAddress {
         &self.0
     }
+
+    /// Represent an account addresses in a way that is compliant with the v1 address
+    /// standard. See more about the standard here: <link todo>
+    ///
+    /// In short, all special addresses MUST be represented in SHORT form, e.g.
+    ///
+    /// 0x1
+    ///
+    /// All other addresses MUST be represented in LONG form, e.g.
+    ///
+    /// 0x002098630cfad4734812fa37dc18d9b8d59242feabe49259e26318d468a99584
+    ///
+    /// For an explanation of what defines a "special" address, see `is_special`.
+    ///
+    /// All string representations of addresses MUST be prefixed with 0x.
+    pub fn to_standard_string(&self) -> String {
+        self.0.to_standard_string()
+    }
 }
 
 impl fmt::Display for Address {
