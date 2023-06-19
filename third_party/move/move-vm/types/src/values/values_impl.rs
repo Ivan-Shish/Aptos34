@@ -2650,7 +2650,7 @@ where
 }
 
 impl Container {
-    fn raw_address(&self) -> usize {
+    pub fn raw_address(&self) -> usize {
         use Container::*;
 
         match self {
@@ -2665,6 +2665,22 @@ impl Container {
             VecU256(r) => r.as_ptr() as usize,
             VecBool(r) => r.as_ptr() as usize,
             VecAddress(r) => r.as_ptr() as usize,
+        }
+    }
+}
+
+impl StructRef {
+    pub fn raw_address(&self) -> usize {
+        self.0.raw_address()
+    }
+}
+
+impl ContainerRef {
+    pub fn raw_address(&self) -> usize {
+        use ContainerRef::*;
+        match self {
+            Local(container) => container.raw_address(),
+            Global{status, container} => container.raw_address()
         }
     }
 }

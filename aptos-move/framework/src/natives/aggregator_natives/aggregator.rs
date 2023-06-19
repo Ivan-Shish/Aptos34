@@ -45,7 +45,11 @@ fn native_add(
 
     // Get aggregator information and a value to add.
     let value = safely_pop_arg!(args, u128);
-    let (id, limit) = aggregator_info(&safely_pop_arg!(args, StructRef))?;
+    println!("native_add Args: {:?}", args);
+    let agg = safely_pop_arg!(args, StructRef);
+    println!("native_add structref: {:?}", agg);
+    println!("native_add ptr: {:?}", agg.raw_address());
+    let (id, limit) = aggregator_info(&agg)?;
 
     // Get aggregator.
     let aggregator_context = context.extensions().get::<NativeAggregatorContext>();
@@ -83,8 +87,12 @@ fn native_read(
 
     context.charge(gas_params.base)?;
 
+    println!("native_read Args: {:?}", args);
+    let agg = safely_pop_arg!(args, StructRef);
+    println!("native_read structref: {:?}", agg);
+    println!("native_read ptr: {:?}", agg.raw_address());
     // Extract information from aggregator struct reference.
-    let (id, limit) = aggregator_info(&safely_pop_arg!(args, StructRef))?;
+    let (id, limit) = aggregator_info(&agg)?;
 
     // Get aggregator.
     let aggregator_context = context.extensions().get::<NativeAggregatorContext>();
@@ -122,9 +130,14 @@ fn native_sub(
 
     context.charge(gas_params.base)?;
 
-    // Get aggregator information and a value to subtract.
     let value = safely_pop_arg!(args, u128);
-    let (id, limit) = aggregator_info(&safely_pop_arg!(args, StructRef))?;
+
+    // Get aggregator information and a value to subtract.
+    println!("native_sub Args: {:?}", args);
+    let agg = safely_pop_arg!(args, StructRef);
+    println!("native_sub structref: {:?}", agg);
+    println!("native_sub ptr: {:?}", agg.raw_address());
+    let (id, limit) = aggregator_info(&agg)?;
 
     // Get aggregator.
     let aggregator_context = context.extensions().get::<NativeAggregatorContext>();
