@@ -505,8 +505,10 @@ function install_z3 {
     Z3_PKG="z3-$Z3_VERSION-x64-glibc-2.31"
   elif [[ "$(uname)" == "Darwin" ]]; then
     if [[ "$(uname -m)" == "arm64" ]]; then
-      # brew has a newer, arm64-native version
-      brew install z3
+      # install a fixed version of z3
+      brew tap-new ${USER}/local-z3
+      brew extract --version=${Z3_VERSION} z3 ${USER}/local-z3
+      brew install z3@${Z3_VERSION}
       return
     else
       Z3_PKG="z3-$Z3_VERSION-x64-osx-10.16"
