@@ -33,6 +33,7 @@ from cases.account import (
     test_account_create,
     test_account_fund_with_faucet,
     test_account_lookup_address,
+    test_account_resource_account,
 )
 from cases.init import test_aptos_header_included, test_init, test_metrics_accessible
 from cases.move import test_move_publish
@@ -111,6 +112,7 @@ def run_tests(run_helper):
     test_account_fund_with_faucet(run_helper)
     test_account_create(run_helper)
     test_account_lookup_address(run_helper)
+    test_account_resource_account(run_helper)
 
     # Make sure the aptos-cli header is included on the original request
     test_aptos_header_included(run_helper)

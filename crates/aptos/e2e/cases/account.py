@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import json
+
 from common import OTHER_ACCOUNT_ONE, TestError
 from test_helpers import RunHelper
 from test_results import test_case
@@ -79,4 +81,49 @@ def test_account_lookup_address(run_helper: RunHelper, test_name=None):
     if run_helper.get_account_info().account_address not in result_addr.stdout:
         raise TestError(
             f"lookup-address result does not match {run_helper.get_account_info().account_address}"
+        )
+
+
+@test_case
+def test_account_resource_account(run_helper: RunHelper, test_name=None):
+    # Seed for the resource account
+    seed = "1"
+
+    # Create the new resource account.
+    result = run_helper.run_command(
+        test_name,
+        [
+            "aptos",
+            "account",
+            "create-resource-account",
+            "--seed",
+            seed,
+            "--assume-yes",  # assume yes to gas prompt
+        ],
+    )
+
+    result = json.loads(result.stdout)
+    sender = result["Result"]["sender"]
+    resource_account_address = result["Result"]["resource_account"]
+
+    if resource_account_address == None or sender == None:
+        raise TestError("resource account creation failed")
+
+    # Derive the resource account
+    result = run_helper.run_command(
+        test_name,
+        [
+            "aptos",
+            "account",
+            "derive-resource-account-address",
+            "--seed",
+            seed,
+            "--address",
+            sender,
+        ],
+    )
+
+    if resource_account_address not in result.stdout:
+        raise TestError(
+            f"derive-resource-account-address result does not match expected: {resource_account_address}"
         )
