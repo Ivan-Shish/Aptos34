@@ -236,7 +236,7 @@ impl TimelineIndex {
                     batch.push((*address, *sequence_number));
                 },
                 _ => {
-                    panic!("mismatch");
+                    panic!("mismatch: {:?}, {:?}", peer, timeline_peer);
                 },
             }
             if batch.len() == count {

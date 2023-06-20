@@ -10,7 +10,10 @@ use crate::{
     },
 };
 use aptos_config::{
-    config::{DiscoveryMethod, NodeConfig, Peer, PeerRole, HANDSHAKE_VERSION},
+    config::{
+        BroadcastPeersSelectorConfig, DiscoveryMethod, NodeConfig, Peer, PeerRole,
+        HANDSHAKE_VERSION,
+    },
     network_id::NetworkId,
 };
 use aptos_forge::{LocalSwarm, NodeExt, Swarm, SwarmExt};
@@ -118,7 +121,7 @@ async fn test_full_node_basic_flow() {
 async fn test_pfn_route_updates() {
     // VFN will not forward to other VFN
     let mut vfn_config = NodeConfig::get_default_vfn_config();
-    vfn_config.mempool.default_failovers = 0;
+    vfn_config.mempool.broadcast_peers_selector = BroadcastPeersSelectorConfig::PrioritizedPeers(1);
     let mut swarm = SwarmBuilder::new_local(2)
         .with_num_fullnodes(2)
         .with_aptos()
@@ -129,7 +132,7 @@ async fn test_pfn_route_updates() {
     let version = swarm.versions().max().unwrap();
     // The PFN only forwards to a single VFN at a time. Route updates allow the txns to succeed.
     let mut pfn_config = NodeConfig::get_default_pfn_config();
-    pfn_config.mempool.default_failovers = 0;
+    pfn_config.mempool.broadcast_peers_selector = BroadcastPeersSelectorConfig::FreshPeers(1);
     pfn_config
         .peer_monitoring_service
         .node_monitoring
@@ -248,7 +251,7 @@ async fn send_and_receive_coin(
 async fn test_vfn_failover() {
     // VFN failover happens when validator is down even for default_failovers = 0
     let mut vfn_config = NodeConfig::get_default_vfn_config();
-    vfn_config.mempool.default_failovers = 0;
+    vfn_config.mempool.broadcast_peers_selector = BroadcastPeersSelectorConfig::PrioritizedPeers(1);
     let mut swarm = SwarmBuilder::new_local(4)
         .with_num_fullnodes(4)
         .with_aptos()

@@ -14,7 +14,7 @@ use crate::{
     },
     QuorumStoreRequest,
 };
-use aptos_config::{config::NodeConfig, network_id::NetworkId};
+use aptos_config::config::{BroadcastPeersSelectorConfig, NodeConfig};
 use aptos_event_notifications::ReconfigNotificationListener;
 use aptos_infallible::{Mutex, RwLock};
 use aptos_logger::Level;
@@ -26,7 +26,6 @@ use aptos_network::application::{
 use aptos_storage_interface::DbReader;
 use aptos_vm_validator::vm_validator::{TransactionValidation, VMValidator};
 use futures::channel::mpsc::{Receiver, UnboundedSender};
-use itertools::Itertools;
 use std::sync::Arc;
 use tokio::runtime::{Handle, Runtime};
 
@@ -105,18 +104,16 @@ pub fn bootstrap(
     let runtime = aptos_runtimes::spawn_named_runtime("shared-mem".into(), None);
 
     let broadcast_peers_selector = {
-        let inner_selector: Box<dyn BroadcastPeersSelector> = if config.base.role.is_validator() {
-            Box::new(AllPeersSelector::new())
-        } else if !config.base.role.is_validator()
-            && peers_and_metadata
-                .get_registered_networks()
-                .contains(&NetworkId::Vfn)
-        {
-            // is_vfn
-            Box::new(PrioritizedPeersSelector::new(config.mempool.clone()))
-        } else {
-            Box::new(FreshPeersSelector::new(config.mempool.clone()))
-        };
+        let inner_selector: Box<dyn BroadcastPeersSelector> =
+            match config.mempool.broadcast_peers_selector {
+                BroadcastPeersSelectorConfig::AllPeers => Box::new(AllPeersSelector::new()),
+                BroadcastPeersSelectorConfig::FreshPeers(max_selected_peers) => {
+                    Box::new(FreshPeersSelector::new(max_selected_peers))
+                },
+                BroadcastPeersSelectorConfig::PrioritizedPeers(max_selected_peers) => {
+                    Box::new(PrioritizedPeersSelector::new(max_selected_peers))
+                },
+            };
         Arc::new(RwLock::new(inner_selector))
     };
 

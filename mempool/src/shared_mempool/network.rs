@@ -16,7 +16,7 @@ use crate::{
     },
 };
 use aptos_config::{
-    config::{MempoolConfig, RoleType},
+    config::{BroadcastPeersSelectorConfig, MempoolConfig, RoleType},
     network_id::PeerNetworkId,
 };
 use aptos_infallible::RwLock;
@@ -336,10 +336,10 @@ impl<NetworkClient: NetworkClientInterface<MempoolSyncMsg>> MempoolNetworkInterf
         }
         let retry_batch_id = state.broadcast_info.retry_batches.iter().rev().next();
 
-        let timeline_peer = if self.is_validator() {
-            None
-        } else {
-            Some(peer)
+        let timeline_peer = match self.mempool_config.broadcast_peers_selector {
+            BroadcastPeersSelectorConfig::AllPeers => None,
+            BroadcastPeersSelectorConfig::FreshPeers(_)
+            | BroadcastPeersSelectorConfig::PrioritizedPeers(_) => Some(peer),
         };
         let (batch_id, transactions, metric_label) =
             match std::cmp::max(expired_batch_id, retry_batch_id) {

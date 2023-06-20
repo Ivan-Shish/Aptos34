@@ -2,10 +2,7 @@
 // Parts of the project are originally copyright © Meta Platforms, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use aptos_config::{
-    config::{MempoolConfig, PeerRole},
-    network_id::PeerNetworkId,
-};
+use aptos_config::{config::PeerRole, network_id::PeerNetworkId};
 use aptos_logger::info;
 use aptos_network::application::metadata::PeerMetadata;
 use aptos_types::{account_address::AccountAddress, transaction::Version, PeerId};
@@ -114,15 +111,15 @@ impl BroadcastPeersSelector for AllPeersSelector {
 }
 
 pub struct PrioritizedPeersSelector {
-    mempool_config: MempoolConfig,
+    max_selected_peers: usize,
     prioritized_peers: Vec<PeerNetworkId>,
     prioritized_peers_comparator: PrioritizedPeersComparator,
 }
 
 impl PrioritizedPeersSelector {
-    pub fn new(mempool_config: MempoolConfig) -> Self {
+    pub fn new(max_selected_peers: usize) -> Self {
         Self {
-            mempool_config,
+            max_selected_peers,
             prioritized_peers: Vec::new(),
             prioritized_peers_comparator: PrioritizedPeersComparator::new(),
         }
@@ -143,7 +140,7 @@ impl BroadcastPeersSelector for PrioritizedPeersSelector {
         let peers: Vec<_> = self
             .prioritized_peers
             .iter()
-            .take(self.mempool_config.default_failovers + 1)
+            .take(self.max_selected_peers)
             .cloned()
             .collect();
         info!(
@@ -156,16 +153,16 @@ impl BroadcastPeersSelector for PrioritizedPeersSelector {
 }
 
 pub struct FreshPeersSelector {
-    mempool_config: MempoolConfig,
+    max_selected_peers: usize,
     stickiness_cache: Arc<Cache<AccountAddress, Vec<PeerNetworkId>>>,
     sorted_peers: Vec<(PeerNetworkId, Version)>,
     peers: HashSet<PeerNetworkId>,
 }
 
 impl FreshPeersSelector {
-    pub fn new(mempool_config: MempoolConfig) -> Self {
+    pub fn new(max_selected_peers: usize) -> Self {
         Self {
-            mempool_config,
+            max_selected_peers,
             stickiness_cache: Arc::new(
                 Cache::builder()
                     .max_capacity(100_000)
@@ -183,7 +180,7 @@ impl FreshPeersSelector {
                 .sorted_peers
                 .iter()
                 .rev()
-                .take(self.mempool_config.default_failovers + 1)
+                .take(self.max_selected_peers)
                 .map(|(peer, _version)| *peer)
                 .collect();
             // TODO: random shuffle among similar versions to keep from biasing
