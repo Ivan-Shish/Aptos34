@@ -49,7 +49,7 @@ use aptos_types::{
 use futures::{channel::mpsc, StreamExt};
 use maplit::hashmap;
 use std::{collections::HashMap, iter::FromIterator, sync::Arc};
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 
 /// Auxiliary struct that is preparing SMR for the test
 pub struct SMRNode {
@@ -89,7 +89,11 @@ impl SMRNode {
             playground.peer_protocols(),
         );
         let consensus_network_client = ConsensusNetworkClient::new(network_client);
-        let network_events = NetworkEvents::new(consensus_rx, conn_notifs_channel);
+        let network_events = NetworkEvents::new(
+            consensus_rx,
+            conn_notifs_channel,
+            BoundedExecutor::new(100, Handle::current()),
+        );
         let network_service_events =
             NetworkServiceEvents::new(hashmap! {NetworkId::Validator => network_events});
 

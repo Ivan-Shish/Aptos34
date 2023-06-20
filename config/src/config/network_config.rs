@@ -50,6 +50,7 @@ pub const MAX_APPLICATION_MESSAGE_SIZE: usize =
     (MAX_MESSAGE_SIZE - MAX_MESSAGE_METADATA_SIZE) - MESSAGE_PADDING_SIZE; /* The message size that applications should check against */
 pub const MAX_FRAME_SIZE: usize = 4 * 1024 * 1024; /* 4 MiB large messages will be chunked into multiple frames and streamed */
 pub const MAX_MESSAGE_SIZE: usize = 64 * 1024 * 1024; /* 64 MiB */
+pub const MAX_PARALLEL_DESERIALIZATION_TASKS: usize = 500; // This is per application and should be enough for max load
 pub const CONNECTION_BACKOFF_BASE: u64 = 2;
 pub const IP_BYTE_BUCKET_RATE: usize = 102400 /* 100 KiB */;
 pub const IP_BYTE_BUCKET_SIZE: usize = IP_BYTE_BUCKET_RATE;
@@ -119,6 +120,8 @@ pub struct NetworkConfig {
     pub outbound_rate_limit_config: Option<RateLimitConfig>,
     /// The maximum size of an inbound or outbound message (it may be divided into multiple frame)
     pub max_message_size: usize,
+    /// The maximum number of parallel message deserialization tasks that can run (per application)
+    pub max_parallel_deserialization_tasks: usize,
 }
 
 impl Default for NetworkConfig {
@@ -159,6 +162,7 @@ impl NetworkConfig {
             inbound_tx_buffer_size_bytes: Some(INBOUND_TCP_TX_BUFFER_SIZE),
             outbound_rx_buffer_size_bytes: Some(OUTBOUND_TCP_RX_BUFFER_SIZE),
             outbound_tx_buffer_size_bytes: Some(OUTBOUND_TCP_TX_BUFFER_SIZE),
+            max_parallel_deserialization_tasks: MAX_PARALLEL_DESERIALIZATION_TASKS,
         };
         config.prepare_identity();
         config

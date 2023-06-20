@@ -2188,6 +2188,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aptos-bitvec",
+ "aptos-bounded-executor",
  "aptos-channels",
  "aptos-compression",
  "aptos-config",
@@ -2233,6 +2234,7 @@ dependencies = [
 name = "aptos-network-builder"
 version = "0.1.0"
 dependencies = [
+ "aptos-bounded-executor",
  "aptos-channels",
  "aptos-config",
  "aptos-crypto",
@@ -2305,6 +2307,7 @@ dependencies = [
  "anyhow",
  "aptos-api",
  "aptos-backup-service",
+ "aptos-bounded-executor",
  "aptos-build-info",
  "aptos-cached-packages",
  "aptos-channels",

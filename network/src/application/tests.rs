@@ -20,6 +20,7 @@ use crate::{
     },
     transport::ConnectionMetadata,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{Peer, PeerRole},
@@ -36,7 +37,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tokio::time::timeout;
+use tokio::{runtime::Handle, time::timeout};
 
 // Useful test constants for timeouts
 const MAX_CHANNEL_TIMEOUT_SECS: u64 = 1;
@@ -773,8 +774,11 @@ fn create_network_sender_and_events(
             PeerManagerRequestSender::new(outbound_request_sender),
             ConnectionRequestSender::new(connection_outbound_sender),
         );
-        let network_events =
-            NetworkEvents::new(inbound_request_receiver, connection_inbound_receiver);
+        let network_events = NetworkEvents::new(
+            inbound_request_receiver,
+            connection_inbound_receiver,
+            BoundedExecutor::new(100, Handle::current()),
+        );
 
         // Save the sender, events and receivers
         network_senders.insert(*network_id, network_sender);

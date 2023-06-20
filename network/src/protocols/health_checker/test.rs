@@ -17,11 +17,13 @@ use crate::{
     transport::ConnectionMetadata,
     ProtocolId,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_time_service::{MockTimeService, TimeService};
 use futures::{executor::block_on, future};
 use maplit::hashmap;
 use std::sync::Arc;
+use tokio::runtime::Handle;
 
 const PING_INTERVAL: Duration = Duration::from_secs(1);
 const PING_TIMEOUT: Duration = Duration::from_millis(500);
@@ -53,8 +55,11 @@ impl TestHarness {
             PeerManagerRequestSender::new(peer_mgr_reqs_tx),
             ConnectionRequestSender::new(connection_reqs_tx),
         );
-        let hc_network_rx =
-            HealthCheckerNetworkEvents::new(peer_mgr_notifs_rx, connection_notifs_rx);
+        let hc_network_rx = HealthCheckerNetworkEvents::new(
+            peer_mgr_notifs_rx,
+            connection_notifs_rx,
+            BoundedExecutor::new(100, Handle::current()),
+        );
 
         let network_context = NetworkContext::mock();
         let peers_and_metadata = PeersAndMetadata::new(&[network_context.network_id()]);

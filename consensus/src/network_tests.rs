@@ -484,6 +484,7 @@ mod tests {
         network::{IncomingRpcRequest, NetworkTask},
         network_interface::{DIRECT_SEND, RPC},
     };
+    use aptos_bounded_executor::BoundedExecutor;
     use aptos_config::network_id::{NetworkId, PeerNetworkId};
     use aptos_consensus_types::{
         block_retrieval::{BlockRetrievalRequest, BlockRetrievalResponse, BlockRetrievalStatus},
@@ -617,7 +618,8 @@ mod tests {
                 validator_verifier.clone(),
             );
 
-            let network_events = NetworkEvents::new(consensus_rx, conn_status_rx);
+            let network_events =
+                NetworkEvents::new(consensus_rx, conn_status_rx, create_bounded_executor());
             let network_service_events =
                 NetworkServiceEvents::new(hashmap! {NetworkId::Validator => network_events});
             let (task, receiver) = NetworkTask::new(network_service_events, self_receiver);
@@ -728,7 +730,8 @@ mod tests {
                 validator_verifier.clone(),
             );
 
-            let network_events = NetworkEvents::new(consensus_rx, conn_status_rx);
+            let network_events =
+                NetworkEvents::new(consensus_rx, conn_status_rx, create_bounded_executor());
             let network_service_events =
                 NetworkServiceEvents::new(hashmap! {NetworkId::Validator => network_events});
             let (task, receiver) = NetworkTask::new(network_service_events, self_receiver);
@@ -797,7 +800,11 @@ mod tests {
             aptos_channel::new(QueueStyle::FIFO, 8, None);
         let (connection_notifs_tx, connection_notifs_rx) =
             aptos_channel::new(QueueStyle::FIFO, 8, None);
-        let network_events = NetworkEvents::new(peer_mgr_notifs_rx, connection_notifs_rx);
+        let network_events = NetworkEvents::new(
+            peer_mgr_notifs_rx,
+            connection_notifs_rx,
+            create_bounded_executor(),
+        );
         let network_service_events =
             NetworkServiceEvents::new(hashmap! {NetworkId::Validator => network_events});
         let (self_sender, self_receiver) = aptos_channels::new_test(8);
@@ -846,5 +853,10 @@ mod tests {
 
         let runtime = consensus_runtime();
         timed_block_on(&runtime, future::join(f_network_task, f_check));
+    }
+
+    /// Creates a bounded executor for tests
+    fn create_bounded_executor() -> BoundedExecutor {
+        BoundedExecutor::new(100, Handle::current())
     }
 }

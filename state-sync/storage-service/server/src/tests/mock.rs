@@ -5,6 +5,7 @@ use crate::{
     metrics, network::StorageServiceNetworkEvents, storage::StorageReader, StorageServiceServer,
 };
 use anyhow::Result;
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{config::StorageServiceConfig, network_id::NetworkId};
 use aptos_crypto::HashValue;
@@ -46,7 +47,7 @@ use futures::channel::{oneshot, oneshot::Receiver};
 use mockall::mock;
 use rand::{rngs::OsRng, Rng};
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::time::timeout;
+use tokio::{runtime::Handle, time::timeout};
 
 // Useful test constants
 const MAX_RESPONSE_TIMEOUT_SECS: u64 = 60;
@@ -92,6 +93,7 @@ impl MockClient {
             let network_events = NetworkEvents::new(
                 peer_manager_notification_receiver,
                 connection_notification_receiver,
+                BoundedExecutor::new(100, Handle::current()),
             );
             network_and_events.insert(network_id, network_events);
             peer_manager_notifiers.insert(network_id, peer_manager_notifier);

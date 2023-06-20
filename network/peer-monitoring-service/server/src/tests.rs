@@ -7,6 +7,7 @@ use crate::{
     metrics, storage::StorageReader, PeerMonitoringServiceNetworkEvents,
     PeerMonitoringServiceServer, MAX_DISTANCE_FROM_VALIDATORS, PEER_MONITORING_SERVER_VERSION,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{BaseConfig, NodeConfig, PeerMonitoringServiceConfig, PeerRole, RoleType},
@@ -69,6 +70,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tokio::runtime::Handle;
 
 // Useful test constants
 const LOCAL_HOST_NET_ADDR: &str = "/ip4/127.0.0.1/tcp/8081";
@@ -543,6 +545,7 @@ impl MockClient {
             let network_events = NetworkEvents::new(
                 peer_manager_notification_receiver,
                 connection_notification_receiver,
+                BoundedExecutor::new(100, Handle::current()),
             );
             network_and_events.insert(network_id, network_events);
             peer_manager_notifiers.insert(network_id, peer_manager_notifier);

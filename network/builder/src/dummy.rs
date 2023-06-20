@@ -5,6 +5,7 @@
 //! Integration tests for validator_network.
 
 use crate::builder::NetworkBuilder;
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::aptos_channel;
 use aptos_config::{
     config::{Peer, PeerRole, PeerSet, RoleType, NETWORK_CHANNEL_SIZE},
@@ -27,7 +28,7 @@ use maplit::hashmap;
 use rand::{rngs::StdRng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 
 const TEST_RPC_PROTOCOL: ProtocolId = ProtocolId::ConsensusRpcBcs;
 const TEST_DIRECT_SEND_PROTOCOL: ProtocolId = ProtocolId::ConsensusDirectSendBcs;
@@ -106,8 +107,11 @@ pub fn setup_network() -> DummyNetwork {
         peers_and_metadata.clone(),
     );
 
-    let (listener_sender, mut listener_events) =
-        network_builder.add_client_and_service::<_, DummyNetworkEvents>(&dummy_network_config());
+    let (listener_sender, mut listener_events) = network_builder
+        .add_client_and_service::<_, DummyNetworkEvents>(
+            &dummy_network_config(),
+            create_bounded_executor(),
+        );
     network_builder.build(runtime.handle().clone()).start();
     let listener_network_client = NetworkClient::new(
         vec![TEST_DIRECT_SEND_PROTOCOL],
@@ -139,8 +143,11 @@ pub fn setup_network() -> DummyNetwork {
         peers_and_metadata.clone(),
     );
 
-    let (dialer_sender, mut dialer_events) =
-        network_builder.add_client_and_service::<_, DummyNetworkEvents>(&dummy_network_config());
+    let (dialer_sender, mut dialer_events) = network_builder
+        .add_client_and_service::<_, DummyNetworkEvents>(
+            &dummy_network_config(),
+            create_bounded_executor(),
+        );
     network_builder.build(runtime.handle().clone()).start();
     let dialer_network_client = NetworkClient::new(
         vec![TEST_DIRECT_SEND_PROTOCOL],
@@ -183,4 +190,9 @@ pub fn setup_network() -> DummyNetwork {
         listener_events,
         listener_network_client,
     }
+}
+
+/// Creates a bounded executor for testing
+fn create_bounded_executor() -> BoundedExecutor {
+    BoundedExecutor::new(100, Handle::current())
 }

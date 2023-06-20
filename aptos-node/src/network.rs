@@ -1,6 +1,7 @@
 // Copyright © Aptos Foundation
 // SPDX-License-Identifier: Apache-2.0
 
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{NetworkConfig, NodeConfig},
@@ -201,6 +202,7 @@ pub fn setup_networks_and_get_interfaces(
                     &mut network_builder,
                     network_id,
                     consensus_network_configuration(node_config),
+                    create_bounded_executor(&network_config, &runtime),
                 ));
             }
         }
@@ -210,6 +212,7 @@ pub fn setup_networks_and_get_interfaces(
             &mut network_builder,
             network_id,
             mempool_network_configuration(node_config),
+            create_bounded_executor(&network_config, &runtime),
         );
         mempool_network_handles.push(mempool_network_handle);
 
@@ -218,6 +221,7 @@ pub fn setup_networks_and_get_interfaces(
             &mut network_builder,
             network_id,
             peer_monitoring_network_configuration(node_config),
+            create_bounded_executor(&network_config, &runtime),
         );
         peer_monitoring_service_network_handles.push(peer_monitoring_service_network_handle);
 
@@ -226,6 +230,7 @@ pub fn setup_networks_and_get_interfaces(
             &mut network_builder,
             network_id,
             storage_service_network_configuration(node_config),
+            create_bounded_executor(&network_config, &runtime),
         );
         storage_service_network_handles.push(storage_service_network_handle);
 
@@ -263,6 +268,14 @@ pub fn setup_networks_and_get_interfaces(
     )
 }
 
+/// Creates a bounded executor for the given network config and runtime
+fn create_bounded_executor(network_config: &NetworkConfig, runtime: &Runtime) -> BoundedExecutor {
+    BoundedExecutor::new(
+        network_config.max_parallel_deserialization_tasks,
+        runtime.handle().clone(),
+    )
+}
+
 /// Creates a network runtime for the given network config
 fn create_network_runtime(network_config: &NetworkConfig) -> Runtime {
     let network_id = network_config.network_id;
@@ -277,13 +290,16 @@ fn create_network_runtime(network_config: &NetworkConfig) -> Runtime {
 }
 
 /// Registers a new application client and service with the network
-fn register_client_and_service_with_network<T: Serialize + for<'de> Deserialize<'de>>(
+fn register_client_and_service_with_network<
+    T: Serialize + for<'de> Deserialize<'de> + Send + 'static,
+>(
     network_builder: &mut NetworkBuilder,
     network_id: NetworkId,
     application_config: NetworkApplicationConfig,
+    bounded_executor: BoundedExecutor,
 ) -> ApplicationNetworkHandle<T> {
     let (network_sender, network_events) =
-        network_builder.add_client_and_service(&application_config);
+        network_builder.add_client_and_service(&application_config, bounded_executor);
     ApplicationNetworkHandle {
         network_id,
         network_sender,

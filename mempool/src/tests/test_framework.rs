@@ -8,6 +8,7 @@ use crate::{
     tests::{common, common::TestTransaction},
     MempoolClientRequest, MempoolClientSender, MempoolSyncMsg, QuorumStoreRequest,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::NodeConfig,
@@ -539,7 +540,11 @@ fn setup_network(
         PeerManagerRequestSender::new(reqs_outbound_sender),
         ConnectionRequestSender::new(connection_outbound_sender),
     );
-    let network_events = NetworkEvents::new(reqs_inbound_receiver, connection_inbound_receiver);
+    let network_events = NetworkEvents::new(
+        reqs_inbound_receiver,
+        connection_inbound_receiver,
+        BoundedExecutor::new(100, Handle::current()),
+    );
 
     (
         network_sender,

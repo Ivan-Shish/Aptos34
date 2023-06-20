@@ -26,6 +26,7 @@ use crate::{
     },
     util::time_service::{ClockTimeService, TimeService},
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::ConsensusConfig,
@@ -207,7 +208,11 @@ impl NodeSetup {
             playground.peer_protocols(),
         );
         let consensus_network_client = ConsensusNetworkClient::new(network_client);
-        let network_events = NetworkEvents::new(consensus_rx, conn_status_rx);
+        let network_events = NetworkEvents::new(
+            consensus_rx,
+            conn_status_rx,
+            BoundedExecutor::new(100, Handle::current()),
+        );
         let author = signer.author();
 
         let twin_id = TwinId { id, author };

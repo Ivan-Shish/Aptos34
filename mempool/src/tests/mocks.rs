@@ -8,6 +8,7 @@ use crate::{
     MempoolClientSender, QuorumStoreRequest,
 };
 use anyhow::{format_err, Result};
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{self, aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{NetworkConfig, NodeConfig},
@@ -112,7 +113,11 @@ impl MockSharedMempool {
             PeerManagerRequestSender::new(network_reqs_tx),
             ConnectionRequestSender::new(connection_reqs_tx),
         );
-        let network_events = NetworkEvents::new(network_notifs_rx, conn_notifs_rx);
+        let network_events = NetworkEvents::new(
+            network_notifs_rx,
+            conn_notifs_rx,
+            BoundedExecutor::new(100, Handle::current()),
+        );
         let (ac_client, client_events) = mpsc::channel(1_024);
         let (quorum_store_sender, quorum_store_receiver) = mpsc::channel(1_024);
         let (mempool_notifier, mempool_listener) =

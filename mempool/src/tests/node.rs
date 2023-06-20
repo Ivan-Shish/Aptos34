@@ -8,6 +8,7 @@ use crate::{
     shared_mempool::{start_shared_mempool, types::SharedMempoolNotification},
     tests::common::TestTransaction,
 };
+use aptos_bounded_executor::BoundedExecutor;
 use aptos_channels::{aptos_channel, message_queues::QueueStyle};
 use aptos_config::{
     config::{Identity, NodeConfig, PeerRole, RoleType},
@@ -46,7 +47,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 
 type MempoolNetworkHandle = (
     NetworkId,
@@ -565,7 +566,11 @@ fn setup_node_network_interface(
         PeerManagerRequestSender::new(network_reqs_tx),
         ConnectionRequestSender::new(connection_reqs_tx),
     );
-    let network_events = NetworkEvents::new(network_notifs_rx, conn_status_rx);
+    let network_events = NetworkEvents::new(
+        network_notifs_rx,
+        conn_status_rx,
+        BoundedExecutor::new(100, Handle::current()),
+    );
 
     (
         NodeNetworkInterface {
