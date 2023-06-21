@@ -4,6 +4,7 @@
 use crate::{dag::DAGNetworkMessage, network_interface::ConsensusMsg};
 use anyhow::bail;
 use aptos_consensus_types::common::Author;
+use aptos_types::validator_signer::ValidatorSigner;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use serde::{de::DeserializeOwned, Serialize};
@@ -96,5 +97,36 @@ impl ReliableBroadcast {
             }
             unreachable!("Should aggregate with all responses");
         }
+    }
+}
+
+pub trait BroadcastReceiverStatus {
+    type Ack: DAGMessage;
+    type Message: DAGMessage;
+
+    fn validate_and_sign(
+        &mut self,
+        peer: Author,
+        message: Self::Message,
+        signer: &ValidatorSigner,
+    ) -> anyhow::Result<Self::Ack>;
+}
+
+pub struct ReliableBroadcastReceiver<B: BroadcastReceiverStatus> {
+    broadcast_status: B,
+    signer: ValidatorSigner,
+}
+
+impl<B: BroadcastReceiverStatus> ReliableBroadcastReceiver<B> {
+    pub fn new(broadcast_status: B, signer: ValidatorSigner) -> Self {
+        Self {
+            broadcast_status,
+            signer,
+        }
+    }
+
+    pub fn handle_node(&mut self, peer: Author, message: B::Message) -> anyhow::Result<B::Ack> {
+        self.broadcast_status
+            .validate_and_sign(peer, message, &self.signer)
     }
 }
