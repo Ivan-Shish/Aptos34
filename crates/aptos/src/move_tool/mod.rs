@@ -112,7 +112,7 @@ impl MoveTool {
             MoveTool::Coverage(tool) => tool.execute().await,
             MoveTool::CreateResourceAccountAndPublishPackage(tool) => {
                 tool.execute_serialized_success().await
-            },
+            }
             MoveTool::Disassemble(tool) => tool.execute_serialized().await,
             MoveTool::Document(tool) => tool.execute_serialized().await,
             MoveTool::Download(tool) => tool.execute_serialized().await,
@@ -410,10 +410,10 @@ pub struct TestPackage {
     /// If set, the number of instructions executed by one test will be bounded
     // TODO: Remove short, it's against the style guidelines, and update the name here
     #[clap(
-        name = "instructions",
-        default_value = "100000",
-        short = 'i',
-        long = "instructions"
+    name = "instructions",
+    default_value = "100000",
+    short = 'i',
+    long = "instructions"
     )]
     pub instruction_execution_bound: u64,
 
@@ -478,7 +478,7 @@ impl CliCommand<&'static str> for TestPackage {
             self.compute_coverage,
             &mut std::io::stdout(),
         )
-        .map_err(|err| CliError::UnexpectedError(err.to_string()))?;
+            .map_err(|err| CliError::UnexpectedError(err.to_string()))?;
 
         // Print coverage summary if --coverage is set
         if self.compute_coverage {
@@ -553,8 +553,8 @@ impl CliCommand<&'static str> for ProvePackage {
                 move_options.bytecode_version,
             )
         })
-        .await
-        .map_err(|err| CliError::UnexpectedError(err.to_string()))?;
+            .await
+            .map_err(|err| CliError::UnexpectedError(err.to_string()))?;
         match result {
             Ok(_) => Ok("Success"),
             Err(e) => Err(CliError::MoveProverError(format!("{:#}", e))),
@@ -880,7 +880,7 @@ impl CliCommand<TransactionSummary> for CreateResourceAccountAndPublishPackage {
             txn_options.profile_options.profile_name(),
             ConfigSearchMode::CurrentDirAndParents,
         )?
-        .map(|p| p.account)
+            .map(|p| p.account)
         {
             account
         } else {
@@ -1120,7 +1120,7 @@ impl CliCommand<&'static str> for ListPackage {
                     println!("  source_digest: {}", data.source_digest());
                     println!("  modules: {}", data.module_names().into_iter().join(", "));
                 }
-            },
+            }
         }
         Ok("list succeeded")
     }
@@ -1153,12 +1153,12 @@ impl CliCommand<&'static str> for CleanPackage {
         let move_dir = PathBuf::from(MOVE_HOME.as_str());
         if move_dir.exists()
             && prompt_yes_with_override(
-                &format!(
-                    "Do you also want to delete the local package download cache at `{}`?",
-                    move_dir.display()
-                ),
-                self.prompt_options,
-            )
+            &format!(
+                "Do you also want to delete the local package download cache at `{}`?",
+                move_dir.display()
+            ),
+            self.prompt_options,
+        )
             .is_ok()
         {
             std::fs::remove_dir_all(move_dir.as_path())
@@ -1188,7 +1188,7 @@ impl CliCommand<TransactionSummary> for RunFunction {
             TransactionPayload::EntryFunction(self.entry_function_args.try_into()?),
             &self.txn_options,
         )
-        .await
+            .await
     }
 }
 
@@ -1240,7 +1240,7 @@ impl CliCommand<TransactionSummary> for RunScript {
             self.script_function_args.create_script_payload(bytecode)?,
             &self.txn_options,
         )
-        .await
+            .await
     }
 }
 
@@ -1285,48 +1285,48 @@ impl FunctionArgType {
                 &load_account_arg(arg)
                     .map_err(|err| CliError::UnableToParse("address", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::Bool => bcs::to_bytes(
                 &bool::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("bool", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::Hex => bcs::to_bytes(
                 HexEncodedBytes::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("hex", err.to_string()))?
                     .inner(),
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::String => bcs::to_bytes(arg).map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::U8 => bcs::to_bytes(
                 &u8::from_str(arg).map_err(|err| CliError::UnableToParse("u8", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::U16 => bcs::to_bytes(
                 &u16::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("u16", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::U32 => bcs::to_bytes(
                 &u32::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("u32", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::U64 => bcs::to_bytes(
                 &u64::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("u64", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::U128 => bcs::to_bytes(
                 &u128::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("u128", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::U256 => bcs::to_bytes(
                 &U256::from_str(arg)
                     .map_err(|err| CliError::UnableToParse("u256", err.to_string()))?,
             )
-            .map_err(|err| CliError::BCS("arg", err)),
+                .map_err(|err| CliError::BCS("arg", err)),
             FunctionArgType::Raw => Ok(HexEncodedBytes::from_str(arg)
                 .map_err(|err| CliError::UnableToParse("raw", err.to_string()))?
                 .inner()
@@ -1381,10 +1381,10 @@ impl FunctionArgType {
                     _vector_depth: common_sub_arg_depth.unwrap_or(0) + 1,
                     arg: bcs,
                 })
-            },
+            }
             serde_json::Value::Null => {
                 Err(CliError::CommandArgumentError("Null argument".to_string()))
-            },
+            }
             serde_json::Value::Object(_) => Err(CliError::CommandArgumentError(
                 "JSON object argument".to_string(),
             )),
@@ -1422,20 +1422,21 @@ impl FromStr for FunctionArgType {
             "u128" => Ok(FunctionArgType::U128),
             "u256" => Ok(FunctionArgType::U256),
             "raw" => Ok(FunctionArgType::Raw),
-            str => {Err(CliError::CommandArgumentError(format!(
-                "Invalid arg type '{}'.  Must be one of: ['{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}']",
-                str,
-                FunctionArgType::Address,
-                FunctionArgType::Bool,
-                FunctionArgType::Hex,
-                FunctionArgType::String,
-                FunctionArgType::U8,
-                FunctionArgType::U16,
-                FunctionArgType::U32,
-                FunctionArgType::U64,
-                FunctionArgType::U128,
-                FunctionArgType::U256,
-                FunctionArgType::Raw)))
+            str => {
+                Err(CliError::CommandArgumentError(format!(
+                    "Invalid arg type '{}'.  Must be one of: ['{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}']",
+                    str,
+                    FunctionArgType::Address,
+                    FunctionArgType::Bool,
+                    FunctionArgType::Hex,
+                    FunctionArgType::String,
+                    FunctionArgType::U8,
+                    FunctionArgType::U16,
+                    FunctionArgType::U32,
+                    FunctionArgType::U64,
+                    FunctionArgType::U128,
+                    FunctionArgType::U256,
+                    FunctionArgType::Raw)))
             }
         }
     }
@@ -1504,11 +1505,11 @@ impl ArgWithType {
             6 => serde_json::to_value(bcs::from_bytes::<Vec<Vec<Vec<Vec<Vec<Vec<T>>>>>>>(
                 &self.arg,
             )?)
-            .map_err(|err| CliError::UnexpectedError(err.to_string())),
+                .map_err(|err| CliError::UnexpectedError(err.to_string())),
             7 => serde_json::to_value(bcs::from_bytes::<Vec<Vec<Vec<Vec<Vec<Vec<Vec<T>>>>>>>>(
                 &self.arg,
             )?)
-            .map_err(|err| CliError::UnexpectedError(err.to_string())),
+                .map_err(|err| CliError::UnexpectedError(err.to_string())),
             depth => Err(CliError::UnexpectedError(format!(
                 "Vector of depth {depth} is overly nested"
             ))),
@@ -1530,9 +1531,9 @@ impl ArgWithType {
             FunctionArgType::Raw => serde_json::to_value(&self.arg)
                 .map_err(|err| CliError::UnexpectedError(err.to_string())),
         }
-        .map_err(|err| {
-            CliError::UnexpectedError(format!("Failed to parse argument to JSON {}", err))
-        })
+            .map_err(|err| {
+                CliError::UnexpectedError(format!("Failed to parse argument to JSON {}", err))
+            })
     }
 }
 
@@ -1569,6 +1570,77 @@ impl FromStr for ArgWithType {
             .map_err(|err| CliError::UnexpectedError(err.to_string()))?;
         ty.parse_arg_json(&json)
     }
+}
+
+enum MaybeVec<T> {
+    Vec(Vec<Box<MaybeVec<T>>>),
+    Val(T),
+    None
+}
+
+fn parse_arg_input<T>(input: &str) {
+    let mut ret: MaybeVec<T> = MaybeVec::None;
+
+    let mut cur_field = vec![];
+    let mut is_escaped = false;
+    let mut cur_val = vec![];
+
+    for char in input.chars() {
+        if !is_escaped {
+            if char == '[' {
+                // Push on stack
+                stack.push('[');
+
+                // FIXME: Handle nested depth
+                if stack.len() > 1 {
+                    panic!("Nested not supported")
+                }
+            } else if char == ']' {
+                // Pop off stack
+                if stack.is_empty() || stack.last().unwrap() != &'[' {
+                    panic!("Invalid bracketing")
+                }
+                stack.pop()
+            } else if char == ',' {
+                // Value is complete, copy it over
+                if ret == MaybeVec::None {
+                    ret = MaybeVec::Val(cur_val.clone())
+                } else {
+
+                    // TODO: Handle the vectors
+                }
+
+                vals.push(cur_val.clone());
+                cur_val.clear();
+            } else if char == '\\' {
+                // Escape for the next character
+                is_escaped = true;
+            } else {
+                cur_val.push(char);
+            }
+        } else {
+            // Handle escaped characters used for above values
+            is_escaped = false;
+            if char == '[' || char == ']' || char == ',' || char == '\\' {
+                // Push char
+                cur_val.push(char);
+            } else {
+                // TODO: Support escaped characters like \r or \n?
+                panic!("Invalid escaped character \\{}", char)
+            }
+        }
+    }
+
+    // handle the last case
+    if cur_val.len() > 1 {
+        if ret == MaybeVec::None {
+            ret = MaybeVec::Val(cur_val)
+        } else {
+            // TODO: Handle the vectors
+        }
+    }
+
+    ret
 }
 
 impl TryInto<TransactionArgument> for &ArgWithType {
