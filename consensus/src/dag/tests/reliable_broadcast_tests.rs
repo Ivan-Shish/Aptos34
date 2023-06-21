@@ -2,14 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    dag::reliable_broadcast::{BroadcastStatus, DAGMessage, DAGNetworkSender, ReliableBroadcast},
+    dag::reliable_broadcast::{
+        BroadcastReceiverStatus, BroadcastStatus, DAGMessage, DAGNetworkSender, ReliableBroadcast,
+        ReliableBroadcastReceiver,
+    },
     network_interface::ConsensusMsg,
 };
 use anyhow::bail;
 use aptos_consensus_types::common::Author;
 use aptos_infallible::Mutex;
-use aptos_types::validator_verifier::random_validator_verifier;
+use aptos_types::{
+    validator_signer::ValidatorSigner, validator_verifier::random_validator_verifier,
+};
 use async_trait::async_trait;
+use claims::{assert_err, assert_ok_eq};
 use futures::{
     future::{AbortHandle, Abortable},
     FutureExt,
@@ -22,7 +28,7 @@ use std::{
 };
 use tokio::sync::oneshot;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 struct TestMessage(Vec<u8>);
 
 impl DAGMessage for TestMessage {
@@ -31,8 +37,8 @@ impl DAGMessage for TestMessage {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-struct TestAck;
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+struct TestAck(Vec<u8>);
 
 impl DAGMessage for TestAck {
     fn epoch(&self) -> u64 {
@@ -93,10 +99,9 @@ impl DAGNetworkSender for TestDAGSender {
             },
             Entry::Vacant(_) => (),
         };
-        self.received
-            .lock()
-            .insert(receiver, TestMessage::from_network_message(message)?);
-        Ok(TestAck.into_network_message())
+        let message = TestMessage::from_network_message(message)?;
+        self.received.lock().insert(receiver, message.clone());
+        Ok(TestAck(message.0).into_network_message())
     }
 }
 
@@ -174,4 +179,65 @@ async fn test_abort_reliable_broadcast() {
     tokio::spawn(fut);
     abort_handle.abort();
     assert!(rx.await.is_err());
+}
+
+struct TestBroadcastReceiverStatus {
+    invalid_messages: HashSet<TestMessage>,
+    seen_authors: HashMap<Author, TestAck>,
+}
+
+impl BroadcastReceiverStatus for TestBroadcastReceiverStatus {
+    type Ack = TestAck;
+    type Message = TestMessage;
+
+    fn validate_and_sign(
+        &mut self,
+        peer: Author,
+        message: Self::Message,
+        _signer: &ValidatorSigner,
+    ) -> anyhow::Result<Self::Ack> {
+        if self.invalid_messages.contains(&message) {
+            bail!("invalid message");
+        }
+
+        if let Some(ack) = self.seen_authors.remove(&peer) {
+            return Ok(ack);
+        }
+
+        let result = TestAck(message.0);
+        self.seen_authors.insert(peer, result.clone());
+
+        Ok(result)
+    }
+}
+
+#[tokio::test]
+async fn test_reliable_broadcast_receiver() {
+    let signer = ValidatorSigner::from_int(10);
+    let validators = vec![Author::random(); 5];
+
+    let invalid_message = TestMessage(vec![100; 10]);
+    let valid_message1 = TestMessage(vec![42; 10]);
+    let valid_message2 = TestMessage(vec![43; 10]);
+
+    let receiver = TestBroadcastReceiverStatus {
+        invalid_messages: HashSet::from([invalid_message.clone()]),
+        seen_authors: HashMap::new(),
+    };
+    let mut rb_receiver = ReliableBroadcastReceiver::new(receiver, signer);
+
+    // an invalid message should return with an error
+    assert_err!(rb_receiver.handle_node(validators[0], invalid_message.clone()));
+
+    let expected_result = TestAck(valid_message1.0.clone());
+    // expect an ack for a valid message
+    assert_ok_eq!(
+        rb_receiver.handle_node(validators[1], valid_message1),
+        expected_result
+    );
+    // expect the original ack for any future from same author
+    assert_ok_eq!(
+        rb_receiver.handle_node(validators[1], valid_message2),
+        expected_result
+    );
 }
