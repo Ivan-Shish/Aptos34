@@ -44,6 +44,12 @@ impl HealthCheckSuccess {
     }
 }
 
+impl Default for HealthCheckSuccess {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[OpenApi]
 impl BasicApi {
     /// Show OpenAPI explorer
