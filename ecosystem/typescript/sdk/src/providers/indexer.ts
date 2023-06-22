@@ -40,7 +40,7 @@ import {
   GetCollectionData,
   GetCollectionsWithOwnedTokens,
 } from "../indexer/generated/queries";
-import { post } from "../client";
+import { ClientConfig, post } from "../client";
 import { ApiError } from "./aptos_client";
 
 /**
@@ -68,13 +68,16 @@ type GraphqlQuery = {
  * {@link https://cloud.hasura.io/public/graphiql?endpoint=https://indexer.mainnet.aptoslabs.com/v1/graphql}
  */
 export class IndexerClient {
-  endpoint: string;
+  readonly endpoint: string;
+
+  readonly config: ClientConfig | undefined;
 
   /**
    * @param endpoint URL of the Aptos Indexer API endpoint.
    */
-  constructor(endpoint: string) {
+  constructor(endpoint: string, config?: ClientConfig) {
     this.endpoint = endpoint;
+    this.config = config;
   }
 
   /**
@@ -89,7 +92,7 @@ export class IndexerClient {
   }
 
   /**
-   * Builds a axios client call to fetch data from Aptos Indexer.
+   * Makes axios client call to fetch data from Aptos Indexer.
    *
    * @param graphqlQuery A GraphQL query to pass in the `data` axios call.
    */
@@ -97,6 +100,7 @@ export class IndexerClient {
     const response = await post<GraphqlQuery, any>({
       url: this.endpoint,
       body: graphqlQuery,
+      overrides: { ...this.config },
     });
     if (response.data.errors) {
       throw new ApiError(
